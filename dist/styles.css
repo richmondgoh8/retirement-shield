@@ -974,3 +974,31 @@ body { font-family: "IBM Plex Sans", "Avenir Next", Avenir, Inter, ui-sans-serif
 .plan-settings {overflow-y:auto;}
 .plan-settings .settings-head {position:sticky;top:0;z-index:2;background:#fff;}
 .sr-status {position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0;}
+/* Make each answer traceable to salary, dates and extra cash savings. */
+.salary-context {padding:28px;margin-bottom:24px;background:#fff;}
+.context-heading {display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:24px;}
+.context-heading h3 {font-size:1.35rem;line-height:1.4;margin-top:10px;}
+.context-heading>a {flex:none;font-size:.82rem;margin-top:6px;}
+.salary-flow {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;}
+.salary-flow>div {padding:18px;border:1px solid #d9e3e9;border-radius:12px;background:#f5f8fa;}
+.salary-flow>div:last-child {background:#edf5ef;border-color:#cbded2;}
+.salary-flow span {display:block;color:var(--ink-soft);font-size:.77rem;line-height:1.5;min-height:3em;}
+.salary-flow strong {display:block;font-size:1.7rem;line-height:1.3;margin-top:10px;letter-spacing:-.04em;}
+.account-split {font-size:.85rem;color:var(--ink-soft);line-height:1.75;margin:18px 0;}
+.projection-context {border-left:3px solid #c89734;padding:2px 0 2px 18px;}
+.projection-context p {font-size:.85rem;line-height:1.7;margin:6px 0;color:var(--ink-soft);}
+.projection-context b {color:var(--navy-900);}
+.projection-context button {padding:0;min-height:28px;font-size:.84rem;}
+.context-details {margin-top:20px;font-size:.84rem;line-height:1.7;color:var(--ink-soft);}
+.context-details summary {color:var(--teal-deep);font-weight:600;cursor:pointer;}
+.context-details p {margin:14px 0;}
+.verdict-calculation {margin:22px 0;color:#d5e1e9;font-size:.84rem;line-height:1.75;}
+.verdict-calculation summary {color:#c3e6cf;font-weight:600;cursor:pointer;}
+.verdict-calculation p {margin:14px 0;max-width:90ch;}
+.take-home-check {margin-top:22px;padding:22px;border:1px solid #ccdce8;border-radius:12px;background:#edf4f9;}
+.take-home-check>span {font-size:.82rem;font-weight:600;color:var(--teal-deep);}
+.take-home-check p {font-size:1.05rem;line-height:1.7;margin:10px 0;}
+.take-home-check small,.funding-phase {font-size:.83rem;color:var(--ink-soft);line-height:1.7;}
+.funding-phase {margin:18px 0 0;max-width:95ch;}
+@media(max-width:980px) { .salary-flow {grid-template-columns:repeat(2,minmax(0,1fr));} .scenario-card dl {grid-template-columns:repeat(2,minmax(0,1fr));} }
+@media(max-width:620px) { .salary-context {padding:22px;} .context-heading {flex-direction:column;gap:8px;} .context-heading h3 {font-size:1.2rem;} .salary-flow {gap:10px;} .salary-flow>div {padding:14px;} .salary-flow strong {font-size:1.45rem;} .salary-flow span {font-size:.73rem;} .scenario-card dl {grid-template-columns:1fr;} .take-home-check {padding:18px;} }

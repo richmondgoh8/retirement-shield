@@ -81,3 +81,13 @@ test('retirement now and early retirement produce finite separated funding pots'
  const r=calculate({age:35,salary:6000,retire:40});const rate=1.04**(1/12)-1;
  for(const s of r.scenarios)assert.ok(Math.abs(s.cpfFunding*((1+rate)**60-1)/rate*1.04**15-s.cpfGap)<1e-5);
 });
+test('displayed salary flow reconciles payroll deductions and the three CPF accounts',()=>{
+ for(const age of [25,35,40,48,53])for(const salary of [6000,12000]){
+  const r=calculate({age,salary});
+  assert.ok(Math.abs(r.currentOA+r.currentSA+r.currentMA-r.contribution)<1e-8);
+  assert.ok(Math.abs(r.employeeCpf+r.employerCpf-r.contribution)<1e-8);
+  assert.equal(r.afterCpf+r.employeeCpf,salary);
+ }
+ const r=calculate({age:35,salary:6000});
+ assert.equal(Math.round(r.currentOA),1380);assert.equal(Math.round(r.currentSA),360);assert.equal(Math.round(r.currentMA),480);
+});

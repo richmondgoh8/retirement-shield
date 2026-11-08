@@ -35,6 +35,9 @@
     }
     return target;
   }
+  function allocation(age) {
+    return age<=35?[.6217,.1621]:age<=45?[.5677,.1891]:age<=50?[.5136,.2162]:[.4055,.3108];
+  }
   function calculate(p) {
     const age=Number(p.age), salary=Number(p.salary);
     if(!Number.isInteger(age)||age<18||age>54) throw new Error('Enter an age from 18 to 54 for this CPF salary illustration.');
@@ -47,7 +50,7 @@
     for(let m=0;m<months55;m++) {
       const a=age+m/12;
       const activeContribution=a<retire?contribution:0;
-      const [o,s]=a<=35?[.6217,.1621]:a<=45?[.5677,.1891]:a<=50?[.5136,.2162]:[.4055,.3108];
+      const [o,s]=allocation(a);
       oa=oa*(1+C.oaRate)**(1/12)+activeContribution*o;
       sa=sa*(1+C.saRate)**(1/12)+activeContribution*s;
       const housing=p.housing==null?activeContribution*o:Number(p.housing);
@@ -87,6 +90,8 @@
     return {scenarios,spend65,spend75,age,salary,retire,at75:expenseAt(todaySpend,65,10),retiringNow:months===0,todaySpend,futureSpend,cpf,oa,sa,frs,ers,income,target,saving,savingNoCpf,
       frsMonthly:Math.max(0,frs-cpf)/cpfFactor, ersMonthly:Math.max(0,ers-cpf)/cpfFactor,
       employeeCpf:wage*.2,employerCpf:wage*.17,afterCpf:salary-wage*.2,
+      contribution,wage,currentOA:contribution*allocation(age)[0],currentSA:contribution*allocation(age)[1],
+      currentMA:contribution*(1-allocation(age)[0]-allocation(age)[1]),
       gap:Math.max(0,futureSpend-(retire>=65?income:0)),housingShortfall,
       topup,early:topup*1.04**years55,later:topup*1.04**(years55-delay),delay,
       refined:p.oa!=null||p.sa!=null||p.housing!=null};
