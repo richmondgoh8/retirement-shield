@@ -1,9 +1,10 @@
-const CACHE_NAME = 'retirement-shield-v10';
+const CACHE_NAME = 'retirement-shield-v11';
 const APP_SHELL = [
   './',
   './index.html',
   './styles.css',
   './app.js',
+  './model.js',
   './manifest.webmanifest',
   './favicon.svg'
 ];
