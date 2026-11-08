@@ -4,12 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#11253d" />
-    <meta name="description" content="A plain-language Singapore retirement policy explainer and comparison tool." />
+    <meta name="description" content="Plain-language Singapore retirement priorities, CPF planning, income buckets and comparison tools." />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="favicon.svg" />
     <link rel="stylesheet" href="styles.css" />
-    <title>Retirement Shield — pause before you sign</title>
+    <title>Retirement Shield — plan the next step</title>
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to content</a>
@@ -23,11 +23,10 @@
           <span>Retirement <strong>Shield</strong></span>
         </a>
         <nav class="top-nav" aria-label="Primary navigation">
-          <a href="#two-streams">Two streams</a>
+          <a href="#priority-quest">Start here</a>
+          <a href="#two-streams">Two buckets</a>
           <a href="#cpf-planner">CPF & 1M65</a>
-          <a href="#two-buckets">Two buckets</a>
           <a href="#compare">Compare</a>
-          <a href="#push-back">Push-back kit</a>
         </nav>
         <div class="header-actions">
           <span class="offline-badge"><span class="status-dot"></span><span id="offline-label">Works offline</span></span>
@@ -41,13 +40,13 @@
         <div class="shell hero-grid">
           <div class="hero-copy">
             <p class="eyebrow"><span class="eyebrow-line"></span> Singapore retirement decisions, in plain English</p>
-            <h1 id="hero-title">If it is hard to explain, it is hard to compare.</h1>
-            <p class="hero-lede">Retirement Shield helps you slow down, separate your money by job, and ask for the numbers that matter before you commit to a long-term policy.</p>
+            <h1 id="hero-title">Know what your money needs to do first.</h1>
+            <p class="hero-lede">Retirement Shield helps you decide what to do first, understand CPF, and split retirement money into income and flexible buckets.</p>
             <div class="hero-actions">
-              <a class="button button-accent" href="#two-streams">Start with the two streams <span aria-hidden="true">↘</span></a>
-              <a class="text-link light-link" href="#push-back">See the 7 questions <span aria-hidden="true">→</span></a>
+              <a class="button button-accent" href="#priority-quest">Start your priority quest <span aria-hidden="true">↘</span></a>
+              <a class="text-link light-link" href="#two-streams">See the two buckets <span aria-hidden="true">→</span></a>
             </div>
-            <p class="hero-note"><span class="shield-mini" aria-hidden="true">✓</span> No product sales. No sign-now pressure. Just a clearer next step.</p>
+            <p class="hero-note"><span class="shield-mini" aria-hidden="true">✓</span> Start with the money priorities. Compare products only if you need to.</p>
           </div>
 
           <div class="hero-visual" aria-label="A visual showing retirement money split into an income stream and a liquid stream">
@@ -59,8 +58,8 @@
                 <div class="pause-step"><span>02</span><strong>Cost</strong><small>What do I pay?</small></div>
                 <div class="pause-step"><span>03</span><strong>Exit</strong><small>Can I get out?</small></div>
               </div>
-              <div class="pause-rule"><span></span><b>Do not sign today</b><span></span></div>
-              <p class="pause-foot">Take the documents home. A good recommendation can survive a night of thinking.</p>
+              <div class="pause-rule"><span></span><b>Know the job first</b><span></span></div>
+              <p class="pause-foot">Match each part of your plan to one clear need.</p>
             </div>
             <div class="orbit orbit-one" aria-hidden="true"></div>
             <div class="orbit orbit-two" aria-hidden="true"></div>
@@ -68,38 +67,20 @@
         </div>
       </section>
 
-      <section class="section paper-section" aria-labelledby="start-title">
+      <section class="section priority-section" id="priority-quest" aria-labelledby="priority-title">
         <div class="shell">
-          <div class="section-heading split-heading">
-            <div>
-              <p class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> Start here</p>
-              <h2 id="start-title">One pot of money cannot do every job.</h2>
+          <div class="section-heading split-heading"><div><p class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> Your next four moves</p><h2 id="priority-title">Do these in order. Stop when you have a clear next step.</h2></div><p class="section-intro">This is a checklist, not a race to contribute the maximum. Tick off what you have checked; it saves on this device.</p></div>
+          <div class="priority-layout">
+            <div class="priority-quest" id="priority-quest-list" aria-label="Retirement planning priority checklist">
+              <label class="priority-step"><input type="checkbox" data-priority="buffer"><span class="priority-step-number">01</span><span class="priority-step-copy"><strong>Protect your short-term base</strong><small>Pay down costly debt and keep emergency / near-term money accessible before locking it away.</small></span></label>
+              <label class="priority-step"><input type="checkbox" data-priority="cpf"><span class="priority-step-number">02</span><span class="priority-step-copy"><strong>Check CPF before adding more investments</strong><small>Verify contributions, account balances and rates. Then check whether a voluntary top-up fits your cash needs and target.</small></span></label>
+              <label class="priority-step"><input type="checkbox" data-priority="income"><span class="priority-step-number">03</span><span class="priority-step-copy"><strong>Set your lifelong income floor</strong><small>Estimate essential monthly spending, then use CPF’s payout estimator to see the gap.</small></span></label>
+              <label class="priority-step"><input type="checkbox" data-priority="flexible"><span class="priority-step-number">04</span><span class="priority-step-copy"><strong>Keep the rest flexible and understandable</strong><small>Separate near-term cash from money you can leave invested for the long term.</small></span></label>
+              <div class="priority-progress"><span id="priority-progress-text" role="status">0 of 4 steps checked</span><span class="priority-progress-track" role="progressbar" aria-label="Priority quest progress" aria-valuemin="0" aria-valuemax="4" aria-valuenow="0"><span id="priority-progress-fill"></span></span></div>
             </div>
-            <p class="section-intro">Before looking at a product, name the job. Monthly living money and big-purchase money need different levels of certainty and access.</p>
+            <aside class="gotcha-panel" aria-labelledby="gotcha-title"><p class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> Before you commit</p><h3 id="gotcha-title">Four gotchas to keep in view</h3><ul><li><strong>CPF top-ups are generally irreversible.</strong> Check liquidity, housing plans and eligibility first.</li><li><strong>Not all CPF balances earn the same rate.</strong> Account rules and extra interest matter.</li><li><strong>A payout is not automatically a return.</strong> Check guarantees, duration, fees and capital.</li><li><strong>Early exit can cost you.</strong> Surrender value may be below premiums paid, especially early on.</li></ul><a href="#cpf-planner" class="text-link dark-link">Check CPF details <span aria-hidden="true">→</span></a></aside>
           </div>
-          <div class="choice-grid">
-            <a class="choice-card choice-income" href="#income-stream">
-              <div class="choice-number">01</div>
-              <div class="choice-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M9 36V20m10 16V12m10 24V24m10 12V7"/><path d="m7 14 10-7 10 5 12-9"/></svg></div>
-              <h3>“I want a reliable monthly amount.”</h3>
-              <p>Build the income floor first. Think about bills, CPF LIFE and how long the money must last.</p>
-              <span class="card-link">Explore income stream <span aria-hidden="true">→</span></span>
-            </a>
-            <a class="choice-card choice-liquid" href="#liquid-stream">
-              <div class="choice-number">02</div>
-              <div class="choice-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><rect x="7" y="12" width="34" height="25" rx="3"/><path d="M7 19h34M13 29h8"/><circle cx="34" cy="29" r="3"/></svg></div>
-              <h3>“I need money I can reach.”</h3>
-              <p>Keep a separate liquid bucket for renovations, healthcare, travel, family help and surprises.</p>
-              <span class="card-link">Explore liquid stream <span aria-hidden="true">→</span></span>
-            </a>
-            <a class="choice-card choice-pause" href="#push-back">
-              <div class="choice-number">03</div>
-              <div class="choice-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M24 7v34M7 24h34"/><circle cx="24" cy="24" r="17"/></svg></div>
-              <h3>“Someone is asking me to sign now.”</h3>
-              <p>Pause. Ask for the illustration, fees, surrender values and alternatives in writing.</p>
-              <span class="card-link">Open the push-back kit <span aria-hidden="true">→</span></span>
-            </a>
-          </div>
+          <p class="priority-note">“Max CPF first” can be a useful question, but it is not a universal rule. CPF top-ups and transfers can restrict access; secure your near-term needs and compare your personal options first.</p>
         </div>
       </section>
 
@@ -107,7 +88,7 @@
         <div class="shell">
           <div class="section-heading centered-heading">
             <p class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> The two-stream plan</p>
-            <h2 id="streams-title">Separate certainty from flexibility.</h2>
+            <h2 id="streams-title">Cover the floor. Keep the rest flexible.</h2>
             <p class="section-intro">A retirement plan is easier to understand when each dollar has one clear job. Start with the floor, then protect your freedom to spend.</p>
           </div>
 
@@ -119,25 +100,29 @@
               <div class="stream-card-head"><span class="stream-label">STREAM 01</span><span class="stream-badge">Monthly</span></div>
               <div class="stream-title-row"><div class="stream-icon" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M5 23h22M8 19V9m8 10V5m8 14v-7"/><path d="M5 25h22"/></svg></div><h3>Income floor</h3></div>
               <p>Money for recurring needs: food, utilities, transport, healthcare and rent.</p>
+              <div class="stream-equation" aria-label="Essential monthly costs minus dependable income equals the income gap"><span>Essential monthly costs</span><b>−</b><span>Dependable income</span><b>=</b><strong>Income gap</strong></div>
               <div class="stream-rule"></div>
-              <ul class="plain-list"><li><span class="list-check" aria-hidden="true">✓</span> Ask how long payouts last: for life or for a fixed term?</li><li><span class="list-check" aria-hidden="true">✓</span> Separate guaranteed payouts from illustrated bonuses.</li><li><span class="list-check" aria-hidden="true">✓</span> Check whether the money is still accessible if plans change.</li></ul>
+              <ul class="plain-list"><li><span class="list-check" aria-hidden="true">✓</span> Start with essential bills and your CPF LIFE estimate.</li><li><span class="list-check" aria-hidden="true">✓</span> Check which income lasts for life and which ends on a set date.</li><li><span class="list-check" aria-hidden="true">✓</span> Treat non-guaranteed bonuses as extra, not as the floor.</li></ul>
               <a class="text-link dark-link" href="#product-types">See the wrappers <span aria-hidden="true">→</span></a>
             </div>
             <div class="stream-card stream-card-liquid" id="liquid-stream">
               <div class="stream-card-head"><span class="stream-label">STREAM 02</span><span class="stream-badge">Flexible</span></div>
               <div class="stream-title-row"><div class="stream-icon" aria-hidden="true"><svg viewBox="0 0 32 32"><rect x="4" y="8" width="24" height="17" rx="2"/><path d="M4 13h24M9 20h7"/><circle cx="23" cy="20" r="2"/></svg></div><h3>Freedom bucket</h3></div>
               <p>Money for large or unexpected costs without breaking the income plan.</p>
+              <div class="stream-equation" aria-label="Emergency reserve plus known upcoming costs equals the accessible cash target"><span>Emergency reserve</span><b>+</b><span>Known upcoming costs</span><b>=</b><strong>Cash target</strong></div>
               <div class="stream-rule"></div>
-              <ul class="plain-list"><li><span class="list-check" aria-hidden="true">✓</span> Keep emergency money outside a long lock-in.</li><li><span class="list-check" aria-hidden="true">✓</span> Match the tool to the date you may need it.</li><li><span class="list-check" aria-hidden="true">✓</span> Compare access, not just the headline return.</li></ul>
+              <ul class="plain-list"><li><span class="list-check" aria-hidden="true">✓</span> Keep emergency and near-term spending money accessible.</li><li><span class="list-check" aria-hidden="true">✓</span> Invest only money you can leave alone through market falls.</li><li><span class="list-check" aria-hidden="true">✓</span> Use a mix you can explain and review once a year.</li></ul>
               <a class="text-link dark-link" href="#compare">Compare the trade-offs <span aria-hidden="true">→</span></a>
             </div>
           </div>
-          <div class="callout callout-teal"><span class="callout-icon" aria-hidden="true">i</span><p><strong>Good default:</strong> do not lock up the money you may need for emergencies or a major purchase. A higher projected return is not useful if you cannot reach it when life changes.</p></div>
+          <div class="callout callout-teal"><span class="callout-icon" aria-hidden="true">i</span><p><strong>Size each bucket from your own bills and dates.</strong> There is no universal cash-reserve number. Keep upcoming costs accessible; invest only money you can leave untouched through a downturn.</p></div>
         </div>
       </section>
 
       <section class="section dark-panel" id="product-types" aria-labelledby="types-title">
         <div class="shell">
+          <details class="product-disclosure">
+          <summary>
           <div class="section-heading split-heading light-heading">
             <div>
               <p class="eyebrow"><span class="eyebrow-line"></span> Learn the wrapper</p>
@@ -145,6 +130,8 @@
             </div>
             <p class="section-intro">The brand name is not the comparison. First identify what is inside: a participating fund, a market-linked fund, or money that stays more accessible.</p>
           </div>
+          <span class="product-disclosure-action">Open three product examples</span>
+          </summary>
           <div class="product-grid">
             <article class="product-card featured-product">
               <div class="product-meta"><span class="product-tag tag-sand">Participating / retirement insurance</span><span class="product-number">01</span></div>
@@ -169,6 +156,7 @@
             </article>
           </div>
           <p class="source-note light-note">Product names are examples, not recommendations. Always check the version, Product Summary, policy illustration, Product Highlights Sheet and policy contract for your own quote.</p>
+          </details>
         </div>
       </section>
 
@@ -190,6 +178,9 @@
                 <div class="field"><label for="exit-value">Cash value if you exit today</label><div class="input-wrap"><span>$</span><input id="exit-value" name="exit-value" type="number" inputmode="decimal" min="0" step="100" value="87000" /></div><small>Ask for “surrender value” in writing.</small></div>
                 <div class="field"><label for="monthly-payout">Promised / illustrated monthly payout</label><div class="input-wrap"><span>$</span><input id="monthly-payout" name="monthly-payout" type="number" inputmode="decimal" min="0" step="10" value="850" /></div><small>Label whether it is guaranteed.</small></div>
                 <div class="field"><label for="payout-years">Payout period (years)</label><div class="input-wrap"><span class="input-suffix">years</span><input id="payout-years" name="payout-years" type="number" inputmode="numeric" min="1" step="1" value="15" /></div><small>For life, use a separate note.</small></div>
+              </div>
+              <details class="advanced-calculator"><summary>Optional: improve the return and CPF LIFE comparison</summary>
+              <div class="field-grid">
                 <div class="field"><label for="illustration-type">Payout figure type</label><select id="illustration-type" name="illustration-type"><option value="illustrated" selected>Illustrated / non-guaranteed</option><option value="guaranteed">Guaranteed</option></select><small>Use the matching figure from the policy illustration.</small></div>
                 <div class="field"><label for="total-premiums">Total premiums over full term</label><div class="input-wrap"><span>$</span><input id="total-premiums" name="total-premiums" type="number" inputmode="decimal" min="0" step="100" value="120000" /></div><small>All premiums, including future premiums.</small></div>
                 <div class="field"><label for="premium-years">Years you pay premiums</label><div class="input-wrap"><span class="input-suffix">years</span><input id="premium-years" name="premium-years" type="number" inputmode="numeric" min="1" step="1" value="10" /></div></div>
@@ -197,6 +188,7 @@
                 <div class="field"><label for="cpflife-monthly">Your estimated CPF LIFE monthly payout</label><div class="input-wrap"><span>$</span><input id="cpflife-monthly" name="cpflife-monthly" type="number" inputmode="decimal" min="0" step="10" value="1780" /></div><small>Enter your CPF personalised estimate and chosen start age / plan.</small></div>
                 <div class="field"><label for="final-benefit">Final lump sum at end (if any)</label><div class="input-wrap"><span>$</span><input id="final-benefit" name="final-benefit" type="number" inputmode="decimal" min="0" step="100" value="0" /></div><small>Use the matching guaranteed or illustrated amount.</small></div>
               </div>
+              </details>
               <fieldset class="commitment-field"><legend>Can you reach the money when you need it?</legend><div class="segmented-control"><label><input type="radio" name="access" value="yes" checked /><span>Yes, mostly</span></label><label><input type="radio" name="access" value="no" /><span>No / high charge</span></label><label><input type="radio" name="access" value="unknown" /><span>Not shown</span></label></div></fieldset>
               <button class="button button-dark full-button" type="submit">Show my comparison <span aria-hidden="true">→</span></button>
               <p class="form-disclaimer">The annualised return is an estimate from evenly spread monthly premiums and payouts, plus the entered final lump sum. It excludes unentered charges, tax and insurance value. CPF LIFE lasts for life, so the monthly gap is not a lifetime-value comparison.</p>
@@ -233,11 +225,14 @@
         </div>
       </section>
 
-      <section class="section section-coral" id="push-back" aria-labelledby="push-title">
-        <div class="shell push-grid">
+      <section class="section section-coral secondary-section" id="push-back" aria-labelledby="push-title">
+        <div class="shell">
+          <details class="secondary-disclosure">
+            <summary><span>Optional conversation help</span><strong>Open a short script and questions for a product meeting</strong></summary>
+            <div class="push-grid">
           <div>
-            <p class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> Your push-back kit</p>
-            <h2 id="push-title">You are allowed to take the documents home.</h2>
+            <p class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> If you need it</p>
+            <h2 id="push-title">Take time to review the documents.</h2>
             <p class="section-intro">A recommendation that is right for you will still be right tomorrow. Use one calm sentence to create space.</p>
             <div class="script-card">
               <span class="script-label">SAY THIS</span>
@@ -258,9 +253,11 @@
               <li><span>07</span><p>Can I take every document home and come back after I have compared it?</p></li>
             </ol>
           </div>
-        </div>
-        <div class="shell red-flags-wrap">
+            </div>
+          <div class="red-flags-wrap">
           <div class="red-flags"><div class="red-flags-title"><span class="warning-mark" aria-hidden="true">!</span><div><span class="form-kicker">PRESSURE SIGNALS</span><h3>Pause harder when you hear these.</h3></div></div><div class="flag-list"><span>“Sign today or the bonus disappears.”</span><span>“The illustration is basically guaranteed.”</span><span>“You can always withdraw.”</span><span>“Do not worry about the charges.”</span></div></div>
+          </div>
+          </details>
         </div>
       </section>
 
@@ -306,8 +303,8 @@
             </aside>
           </div>
 
-          <div class="age-path" aria-labelledby="age-path-title">
-            <div class="age-path-heading"><div><p class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> A lighter checklist by age</p><h3 id="age-path-title">One next step at a time.</h3></div><p>Choose the age range that fits you. This is a prompt list, not a scorecard.</p></div>
+          <details class="age-path">
+            <summary class="age-path-heading"><div><p class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> Optional: prompts by age</p><h3 id="age-path-title">See one next step for your age range.</h3></div><p>Expand for a short checklist that matches your stage.</p></summary>
             <div class="age-tabs" role="group" aria-label="Choose age range">
               <button type="button" class="age-tab is-active" data-age="30s" aria-pressed="true">30–44</button>
               <button type="button" class="age-tab" data-age="40s" aria-pressed="false">45–54</button>
@@ -316,18 +313,7 @@
               <button type="button" class="age-tab" data-age="70s" aria-pressed="false">75+</button>
             </div>
             <div class="age-content" id="age-content" aria-live="polite" aria-atomic="true"></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="section bucket-section" id="two-buckets" aria-labelledby="bucket-title">
-        <div class="shell">
-          <div class="section-heading split-heading"><div><p class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> A simple retirement structure</p><h2 id="bucket-title">Build two buckets around the job each dollar has.</h2></div><p class="section-intro">There is no universal gold standard allocation. A useful starting point is to separate reliable spending money from flexible money, then size both around your spending, health, housing and family needs.</p></div>
-          <div class="bucket-grid">
-            <article class="bucket-card bucket-floor"><span class="bucket-number">01 · PAY THE FLOOR</span><h3>Reliable income and near-term cash</h3><p>Cover essential monthly bills first with predictable income. Keep money for the next few years of planned costs accessible and low volatility.</p><ul><li>CPF LIFE for lifelong income, based on your chosen plan.</li><li>Cash or short dated deposits / government securities for emergencies and known expenses.</li><li>Review payout start age, liquidity, rates, eligibility and guarantee terms.</li></ul><p class="bucket-prompt"><strong>Ask:</strong> “How many months of essential spending can I meet without selling investments?”</p></article>
-            <article class="bucket-card bucket-flex"><span class="bucket-number">02 · FUND THE REST</span><h3>Flexible, longer-term money</h3><p>Keep a diversified growth pool for inflation protection, later life goals and discretionary spending. Expect values and income to move around.</p><ul><li>Use a mix you can hold through market falls; avoid relying on one fund or dividend stream.</li><li>Choose a scheduled withdrawal amount and review it yearly against portfolio value.</li><li>Understand fees, tax, currency exposure and how withdrawals affect capital.</li></ul><p class="bucket-prompt"><strong>Ask:</strong> “If markets fell sharply, could I reduce withdrawals or use the other bucket?”</p></article>
-          </div>
-          <p class="source-note">This is a planning framework, not an allocation prescription. The right cash reserve and investment mix depend on your situation and willingness to adjust spending.</p>
+          </details>
         </div>
       </section>
 

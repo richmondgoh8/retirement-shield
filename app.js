@@ -203,6 +203,30 @@ function setupChecklist() {
   render();
 }
 
+function setupPriorityQuest() {
+  const items = $$('[data-priority]');
+  const text = $('#priority-progress-text');
+  const bar = $('#priority-progress-fill');
+  const progress = $('.priority-progress-track');
+  const storageKey = 'retirement-shield-priority-quest-v1';
+  if (!items.length || !text || !bar || !progress) return;
+
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(storageKey) || '{}'); } catch { saved = {}; }
+  items.forEach((item) => { item.checked = Boolean(saved[item.dataset.priority]); });
+
+  const render = () => {
+    const complete = items.filter((item) => item.checked).length;
+    text.textContent = `${complete} of ${items.length} steps checked`;
+    bar.style.width = `${Math.round((complete / items.length) * 100)}%`;
+    progress.setAttribute('aria-valuenow', String(complete));
+    try { localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(items.map((item) => [item.dataset.priority, item.checked])))); } catch { /* local saving is optional */ }
+  };
+
+  items.forEach((item) => item.addEventListener('change', render));
+  render();
+}
+
 function setupCopyScript() {
   const button = $('#copy-script');
   const script = $('#script-text');
@@ -328,6 +352,7 @@ function setupCpfPlanner() {
 setupComparison();
 setupDialogs();
 setupChecklist();
+setupPriorityQuest();
 setupCopyScript();
 labelResponsiveTable();
 setupOfflineStatus();
