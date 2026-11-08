@@ -789,3 +789,14 @@ body { font-family: "IBM Plex Sans", "Avenir Next", Avenir, Inter, ui-sans-serif
 .story-detail { margin-block: 16px; }
 .story-detail summary { color: var(--teal-deep); cursor: pointer; font-weight: 600; padding-block: 8px; }
 .story-detail p { margin-top: 12px; }
+.next-action { margin: 0; padding: 20px 24px; border: 1px solid #a9c9bc; border-radius: 14px; background: #edf6ef; color: #24483b; font-size: .94rem; line-height: 1.6; }
+.target-track { height: 8px; margin-block: 18px; border-radius: 99px; background: #dfe7ec; }
+.target-track i { display: block; height: 100%; border-radius: inherit; background: var(--teal-deep); }
+.hero { min-height: 0; }
+.hero-grid { padding-block: 56px 64px; }
+.hero-visual { min-height: 420px; }
+@media(max-width:760px) { .hero-visual { display:none; } .hero-grid { padding-block: 48px; } .hero h1 { font-size: clamp(2.6rem,8vw,3.6rem); } .hero-lede { font-size: 1rem; } .hero-note { margin-bottom:0; } }
+.example-note { color: var(--ink-soft); font-size: .84rem; line-height: 1.5; margin: -8px 0 24px; }
+.cpf-snapshot .example-note { margin-top:0; }
+@media(min-width:921px) { .funding-timeline { grid-template-columns: repeat(2,minmax(0,1fr)); align-items: start; } }
+@media(min-width:921px) { .funding-timeline { align-items: stretch; } }

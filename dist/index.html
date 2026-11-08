@@ -27,8 +27,8 @@
         </a>
         <nav class="top-nav" aria-label="Primary navigation">
           <a href="#retirement-budget">Monthly budget</a>
-          <a href="#retirement-plan">Make a plan</a>
-          <a href="#cpf-planner">CPF</a>
+          <a href="#cpf-planner">CPF forecast</a>
+          <a href="#retirement-plan">Investment gap</a>
           <a href="#later-life">Drawdown</a>
         </nav>
         <div class="header-actions">
@@ -44,7 +44,7 @@
           <div class="hero-copy">
             <p class="eyebrow"><span class="eyebrow-line"></span> Singapore retirement decisions, in plain English</p>
             <h1 id="hero-title">How much will you need each month?</h1>
-            <p class="hero-lede">Start with a real Singapore spending benchmark. Build your own monthly budget, subtract CPF LIFE and other steady income, then see the gap your savings need to cover.</p>
+            <p class="hero-lede">See a monthly spending target, check what your salary could build in CPF, then work out the extra saving needed. Three decisions, in that order.</p>
             <div class="hero-actions">
               <a class="button button-accent" href="#retirement-budget">Build my monthly budget <span aria-hidden="true">↘</span></a>
               <a class="text-link light-link" href="#retirement-plan">See how to close the gap <span aria-hidden="true">→</span></a>
@@ -80,7 +80,7 @@
           </div>
           <div class="spending-dashboard card-surface">
             <div class="spending-dashboard-head"><div><span class="form-kicker">MONTHLY SPENDING BREAKDOWN</span><h3>Where one person’s retirement budget goes</h3></div><div class="spending-total"><strong id="budget-total">$1,384</strong><span>per person / month</span></div></div>
-            <div class="budget-visual-grid"><div class="budget-breakdown" id="budget-breakdown" role="list" aria-label="Estimated per-member monthly spending by category"></div><aside class="budget-summary-card"><span class="summary-overline">BASELINE SPLIT</span><div><span>Core costs</span><strong id="budget-core-total">$1,232</strong></div><div><span>Other / flexible</span><strong id="budget-flex-total">$152</strong></div><p>Survey values are averages, not recommended spending limits. Add your actual housing, care, health and travel costs.</p></aside></div>
+            <div class="budget-visual-grid"><div class="budget-breakdown" id="budget-breakdown" role="list" aria-label="Estimated per-member monthly spending by category"></div><aside class="budget-summary-card"><span class="summary-overline">BASELINE SPLIT</span><div><span>Core costs</span><strong id="budget-core-total">$1,232</strong></div><div><span>Other / flexible</span><strong id="budget-flex-total">$152</strong></div><p>The category split is an illustrative allocation of household survey averages to one member, not an official per-person category table. Replace it with your own bills.</p></aside></div>
             <details class="budget-adjust"><summary>Personalise the estimate for my household</summary><form class="budget-form" id="budget-form" aria-label="Edit your monthly retirement budget"><div class="field-grid">
               <div class="field"><label for="budget-housing">Housing, utilities & maintenance</label><div class="input-wrap"><span>$</span><input id="budget-housing" data-budget="Housing, utilities & maintenance" type="number" min="0" step="25" value="329"></div></div>
               <div class="field"><label for="budget-food">Food and meals out</label><div class="input-wrap"><span>$</span><input id="budget-food" data-budget="Food and meals out" type="number" min="0" step="25" value="362"></div></div>
@@ -96,46 +96,11 @@
         </div>
       </section>
 
-      <section class="section paper-section plan-section" id="retirement-plan" aria-labelledby="plan-title">
-        <div class="shell">
-          <div class="section-heading split-heading"><div><p class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> Turn the target into a plan</p><h2 id="plan-title">How much must your savings cover?</h2></div><p class="section-intro">Use your own CPF LIFE estimate and savings. The calculator inflates today’s budget to retirement, estimates the portfolio needed for a chosen drawdown period, and works back to a monthly saving target.</p></div>
-          <div class="retirement-planner">
-            <form id="plan-form" class="card-surface planner-form">
-              <h3>Your starting point</h3>
-              <div class="field-grid">
-                <div class="field"><label for="plan-age">Your age today</label><div class="input-wrap"><input id="plan-age" type="number" min="18" max="90" value="35"></div></div>
-                <div class="field"><label for="plan-retire-age">Age you want to retire</label><div class="input-wrap"><input id="plan-retire-age" type="number" min="40" max="100" value="65"></div></div>
-                <div class="field"><label for="plan-cpf">CPF LIFE payout at retirement / month</label><div class="input-wrap"><span>$</span><input id="plan-cpf" type="number" min="0" step="50" value="0"></div><small>Enter your own estimate from CPF’s retirement payout planner.</small></div>
-                <div class="field"><label for="plan-other-income">Other steady income / month</label><div class="input-wrap"><span>$</span><input id="plan-other-income" type="number" min="0" step="50" value="0"></div><small>For example, rent after costs or a pension.</small></div>
-                <div class="field"><label for="plan-savings">Investments for retirement today</label><div class="input-wrap"><span>$</span><input id="plan-savings" type="number" min="0" step="1000" value="50000"></div><small>Exclude your home and emergency cash.</small></div>
-                <div class="field"><label for="plan-years">Years to fund from investments</label><div class="input-wrap"><input id="plan-years" type="number" min="1" max="60" value="25"><span class="input-suffix">years</span></div><small>CPF LIFE is lifelong; this portfolio estimate is not.</small></div>
-                <details class="assumption-details"><summary>Adjust the assumptions</summary><div class="field-grid">
-                  <div class="field"><label for="plan-inflation">Annual inflation</label><div class="input-wrap"><input id="plan-inflation" type="number" min="0" max="10" step="0.1" value="2"><span class="input-suffix">%</span></div></div>
-                  <div class="field"><label for="plan-return">Annual investment return before retirement</label><div class="input-wrap"><input id="plan-return" type="number" min="0" max="15" step="0.1" value="4"><span class="input-suffix">%</span></div><small>Illustration only; not guaranteed.</small></div>
-                </div></details>
-              </div>
-              <p class="form-disclaimer">The monthly budget above feeds into this estimate. <a href="https://www.cpf.gov.sg/member/tools-and-services/calculators" target="_blank" rel="noreferrer">Get your CPF payout estimate from CPF ↗</a></p>
-            </form>
-            <div class="planner-results" aria-live="polite" aria-atomic="true">
-              <article class="result-card result-card-main"><span class="form-kicker">AT YOUR RETIREMENT AGE</span><h3>Your monthly picture</h3>
-                <div class="plan-metric"><span>Estimated monthly spending</span><strong id="plan-future-budget">$0</strong></div>
-                <div class="plan-metric"><span>After CPF LIFE and other income</span><strong id="plan-monthly-gap">$0</strong></div>
-                <div class="coverage-track" aria-label="Income coverage"><span id="plan-coverage-fill"></span></div><p class="coverage-caption" id="plan-coverage-caption">Enter your figures to see income coverage.</p>
-                <div class="plan-capital"><span>Portfolio target for selected drawdown period</span><strong id="plan-capital">$0</strong></div>
-                <div class="plan-saving"><span>Approximate saving needed each month from today</span><strong id="plan-monthly-saving">$0</strong></div>
-              </article>
-              <p class="result-caveat">Scenario estimate, not a forecast. It assumes a steady return before retirement and a level, inflation-adjusted withdrawal for the selected period. Fees, taxes, market sequence and longevity beyond that period can change the result.</p>
-            </div>
-          </div>
-          <details class="payout-options"><summary>How do Endowus / Syfe payouts compare with CPF LIFE?</summary><div class="payout-options-content"><p><strong>CPF LIFE:</strong> lifelong payout with CPF rules and plan choices. <strong>Endowus / Syfe investment payouts:</strong> distributions can vary, portfolio values can fall, and a distribution is not the same as a guaranteed return. Compare fees, payout source, capital impact and what happens in a market downturn.</p><a href="https://www.cpf.gov.sg/member/tools-and-services/calculators" target="_blank" rel="noreferrer">CPF retirement payout tools ↗</a></div></details>
-        </div>
-      </section>
-
       <section class="section cpf-section" id="cpf-planner" aria-labelledby="cpf-title">
         <div class="shell">
-          <div class="section-heading split-heading"><div><p class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> Add up your CPF accounts</p><h2 id="cpf-title">Start with the balances you can see.</h2></div><p class="section-intro">Enter the balances from your CPF dashboard. This shows the total and each account clearly; it does not treat every dollar as available retirement cash.</p></div>
+          <div class="section-heading split-heading"><div><p class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> Add up your CPF accounts</p><h2 id="cpf-title">Will your CPF cover the foundation?</h2></div><p class="section-intro">Start with your CPF balances and salary. See the projected retirement-sum gap first, then calculate the investments needed for your monthly spending.</p></div>
           <div class="cpf-snapshot-grid">
-            <form class="card-surface cpf-snapshot" id="cpf-form"><div class="field-grid">
+            <form class="card-surface cpf-snapshot" id="cpf-form"><p class="example-note">Example balances — enter the figures from your CPF dashboard.</p><div class="field-grid">
               <div class="field"><label for="cpf-oa">Ordinary Account (OA)</label><div class="input-wrap"><span>$</span><input id="cpf-oa" type="number" min="0" step="100" value="50000"></div></div>
               <div class="field"><label for="cpf-sa">Special Account (SA)</label><div class="input-wrap"><span>$</span><input id="cpf-sa" type="number" min="0" step="100" value="25000"></div><small>At 55, RA formation and account transfers affect where balances sit.</small></div>
               <div class="field"><label for="cpf-ma">MediSave Account (MA)</label><div class="input-wrap"><span>$</span><input id="cpf-ma" type="number" min="0" step="100" value="15000"></div><small>Reserved mainly for eligible healthcare uses.</small></div>
@@ -156,6 +121,44 @@
             <div id="cpf-forecast-output" class="forecast-output" aria-live="polite"></div>
             <details class="payout-options"><summary>Show how the projection is calculated</summary><div class="payout-options-content"><p>Salary subject to CPF = min(gross salary, $8,000). Employee CPF = 20%; employer CPF = 17%. Each monthly contribution is split using the 2026 age-band allocation table, with age increasing during the projection. OA earns an assumed 2.5% yearly and SA 4%, converted to equivalent monthly growth. Monthly housing withdrawals reduce OA; no borrowing is assumed when OA reaches zero.</p><p>Age-55 FRS scenario = $220,400 × (1 + chosen retirement-sum increase)^(55 − age). ERS comparison = twice that scenario FRS. FRS is cohort-specific; actual ERS follows the limit in force when topping up at 55+. This is an accumulation illustration to 55, not a CPF LIFE payout quote.</p><p>Excludes bonuses, salary increases, future rule/rate changes, extra interest, MA overflow, account rounding and other withdrawals. MA is excluded from the retirement target. OA + SA coverage assumes OA remains available at 55. Reaching the ERS comparison requires eligible voluntary transfers or top-ups to RA after 55; it does not happen automatically. RA inputs are not projected: use CPF’s own planner at 55+.</p><a href="https://www.cpf.gov.sg/service/article/how-much-is-my-full-retirement-sum" target="_blank" rel="noreferrer">CPF retirement sums ↗</a> · <a href="https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay" target="_blank" rel="noreferrer">CPF contribution rules ↗</a></div></details>
           </div>
+        </div>
+      </section>
+
+      <section class="section paper-section plan-section" id="retirement-plan" aria-labelledby="plan-title">
+        <div class="shell">
+          <div class="section-heading split-heading"><div><p class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> Turn the target into a plan</p><h2 id="plan-title">How much must your savings cover?</h2></div><p class="section-intro">Use your own CPF LIFE estimate and savings. The calculator inflates today’s budget to retirement, estimates the portfolio needed for a chosen drawdown period, and works back to a monthly saving target.</p></div>
+          <div class="retirement-planner">
+            <form id="plan-form" class="card-surface planner-form">
+              <h3>Your starting point</h3><p class="example-note">Editable example — replace these figures with your own.</p>
+              <div class="field-grid">
+                <div class="field"><label for="plan-age">Your age today</label><div class="input-wrap"><input id="plan-age" type="number" min="18" max="90" value="35"></div></div>
+                <div class="field"><label for="plan-retire-age">Age you want to retire</label><div class="input-wrap"><input id="plan-retire-age" type="number" min="40" max="100" value="65"></div></div>
+                <div class="field"><label for="plan-cpf">CPF LIFE payout at retirement / month</label><div class="input-wrap"><span>$</span><input id="plan-cpf" type="number" min="0" step="50" value="0"></div><small>Enter your own estimate from CPF’s retirement payout planner.</small></div>
+                <div class="field"><label for="plan-cpf-start">Age CPF LIFE payouts start</label><div class="input-wrap"><input id="plan-cpf-start" type="number" min="65" max="70" value="65"><span class="input-suffix">years</span></div><small>Before this age, investments must cover the bridge.</small></div>
+                <div class="field"><label for="plan-other-income">Other steady income / month</label><div class="input-wrap"><span>$</span><input id="plan-other-income" type="number" min="0" step="50" value="0"></div><small>For example, rent after costs or a pension.</small></div>
+                <div class="field"><label for="plan-savings">Investments for retirement today</label><div class="input-wrap"><span>$</span><input id="plan-savings" type="number" min="0" step="1000" value="50000"></div><small>Exclude your home and emergency cash.</small></div>
+                <div class="field"><label for="plan-years">Years to fund from investments</label><div class="input-wrap"><input id="plan-years" type="number" min="1" max="60" value="25"><span class="input-suffix">years</span></div><small>CPF LIFE is lifelong; this portfolio estimate is not.</small></div>
+                <details class="assumption-details"><summary>Adjust the assumptions</summary><div class="field-grid">
+                  <div class="field"><label for="plan-price-year">Year your monthly budget is priced in</label><div class="input-wrap"><input id="plan-price-year" type="number" min="2023" max="2026" value="2023"></div><small>Survey defaults are 2023 prices. Enter 2026 if you replaced them with today’s bills.</small></div>
+                  <div class="field"><label for="plan-inflation">Annual inflation</label><div class="input-wrap"><input id="plan-inflation" type="number" min="0" max="10" step="0.1" value="2"><span class="input-suffix">%</span></div></div>
+                  <div class="field"><label for="plan-return">Annual net investment return</label><div class="input-wrap"><input id="plan-return" type="number" min="0" max="15" step="0.1" value="4"><span class="input-suffix">%</span></div><small>Used before and during retirement, after fees. Illustration only.</small></div>
+                <div class="field"><label for="plan-cpf-growth">Annual CPF payout increase assumed</label><div class="input-wrap"><input id="plan-cpf-growth" type="number" min="0" max="2" step="1" value="0"><span class="input-suffix">%</span></div><small>0% for a level payout illustration; 2% for an Escalating Plan scenario using its lower starting payout.</small></div>
+                </div></details>
+              </div>
+              <p class="form-disclaimer">The monthly budget above feeds into this estimate. <a href="https://www.cpf.gov.sg/member/tools-and-services/calculators" target="_blank" rel="noreferrer">Get your CPF payout estimate from CPF ↗</a></p>
+            </form>
+            <div class="planner-results" aria-live="polite" aria-atomic="true"><p id="plan-next-action" class="next-action"></p>
+              <article class="result-card result-card-main"><span class="form-kicker">AT YOUR RETIREMENT AGE</span><h3>Your monthly picture</h3>
+                <div class="plan-metric"><span>Estimated monthly spending</span><strong id="plan-future-budget">$0</strong></div>
+                <div class="plan-metric"><span>After CPF LIFE and other income</span><strong id="plan-monthly-gap">$0</strong></div>
+                <div class="coverage-track" aria-label="Income coverage"><span id="plan-coverage-fill"></span></div><p class="coverage-caption" id="plan-coverage-caption">Enter your figures to see income coverage.</p>
+                <div class="plan-capital"><span>Portfolio target for selected drawdown period</span><strong id="plan-capital">$0</strong></div>
+                <div class="plan-saving"><span id="plan-saving-label">Approximate saving needed each month from today</span><strong id="plan-monthly-saving">$0</strong></div>
+              </article>
+              <p class="result-caveat">Scenario estimate. Monthly spending rises with inflation; CPF starts at the age entered and grows only at the chosen payout increase. Other income stays flat. The portfolio target discounts each monthly shortfall using the assumed net return. It includes the bridge before CPF begins. Returns are steady in this illustration; market sequence, tax and living beyond the selected period can change the outcome.</p>
+            </div>
+          </div>
+          <details class="payout-options"><summary>How do Endowus / Syfe payouts compare with CPF LIFE?</summary><div class="payout-options-content"><p><strong>CPF LIFE:</strong> lifelong payout with CPF rules and plan choices. <strong>Endowus / Syfe investment payouts:</strong> distributions can vary, portfolio values can fall, and a distribution is not the same as a guaranteed return. Compare fees, payout source, capital impact and what happens in a market downturn.</p><a href="https://www.cpf.gov.sg/member/tools-and-services/calculators" target="_blank" rel="noreferrer">CPF retirement payout tools ↗</a></div></details>
           <div class="funding-story card-surface"><p class="eyebrow eyebrow-dark">Put the pieces together</p><h3>Your funding order, from payday to retirement</h3><ol class="funding-timeline">
           <li><strong>1. Keep your base safe.</strong><p>Clear costly debt and keep emergency and near-term housing cash accessible. Decide what you can commit for decades.</p></li>
           <li><strong>2. Check compulsory CPF before adding more.</strong><p>The forecast above shows what salary contributions may already achieve. FRS is a useful income-floor checkpoint; ERS is an optional higher-income commitment at 55+, not a requirement for everyone. If you already project to meet your target, extra top-ups need a clear purpose.</p></li>
