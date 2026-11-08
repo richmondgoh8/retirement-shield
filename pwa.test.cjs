@@ -19,12 +19,14 @@ test('install assets have actual declared dimensions and maskable artwork is opa
   assert.equal((await sharp('dist/assets/apple-touch-icon.png').stats()).isOpaque,true);
 });
 test('manifest identity, scope, launch and shortcuts remain within the app', () => {
-  const base = new URL('https://example.test/');
+  const base = new URL('https://example.test/retirement-shield/');
   assert.equal(new URL(manifest.id,base).href,new URL(manifest.start_url,base).href);
   assert.equal(manifest.display,'standalone');
   assert.ok(manifest.icons.some(icon=>icon.sizes==='192x192'&&icon.purpose==='any'));
   assert.ok(manifest.icons.some(icon=>icon.sizes==='512x512'&&icon.purpose==='any'));
-  for (const shortcut of manifest.shortcuts) assert.equal(new URL(shortcut.url,base).origin,base.origin);
+  for (const shortcut of manifest.shortcuts) assert.ok(new URL(shortcut.url,base).href.startsWith(base.href));
+  for (const icon of manifest.icons) assert.ok(new URL(icon.src,base).href.startsWith(base.href));
+  assert.equal(new URL(manifest.scope,base).href,base.href);
 });
 test('production HTML and CSS reference existing local files and no external font service', () => {
   const html = fs.readFileSync('dist/index.html','utf8');
