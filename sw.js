@@ -1,4 +1,4 @@
-const CACHE_NAME = 'retirement-shield-v5';
+const CACHE_NAME = 'retirement-shield-v6';
 const APP_SHELL = [
   './',
   './index.html',
