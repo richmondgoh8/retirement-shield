@@ -1,0 +1,454 @@
+- generic [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "Retirement Shield home" [ref=e5] [cursor=pointer]:
+        - /url: "#top"
+        - img [ref=e7]
+        - generic [ref=e10]:
+          - text: Retirement
+          - strong [ref=e11]: Shield
+      - navigation "Primary navigation" [ref=e12]:
+        - link "Two streams" [ref=e13] [cursor=pointer]:
+          - /url: "#two-streams"
+        - link "Compare" [ref=e14] [cursor=pointer]:
+          - /url: "#compare"
+        - link "Push-back kit" [ref=e15] [cursor=pointer]:
+          - /url: "#push-back"
+      - generic [ref=e16]:
+        - generic [ref=e19]: Works offline
+        - link "My checklist" [ref=e20] [cursor=pointer]:
+          - /url: "#checklist"
+  - main [ref=e21]:
+    - region "If it is hard to explain, it is hard to compare." [ref=e22]:
+      - generic [ref=e23]:
+        - generic [ref=e24]:
+          - paragraph [ref=e25]: Singapore retirement decisions, in plain English
+          - heading "If it is hard to explain, it is hard to compare." [level=1] [ref=e27]
+          - paragraph [ref=e28]: Retirement Shield helps you slow down, separate your money by job, and ask for the numbers that matter before you commit to a long-term policy.
+          - generic [ref=e29]:
+            - link "Start with the two streams" [ref=e30] [cursor=pointer]:
+              - /url: "#two-streams"
+              - text: Start with the two streams
+              - generic [ref=e31]: ↘
+            - link "See the 7 questions" [ref=e32] [cursor=pointer]:
+              - /url: "#push-back"
+              - text: See the 7 questions
+              - generic [ref=e33]: →
+          - paragraph [ref=e34]:
+            - generic [ref=e35]: ✓
+            - text: No product sales. No sign-now pressure. Just a clearer next step.
+        - generic "A visual showing retirement money split into an income stream and a liquid stream" [ref=e36]:
+          - generic [ref=e37]:
+            - generic [ref=e38]:
+              - generic [ref=e39]: YOUR DECISION PAUSE
+              - generic [ref=e40]: Ⅱ
+            - paragraph [ref=e41]: What job is this money meant to do?
+            - generic [ref=e42]:
+              - generic [ref=e43]:
+                - generic [ref=e44]: "01"
+                - strong [ref=e45]: Need
+                - generic [ref=e46]: What do I need?
+              - generic [ref=e47]:
+                - generic [ref=e48]: "02"
+                - strong [ref=e49]: Cost
+                - generic [ref=e50]: What do I pay?
+              - generic [ref=e51]:
+                - generic [ref=e52]: "03"
+                - strong [ref=e53]: Exit
+                - generic [ref=e54]: Can I get out?
+            - generic [ref=e57]: Do not sign today
+            - paragraph [ref=e59]: Take the documents home. A good recommendation can survive a night of thinking.
+    - region "One pot of money cannot do every job." [ref=e62]:
+      - generic [ref=e63]:
+        - generic [ref=e64]:
+          - generic [ref=e65]:
+            - paragraph [ref=e66]: Start here
+            - heading "One pot of money cannot do every job." [level=2] [ref=e68]
+          - paragraph [ref=e69]: Before looking at a product, name the job. Monthly living money and big-purchase money need different levels of certainty and access.
+        - generic [ref=e70]:
+          - link "01 “I want a reliable monthly amount.” Build the income floor first. Think about bills, CPF LIFE and how long the money must last. Explore income stream" [ref=e71] [cursor=pointer]:
+            - /url: "#income-stream"
+            - generic [ref=e72]: "01"
+            - img [ref=e74]
+            - heading "“I want a reliable monthly amount.”" [level=3] [ref=e77]
+            - paragraph [ref=e78]: Build the income floor first. Think about bills, CPF LIFE and how long the money must last.
+            - generic [ref=e79]:
+              - text: Explore income stream
+              - generic [ref=e80]: →
+          - link "02 “I need money I can reach.” Keep a separate liquid bucket for renovations, healthcare, travel, family help and surprises. Explore liquid stream" [ref=e81] [cursor=pointer]:
+            - /url: "#liquid-stream"
+            - generic [ref=e82]: "02"
+            - img [ref=e84]
+            - heading "“I need money I can reach.”" [level=3] [ref=e88]
+            - paragraph [ref=e89]: Keep a separate liquid bucket for renovations, healthcare, travel, family help and surprises.
+            - generic [ref=e90]:
+              - text: Explore liquid stream
+              - generic [ref=e91]: →
+          - link "03 “Someone is asking me to sign now.” Pause. Ask for the illustration, fees, surrender values and alternatives in writing. Open the push-back kit" [ref=e92] [cursor=pointer]:
+            - /url: "#push-back"
+            - generic [ref=e93]: "03"
+            - img [ref=e95]
+            - heading "“Someone is asking me to sign now.”" [level=3] [ref=e98]
+            - paragraph [ref=e99]: Pause. Ask for the illustration, fees, surrender values and alternatives in writing.
+            - generic [ref=e100]:
+              - text: Open the push-back kit
+              - generic [ref=e101]: →
+    - region "Separate certainty from flexibility." [ref=e102]:
+      - generic [ref=e103]:
+        - generic [ref=e104]:
+          - paragraph [ref=e105]: The two-stream plan
+          - heading "Separate certainty from flexibility." [level=2] [ref=e107]
+          - paragraph [ref=e108]: A retirement plan is easier to understand when each dollar has one clear job. Start with the floor, then protect your freedom to spend.
+        - 'generic "Retirement plan map: money flows into two separate streams" [ref=e109]':
+          - generic [ref=e110]:
+            - generic [ref=e111]: $
+            - strong [ref=e112]: Retirement money
+            - generic [ref=e113]: One total does not mean one product.
+          - generic [ref=e116]:
+            - generic [ref=e117]:
+              - generic [ref=e118]: STREAM 01
+              - generic [ref=e119]: Monthly
+            - generic [ref=e120]:
+              - img [ref=e122]
+              - heading "Income floor" [level=3] [ref=e124]
+            - paragraph [ref=e125]: "Money for recurring needs: food, utilities, transport, healthcare and rent."
+            - list [ref=e127]:
+              - listitem [ref=e128]:
+                - generic [ref=e129]: ✓
+                - text: "Ask how long payouts last: for life or for a fixed term?"
+              - listitem [ref=e130]:
+                - generic [ref=e131]: ✓
+                - text: Separate guaranteed payouts from illustrated bonuses.
+              - listitem [ref=e132]:
+                - generic [ref=e133]: ✓
+                - text: Check whether the money is still accessible if plans change.
+            - link "See the wrappers" [ref=e134] [cursor=pointer]:
+              - /url: "#product-types"
+              - text: See the wrappers
+              - generic [ref=e135]: →
+          - generic [ref=e136]:
+            - generic [ref=e137]:
+              - generic [ref=e138]: STREAM 02
+              - generic [ref=e139]: Flexible
+            - generic [ref=e140]:
+              - img [ref=e142]
+              - heading "Freedom bucket" [level=3] [ref=e146]
+            - paragraph [ref=e147]: Money for large or unexpected costs without breaking the income plan.
+            - list [ref=e149]:
+              - listitem [ref=e150]:
+                - generic [ref=e151]: ✓
+                - text: Keep emergency money outside a long lock-in.
+              - listitem [ref=e152]:
+                - generic [ref=e153]: ✓
+                - text: Match the tool to the date you may need it.
+              - listitem [ref=e154]:
+                - generic [ref=e155]: ✓
+                - text: Compare access, not just the headline return.
+            - link "Compare the trade-offs" [ref=e156] [cursor=pointer]:
+              - /url: "#compare"
+              - text: Compare the trade-offs
+              - generic [ref=e157]: →
+        - generic [ref=e158]:
+          - generic [ref=e159]: i
+          - paragraph [ref=e160]:
+            - strong [ref=e161]: "Good default:"
+            - text: do not lock up the money you may need for emergencies or a major purchase. A higher projected return is not useful if you cannot reach it when life changes.
+    - region "Different wrappers. Different trade-offs." [ref=e162]:
+      - generic [ref=e163]:
+        - generic [ref=e164]:
+          - generic [ref=e165]:
+            - paragraph [ref=e166]: Learn the wrapper
+            - heading "Different wrappers. Different trade-offs." [level=2] [ref=e168]
+          - paragraph [ref=e169]: "The brand name is not the comparison. First identify what is inside: a participating fund, a market-linked fund, or money that stays more accessible."
+        - generic [ref=e170]:
+          - article [ref=e171]:
+            - generic [ref=e172]:
+              - generic [ref=e173]: Participating / retirement insurance
+              - generic [ref=e174]: "01"
+            - heading "AIA Retirement Saver (IV)" [level=3] [ref=e175]
+            - paragraph [ref=e176]: A retirement insurance plan that can provide a scheduled income stream. The important split is between guaranteed benefits and non-guaranteed dividends or bonuses.
+            - generic [ref=e177]:
+              - generic [ref=e178]: In plain English
+              - paragraph [ref=e179]: “You are trading some flexibility for a pre-set income shape.”
+            - button "What to verify" [active] [ref=e180] [cursor=pointer]: What to verify ↗
+          - article [ref=e181]:
+            - generic [ref=e182]:
+              - generic [ref=e183]: Investment-linked policy
+              - generic [ref=e184]: "02"
+            - heading "Any ILP, including retirement-branded plans" [level=3] [ref=e185]
+            - paragraph [ref=e186]: An ILP combines insurance with investments in sub-funds. The value can move with markets and charges may be taken from units over time.
+            - generic [ref=e187]:
+              - generic [ref=e188]: In plain English
+              - paragraph [ref=e189]: “You are buying a policy plus an investment account. You carry the investment risk.”
+            - button "What to verify" [ref=e190] [cursor=pointer]: What to verify ↗
+          - article [ref=e191]:
+            - generic [ref=e192]:
+              - generic [ref=e193]: Market-linked retirement plan
+              - generic [ref=e194]: "03"
+            - heading "Manulife SmartRetire (V)" [level=3] [ref=e195]
+            - paragraph [ref=e196]: A whole-life, regular-premium ILP designed around a target retirement age, with choices for an income stream or lump sum. Version and terms matter.
+            - generic [ref=e197]:
+              - generic [ref=e198]: In plain English
+              - paragraph [ref=e199]: “Bonuses and flexibility do not remove the need to check fees, risk and the exit path.”
+            - button "What to verify" [ref=e200] [cursor=pointer]: What to verify ↗
+        - paragraph [ref=e201]: Product names are examples, not recommendations. Always check the version, Product Summary, policy illustration, Product Highlights Sheet and policy contract for your own quote.
+    - region "Do not compare promises. Compare exit values." [ref=e202]:
+      - generic [ref=e203]:
+        - generic [ref=e204]:
+          - generic [ref=e205]:
+            - paragraph [ref=e206]: Compare the real numbers
+            - heading "Do not compare promises. Compare exit values." [level=2] [ref=e208]
+          - paragraph [ref=e209]: Use numbers from the illustration or statement. This tool does not predict returns; it shows how much flexibility you are giving up for the proposed payout.
+        - generic [ref=e210]:
+          - generic [ref=e211]:
+            - generic [ref=e212]:
+              - generic [ref=e213]:
+                - text: YOUR QUOTE
+                - heading "Enter the figures you were shown" [level=3] [ref=e214]
+              - generic [ref=e215]: Demo inputs
+            - generic [ref=e216]:
+              - generic [ref=e217]:
+                - generic [ref=e218]: Total premiums paid / committed
+                - generic [ref=e219]:
+                  - generic [ref=e220]: $
+                  - spinbutton "Total premiums paid / committed" [ref=e221]: "120000"
+                - generic [ref=e222]: Use the same time period for every plan.
+              - generic [ref=e223]:
+                - generic [ref=e224]: Cash value if you exit today
+                - generic [ref=e225]:
+                  - generic [ref=e226]: $
+                  - spinbutton "Cash value if you exit today" [ref=e227]: "60000"
+                - generic [ref=e228]: Ask for “surrender value” in writing.
+              - generic [ref=e229]:
+                - generic [ref=e230]: Promised / illustrated monthly payout
+                - generic [ref=e231]:
+                  - generic [ref=e232]: $
+                  - spinbutton "Promised / illustrated monthly payout" [ref=e233]: "850"
+                - generic [ref=e234]: Label whether it is guaranteed.
+              - generic [ref=e235]:
+                - generic [ref=e236]: Payout period (years)
+                - generic [ref=e237]:
+                  - generic [ref=e238]: years
+                  - spinbutton "Payout period (years)" [ref=e239]: "15"
+                - generic [ref=e240]: For life, use a separate note.
+            - group "Can you reach the money when you need it?" [ref=e241]:
+              - generic [ref=e242]: Can you reach the money when you need it?
+              - generic [ref=e243]:
+                - generic [ref=e244] [cursor=pointer]:
+                  - radio "Yes, mostly" [ref=e245]
+                  - generic [ref=e246]: Yes, mostly
+                - generic [ref=e247] [cursor=pointer]:
+                  - radio "No / high charge" [checked] [ref=e248]
+                  - generic [ref=e249]: No / high charge
+                - generic [ref=e250] [cursor=pointer]:
+                  - radio "Not shown" [ref=e251]
+                  - generic [ref=e252]: Not shown
+            - button "Show my comparison" [ref=e253] [cursor=pointer]:
+              - text: Show my comparison
+              - generic [ref=e254]: →
+            - paragraph [ref=e255]: This is a comparison aid, not a return calculator or financial advice.
+          - generic [ref=e256]:
+            - generic [ref=e257]:
+              - generic [ref=e258]:
+                - generic [ref=e259]: YOUR FLEXIBILITY CHECK
+                - generic [ref=e260]: HIGH FRICTION
+              - paragraph [ref=e261]:
+                - text: You would give up
+                - strong [ref=e462]: $60,000
+                - text: of access today.
+              - generic [ref=e265]:
+                - generic [ref=e266]:
+                  - strong [ref=e267]: $60,000
+                  - generic [ref=e268]: exit value
+                - generic [ref=e269]:
+                  - strong [ref=e270]: $120,000
+                  - generic [ref=e271]: paid / committed
+              - generic [ref=e272]:
+                - generic [ref=e273]:
+                  - strong [ref=e274]: 50%
+                  - generic [ref=e275]: of paid / committed shown as exit value
+                - generic [ref=e276]:
+                  - strong [ref=e277]: $153,000
+                  - generic [ref=e278]: illustrated payouts over 15 years
+            - generic [ref=e279]:
+              - generic [ref=e280]: "?"
+              - generic [ref=e281]:
+                - heading "Your next question" [level=3] [ref=e282]
+                - paragraph [ref=e283]: “What exactly would I receive if I need this money before the minimum commitment period ends?”
+                - button "Copy this question" [ref=e284] [cursor=pointer]: Copy this question ↗
+        - generic [ref=e285]:
+          - generic [ref=e286]:
+            - generic [ref=e287]:
+              - paragraph [ref=e288]: Fast comparison
+              - heading "Ask the same question of every option." [level=3] [ref=e290]
+            - paragraph [ref=e291]: Not a ranking. A reminder to compare like with like.
+          - region "Retirement money comparison questions" [ref=e292]:
+            - table "Retirement money comparison questions" [ref=e293]:
+              - caption [ref=e294]: Retirement money comparison questions
+              - rowgroup [ref=e295]:
+                - row "Question Participating / endowment ILP / fund-linked Liquid bucket" [ref=e296]:
+                  - columnheader "Question" [ref=e297]
+                  - columnheader "Participating / endowment" [ref=e298]
+                  - columnheader "ILP / fund-linked" [ref=e299]
+                  - columnheader "Liquid bucket" [ref=e300]
+              - rowgroup [ref=e301]:
+                - row "Does value move with markets? Not directly; future bonuses are not guaranteed. Yes. You bear the investment risk. Depends on the tool; check the rate and term." [ref=e302]:
+                  - rowheader "Does value move with markets?" [ref=e303]
+                  - cell "Not directly; future bonuses are not guaranteed." [ref=e304]
+                  - cell "Yes. You bear the investment risk." [ref=e305]
+                  - cell "Depends on the tool; check the rate and term." [ref=e306]
+                - row "What can I access early? Cash value may be lower early on. Partial withdrawal may have charges and affect cover. Designed for access; lock-ins still vary." [ref=e307]:
+                  - rowheader "What can I access early?" [ref=e308]
+                  - cell "Cash value may be lower early on." [ref=e309]
+                  - cell "Partial withdrawal may have charges and affect cover." [ref=e310]
+                  - cell "Designed for access; lock-ins still vary." [ref=e311]
+                - row "What costs should I see? Premium breakdown, guaranteed values, bonuses. Premium allocation, insurance, fund, policy and exit charges. Fees, early withdrawal penalty, spread or tax." [ref=e312]:
+                  - rowheader "What costs should I see?" [ref=e313]
+                  - cell "Premium breakdown, guaranteed values, bonuses." [ref=e314]
+                  - cell "Premium allocation, insurance, fund, policy and exit charges." [ref=e315]
+                  - cell "Fees, early withdrawal penalty, spread or tax." [ref=e316]
+                - row "Best question to ask? “Which part is guaranteed at each year?” “What happens if units cannot cover charges?” “When can I get the money, and what do I receive?”" [ref=e317]:
+                  - rowheader "Best question to ask?" [ref=e318]
+                  - cell "“Which part is guaranteed at each year?”" [ref=e319]
+                  - cell "“What happens if units cannot cover charges?”" [ref=e320]
+                  - cell "“When can I get the money, and what do I receive?”" [ref=e321]
+    - region "You are allowed to take the documents home." [ref=e322]:
+      - generic [ref=e323]:
+        - generic [ref=e324]:
+          - paragraph [ref=e325]: Your push-back kit
+          - heading "You are allowed to take the documents home." [level=2] [ref=e327]
+          - paragraph [ref=e328]: A recommendation that is right for you will still be right tomorrow. Use one calm sentence to create space.
+          - generic [ref=e329]:
+            - generic [ref=e330]: SAY THIS
+            - paragraph [ref=e331]: “I do not make long-term financial decisions in a first meeting. Please email me the full policy illustration, Product Summary, fees, surrender values and alternatives. I will review them before I decide.”
+            - button "Copy the script" [ref=e332] [cursor=pointer]:
+              - text: Copy the script
+              - generic [ref=e333]: ↗
+            - status [ref=e334]
+        - generic [ref=e335]:
+          - generic [ref=e336]:
+            - generic [ref=e337]: "07"
+            - generic [ref=e338]:
+              - text: BEFORE YOU SIGN
+              - heading "Seven questions that cut through the pitch." [level=3] [ref=e339]
+          - list [ref=e340]:
+            - listitem [ref=e341]:
+              - generic [ref=e342]: "01"
+              - paragraph [ref=e343]: Which benefits are guaranteed, and which are only illustrated?
+            - listitem [ref=e344]:
+              - generic [ref=e345]: "02"
+              - paragraph [ref=e346]: What is the total premium I will pay before the first payout?
+            - listitem [ref=e347]:
+              - generic [ref=e348]: "03"
+              - paragraph [ref=e349]: Show me the cash / surrender value at years 1, 3, 5, 10 and after the lock-in.
+            - listitem [ref=e350]:
+              - generic [ref=e351]: "04"
+              - paragraph [ref=e352]: What happens if I stop paying, pause, or need a partial withdrawal?
+            - listitem [ref=e353]:
+              - generic [ref=e354]: "05"
+              - paragraph [ref=e355]: How much of my premium buys units or funds, and what charges are taken?
+            - listitem [ref=e356]:
+              - generic [ref=e357]: "06"
+              - paragraph [ref=e358]: What is the comparable simpler or more liquid alternative?
+            - listitem [ref=e359]:
+              - generic [ref=e360]: "07"
+              - paragraph [ref=e361]: Can I take every document home and come back after I have compared it?
+      - generic [ref=e363]:
+        - generic [ref=e364]:
+          - generic [ref=e365]: "!"
+          - generic [ref=e366]:
+            - text: PRESSURE SIGNALS
+            - heading "Pause harder when you hear these." [level=3] [ref=e367]
+        - generic [ref=e368]:
+          - generic [ref=e369]: × “Sign today or the bonus disappears.”
+          - generic [ref=e370]: × “The illustration is basically guaranteed.”
+          - generic [ref=e371]: × “You can always withdraw.”
+          - generic [ref=e372]: × “Do not worry about the charges.”
+    - region "Leave the meeting with evidence, not adrenaline." [ref=e373]:
+      - generic [ref=e374]:
+        - generic [ref=e375]:
+          - paragraph [ref=e376]: Your one-page pause list
+          - heading "Leave the meeting with evidence, not adrenaline." [level=2] [ref=e378]
+          - paragraph [ref=e379]: Tick these off on your phone. Your progress stays on this device.
+          - generic [ref=e381]:
+            - generic [ref=e382]: 0 of 6 checked
+            - generic [ref=e383]: 0%
+        - generic [ref=e385]:
+          - generic [ref=e386] [cursor=pointer]:
+            - checkbox "I know the job of this money. Income floor, protection, or a future purchase." [ref=e387]
+            - generic [ref=e388]: ✓
+            - generic [ref=e389]:
+              - strong [ref=e390]: I know the job of this money.
+              - generic [ref=e391]: Income floor, protection, or a future purchase.
+          - generic [ref=e392] [cursor=pointer]:
+            - checkbox "I have the full policy illustration. Not just a screenshot or a headline." [ref=e393]
+            - generic [ref=e394]: ✓
+            - generic [ref=e395]:
+              - strong [ref=e396]: I have the full policy illustration.
+              - generic [ref=e397]: Not just a screenshot or a headline.
+          - generic [ref=e398] [cursor=pointer]:
+            - checkbox "I can point to the guaranteed values. And I know what is non-guaranteed." [ref=e399]
+            - generic [ref=e400]: ✓
+            - generic [ref=e401]:
+              - strong [ref=e402]: I can point to the guaranteed values.
+              - generic [ref=e403]: And I know what is non-guaranteed.
+          - generic [ref=e404] [cursor=pointer]:
+            - checkbox "I have the year-by-year exit values. Including early surrender and partial withdrawal." [ref=e405]
+            - generic [ref=e406]: ✓
+            - generic [ref=e407]:
+              - strong [ref=e408]: I have the year-by-year exit values.
+              - generic [ref=e409]: Including early surrender and partial withdrawal.
+          - generic [ref=e410] [cursor=pointer]:
+            - checkbox "I compared one simpler / more liquid option. Same goal, different trade-off." [ref=e411]
+            - generic [ref=e412]: ✓
+            - generic [ref=e413]:
+              - strong [ref=e414]: I compared one simpler / more liquid option.
+              - generic [ref=e415]: Same goal, different trade-off.
+          - generic [ref=e416] [cursor=pointer]:
+            - checkbox "I have not been rushed. If you feel pressured, the answer can be “not today”." [ref=e417]
+            - generic [ref=e418]: ✓
+            - generic [ref=e419]:
+              - strong [ref=e420]: I have not been rushed.
+              - generic [ref=e421]: If you feel pressured, the answer can be “not today”.
+          - generic [ref=e422]:
+            - button "Reset checklist" [ref=e423] [cursor=pointer]
+            - status [ref=e424]: Saved on this device
+    - region "Keep the official documents close." [ref=e425]:
+      - generic [ref=e426]:
+        - generic [ref=e427]:
+          - paragraph [ref=e428]: Verify with primary sources
+          - heading "Keep the official documents close." [level=2] [ref=e430]
+          - paragraph [ref=e431]: Product brochures change. Your policy contract is the source of truth for your quote. These links explain the rules and the questions.
+        - generic [ref=e432]:
+          - link "MoneySense What documents to ask for, and how to handle pressure." [ref=e433] [cursor=pointer]:
+            - /url: https://www.moneysense.gov.sg/financial-advisory-process/
+            - generic [ref=e434]: MoneySense
+            - generic [ref=e435]: What documents to ask for, and how to handle pressure.
+            - generic [ref=e436]: ↗
+          - 'link "MoneySense: ILP fees Premium allocation, insurance charges, fund fees and surrender charges." [ref=e437] [cursor=pointer]':
+            - /url: https://www.moneysense.gov.sg/investment-linked-policies-guide-to-fees-and-pricing/
+            - generic [ref=e438]: "MoneySense: ILP fees"
+            - generic [ref=e439]: Premium allocation, insurance charges, fund fees and surrender charges.
+            - generic [ref=e440]: ↗
+          - link "CPF LIFE How lifelong monthly payouts work in Singapore." [ref=e441] [cursor=pointer]:
+            - /url: https://www.cpf.gov.sg/member/retirement-income/monthly-payouts/cpf-life
+            - generic [ref=e442]: CPF LIFE
+            - generic [ref=e443]: How lifelong monthly payouts work in Singapore.
+            - generic [ref=e444]: ↗
+          - 'link "MAS: ILP disclosures Why illustrations, charges and suitability matter." [ref=e445] [cursor=pointer]':
+            - /url: https://www.mas.gov.sg/news/parliamentary-replies/2026/written-reply-to-parliamentary-question-on-investment-linked-policy-disclosures-and-welcome-bonuses
+            - generic [ref=e446]: "MAS: ILP disclosures"
+            - generic [ref=e447]: Why illustrations, charges and suitability matter.
+            - generic [ref=e448]: ↗
+  - contentinfo [ref=e449]:
+    - generic [ref=e450]:
+      - link "Retirement Shield" [ref=e451] [cursor=pointer]:
+        - /url: "#top"
+        - img [ref=e453]
+        - generic [ref=e456]:
+          - text: Retirement
+          - strong [ref=e457]: Shield
+      - paragraph [ref=e458]: Pause. Ask. Compare. Built for clearer conversations, not product sales.
+      - generic [ref=e459]: Source links checked 8 Nov 2026 · Singapore

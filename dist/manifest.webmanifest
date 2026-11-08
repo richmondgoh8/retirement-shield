@@ -1,0 +1,18 @@
+{
+  "name": "Retirement Shield",
+  "short_name": "Retirement Shield",
+  "description": "A plain-language Singapore retirement policy explainer and comparison tool.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#fbf8f1",
+  "theme_color": "#11253d",
+  "lang": "en-SG",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
