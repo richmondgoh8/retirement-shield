@@ -835,3 +835,42 @@ body { font-family: "IBM Plex Sans", "Avenir Next", Avenir, Inter, ui-sans-serif
 @media(max-width:980px) { .hero-grid {grid-template-columns:1fr 1fr;gap:30px;} .simple-answer-grid {grid-template-columns:1fr;} .answer-tile {gap:12px;} }
 @media(max-width:760px) { .hero-grid {grid-template-columns:1fr;} .quick-start {padding:24px;} .hero h1 {font-size:clamp(2.5rem,9vw,3.6rem);} .simple-refine .field-grid {grid-template-columns:1fr;} .simple-refine {padding:22px;} }
 .hero h1 { font-size: clamp(2.6rem,4.8vw,4.5rem); }
+/* A concrete household-and-care story, without extra personal questions. */
+.spending-presets { padding:0; border:0; margin:0 0 12px; }
+.spending-presets legend { margin-bottom:14px; color:var(--ink); font-weight:600; }
+.spending-presets >div { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.spending-presets label { display:flex; align-items:flex-start; gap:12px; padding:20px; border:1px solid var(--line); border-radius:12px; background:#fff; cursor:pointer; }
+.spending-presets label:has(input:checked) { border-color:var(--teal-deep); box-shadow:0 0 0 1px var(--teal-deep); background:#edf6ef; }
+.spending-presets input { margin-top:5px; accent-color:var(--teal-deep); width:18px; height:18px; flex:none; }
+.spending-presets b,.spending-presets small {display:block;}
+.spending-presets small { margin-top:5px; color:var(--ink-soft); font-size:.81rem; line-height:1.5; }
+.preset-note { margin:12px 0 26px; color:var(--ink-soft); font-size:.86rem; line-height:1.6; }
+.care-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; margin-bottom:24px; }
+.care-summary article { padding:26px; border:1px solid var(--line); border-radius:16px; background:#fff; box-shadow:var(--surface-shadow); }
+.care-summary article >span { display:block; color:var(--teal-deep); font-size:.7rem; font-weight:700; letter-spacing:.08em; }
+.care-summary article >strong { display:block; margin:18px 0 9px; font-size:clamp(1.5rem,2.3vw,2.1rem); color:var(--navy-900); letter-spacing:-.045em; font-variant-numeric:tabular-nums; }
+.care-summary small { display:block; color:var(--ink-soft); line-height:1.5; font-size:.81rem; }
+.care-summary .care-target {background:var(--navy-900);border-color:var(--navy-900);}
+.care-summary .care-target>span,.care-summary .care-target>strong {color:var(--green);}
+.care-summary .care-target small {color:#d8e3eb;}
+.care-expenses { padding:30px; background:#fff; }
+.care-table-head {display:flex; justify-content:space-between; align-items:center; gap:24px; padding-bottom:20px; border-bottom:1px solid var(--line);}
+.care-table-head h3 {margin:0;font-size:1.4rem;}
+.care-table-head>span {font-size:.8rem;color:var(--teal-deep);}
+.care-cost-row { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr) minmax(0,.8fr); gap:12px 24px; padding:24px 0; border-bottom:1px solid #e1e7ed; align-items:center; }
+.care-cost-row h4 {margin:0;color:var(--ink);font-size:1rem;line-height:1.45;}
+.care-cost-row div small {display:block;color:var(--ink-soft);font-size:.75rem;margin-bottom:7px;}
+.care-cost-row div strong {display:block;color:var(--navy-900);font-size:1.18rem;letter-spacing:-.025em;font-variant-numeric:tabular-nums;}
+.care-cost-row p {grid-column:1/-1;max-width:88ch;margin:0;color:var(--ink-soft);font-size:.83rem;line-height:1.6;}
+.care-total-row {display:grid;grid-template-columns:1.2fr .8fr .8fr;gap:24px;padding:24px 0;color:var(--navy-900);font-size:1.08rem;font-weight:600;}
+.care-total-row small {display:block;font-size:.76rem;color:var(--ink-soft);margin-top:5px;font-weight:400;}
+.care-insights {display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:24px 0;}
+.care-insights p {padding:20px;margin:0;background:#e9f4ed;border:1px solid #bad1c2;border-radius:12px;color:#315444;font-size:.9rem;line-height:1.65;}
+.care-gotchas {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:24px;}
+.care-gotchas article {padding:24px;background:#fff;border:1px solid var(--line);border-radius:14px;}
+.care-gotchas h3 {font-size:1.15rem;line-height:1.3;margin-bottom:12px;}
+.care-gotchas p {color:var(--ink-soft);font-size:.85rem;line-height:1.65;margin-bottom:12px;}
+.care-gotchas a {color:var(--teal-deep);font-weight:600;font-size:.8rem;}
+@media(max-width:980px) { .care-summary,.care-gotchas {grid-template-columns:1fr;} .care-summary article>strong {font-size:2rem;} }
+@media(max-width:620px) { .spending-presets>div,.care-insights {grid-template-columns:1fr;} .care-expenses {padding:22px;} .care-table-head {align-items:flex-start;flex-direction:column;gap:12px;} .care-cost-row {grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;} .care-cost-row h4 {grid-column:1/-1;} .care-cost-row div strong {font-size:1.07rem;} .care-total-row {grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;font-size:1rem;} .care-total-row>b {grid-column:1/-1;} }
+.care-cost-row p,.care-gotchas p { font-size:.9rem; line-height:1.65; }

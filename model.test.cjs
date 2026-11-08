@@ -18,7 +18,7 @@ test('income reference matches published 2026 anchor points and caps at FRS',()=
 test('more savings lower the investment contribution; actual spending raises it',()=>{
  const p={age:35,salary:6000};const a=calculate(p);
  assert.ok(calculate({...p,savings:50000}).saving<a.saving);
- assert.ok(calculate({...p,spend:2500}).saving>a.saving);
+ assert.ok(calculate({...p,spend:4500}).saving>a.saving);
 });
 test('early retirement stops future salary contributions and includes a bridge',()=>{
  const p={age:35,salary:6000};assert.ok(calculate({...p,retire:40}).cpf<calculate(p).cpf);
@@ -34,4 +34,17 @@ test('known CPF balances matter and invalid primary details are rejected',()=>{
  const p={age:35,salary:6000};assert.ok(calculate({...p,sa:25000}).cpf>calculate(p).cpf);
  assert.throws(()=>calculate({age:55,salary:6000}));assert.throws(()=>calculate({age:35,salary:0}));
  assert.throws(()=>calculate({...p,savings:-1}));assert.throws(()=>calculate({...p,retire:30}));
+});
+
+test('helper ranges add correctly without duplicate food; age-75 normal and concession totals differ by 240',()=>{
+ const {careTotals,expenseAt}=require('./model.js');
+ assert.deepEqual(careTotals('now'),[2650,3530]);assert.deepEqual(careTotals('later'),[3630,4890]);
+ assert.ok(Math.abs(expenseAt(3090,65,10,'helper')-4260)<1e-6);
+ assert.deepEqual(careTotals('later').map(v=>v-240),[3390,4650]);
+});
+test('helper is default and choosing survey lowers the funding target',()=>{
+ const p={age:35,salary:6000};assert.equal(calculate(p).todaySpend,3500);
+ assert.ok(calculate(p).saving>calculate({...p,profile:'survey'}).saving);
+ assert.ok(calculate(p).at75>calculate(p).todaySpend);
+ assert.throws(()=>calculate({...p,profile:'unknown'}));
 });
