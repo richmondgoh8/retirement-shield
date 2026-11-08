@@ -10,10 +10,12 @@ Node 22+ is recommended. There are no browser runtime dependencies.
 
 ```sh
 npm ci
-npm run build
-npm test
-python3 -m http.server 4173 --directory dist
+make dev
 ```
+
+`make dev` (also `make local` or just `make`) builds the current code, stops any process listening on port 4173, prints http://localhost:4173, and starts the local server. Press Ctrl+C to stop. Requires Python 3, Make and `lsof`. Use `make dev PORT=4174` for another port. Run `npm test` separately for checks.
+
+After changing code or resetting Git, run `make dev` again. For browser development, enable DevTools → Application → Service Workers → **Bypass for network** and keep DevTools open to avoid cached PWA responses.
 
 `index.html`, `app.js`, `model.js`, `styles.css` and `sw.js` are readable source. The build regenerates PNG/ICO icons from SVG, minifies CSS/JS, hashes their filenames and creates a versioned offline cache in `dist/`. GitHub Actions builds, tests and publishes this folder to GitHub Pages. Do not manually edit `dist/`.
 
