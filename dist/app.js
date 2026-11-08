@@ -47,7 +47,7 @@ function setupPlan() {
     const capital = realMonthly === 0 ? gap * withdrawalMonths : gap * (1 - (1 + realMonthly) ** -withdrawalMonths) / realMonthly;
     const nominalMonthly = (1 + returnRate) ** (1 / 12) - 1;
     const currentAtRetirement = currentSavings * (1 + nominalMonthly) ** months;
-    const nominalCapitalTarget = capital * (1 + inflation) ** years;
+    const nominalCapitalTarget = capital; // capital is already in retirement-year dollars
     const contributionFactor = months ? (nominalMonthly === 0 ? months : ((1 + nominalMonthly) ** months - 1) / nominalMonthly) : 0;
     const monthlySaving = months && contributionFactor ? Math.max(0, (nominalCapitalTarget - currentAtRetirement) / contributionFactor) : Math.max(0, nominalCapitalTarget - currentSavings) / 12;
     $('#plan-future-budget').textContent = `${money(futureBudget)}/mo`;
@@ -68,7 +68,7 @@ function setupCpfSnapshot() {
   const total = $('#cpf-total');
   const breakdown = $('#cpf-breakdown');
   if (!total || fields.some((field) => !field)) return;
-  const names = ['Ordinary Account', 'Special / Retirement Account', 'MediSave Account', 'Retirement Account (separate)'];
+  const names = ['Ordinary Account', 'Special Account', 'MediSave Account', 'Retirement Account (separate)'];
   const render = () => {
     const values = fields.map((field) => Math.max(0, Number(field.value) || 0));
     total.textContent = money(values.reduce((a, b) => a + b, 0));
@@ -76,6 +76,35 @@ function setupCpfSnapshot() {
   };
   fields.forEach((field) => field.addEventListener('input', render));
   render();
+}
+
+function setupCpfForecast() {
+  const ids = ['cpf-salary','cpf-start-age','cpf-housing','cpf-target-growth','cpf-topup','cpf-delay','cpf-oa','cpf-sa','cpf-ma','cpf-ra-extra'];
+  const update = () => {
+    const n = id => Math.max(0,Number(document.getElementById(id).value)||0);
+    const age=n('cpf-start-age'), salary=n('cpf-salary'), out=$('#cpf-forecast-output');
+    if(age<18||age>=55||salary<=750||n('cpf-ra-extra')>0){out.textContent='This salary projection supports ages 18–54, full CPF rates and salary above $750, without an existing RA. Use CPF’s official planner for other cases.';return;}
+    const years=55-age, months=Math.round(years*12), wage=Math.min(8000,salary), contribution=wage*.37;
+    let oa=n('cpf-oa'), sa=n('cpf-sa'), unmetHousing=0;
+    const growth=n('cpf-target-growth')/100, frs=220400*(1+growth)**years, ers=2*frs;
+    const rows=[];
+    for(let m=0;m<months;m++) {
+      const a=age+m/12, ratios=a<=35?[.6217,.1621]:a<=45?[.5677,.1891]:a<=50?[.5136,.2162]:[.4055,.3108];
+      oa=oa*1.025**(1/12)+contribution*ratios[0];
+      sa=sa*1.04**(1/12)+contribution*ratios[1];
+      const spent=Math.min(oa,n('cpf-housing')); oa-=spent; unmetHousing+=n('cpf-housing')-spent;
+    }
+    const total=oa+sa, topup=Math.min(n('cpf-topup'),Math.max(0,220400-n('cpf-sa'))), delay=Math.min(years,n('cpf-delay'));
+    const early=topup*1.04**years, later=topup*1.04**(years-delay);
+    const ratios=age<=35?[.6217,.1621,.2162]:age<=45?[.5677,.1891,.2432]:age<=50?[.5136,.2162,.2702]:[.4055,.3108,.2837];
+    const monthlyRate=1.04**(1/12)-1, factor=((1+monthlyRate)**months-1)/monthlyRate;
+    const gapLine=(target,label)=>`<article><span>${label} scenario at 55</span><strong>${money(target)}</strong><p>${total>=target?'Projected OA + SA meets this scenario target.':`${money(target-total)} short using projected OA + SA.`}</p><p>Additional saving at assumed 4%: <b>${money(Math.max(0,target-total)/factor)}/month</b>.</p><small>SA alone: ${sa>=target?'meets target':money(target-sa)+' short'}.</small></article>`;
+    out.innerHTML=`<p class="forecast-narrative">At ${money(salary)} gross salary, about <b>${money(wage*.20)}</b> employee CPF and <b>${money(wage*.17)}</b> employer CPF enter your accounts each month. That is roughly ${money(contribution*ratios[0])} OA, ${money(contribution*ratios[1])} SA and ${money(contribution*ratios[2])} MA at your current age.</p><div class="forecast-cards"><article><span>Projected OA + SA at 55</span><strong>${money(total)}</strong><p>OA ${money(oa)} + SA ${money(sa)}. MA excluded.</p></article>${gapLine(frs,'FRS')}${gapLine(ers,'ERS comparison')}</div><div class="compounding-story"><h3>What does starting earlier change?</h3><p>The same <b>${money(topup)}</b> cash top-up could add <b>${money(early)}</b> by 55 if made now, versus <b>${money(later)}</b> if made ${delay} years later: an extra <b>${money(early-later)}</b> from time at an assumed 4% yearly. These top-up amounts are additional to the salary-only forecast above. The monthly gap amounts illustrate additional saving at 4%; CPF top-up eligibility may prevent paying all of it into SA.</p><p>With the early top-up, projected OA + SA becomes <b>${money(total+early)}</b>. Remaining scenario gaps: FRS <b>${money(frs-total-early)}</b>; ERS comparison <b>${money(ers-total-early)}</b>.</p>${unmetHousing>0?`<p>OA could not cover ${money(unmetHousing)} of the housing withdrawals entered over the projection. That amount needs another funding source.</p>`:''}</div>`;
+  };
+  ids.forEach(id=>document.getElementById(id).addEventListener('input',update));
+  $('#plan-age').addEventListener('input',()=>{$('#cpf-start-age').value=$('#plan-age').value;update();});
+  $('#cpf-start-age').addEventListener('input',()=>{$('#plan-age').value=$('#cpf-start-age').value;$('#plan-age').dispatchEvent(new Event('input'));});
+  update();
 }
 
 function setupOfflineStatus() {
@@ -90,4 +119,5 @@ function setupOfflineStatus() {
 setupBudget();
 setupPlan();
 setupCpfSnapshot();
+setupCpfForecast();
 setupOfflineStatus();
