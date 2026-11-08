@@ -17,7 +17,7 @@ function setupBudget() {
     total.textContent = `${money(sum)}`;
     core.textContent = money(coreSum);
     flex.textContent = money(sum - coreSum);
-    if (breakdown) breakdown.innerHTML = rows.map((row) => `<div class="budget-row" role="listitem"><span>${row.name}</span><span class="budget-row-track"><i style="width:${sum ? Math.max(1, row.value / sum * 100) : 0}%"></i></span><strong>${money(row.value)}</strong></div>`).join('');
+    if (breakdown) { const max = Math.max(...rows.map((row) => row.value), 1); breakdown.innerHTML = rows.map((row) => `<div class="budget-row" role="listitem"><span class="budget-row-label">${row.name}</span><span class="budget-row-track" aria-hidden="true"><i style="width:${Math.max(2, row.value / max * 100)}%"></i></span><strong>${money(row.value)}</strong></div>`).join(''); }
     document.dispatchEvent(new CustomEvent('retirement-budget-change', { detail: { total: sum } }));
   };
   fields.forEach((field) => field.addEventListener('input', render));
@@ -28,7 +28,7 @@ function setupPlan() {
   const ids = ['plan-age', 'plan-retire-age', 'plan-cpf', 'plan-other-income', 'plan-savings', 'plan-years', 'plan-inflation', 'plan-return'];
   const inputs = Object.fromEntries(ids.map((id) => [id, $(`#${id}`)]));
   if (Object.values(inputs).some((input) => !input)) return;
-  let monthlyBudget = 2349;
+  let monthlyBudget = 1384;
   const calculate = () => {
     const age = Math.max(18, Number(inputs['plan-age'].value) || 35);
     const retireAge = Math.max(age, Number(inputs['plan-retire-age'].value) || age);

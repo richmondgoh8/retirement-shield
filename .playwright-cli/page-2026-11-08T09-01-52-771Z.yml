@@ -1,0 +1,155 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e6]:
+        - generic [ref=e8]:
+          - generic [ref=e11]:
+            - img [ref=e12]
+            - generic [ref=e19]:
+              - generic [ref=e20]: A Singapore Government Agency Website
+              - button "How to identify" [ref=e21] [cursor=pointer]:
+                - generic [ref=e22]: How to identify
+                - img [ref=e23]
+          - generic:
+            - generic:
+              - generic:
+                - generic [ref=e25]:
+                  - img [ref=e27]
+                  - generic [ref=e29]:
+                    - generic [ref=e30]: Official website links end with .gov.sg
+                    - article [ref=e31]: Government agencies communicate via .gov.sg websites (e.g. go.gov.sg/open).
+                    - link "Trusted websites /" [ref=e32] [cursor=pointer]:
+                      - /url: https://www.gov.sg/trusted-sites#govsites
+                - generic [ref=e33]:
+                  - img [ref=e35]
+                  - generic [ref=e37]:
+                    - generic [ref=e38]: Secure websites use HTTPS
+                    - article [ref=e39]:
+                      - text: Look for a lock (
+                      - img [ref=e40]
+                      - text: ) or https:// as an added precaution. Share sensitive information only on official, secure websites.
+        - generic [ref=e43]:
+          - link "Department of Statistics Singapore" [ref=e45] [cursor=pointer]:
+            - /url: /
+            - img "Department of Statistics Singapore" [ref=e46]
+          - text:                   
+          - generic [ref=e47]:
+            - button "Notification Button" [ref=e48] [cursor=pointer]
+            - text: 
+            - button "Toggle Menu" [ref=e49] [cursor=pointer]:
+              - text: 
+              - generic [ref=e50]: Menu Toggle
+        - text: 
+      - generic [ref=e54]:
+        - list [ref=e57]:
+          - listitem [ref=e58]:
+            - link "Home" [ref=e59] [cursor=pointer]:
+              - /url: /
+              - generic [ref=e60]: 
+            - text: /
+          - listitem [ref=e61]:
+            - link "Publication & Resources" [ref=e62] [cursor=pointer]:
+              - /url: /publication-resources
+            - text: /
+          - listitem [ref=e63]:
+            - generic [ref=e64]: Report on the Household Expenditure Survey 2023
+        - heading "Report on the Household Expenditure Survey 2023" [level=1] [ref=e66]
+      - generic [ref=e72]:
+        - generic [ref=e73]:
+          - img "Report Cover for Household Expenditure Survey 2023" [ref=e74]
+          - generic [ref=e75]:
+            - generic [ref=e76]: Publication details
+            - paragraph [ref=e77]: Published:28 Nov 2024
+            - paragraph [ref=e78]: "Frequency: Quinquennial"
+            - paragraph [ref=e79]: "ISSN: 2661-4103"
+        - generic [ref=e80]:
+          - heading "About this publication" [level=2] [ref=e81]
+          - generic [ref=e82]:
+            - paragraph [ref=e83]: This report presents the key findings of the latest Household Expenditure Survey (HES) 2023. Topics covered include household consumption expenditure, households' income, socio-economic characteristics and ownership of selected consumer durables. Changes compared to the results of previous HES conducted in 2012/13 and 2017/18 were highlighted in the analyses. Detailed statistical tables are included for users who are interested to know more.
+            - paragraph [ref=e84]: "The report comprises 6 chapters:"
+            - list [ref=e85]:
+              - listitem [ref=e86]: Household Expenditure
+              - listitem [ref=e87]: Online Expenditure
+              - listitem [ref=e88]: Household Expenditure Among Households Comprising Solely Non-Employed Persons Aged 65 years and over
+              - listitem [ref=e89]: Household Income
+              - listitem [ref=e90]: Ownership of Consumer Durables and Assets
+              - listitem [ref=e91]: Planning and Administration
+            - paragraph
+            - paragraph [ref=e92]:
+              - link "Table of Contents [PDF, 121.8 KB]" [ref=e93] [cursor=pointer]:
+                - /url: /files/8edefabc-fafe-4ae7-ba32-3a9b5d36301a.pdf
+                - generic [ref=e94]: Table of Contents [PDF, 121.8 KB]
+            - paragraph [ref=e95]:
+              - link "Glossary [PDF, 257.8 KB]" [ref=e96] [cursor=pointer]:
+                - /url: /files/fba40e8f-bd6c-4c0e-8a9a-c6a06ac64310.pdf
+                - generic [ref=e97]: Glossary [PDF, 257.8 KB]
+            - paragraph [ref=e98]:
+              - link "Key indicators [PDF, 282.6 KB]" [ref=e99] [cursor=pointer]:
+                - /url: /files/a379514d-c004-46ad-9c12-1046b4e33ba0.pdf
+                - generic [ref=e100]: Key indicators [PDF, 282.6 KB]
+            - paragraph [ref=e101]:
+              - button "Button" [ref=e102] [cursor=pointer]: View Report
+            - paragraph [ref=e103]:
+              - link "Detailed Tables" [ref=e104] [cursor=pointer]:
+                - /url: https://tablebuilder.singstat.gov.sg/statistical-tables/downloadMultiple/sZDBhHEmyUYZNAjc3GJuSg
+            - button "Button Label" [ref=e105] [cursor=pointer]:
+              - text: Learn more about Households
+              - img [ref=e107]
+      - button "Back to Top":
+        - img
+      - generic [ref=e112]:
+        - generic [ref=e114]:
+          - generic [ref=e115]: Singapore Department of Statistics
+          - generic [ref=e116]:
+            - list [ref=e117]:
+              - listitem [ref=e118]:
+                - link "Contact Us" [ref=e119] [cursor=pointer]:
+                  - /url: /who-we-are/contact-us-statistical-enquiries
+                  - generic [ref=e120]: Contact Us
+              - listitem [ref=e121]:
+                - link "Feedback" [ref=e122] [cursor=pointer]:
+                  - /url: https://form.gov.sg/636851c4e097ce00112046e5
+                  - generic [ref=e123]: Feedback
+                  - img [ref=e124]
+              - listitem [ref=e129]:
+                - link "Sitemap" [ref=e130] [cursor=pointer]:
+                  - /url: /sitemap
+                  - generic [ref=e131]: Sitemap
+            - list [ref=e135]:
+              - listitem [ref=e136]:
+                - link "Telegram" [ref=e137] [cursor=pointer]:
+                  - /url: https://t.me/SingStat
+                  - img "Telegram" [ref=e139]
+              - listitem [ref=e140]:
+                - link "Instagram" [ref=e141] [cursor=pointer]:
+                  - /url: https://www.instagram.com/singstat_dos/
+                  - img "Instagram" [ref=e143]
+              - listitem [ref=e144]:
+                - link "YouTube" [ref=e145] [cursor=pointer]:
+                  - /url: https://www.youtube.com/user/SingStatvideo
+                  - img "YouTube" [ref=e147]
+              - listitem [ref=e148]:
+                - link "LinkedIn" [ref=e149] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/sg-department-of-statistics/
+                  - img "LinkedIn" [ref=e151]
+          - link "Mobile app download android" [ref=e153] [cursor=pointer]:
+            - /url: /data-tools-services/singstat-mcp
+            - img "Sing Stat MCP Banner" [ref=e154]
+        - generic [ref=e156]:
+          - list [ref=e157]:
+            - listitem [ref=e158]:
+              - link "Report Vulnerabilities" [ref=e159] [cursor=pointer]:
+                - /url: https://www.tech.gov.sg/report-vulnerability
+                - generic [ref=e160]: Report Vulnerabilities
+                - img [ref=e161]
+            - listitem [ref=e166]:
+              - link "Privacy Statement" [ref=e167] [cursor=pointer]:
+                - /url: /privacy-statement
+                - generic [ref=e168]: Privacy Statement
+            - listitem [ref=e169]:
+              - link "Terms of Use" [ref=e170] [cursor=pointer]:
+                - /url: /terms-of-use
+                - generic [ref=e171]: Terms of Use
+          - paragraph [ref=e172]:
+            - emphasis [ref=e173]: Best viewed using Google Chrome 131, Microsoft Edge 131, Mozilla Firefox 132 and Safari 18
+  - alert [ref=e174]

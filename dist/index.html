@@ -4,12 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#11253d" />
-    <meta name="description" content="Estimate your Singapore retirement budget, compare it with CPF LIFE income, and plan the gap." />
+    <meta name="description" content="See your monthly Singapore retirement spending target, compare it with CPF LIFE income, and plan how much to save." />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
-    <title>Retirement Shield — build your retirement income plan</title>
+    <title>Retirement Shield — Singapore retirement plan</title>
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to content</a>
@@ -69,64 +72,27 @@
 
       <section class="section budget-section" id="retirement-budget" aria-labelledby="budget-title">
         <div class="shell">
-          <div class="section-heading split-heading"><div><p class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> Start with the monthly number</p><h2 id="budget-title">A useful retirement benchmark is about $1,384 per person a month.</h2></div><p class="section-intro">The closest retirement-specific national benchmark is from households made up only of non-employed people aged 65+. They averaged $2,349 per household per month in 2023, or $1,384 per household member. It is a starting point, not a personal target.</p></div>
-          <div class="budget-layout">
-            <form class="budget-form card-surface" id="budget-form" aria-label="Edit your monthly retirement budget">
-              <div class="form-title-row"><div><span class="form-kicker">YOUR MONTHLY HOUSEHOLD BUDGET</span><h3>Change these to fit your life</h3></div><span class="demo-badge">2023 reference</span></div>
-              <div class="field-grid">
-                <div class="field"><label for="budget-housing">Housing, utilities & maintenance</label><div class="input-wrap"><span>$</span><input id="budget-housing" data-budget="Housing, utilities & maintenance" type="number" min="0" step="25" value="558"></div></div>
-                <div class="field"><label for="budget-food">Food and meals out</label><div class="input-wrap"><span>$</span><input id="budget-food" data-budget="Food and meals out" type="number" min="0" step="25" value="615"></div></div>
-                <div class="field"><label for="budget-health">Healthcare out of pocket</label><div class="input-wrap"><span>$</span><input id="budget-health" data-budget="Healthcare out of pocket" type="number" min="0" step="25" value="377"></div></div>
-                <div class="field"><label for="budget-transport">Transport</label><div class="input-wrap"><span>$</span><input id="budget-transport" data-budget="Transport" type="number" min="0" step="25" value="211"></div></div>
-                <div class="field"><label for="budget-insurance">Insurance, finance & misc.</label><div class="input-wrap"><span>$</span><input id="budget-insurance" data-budget="Insurance, finance & misc." type="number" min="0" step="25" value="331"></div><small>SingStat groups these together; this is not insurance premiums alone.</small></div>
-                <div class="field"><label for="budget-comms">Phone and communications</label><div class="input-wrap"><span>$</span><input id="budget-comms" data-budget="Phone and communications" type="number" min="0" step="10" value="94"></div></div>
-                <div class="field"><label for="budget-recreation">Recreation and social life</label><div class="input-wrap"><span>$</span><input id="budget-recreation" data-budget="Recreation and social life" type="number" min="0" step="10" value="117"></div></div>
-                <div class="field"><label for="budget-other">Clothing and other</label><div class="input-wrap"><span>$</span><input id="budget-other" data-budget="Clothing and other" type="number" min="0" step="10" value="46"></div></div>
-              </div>
-              <p class="form-disclaimer">Includes household costs, not just one person’s bills. Housing is adjusted to remove non-cash imputed rent on owner-occupied homes. Add your actual insurance premiums and any rent, mortgage, caregiving or travel costs.</p>
-            </form>
-            <div class="budget-result card-surface">
-              <span class="form-kicker">YOUR TARGET</span><strong id="budget-total">$2,349</strong><span class="budget-result-period">per month · household</span>
-              <div class="budget-subtotals"><div><strong id="budget-core-total">$2,092</strong><span>core monthly costs</span></div><div><strong id="budget-flex-total">$257</strong><span>other / flexible costs</span></div></div>
-              <div class="budget-breakdown" id="budget-breakdown" role="list" aria-label="Monthly budget by category"></div>
-              <a href="https://www.singstat.gov.sg/-/media/files/publications/households/hes2023.ashx" class="source-link-inline" target="_blank" rel="noreferrer">SingStat Household Expenditure Survey 2023 ↗</a>
-            </div>
+          <div class="section-heading split-heading"><div><p class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> Singapore retirement spending dashboard</p><h2 id="budget-title">A typical older household member spent $1,384 a month.</h2></div><p class="section-intro">This is a 2023 average from households made up only of non-employed people aged 65+. Compare it with a worker-income benchmark for context, then replace the estimate with your own bills.</p></div>
+          <div class="benchmark-grid" aria-label="Singapore income and retirement spending benchmarks">
+            <article class="benchmark-card benchmark-retire"><span class="benchmark-label">OLDER HOUSEHOLD SPENDING · 2023</span><strong>$1,384</strong><span class="benchmark-unit">per month · average household member</span><div class="benchmark-divider"></div><p><b>$2,349 per month for the household</b><br>Households made up only of non-employed people aged 65+.</p><a href="https://www.singstat.gov.sg/publication-resources/report-on-the-household-expenditure-survey-2023" target="_blank" rel="noreferrer">SingStat Household Expenditure Survey ↗</a></article>
+            <article class="benchmark-card benchmark-income"><span class="benchmark-label">WORKING INCOME CONTEXT · 2025</span><strong>$5,775</strong><span class="benchmark-unit">per month · median gross income</span><div class="benchmark-divider"></div><p><b>Full-time employed residents</b><br>Includes employer CPF contributions; this is not take-home pay or a retirement target.</p><a href="https://stats.mom.gov.sg/Pages/Income-Summary-Table.aspx" target="_blank" rel="noreferrer">MOM income summary ↗</a></article>
+            <div class="benchmark-note"><span aria-hidden="true">i</span><p><strong>Two different reference points:</strong> retirement spending is a household survey average; worker income is an individual median. Use them as context, not a direct one-to-one comparison.</p></div>
           </div>
-        </div>
-      </section>
-
-      <section class="section stream-section" id="two-streams" aria-labelledby="streams-title">
-        <div class="shell">
-          <div class="section-heading centered-heading">
-            <p class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> The two-stream plan</p>
-            <h2 id="streams-title">Cover the floor. Keep the rest flexible.</h2>
-            <p class="section-intro">A retirement plan is easier to understand when each dollar has one clear job. Start with the floor, then protect your freedom to spend.</p>
+          <div class="spending-dashboard card-surface">
+            <div class="spending-dashboard-head"><div><span class="form-kicker">MONTHLY SPENDING BREAKDOWN</span><h3>Where one person’s retirement budget goes</h3></div><div class="spending-total"><strong id="budget-total">$1,384</strong><span>per person / month</span></div></div>
+            <div class="budget-visual-grid"><div class="budget-breakdown" id="budget-breakdown" role="list" aria-label="Estimated per-member monthly spending by category"></div><aside class="budget-summary-card"><span class="summary-overline">BASELINE SPLIT</span><div><span>Core costs</span><strong id="budget-core-total">$1,232</strong></div><div><span>Other / flexible</span><strong id="budget-flex-total">$152</strong></div><p>Survey values are averages, not recommended spending limits. Add your actual housing, care, health and travel costs.</p></aside></div>
+            <details class="budget-adjust"><summary>Personalise the estimate for my household</summary><form class="budget-form" id="budget-form" aria-label="Edit your monthly retirement budget"><div class="field-grid">
+              <div class="field"><label for="budget-housing">Housing, utilities & maintenance</label><div class="input-wrap"><span>$</span><input id="budget-housing" data-budget="Housing, utilities & maintenance" type="number" min="0" step="25" value="329"></div></div>
+              <div class="field"><label for="budget-food">Food and meals out</label><div class="input-wrap"><span>$</span><input id="budget-food" data-budget="Food and meals out" type="number" min="0" step="25" value="362"></div></div>
+              <div class="field"><label for="budget-health">Healthcare out of pocket</label><div class="input-wrap"><span>$</span><input id="budget-health" data-budget="Healthcare out of pocket" type="number" min="0" step="25" value="222"></div></div>
+              <div class="field"><label for="budget-transport">Transport</label><div class="input-wrap"><span>$</span><input id="budget-transport" data-budget="Transport" type="number" min="0" step="25" value="124"></div></div>
+              <div class="field"><label for="budget-insurance">Insurance, finance & misc.</label><div class="input-wrap"><span>$</span><input id="budget-insurance" data-budget="Insurance, finance & misc." type="number" min="0" step="25" value="195"></div><small>SingStat groups these together; this is not insurance premiums alone.</small></div>
+              <div class="field"><label for="budget-comms">Phone and communications</label><div class="input-wrap"><span>$</span><input id="budget-comms" data-budget="Phone and communications" type="number" min="0" step="10" value="55"></div></div>
+              <div class="field"><label for="budget-recreation">Recreation and social life</label><div class="input-wrap"><span>$</span><input id="budget-recreation" data-budget="Recreation and social life" type="number" min="0" step="10" value="69"></div></div>
+              <div class="field"><label for="budget-other">Clothing and other</label><div class="input-wrap"><span>$</span><input id="budget-other" data-budget="Clothing and other" type="number" min="0" step="10" value="28"></div></div>
+            </div><p class="form-disclaimer">Category amounts are household survey averages scaled to the per-member benchmark, so shared bills are only a starting estimate. The survey total excludes imputed rent; the housing line is an approximate cash adjustment. Replace these values with your own rent or mortgage, insurance, health and care costs.</p></form></details>
+            <div class="dashboard-footnote"><span class="source-dot" aria-hidden="true"></span><span>SingStat 2023 Household Expenditure Survey · per-member equivalent · older household benchmark</span></div>
           </div>
-
-          <div class="stream-map" aria-label="Retirement plan map: money flows into two separate streams">
-            <div class="map-source"><span class="source-icon" aria-hidden="true">$</span><strong>Retirement money</strong><small>One total does not mean one product.</small></div>
-            <div class="map-line map-line-top" aria-hidden="true"></div>
-            <div class="map-line map-line-bottom" aria-hidden="true"></div>
-            <div class="stream-card stream-card-income" id="income-stream">
-              <div class="stream-card-head"><span class="stream-label">STREAM 01</span><span class="stream-badge">Monthly</span></div>
-              <div class="stream-title-row"><div class="stream-icon" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M5 23h22M8 19V9m8 10V5m8 14v-7"/><path d="M5 25h22"/></svg></div><h3>Income floor</h3></div>
-              <p>Money for recurring needs: food, utilities, transport, healthcare and rent.</p>
-              <div class="stream-equation" aria-label="Essential monthly costs minus dependable income equals the income gap"><span>Essential monthly costs</span><b>−</b><span>Dependable income</span><b>=</b><strong>Income gap</strong></div>
-              <div class="stream-rule"></div>
-              <ul class="plain-list"><li><span class="list-check" aria-hidden="true">✓</span> Start with essential bills and your CPF LIFE estimate.</li><li><span class="list-check" aria-hidden="true">✓</span> Check which income lasts for life and which ends on a set date.</li><li><span class="list-check" aria-hidden="true">✓</span> Treat non-guaranteed bonuses as extra, not as the floor.</li></ul>
-              <a class="text-link dark-link" href="#retirement-plan">See the monthly gap <span aria-hidden="true">→</span></a>
-            </div>
-            <div class="stream-card stream-card-liquid" id="liquid-stream">
-              <div class="stream-card-head"><span class="stream-label">STREAM 02</span><span class="stream-badge">Flexible</span></div>
-              <div class="stream-title-row"><div class="stream-icon" aria-hidden="true"><svg viewBox="0 0 32 32"><rect x="4" y="8" width="24" height="17" rx="2"/><path d="M4 13h24M9 20h7"/><circle cx="23" cy="20" r="2"/></svg></div><h3>Freedom bucket</h3></div>
-              <p>Money for large or unexpected costs without breaking the income plan.</p>
-              <div class="stream-equation" aria-label="Emergency reserve plus known upcoming costs equals the accessible cash target"><span>Emergency reserve</span><b>+</b><span>Known upcoming costs</span><b>=</b><strong>Cash target</strong></div>
-              <div class="stream-rule"></div>
-              <ul class="plain-list"><li><span class="list-check" aria-hidden="true">✓</span> Keep emergency and near-term spending money accessible.</li><li><span class="list-check" aria-hidden="true">✓</span> Invest only money you can leave alone through market falls.</li><li><span class="list-check" aria-hidden="true">✓</span> Use a mix you can explain and review once a year.</li></ul>
-              <a class="text-link dark-link" href="#later-life">Plan the drawdown <span aria-hidden="true">→</span></a>
-            </div>
-          </div>
-          <div class="callout callout-teal"><span class="callout-icon" aria-hidden="true">i</span><p><strong>Size each bucket from your own bills and dates.</strong> There is no universal cash-reserve number. Keep upcoming costs accessible; invest only money you can leave untouched through a downturn.</p></div>
         </div>
       </section>
 
@@ -137,9 +103,9 @@
             <form id="plan-form" class="card-surface planner-form">
               <h3>Your starting point</h3>
               <div class="field-grid">
-                <div class="field"><label for="plan-age">Your age</label><div class="input-wrap"><input id="plan-age" type="number" min="18" max="90" value="35"></div></div>
+                <div class="field"><label for="plan-age">Your age today</label><div class="input-wrap"><input id="plan-age" type="number" min="18" max="90" value="35"></div></div>
                 <div class="field"><label for="plan-retire-age">Age you want to retire</label><div class="input-wrap"><input id="plan-retire-age" type="number" min="40" max="100" value="65"></div></div>
-                <div class="field"><label for="plan-cpf">Estimated CPF LIFE income / month</label><div class="input-wrap"><span>$</span><input id="plan-cpf" type="number" min="0" step="50" value="1780"></div><small>Use your personalised CPF estimate; change the example.</small></div>
+                <div class="field"><label for="plan-cpf">CPF LIFE payout at retirement / month</label><div class="input-wrap"><span>$</span><input id="plan-cpf" type="number" min="0" step="50" value="0"></div><small>Enter your own estimate from CPF’s retirement payout planner.</small></div>
                 <div class="field"><label for="plan-other-income">Other steady income / month</label><div class="input-wrap"><span>$</span><input id="plan-other-income" type="number" min="0" step="50" value="0"></div><small>For example, rent after costs or a pension.</small></div>
                 <div class="field"><label for="plan-savings">Investments for retirement today</label><div class="input-wrap"><span>$</span><input id="plan-savings" type="number" min="0" step="1000" value="50000"></div><small>Exclude your home and emergency cash.</small></div>
                 <div class="field"><label for="plan-years">Years to fund from investments</label><div class="input-wrap"><input id="plan-years" type="number" min="1" max="60" value="25"><span class="input-suffix">years</span></div><small>CPF LIFE is lifelong; this portfolio estimate is not.</small></div>
@@ -148,7 +114,7 @@
                   <div class="field"><label for="plan-return">Annual investment return before retirement</label><div class="input-wrap"><input id="plan-return" type="number" min="0" max="15" step="0.1" value="4"><span class="input-suffix">%</span></div><small>Illustration only; not guaranteed.</small></div>
                 </div></details>
               </div>
-              <p class="form-disclaimer">The monthly budget above feeds into this estimate. Set your actual CPF LIFE amount using CPF’s official planner before making decisions.</p>
+              <p class="form-disclaimer">The monthly budget above feeds into this estimate. <a href="https://www.cpf.gov.sg/member/tools-and-services/calculators" target="_blank" rel="noreferrer">Get your CPF payout estimate from CPF ↗</a></p>
             </form>
             <div class="planner-results" aria-live="polite" aria-atomic="true">
               <article class="result-card result-card-main"><span class="form-kicker">AT YOUR RETIREMENT AGE</span><h3>Your monthly picture</h3>
@@ -161,7 +127,7 @@
               <p class="result-caveat">Scenario estimate, not a forecast. It assumes a steady return before retirement and a level, inflation-adjusted withdrawal for the selected period. Fees, taxes, market sequence and longevity beyond that period can change the result.</p>
             </div>
           </div>
-          <div class="action-path" aria-label="Practical retirement planning steps"><h3>Your next four moves</h3><div class="action-path-grid"><article><span>FIRST</span><strong>Clear expensive debt and keep emergency money accessible.</strong><small>Do this before locking cash away or investing money you may need soon.</small></article><article><span>THEN</span><strong>Check CPF balances and get your CPF LIFE estimate.</strong><small>Use the estimate in this calculator; consider top-ups only after checking liquidity, housing and eligibility.</small></article><article><span>NEXT</span><strong>Automate a monthly investment for the remaining gap.</strong><small>Use the saving target above as a scenario to work toward, then adjust it to what you can sustain.</small></article><article><span>AS RETIREMENT NEARS</span><strong>Gradually match near-term withdrawals with cash and bond maturities.</strong><small>Review once a year and avoid making the whole transition on one market date.</small></article></div></div>
+          <div class="action-path" aria-label="Practical retirement planning steps"><h3>Your next four moves</h3><div class="action-path-grid"><article><span>FIRST</span><strong>Clear expensive debt and keep emergency money accessible.</strong><small>Do this before locking cash away or investing money you may need soon.</small></article><article><span>CPF PRIORITY</span><strong>Check your CPF LIFE forecast and eligible retirement sum target.</strong><small>If building CPF first suits your plan, consider eligible top-ups or transfers before extra investing. Check liquidity and housing needs; top-ups are generally hard to reverse.</small></article><article><span>THEN</span><strong>Invest the monthly amount needed for the remaining gap.</strong><small>Use the monthly target above as your starting amount; adjust for fees, risk and what you can sustain.</small></article><article><span>AS RETIREMENT NEARS</span><strong>Gradually match near-term withdrawals with cash and bond maturities.</strong><small>Review once a year and avoid making the whole transition on one market date.</small></article></div></div>
           <details class="payout-options"><summary>How do Endowus / Syfe payouts compare with CPF LIFE?</summary><div class="payout-options-content"><p><strong>CPF LIFE:</strong> lifelong payout with CPF rules and plan choices. <strong>Endowus / Syfe investment payouts:</strong> distributions can vary, portfolio values can fall, and a distribution is not the same as a guaranteed return. Compare fees, payout source, capital impact and what happens in a market downturn.</p><a href="https://www.cpf.gov.sg/member/tools-and-services/calculators" target="_blank" rel="noreferrer">CPF retirement payout tools ↗</a></div></details>
         </div>
       </section>

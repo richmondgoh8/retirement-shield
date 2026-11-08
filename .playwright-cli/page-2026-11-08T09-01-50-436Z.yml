@@ -1,0 +1,622 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - link "Turn on more accessible mode" [ref=e3] [cursor=pointer]:
+      - /url: "#"
+    - generic [ref=e5]:
+      - generic "GOV Website URL" [ref=e6]:
+        - img "GOV Logo" [ref=e7]
+        - paragraph [ref=e8]: A Singapore Government Agency Website
+      - button "How to identify " [ref=e9] [cursor=pointer]:
+        - generic [ref=e10]: How to identify
+        - text: 
+    - generic [ref=e12]:
+      - banner [ref=e13]:
+        - navigation [ref=e15]:
+          - generic [ref=e16]:
+            - link "MOM Website URL" [ref=e17] [cursor=pointer]:
+              - /url: https://mom.gov.sg/
+              - img "MOM LOGO" [ref=e18]
+            - link "MRSD Website URL" [ref=e19] [cursor=pointer]:
+              - /url: /
+              - img "MRSD LOGO" [ref=e20]
+          - link "navbarSupportedContent" [ref=e21] [cursor=pointer]:
+            - /url: "#"
+            - text: 
+          - text:                          
+      - generic [ref=e23]:
+        - generic [ref=e24]:
+          - generic [ref=e27]:
+            - link "Skip Navigation Links":
+              - /url: "#ctl00_PlaceHolderMain_SiteMapPath1_SkipLink"
+              - img "Skip Navigation Links"
+            - link "Labour Market Statistics and Publications" [ref=e29] [cursor=pointer]:
+              - /url: /Pages/homepage.aspx
+            - text: "> Summary Table: Income"
+          - generic [ref=e30]:
+            - generic [ref=e31]: "Summary Table: Income"
+            - generic [ref=e32]: "Released on: 31/8/2026 10:30 AM"
+        - generic [ref=e33]:
+          - generic [ref=e35]:
+            - generic "Page Content" [ref=e36]:
+              - generic [ref=e37]:
+                - paragraph [ref=e38]: Income from employment is a key indicator of economic well-being.
+                - paragraph [ref=e39]:
+                  - text: Gross monthly income from employment is the widest measure of income from employment, covering both employees and the self-employed. For income of a typical worker, look at the
+                  - emphasis [ref=e40]: median
+                  - text: gross monthly income. This is the income in the middle, after the workers are ranked by their income.
+                - paragraph [ref=e41]: The quarterly average monthly earnings (AME) has been replaced with the quarterly average mean gross monthly income (GMI) from employment. The GMI provides broader coverage by including both salaried and self-employed individuals. Unlike the AME, which incorporates bonuses, the GMI excludes them, offering a clearer reflection of actual income trends for short-term comparisons.
+                - paragraph [ref=e42]: The quarterly mean gross monthly income provides a timely gauge of average wage movement. The change in mean gross monthly income (change in income per worker) is a suitable statistic for comparison with the change in labour productivity (change in value-added per worker) as both are expressed on a “per worker” basis.
+                - paragraph [ref=e43]: If you are interested in wage increases that employers give over the year, then look at the annual wage changes. This indicator provides a breakdown of changes in total wages into basic wages and bonuses.
+                - paragraph [ref=e44]: As part of MRSD’s continued commitment to deliver accurate and relevant statistics on the labour market, our data collection processes have undergone an assessment by Ernst and Young Advisory Pte Ltd.
+            - generic [ref=e50]:
+              - paragraph [ref=e51]:
+                - strong [ref=e52]: Gross Monthly Income From Employment
+              - paragraph [ref=e53]
+              - paragraph [ref=e54]:
+                - strong [ref=e55]: Median Gross Monthly Income From Employment (Including Employer/Platform Operator CPF Contributions) of Full-Time Employed Residents
+              - table [ref=e56]:
+                - rowgroup [ref=e57]:
+                  - row "Mid-Year 2015 2016 2017 2018 2019 2020 2021 2022 2023 2024 2025" [ref=e58]:
+                    - columnheader "Mid-Year" [ref=e59]
+                    - columnheader "2015" [ref=e60]
+                    - columnheader "2016" [ref=e61]
+                    - columnheader "2017" [ref=e62]
+                    - columnheader "2018" [ref=e63]
+                    - columnheader "2019" [ref=e64]
+                    - columnheader "2020" [ref=e65]
+                    - columnheader "2021" [ref=e66]
+                    - columnheader "2022" [ref=e67]
+                    - columnheader "2023" [ref=e68]
+                    - columnheader "2024" [ref=e69]
+                    - columnheader "2025" [ref=e70]: "2025"
+                - rowgroup [ref=e71]:
+                  - row "Levels ($) 3,949 4,056 4,232 4,437 4,563 4,534 4,680 5,070 5,197 5,500 5,775" [ref=e72]:
+                    - cell "Levels ($)" [ref=e73]:
+                      - strong [ref=e74]
+                      - text: Levels ($)
+                    - cell "3,949" [ref=e75]
+                    - cell "4,056" [ref=e76]
+                    - cell "4,232" [ref=e77]
+                    - cell "4,437" [ref=e78]
+                    - cell "4,563" [ref=e79]
+                    - cell "4,534" [ref=e80]
+                    - cell "4,680" [ref=e81]
+                    - cell "5,070" [ref=e82]
+                    - cell "5,197" [ref=e83]
+                    - cell "5,500" [ref=e84]
+                    - cell "5,775" [ref=e85]
+              - paragraph [ref=e86]
+              - paragraph [ref=e87]:
+                - strong [ref=e88]: Change in Median Gross Monthly Income From Employment (Including Employer/Platform Operator CPF Contributions) of Full-Time Employed Residents
+              - table [ref=e89]:
+                - rowgroup [ref=e90]:
+                  - row "Annualised Change (% p.a.) Cumulative Change (%)" [ref=e91]:
+                    - columnheader [ref=e92]
+                    - columnheader "Annualised Change (% p.a.)" [ref=e93]
+                    - columnheader "Cumulative Change (%)" [ref=e94]: Cumulative Change (%)
+                  - row "Mid-Year 2015 - 2025 2015 - 2020 2020 - 2025 2015 - 2025 2015 - 2020 2020 - 2025" [ref=e95]:
+                    - columnheader "Mid-Year" [ref=e96]: Mid-Year
+                    - columnheader "2015 - 2025" [ref=e97]: 2015 - 2025
+                    - columnheader "2015 - 2020" [ref=e98]: 2015 - 2020
+                    - columnheader "2020 - 2025" [ref=e99]: 2020 - 2025
+                    - columnheader "2015 - 2025" [ref=e100]: 2015 - 2025
+                    - columnheader "2015 - 2020" [ref=e101]: 2015 - 2020
+                    - columnheader "2020 - 2025" [ref=e102]: 2020 - 2025
+                - rowgroup [ref=e103]:
+                  - row "Nominal 3.9 2.8 5.0 46.2 14.8 27.4" [ref=e104]:
+                    - cell "Nominal" [ref=e105]
+                    - cell "3.9" [ref=e106]: "3.9"
+                    - cell "2.8" [ref=e107]: "2.8"
+                    - cell "5.0" [ref=e108]: "5.0"
+                    - cell "46.2" [ref=e109]: "46.2"
+                    - cell "14.8" [ref=e110]: "14.8"
+                    - cell "27.4" [ref=e111]: "27.4"
+                  - row "Real^ 2.1 2.6 1.6 23.2 13.7 8.3" [ref=e112]:
+                    - cell "Real^" [ref=e113]
+                    - cell "2.1" [ref=e114]: "2.1"
+                    - cell "2.6" [ref=e115]: "2.6"
+                    - cell "1.6" [ref=e116]: "1.6"
+                    - cell "23.2" [ref=e117]: "23.2"
+                    - cell "13.7" [ref=e118]: "13.7"
+                    - cell "8.3" [ref=e119]: "8.3"
+              - paragraph [ref=e120]:
+                - strong [ref=e121]: "Source:"
+                - text: Gross Monthly Income From Employment - Comprehensive Labour Force Survey, Manpower Research & Statistics Department, MOM
+                - strong [ref=e122]: "Latest figures published in:"
+                - link "Labour Force in Singapore" [ref=e123] [cursor=pointer]:
+                  - /url: /Pages/Labour-Force-In-Singapore-2025.aspx
+              - strong [ref=e124]: "Notes:"
+              - list [ref=e126]:
+                - listitem [ref=e127]: Data exclude full-time National Servicemen.
+                - listitem [ref=e128]: Data are for mid-year.
+                - listitem [ref=e129]: Residents refer to Singapore Citizens and Permanent Residents.
+                - listitem [ref=e130]: Gross monthly income from employment refers to income earned from employment. For employees, it refers to the gross monthly wages or salaries before deduction of employee CPF contributions and personal income tax. It comprises basic wages, overtime pay, commissions, tips, other allowances. For self-employed persons, gross monthly income refers to the average monthly profits from their business, trade or profession (i.e. total receipts less business expenses incurred) before deduction of income tax and platform workers’ share of CPF contributions.
+                - listitem [ref=e131]: As data are captured from a sample survey, year-on-year income changes are prone to fluctuations and hence should always be interpreted with caution. Income growth studied over longer periods (e.g. 5 or 10 years) smooths out these fluctuations and hence provides a more direct indication of income growth.
+                - listitem [ref=e132]: Data include one-twelfth of annual bonuses.
+                - listitem [ref=e133]: ^ Deflated by Consumer Price Index (CPI) for all items at 2024 prices (2024 = 100).
+              - generic [ref=e134]:
+                - paragraph [ref=e135]:
+                  - strong
+                - paragraph [ref=e136]:
+                  - strong [ref=e137]: Mean Gross Monthly Income From Employment (Including Employer/Platform Operator CPF Contributions and excluding bonus) of Employed Residents
+                - table [ref=e138]:
+                  - rowgroup [ref=e139]:
+                    - row "1Q 2023 2Q 2023 3Q 2023 4Q 2023 1Q 2024 2Q 2024 3Q 2024 4Q 2024 1Q 2025 2Q 2025 3Q 2025 4Q 2025 1Q 2026 2Q 2026P" [ref=e140]:
+                      - columnheader [ref=e141]
+                      - columnheader "1Q 2023" [ref=e142]: 1Q 2023
+                      - columnheader "2Q 2023" [ref=e143]: 2Q 2023
+                      - columnheader "3Q 2023" [ref=e144]: 3Q 2023
+                      - columnheader "4Q 2023" [ref=e145]: 4Q 2023
+                      - columnheader "1Q 2024" [ref=e146]: 1Q 2024
+                      - columnheader "2Q 2024" [ref=e147]: 2Q 2024
+                      - columnheader "3Q 2024" [ref=e148]: 3Q 2024
+                      - columnheader "4Q 2024" [ref=e149]: 4Q 2024
+                      - columnheader "1Q 2025" [ref=e150]: 1Q 2025
+                      - columnheader "2Q 2025" [ref=e151]:
+                        - text: 2Q 2025
+                        - superscript
+                      - columnheader "3Q 2025" [ref=e152]:
+                        - text: 3Q 2025
+                        - superscript
+                      - columnheader "4Q 2025" [ref=e153]:
+                        - text: 4Q 2025
+                        - superscript
+                      - columnheader "1Q 2026" [ref=e154]:
+                        - text: 1Q 2026
+                        - superscript
+                      - columnheader "2Q 2026P" [ref=e155]:
+                        - text: 2Q 2026
+                        - superscript [ref=e156]: P
+                  - rowgroup [ref=e157]:
+                    - row "Levels ($) 5,680 5,750 5,863 6,027 6,090 6,107 6,138 6,113 6,282 6,390 6,429 6,442 6,593 6,605" [ref=e158]:
+                      - cell "Levels ($)" [ref=e159]:
+                        - strong [ref=e160]
+                        - text: Levels ($)
+                      - cell "5,680" [ref=e161]: 5,680
+                      - cell "5,750" [ref=e162]: 5,750
+                      - cell "5,863" [ref=e163]: 5,863
+                      - cell "6,027" [ref=e164]: 6,027
+                      - cell "6,090" [ref=e165]: 6,090
+                      - cell "6,107" [ref=e166]: 6,107
+                      - cell "6,138" [ref=e167]: 6,138
+                      - cell "6,113" [ref=e168]: 6,113
+                      - cell "6,282" [ref=e169]: 6,282
+                      - cell "6,390" [ref=e170]: 6,390
+                      - cell "6,429" [ref=e171]: 6,429
+                      - cell "6,442" [ref=e172]: 6,442
+                      - cell "6,593" [ref=e173]: 6,593
+                      - cell "6,605" [ref=e174]: 6,605
+                - paragraph [ref=e175]
+                - paragraph [ref=e176]:
+                  - strong [ref=e177]: Change in Mean Gross Monthly Income From Employment (Including Employer/Platform Operator CPF Contributions and excluding bonus) of Employed Residents
+                - table [ref=e178]:
+                  - rowgroup [ref=e179]:
+                    - row "1Q 2023 to 1Q 2024 2Q 2023 to 2Q 2024 3Q 2023 to 3Q 2024 4Q 2023 to 4Q 2024 1Q 2024 to 1Q 2025 2Q 2024 to 2Q 2025 3Q 2024 to 3Q 2025 4Q 2024 to 4Q 2025 1Q 2025 to 1Q 2026 2Q 2025 to 2Q 2026P" [ref=e180]:
+                      - columnheader [ref=e181]
+                      - columnheader "1Q 2023 to 1Q 2024" [ref=e182]:
+                        - text: 1Q 2023 to
+                        - text: 1Q 2024
+                      - columnheader "2Q 2023 to 2Q 2024" [ref=e183]:
+                        - text: 2Q 2023 to
+                        - text: 2Q 2024
+                      - columnheader "3Q 2023 to 3Q 2024" [ref=e184]:
+                        - text: 3Q 2023 to
+                        - text: 3Q 2024
+                      - columnheader "4Q 2023 to 4Q 2024" [ref=e185]:
+                        - text: 4Q 2023 to
+                        - text: 4Q 2024
+                      - columnheader "1Q 2024 to 1Q 2025" [ref=e186]:
+                        - text: 1Q 2024 to
+                        - text: 1Q 2025
+                      - columnheader "2Q 2024 to 2Q 2025" [ref=e187]:
+                        - text: 2Q 2024 to
+                        - text: 2Q 2025
+                        - superscript
+                      - columnheader "3Q 2024 to 3Q 2025" [ref=e188]:
+                        - text: 3Q 2024 to
+                        - text: 3Q 2025
+                        - superscript
+                      - columnheader "4Q 2024 to 4Q 2025" [ref=e189]:
+                        - text: 4Q 2024 to
+                        - text: 4Q 2025
+                        - superscript
+                      - columnheader "1Q 2025 to 1Q 2026" [ref=e190]:
+                        - text: 1Q 2025 to
+                        - text: 1Q 2026
+                        - superscript
+                      - columnheader "2Q 2025 to 2Q 2026P" [ref=e191]:
+                        - text: 2Q 2025 to
+                        - text: 2Q 2026
+                        - superscript [ref=e192]: P
+                  - rowgroup [ref=e193]:
+                    - row "Nominal 7.2% 6.2% 4.7% 1.4% 3.1% 4.6% 4.7% 5.4% 5.0% 3.4%" [ref=e194]:
+                      - cell "Nominal" [ref=e195]: Nominal
+                      - cell "7.2%" [ref=e196]: 7.2%
+                      - cell "6.2%" [ref=e197]: 6.2%
+                      - cell "4.7%" [ref=e198]: 4.7%
+                      - cell "1.4%" [ref=e199]: 1.4%
+                      - cell "3.1%" [ref=e200]: 3.1%
+                      - cell "4.6%" [ref=e201]: 4.6%
+                      - cell "4.7%" [ref=e202]: 4.7%
+                      - cell "5.4%" [ref=e203]: 5.4%
+                      - cell "5.0%" [ref=e204]: 5.0%
+                      - cell "3.4%" [ref=e205]: 3.4%
+                    - row "Real^ 3.9% 3.4% 2.5% 0.0% 2.1% 3.8% 4.2% 4.1% 3.5% 1.5%" [ref=e206]:
+                      - cell "Real^" [ref=e207]: Real^
+                      - cell "3.9%" [ref=e208]: 3.9%
+                      - cell "3.4%" [ref=e209]: 3.4%
+                      - cell "2.5%" [ref=e210]: 2.5%
+                      - cell "0.0%" [ref=e211]: 0.0%
+                      - cell "2.1%" [ref=e212]: 2.1%
+                      - cell "3.8%" [ref=e213]: 3.8%
+                      - cell "4.2%" [ref=e214]: 4.2%
+                      - cell "4.1%" [ref=e215]: 4.1%
+                      - cell "3.5%" [ref=e216]: 3.5%
+                      - cell "1.5%" [ref=e217]: 1.5%
+                - paragraph [ref=e219]:
+                  - strong [ref=e220]: "Source:"
+                  - text: Labour Force Survey, Manpower Research & Statistics Department, MOM
+                - paragraph [ref=e222]:
+                  - strong [ref=e223]: "Notes:"
+                - generic [ref=e224]:
+                  - generic [ref=e225]:
+                    - list [ref=e226]:
+                      - listitem [ref=e227]: Data exclude full-time National Servicemen.
+                      - listitem [ref=e228]: Residents refer to Singapore Citizens and Permanent Residents.
+                      - listitem [ref=e229]: Gross monthly income from employment refers to income earned from employment. For employees, it refers to the gross monthly wages or salaries before deduction of employee CPF contributions and personal income tax. It comprises basic wages, overtime pay, commissions, tips, other allowances. For self-employed persons, gross monthly income refers to the average monthly profits from their business, trade or profession (i.e. total receipts less business expenses incurred) before deduction of income tax and platform workers’ share of CPF contributions.
+                      - listitem [ref=e230]: When studying the change in mean gross monthly income of any quarter, it would be more meaningful to compare it with the same quarter of prior years, so as to limit seasonal variations that mask the underlying actual trend in income.
+                      - listitem [ref=e231]: ^ Deflated by Consumer Price Index (CPI) for all items at 2024 prices (2024 = 100).
+                      - listitem [ref=e232]: p = preliminary
+                    - paragraph [ref=e233]
+                  - generic [ref=e234]:
+                    - paragraph [ref=e235]:
+                      - strong
+                    - paragraph [ref=e236]:
+                      - strong [ref=e237]: "More links:"
+                    - generic [ref=e238]:
+                      - list [ref=e239]:
+                        - listitem [ref=e240]:
+                          - link "Income Statistical Table(s)" [ref=e241] [cursor=pointer]:
+                            - /url: /Pages/IncomeTimeSeries.aspx
+                        - listitem [ref=e242]:
+                          - link "Income Concepts and Definitions" [ref=e243] [cursor=pointer]:
+                            - /url: /SL/Pages/Income-Introduction.aspx
+                        - listitem [ref=e244]:
+                          - link "Related Releases" [ref=e245] [cursor=pointer]:
+                            - /url: /Pages/Income-Summary-Table.aspx#divRltdRls
+                        - listitem [ref=e246]:
+                          - link "Video(s) on Related Statistical Concepts" [ref=e247] [cursor=pointer]:
+                            - /url: /Pages/Income-Summary-Table.aspx#dvStatVideo
+                      - paragraph [ref=e248]:
+                        - strong
+                  - paragraph [ref=e249]:
+                    - strong [ref=e250]: Annual Wage Changes
+                  - table [ref=e251]:
+                    - rowgroup [ref=e252]:
+                      - row "2015 2016 2017 2018 2019 2020 2021 2022 2023 2024 2025" [ref=e253]:
+                        - columnheader [ref=e254]
+                        - columnheader "2015" [ref=e255]
+                        - columnheader "2016" [ref=e256]
+                        - columnheader "2017" [ref=e257]
+                        - columnheader "2018" [ref=e258]
+                        - columnheader "2019" [ref=e259]
+                        - columnheader "2020" [ref=e260]
+                        - columnheader "2021" [ref=e261]
+                        - columnheader "2022" [ref=e262]
+                        - columnheader "2023" [ref=e263]: "2023"
+                        - columnheader "2024" [ref=e264]
+                        - columnheader "2025" [ref=e265]
+                    - rowgroup [ref=e266]:
+                      - row "Total Wage Change Including Employer CPF Contributions (%)" [ref=e267]:
+                        - rowheader "Total Wage Change Including Employer CPF Contributions (%)" [ref=e268]:
+                          - strong [ref=e269]:
+                            - text: Total Wage Change Including Employer
+                            - text: CPF Contributions (%)
+                        - cell [ref=e270]
+                        - cell [ref=e271]
+                        - cell [ref=e272]
+                        - cell [ref=e273]
+                        - cell [ref=e274]
+                        - cell [ref=e275]
+                        - cell [ref=e276]
+                        - cell [ref=e277]
+                        - cell [ref=e278]
+                        - cell [ref=e279]
+                        - cell [ref=e280]
+                      - row [ref=e281]:
+                        - rowheader [ref=e282]:
+                          - strong [ref=e283]
+                        - cell [ref=e284]
+                        - cell [ref=e285]
+                        - cell [ref=e286]
+                        - cell [ref=e287]
+                        - cell [ref=e288]
+                        - cell [ref=e289]
+                        - cell [ref=e290]
+                        - cell [ref=e291]
+                        - cell [ref=e292]
+                        - cell [ref=e293]
+                        - cell [ref=e294]
+                      - row "Nominal 4.9 3.1 3.8 4.6 3.9 1.2 3.9 6.5 5.2 5.6 4.9" [ref=e295]:
+                        - rowheader "Nominal" [ref=e296]:
+                          - strong [ref=e297]
+                          - text: Nominal
+                        - cell "4.9" [ref=e298]
+                        - cell "3.1" [ref=e299]
+                        - cell "3.8" [ref=e300]
+                        - cell "4.6" [ref=e301]
+                        - cell "3.9" [ref=e302]
+                        - cell "1.2" [ref=e303]
+                        - cell "3.9" [ref=e304]: "3.9"
+                        - cell "6.5" [ref=e305]
+                        - cell "5.2" [ref=e306]
+                        - cell "5.6" [ref=e307]
+                        - cell "4.9" [ref=e308]
+                      - row "Real^ 5.4 3.6 3.2 4.2 3.3 1.4 1.6 0.4 0.4 3.2 4.0" [ref=e309]:
+                        - rowheader "Real^" [ref=e310]:
+                          - strong [ref=e312]: Real^
+                        - cell "5.4" [ref=e313]
+                        - cell "3.6" [ref=e314]
+                        - cell "3.2" [ref=e315]
+                        - cell "4.2" [ref=e316]
+                        - cell "3.3" [ref=e317]
+                        - cell "1.4" [ref=e318]
+                        - cell "1.6" [ref=e319]: "1.6"
+                        - cell "0.4" [ref=e320]
+                        - cell "0.4" [ref=e321]
+                        - cell "3.2" [ref=e322]
+                        - cell "4.0" [ref=e323]
+                      - row [ref=e324]:
+                        - columnheader [ref=e325]
+                        - cell [ref=e326]
+                        - cell [ref=e327]
+                        - cell [ref=e328]
+                        - cell [ref=e329]
+                        - cell [ref=e330]
+                        - cell [ref=e331]
+                        - cell [ref=e332]
+                        - cell [ref=e333]
+                        - cell [ref=e334]
+                        - cell [ref=e335]
+                        - cell [ref=e336]
+                      - row "Basic Wage Change (%)" [ref=e337]:
+                        - rowheader "Basic Wage Change (%)" [ref=e338]:
+                          - strong [ref=e339]: Basic Wage Change (%)
+                        - cell [ref=e340]
+                        - cell [ref=e341]
+                        - cell [ref=e342]
+                        - cell [ref=e343]
+                        - cell [ref=e344]
+                        - cell [ref=e345]
+                        - cell [ref=e346]
+                        - cell [ref=e347]
+                        - cell [ref=e348]
+                        - cell [ref=e349]
+                        - cell [ref=e350]
+                      - row [ref=e351]:
+                        - rowheader [ref=e352]
+                        - cell [ref=e353]
+                        - cell [ref=e354]
+                        - cell [ref=e355]
+                        - cell [ref=e356]
+                        - cell [ref=e357]
+                        - cell [ref=e358]
+                        - cell [ref=e359]
+                        - cell [ref=e360]
+                        - cell [ref=e361]
+                        - cell [ref=e362]
+                        - cell [ref=e363]
+                      - row "Nominal 4.2 3.5 3.6 4.0 3.8 2.1 3.2 5.1 5.0 5.0 4.2" [ref=e364]:
+                        - rowheader "Nominal" [ref=e365]: Nominal
+                        - cell "4.2" [ref=e366]
+                        - cell "3.5" [ref=e367]
+                        - cell "3.6" [ref=e368]
+                        - cell "4.0" [ref=e369]
+                        - cell "3.8" [ref=e370]
+                        - cell "2.1" [ref=e371]
+                        - cell "3.2" [ref=e372]: "3.2"
+                        - cell "5.1" [ref=e373]
+                        - cell "5.0" [ref=e374]
+                        - cell "5.0" [ref=e375]
+                        - cell "4.2" [ref=e376]
+                      - row "Real^ 4.7 4.0 3.0 3.6 3.2 2.3 0.9 -1.0 0.2 2.6 3.3" [ref=e377]:
+                        - rowheader "Real^" [ref=e378]
+                        - cell "4.7" [ref=e379]
+                        - cell "4.0" [ref=e380]
+                        - cell "3.0" [ref=e381]
+                        - cell "3.6" [ref=e382]
+                        - cell "3.2" [ref=e383]
+                        - cell "2.3" [ref=e384]
+                        - cell "0.9" [ref=e385]: "0.9"
+                        - cell "-1.0" [ref=e386]
+                        - cell "0.2" [ref=e387]
+                        - cell "2.6" [ref=e388]
+                        - cell "3.3" [ref=e389]
+                      - row [ref=e390]:
+                        - rowheader [ref=e391]
+                        - cell [ref=e392]
+                        - cell [ref=e393]
+                        - cell [ref=e394]
+                        - cell [ref=e395]
+                        - cell [ref=e396]
+                        - cell [ref=e397]
+                        - cell [ref=e398]
+                        - cell [ref=e399]
+                        - cell [ref=e400]
+                        - cell [ref=e401]
+                        - cell [ref=e402]
+                      - row "Bonus Quantum (Months of Basic Wage) 2.17 2.16 2.14 2.06 1.94 1.79 1.84 1.93 1.76 1.83 1.80" [ref=e403]:
+                        - rowheader "Bonus Quantum (Months of Basic Wage)" [ref=e404]:
+                          - strong [ref=e405]: Bonus Quantum (Months of Basic Wage)
+                        - cell "2.17" [ref=e406]
+                        - cell "2.16" [ref=e407]
+                        - cell "2.14" [ref=e408]
+                        - cell "2.06" [ref=e409]
+                        - cell "1.94" [ref=e410]
+                        - cell "1.79" [ref=e411]
+                        - cell "1.84" [ref=e412]: "1.84"
+                        - cell "1.93" [ref=e413]
+                        - cell "1.76" [ref=e414]
+                        - cell "1.83" [ref=e415]
+                        - cell "1.80" [ref=e416]
+                  - paragraph [ref=e417]:
+                    - strong
+                  - paragraph [ref=e418]:
+                    - strong [ref=e419]: Annualised Change in Nominal and Real Wages
+                  - paragraph [ref=e420]:
+                    - strong [ref=e421]: (% p.a.)
+                  - table [ref=e422]:
+                    - rowgroup [ref=e423]:
+                      - row "Nominal Real^" [ref=e424]:
+                        - columnheader [ref=e425]
+                        - columnheader [ref=e426]
+                        - columnheader "Nominal" [ref=e427]: Nominal
+                        - columnheader "Real^" [ref=e428]
+                      - row "Period Total Wage Change (Including Employer CPF) Basic Wage Change Real Total Wage Change (Including Employer CPF) Real Basic Wage Change" [ref=e429]:
+                        - columnheader [ref=e430]
+                        - columnheader "Period" [ref=e431]: Period
+                        - columnheader [ref=e432]
+                        - columnheader [ref=e433]
+                        - columnheader "Total Wage Change (Including Employer CPF)" [ref=e434]:
+                          - text: Total
+                          - text: Wage
+                          - text: Change
+                          - text: (Including
+                          - text: Employer CPF)
+                        - columnheader "Basic Wage Change" [ref=e435]:
+                          - text: Basic
+                          - text: Wage
+                          - text: Change
+                        - columnheader "Real Total Wage Change (Including Employer CPF)" [ref=e436]:
+                          - text: Real Total
+                          - text: Wage
+                          - text: Change
+                          - text: (Including
+                          - text: Employer CPF)
+                        - columnheader "Real Basic Wage Change" [ref=e437]:
+                          - text: Real
+                          - text: Basic
+                          - text: Wage
+                          - text: Change
+                    - rowgroup [ref=e438]:
+                      - row "2015-2025 4.3 3.9 2.5 2.2" [ref=e439]:
+                        - cell [ref=e440]
+                        - rowheader "2015-2025" [ref=e441]: 2015-2025
+                        - columnheader [ref=e442]
+                        - rowheader [ref=e443]
+                        - cell "4.3" [ref=e444]: "4.3"
+                        - cell "3.9" [ref=e445]: "3.9"
+                        - cell "2.5" [ref=e446]: "2.5"
+                        - cell "2.2" [ref=e447]: "2.2"
+                      - row "2015-2020 3.3 3.4 3.1 3.2" [ref=e448]:
+                        - cell [ref=e449]
+                        - rowheader "2015-2020" [ref=e450]: 2015-2020
+                        - cell [ref=e451]
+                        - cell [ref=e452]
+                        - cell "3.3" [ref=e453]: "3.3"
+                        - cell "3.4" [ref=e454]: "3.4"
+                        - cell "3.1" [ref=e455]: "3.1"
+                        - cell "3.2" [ref=e456]: "3.2"
+                      - row "2020-2025 5.2 4.5 1.9 1.2" [ref=e457]:
+                        - cell [ref=e458]
+                        - rowheader "2020-2025" [ref=e459]: 2020-2025
+                        - cell [ref=e460]
+                        - cell [ref=e461]
+                        - cell "5.2" [ref=e462]: "5.2"
+                        - cell "4.5" [ref=e463]: "4.5"
+                        - cell "1.9" [ref=e464]: "1.9"
+                        - cell "1.2" [ref=e465]: "1.2"
+                  - paragraph [ref=e466]:
+                    - strong [ref=e467]: "Source:"
+                    - text: Annual Wage Changes - Survey on Annual Wage Changes, Manpower Research & Statistics Department, MOM
+                  - strong [ref=e468]: "Notes:"
+                  - generic [ref=e469]:
+                    - listitem [ref=e470]: Data pertain to wage increases granted by private sector establishments (with at least 10 employees) to full-time resident employees in continuous employment for at least a year.
+                    - listitem [ref=e471]: Data on bonus quantum for a reference year is collected twice. Once during the reference year and once more a year later to facilitate calculation of total wage changes in the same establishment received by a fixed cohort of employees. This table is based on bonus quantum collected in the reference year.
+                    - listitem [ref=e472]: ^ Deflated by Consumer Price Index (CPI) for all items at 2024 prices (2024 = 100).
+                  - generic [ref=e474]:
+                    - paragraph [ref=e478]:
+                      - strong [ref=e479]: "More links:"
+                    - list [ref=e481]:
+                      - listitem [ref=e482]:
+                        - link "Annual Wage Changes Statistical Table(s)" [ref=e486] [cursor=pointer]:
+                          - /url: /Pages/IncomeTimeSeries.aspx
+                      - listitem [ref=e487]:
+                        - link "Annual Wage Changes Concepts and Definitions" [ref=e488] [cursor=pointer]:
+                          - /url: /SL/Pages/Income-Introduction.aspx
+                      - listitem [ref=e489]:
+                        - link "Related Releases" [ref=e490] [cursor=pointer]:
+                          - /url: /Pages/Income-Summary-Table.aspx#divRltdRls
+                      - listitem [ref=e491]:
+                        - link "Video(s) on Related Statistical Concepts" [ref=e492] [cursor=pointer]:
+                          - /url: /Pages/Income-Summary-Table.aspx#dvStatVideo
+          - generic "Page Content1"
+        - generic [ref=e494]:
+          - generic:
+            - generic "Page Content2"
+          - generic:
+            - generic "Page Content3"
+        - heading "RELATED STATISTICS" [level=4] [ref=e500]
+      - contentinfo [ref=e501]:
+        - text: 
+        - generic [ref=e502]:
+          - img "MOM & MRSD Logo" [ref=e504]
+          - generic [ref=e505]:
+            - paragraph:
+              - link "About Us" [ref=e506] [cursor=pointer]:
+                - /url: /Pages/About-Us.aspx
+            - paragraph [ref=e507]:
+              - link "Subscribe to Our Newsletter" [ref=e508] [cursor=pointer]:
+                - /url: https://go.gov.sg/subscribe-to-mrsd
+          - generic [ref=e509]:
+            - generic [ref=e510]:
+              - paragraph [ref=e511]:
+                - link "Contact Us" [ref=e512] [cursor=pointer]:
+                  - /url: /Pages/Contact-Us.aspx
+              - paragraph [ref=e513]:
+                - link "Feedback" [ref=e514] [cursor=pointer]:
+                  - /url: https://go.gov.sg/statshare-feedback
+            - generic [ref=e515]:
+              - link "Singapore Ministry of Manpower" [ref=e516] [cursor=pointer]:
+                - /url: https://www.facebook.com/sgministryofmanpower
+                - img "Facebook" [ref=e517]
+              - link "MOM Twitter URL" [ref=e518] [cursor=pointer]:
+                - /url: https://twitter.com/mom_sg
+                - img "Twitter" [ref=e519]
+              - link "MOM LinkedIn URL" [ref=e520] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/ministry-of-manpower/
+                - img "LinkedIn" [ref=e521]
+        - generic [ref=e522]:
+          - paragraph [ref=e523]:
+            - link "Report Vulnerability" [ref=e524] [cursor=pointer]:
+              - /url: https://www.tech.gov.sg/report_vulnerability
+              - text: Report Vulnerability
+              - generic [ref=e525]: 
+          - paragraph [ref=e526]:
+            - link "Privacy Statement" [ref=e527] [cursor=pointer]:
+              - /url: http://www.mom.gov.sg/privacy-statement
+          - paragraph [ref=e528]:
+            - link "Terms of Use" [ref=e529] [cursor=pointer]:
+              - /url: http://www.mom.gov.sg/terms-of-use
+          - paragraph [ref=e530]:
+            - link "Share your views @ Reach" [ref=e531] [cursor=pointer]:
+              - /url: https://www.reach.gov.sg/
+              - text: Share your views @ Reach
+              - generic [ref=e532]: 
+          - paragraph [ref=e533]:
+            - link "Supported browsers" [ref=e534] [cursor=pointer]:
+              - /url: /Pages/supported-browsers.aspx
+        - generic [ref=e536]:
+          - paragraph [ref=e537]:
+            - text: ©
+            - generic [ref=e538]: "2026"
+            - text: Government of Singapore
+          - paragraph [ref=e539]:
+            - paragraph [ref=e541]: "Last updated: 31 Aug 2026"
+          - paragraph
+  - link "MOM Share button" [ref=e543] [cursor=pointer]:
+    - /url: "#"
+  - generic [ref=e544]:
+    - button "AA" [ref=e546] [cursor=pointer]
+    - button "print-button" [ref=e547] [cursor=pointer]:
+      - generic [ref=e548]: 

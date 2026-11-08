@@ -1,0 +1,5 @@
+[      83ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://www.singstat.gov.sg/-/media/files/publications/households/hes2023.ashx:0
+[     874ms] [LOG] [2026-11-08T17:02:04+08:00] VICA 3.0 Version: v1.29.0 @ https://webchat.vica.gov.sg/static/js/chat.js:0
+[     971ms] [WARNING] Leonardo: `colorspace` is deprecated. Use `colorSpace` instead. @ https://webchat.vica.gov.sg/static/js/chat.js:0
+[     973ms] [WARNING] Leonardo: `colorspace` is deprecated. Use `colorSpace` instead. @ https://webchat.vica.gov.sg/static/js/chat.js:0
+[     989ms] [WARNING] Leonardo: `colorspace` is deprecated. Use `colorSpace` instead. @ https://webchat.vica.gov.sg/static/js/chat.js:0

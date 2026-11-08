@@ -1,0 +1,4 @@
+[    1054ms] [LOG] [2026-11-08T17:01:52+08:00] VICA 3.0 Version: v1.29.0 @ https://webchat.vica.gov.sg/static/js/chat.js:0
+[    1152ms] [WARNING] Leonardo: `colorspace` is deprecated. Use `colorSpace` instead. @ https://webchat.vica.gov.sg/static/js/chat.js:0
+[    1154ms] [WARNING] Leonardo: `colorspace` is deprecated. Use `colorSpace` instead. @ https://webchat.vica.gov.sg/static/js/chat.js:0
+[    1171ms] [WARNING] Leonardo: `colorspace` is deprecated. Use `colorSpace` instead. @ https://webchat.vica.gov.sg/static/js/chat.js:0

@@ -1,0 +1,332 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "Retirement Shield home" [ref=e5] [cursor=pointer]:
+        - /url: "#top"
+        - img [ref=e7]
+        - generic [ref=e10]:
+          - text: Retirement
+          - strong [ref=e11]: Shield
+      - navigation "Primary navigation" [ref=e12]:
+        - link "Monthly budget" [ref=e13] [cursor=pointer]:
+          - /url: "#retirement-budget"
+        - link "Make a plan" [ref=e14] [cursor=pointer]:
+          - /url: "#retirement-plan"
+        - link "CPF" [ref=e15] [cursor=pointer]:
+          - /url: "#cpf-planner"
+        - link "Drawdown" [ref=e16] [cursor=pointer]:
+          - /url: "#later-life"
+      - generic [ref=e17]:
+        - generic [ref=e20]: Works offline
+        - link "My plan" [ref=e21] [cursor=pointer]:
+          - /url: "#retirement-plan"
+  - main [ref=e22]:
+    - region "How much will you need each month?" [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - paragraph [ref=e26]: Singapore retirement decisions, in plain English
+          - heading "How much will you need each month?" [level=1] [ref=e28]
+          - paragraph [ref=e29]: Start with a real Singapore spending benchmark. Build your own monthly budget, subtract CPF LIFE and other steady income, then see the gap your savings need to cover.
+          - generic [ref=e30]:
+            - link "Build my monthly budget" [ref=e31] [cursor=pointer]:
+              - /url: "#retirement-budget"
+              - text: Build my monthly budget
+              - generic [ref=e32]: ↘
+            - link "See how to close the gap" [ref=e33] [cursor=pointer]:
+              - /url: "#retirement-plan"
+              - text: See how to close the gap
+              - generic [ref=e34]: →
+          - paragraph [ref=e35]:
+            - generic [ref=e36]: ✓
+            - text: One monthly target. One income gap. A plan you can update.
+        - generic "A visual showing retirement money split into an income stream and a liquid stream" [ref=e37]:
+          - generic [ref=e38]:
+            - generic [ref=e39]:
+              - generic [ref=e40]: YOUR MONTHLY PLAN
+              - generic [ref=e41]: $
+            - paragraph [ref=e42]: What has to come in every month?
+            - generic [ref=e43]:
+              - generic [ref=e44]:
+                - generic [ref=e45]: "01"
+                - strong [ref=e46]: Budget
+                - generic [ref=e47]: Monthly costs
+              - generic [ref=e48]:
+                - generic [ref=e49]: "02"
+                - strong [ref=e50]: Income
+                - generic [ref=e51]: CPF LIFE + more
+              - generic [ref=e52]:
+                - generic [ref=e53]: "03"
+                - strong [ref=e54]: Gap
+                - generic [ref=e55]: Plan the rest
+            - generic [ref=e58]: Make the gap visible
+            - paragraph [ref=e60]: Use your expenses and actual CPF estimate to set the target.
+    - region "Start with a monthly number you can see." [ref=e63]:
+      - generic [ref=e64]:
+        - generic [ref=e65]:
+          - generic [ref=e66]:
+            - paragraph [ref=e67]: Singapore retirement spending dashboard
+            - heading "Start with a monthly number you can see." [level=2] [ref=e69]
+          - paragraph [ref=e70]: The national retirement-specific survey gives us a useful baseline. Compare it with a worker-income benchmark for context, then adjust the spending estimate to fit your household.
+        - generic "Singapore income and retirement spending benchmarks" [ref=e71]:
+          - article [ref=e72]:
+            - text: OLDER HOUSEHOLD SPENDING · 2023
+            - strong [ref=e73]: $2,349
+            - text: per month · average household
+            - paragraph [ref=e74]:
+              - text: $1,384 per household member
+              - text: Households made up only of non-employed people aged 65+.
+            - link "SingStat Household Expenditure Survey ↗" [ref=e75] [cursor=pointer]:
+              - /url: https://www.singstat.gov.sg/publication-resources/report-on-the-household-expenditure-survey-2023
+          - article [ref=e76]:
+            - text: WORKING INCOME CONTEXT · 2025
+            - strong [ref=e77]: $5,775
+            - text: per month · median gross income
+            - paragraph [ref=e78]:
+              - text: Full-time employed residents
+              - text: Includes employer CPF contributions; this is not take-home pay or a retirement target.
+            - link "MOM income summary ↗" [ref=e79] [cursor=pointer]:
+              - /url: https://stats.mom.gov.sg/Pages/Income-Summary-Table.aspx
+          - generic [ref=e80]:
+            - text: i
+            - paragraph [ref=e81]:
+              - strong [ref=e82]: "Two different reference points:"
+              - text: retirement spending is a household survey average; worker income is an individual median. Use them as context, not a direct one-to-one comparison.
+        - generic [ref=e83]:
+          - generic [ref=e84]:
+            - generic [ref=e85]:
+              - text: MONTHLY SPENDING BREAKDOWN
+              - heading "Where the retirement budget goes" [level=3] [ref=e86]
+            - generic [ref=e87]:
+              - strong [ref=e88]: $2,349
+              - text: household / month
+          - generic [ref=e89]:
+            - list "Average monthly household spending by category" [ref=e90]:
+              - listitem [ref=e91]:
+                - generic [ref=e92]: Housing, utilities & maintenance
+                - strong [ref=e95]: $558
+              - listitem [ref=e96]:
+                - generic [ref=e97]: Food and meals out
+                - strong [ref=e100]: $615
+              - listitem [ref=e101]:
+                - generic [ref=e102]: Healthcare out of pocket
+                - strong [ref=e105]: $377
+              - listitem [ref=e106]:
+                - generic [ref=e107]: Transport
+                - strong [ref=e110]: $211
+              - listitem [ref=e111]:
+                - generic [ref=e112]: Insurance, finance & misc.
+                - strong [ref=e115]: $331
+              - listitem [ref=e116]:
+                - generic [ref=e117]: Phone and communications
+                - strong [ref=e120]: $94
+              - listitem [ref=e121]:
+                - generic [ref=e122]: Recreation and social life
+                - strong [ref=e125]: $117
+              - listitem [ref=e126]:
+                - generic [ref=e127]: Clothing and other
+                - strong [ref=e130]: $46
+            - complementary [ref=e131]:
+              - text: BASELINE SPLIT
+              - generic [ref=e132]:
+                - text: Core costs
+                - strong [ref=e133]: $2,092
+              - generic [ref=e134]:
+                - text: Other / flexible
+                - strong [ref=e135]: $257
+              - paragraph [ref=e136]: Survey values are averages, not recommended spending limits. Add your actual housing, care, health and travel costs.
+          - group [ref=e137]:
+            - generic "Personalise the estimate for my household" [ref=e138]
+          - generic [ref=e139]: SingStat 2023 Household Expenditure Survey · 2023 dollars · older household benchmark
+    - region "How much must your savings cover?" [ref=e140]:
+      - generic [ref=e141]:
+        - generic [ref=e142]:
+          - generic [ref=e143]:
+            - paragraph [ref=e144]: Turn the target into a plan
+            - heading "How much must your savings cover?" [level=2] [ref=e146]
+          - paragraph [ref=e147]: Use your own CPF LIFE estimate and savings. The calculator inflates today’s budget to retirement, estimates the portfolio needed for a chosen drawdown period, and works back to a monthly saving target.
+        - generic [ref=e148]:
+          - generic [ref=e149]:
+            - heading "Your starting point" [level=3] [ref=e150]
+            - generic [ref=e151]:
+              - generic [ref=e152]:
+                - generic [ref=e153]: Your age
+                - spinbutton "Your age" [ref=e155]: "35"
+              - generic [ref=e156]:
+                - generic [ref=e157]: Age you want to retire
+                - spinbutton "Age you want to retire" [ref=e159]: "65"
+              - generic [ref=e160]:
+                - generic [ref=e161]: Estimated CPF LIFE income / month
+                - generic [ref=e162]:
+                  - generic [ref=e163]: $
+                  - spinbutton "Estimated CPF LIFE income / month" [ref=e164]: "1780"
+                - generic [ref=e165]: Use your personalised CPF estimate; change the example.
+              - generic [ref=e166]:
+                - generic [ref=e167]: Other steady income / month
+                - generic [ref=e168]:
+                  - generic [ref=e169]: $
+                  - spinbutton "Other steady income / month" [ref=e170]: "0"
+                - generic [ref=e171]: For example, rent after costs or a pension.
+              - generic [ref=e172]:
+                - generic [ref=e173]: Investments for retirement today
+                - generic [ref=e174]:
+                  - generic [ref=e175]: $
+                  - spinbutton "Investments for retirement today" [ref=e176]: "50000"
+                - generic [ref=e177]: Exclude your home and emergency cash.
+              - generic [ref=e178]:
+                - generic [ref=e179]: Years to fund from investments
+                - generic [ref=e180]:
+                  - spinbutton "Years to fund from investments" [ref=e181]: "25"
+                  - generic [ref=e182]: years
+                - generic [ref=e183]: CPF LIFE is lifelong; this portfolio estimate is not.
+              - group [ref=e184]:
+                - generic "Adjust the assumptions" [ref=e185] [cursor=pointer]
+            - paragraph [ref=e186]: The monthly budget above feeds into this estimate. Set your actual CPF LIFE amount using CPF’s official planner before making decisions.
+          - generic [ref=e187]:
+            - article [ref=e188]:
+              - text: AT YOUR RETIREMENT AGE
+              - heading "Your monthly picture" [level=3] [ref=e189]
+              - generic [ref=e190]:
+                - generic [ref=e191]: Estimated monthly spending
+                - strong [ref=e192]: $4,255/mo
+              - generic [ref=e193]:
+                - generic [ref=e194]: After CPF LIFE and other income
+                - strong [ref=e195]: $2,475/mo
+              - generic "Income coverage" [ref=e196]
+              - paragraph [ref=e198]: 42% covered by CPF LIFE and other entered steady income. Values shown in retirement-year dollars.
+              - generic [ref=e199]:
+                - generic [ref=e200]: Portfolio target for selected drawdown period
+                - strong [ref=e201]: $587,715
+              - generic [ref=e202]:
+                - generic [ref=e203]: Approximate saving needed each month from today
+                - strong [ref=e204]: $1,317/mo
+            - paragraph [ref=e205]: Scenario estimate, not a forecast. It assumes a steady return before retirement and a level, inflation-adjusted withdrawal for the selected period. Fees, taxes, market sequence and longevity beyond that period can change the result.
+        - generic "Practical retirement planning steps" [ref=e206]:
+          - heading "Your next four moves" [level=3] [ref=e207]
+          - generic [ref=e208]:
+            - article [ref=e209]:
+              - generic [ref=e210]: FIRST
+              - strong [ref=e211]: Clear expensive debt and keep emergency money accessible.
+              - generic [ref=e212]: Do this before locking cash away or investing money you may need soon.
+            - article [ref=e213]:
+              - generic [ref=e214]: THEN
+              - strong [ref=e215]: Check your CPF LIFE gap before investing extra for retirement.
+              - generic [ref=e216]: If CPF top-ups or transfers suit your target, prioritise them after checking liquidity, housing and eligibility.
+            - article [ref=e217]:
+              - generic [ref=e218]: NEXT
+              - strong [ref=e219]: Invest monthly for the remaining retirement gap.
+              - generic [ref=e220]: Use the monthly target above as your starting amount; adjust for fees, risk and what you can sustain.
+            - article [ref=e221]:
+              - generic [ref=e222]: AS RETIREMENT NEARS
+              - strong [ref=e223]: Gradually match near-term withdrawals with cash and bond maturities.
+              - generic [ref=e224]: Review once a year and avoid making the whole transition on one market date.
+        - group [ref=e225]:
+          - generic "How do Endowus / Syfe payouts compare with CPF LIFE?" [ref=e226] [cursor=pointer]
+    - region "Start with the balances you can see." [ref=e227]:
+      - generic [ref=e228]:
+        - generic [ref=e229]:
+          - generic [ref=e230]:
+            - paragraph [ref=e231]: Add up your CPF accounts
+            - heading "Start with the balances you can see." [level=2] [ref=e233]
+          - paragraph [ref=e234]: Enter the balances from your CPF dashboard. This shows the total and each account clearly; it does not treat every dollar as available retirement cash.
+        - generic [ref=e235]:
+          - generic [ref=e237]:
+            - generic [ref=e238]:
+              - generic [ref=e239]: Ordinary Account (OA)
+              - generic [ref=e240]:
+                - generic [ref=e241]: $
+                - spinbutton "Ordinary Account (OA)" [ref=e242]: "50000"
+            - generic [ref=e243]:
+              - generic [ref=e244]: Special Account (SA) / RA
+              - generic [ref=e245]:
+                - generic [ref=e246]: $
+                - spinbutton "Special Account (SA) / RA" [ref=e247]: "25000"
+              - generic [ref=e248]: At 55, RA formation and account transfers affect where balances sit.
+            - generic [ref=e249]:
+              - generic [ref=e250]: MediSave Account (MA)
+              - generic [ref=e251]:
+                - generic [ref=e252]: $
+                - spinbutton "MediSave Account (MA)" [ref=e253]: "15000"
+              - generic [ref=e254]: Reserved mainly for eligible healthcare uses.
+            - generic [ref=e255]:
+              - generic [ref=e256]: Retirement Account (RA), if separate
+              - generic [ref=e257]:
+                - generic [ref=e258]: $
+                - spinbutton "Retirement Account (RA), if separate" [ref=e259]: "0"
+              - generic [ref=e260]: If you entered RA in the SA / RA box, leave this at $0.
+          - generic [ref=e261]:
+            - generic [ref=e262]: TOTAL CPF BALANCES ENTERED
+            - strong [ref=e263]: $90,000
+            - generic [ref=e264]:
+              - generic [ref=e265]:
+                - generic [ref=e266]: Ordinary Account
+                - strong [ref=e267]: $50,000
+              - generic [ref=e270]:
+                - generic [ref=e271]: Special / Retirement Account
+                - strong [ref=e272]: $25,000
+              - generic [ref=e275]:
+                - generic [ref=e276]: MediSave Account
+                - strong [ref=e277]: $15,000
+              - generic [ref=e280]:
+                - generic [ref=e281]: Retirement Account (separate)
+                - strong [ref=e282]: $0
+            - paragraph [ref=e284]: CPF total is not the same as spendable retirement savings. MA is for healthcare; OA, SA and RA have different rules and purposes.
+            - link "Use CPF’s official calculators for growth and payout estimates ↗" [ref=e285] [cursor=pointer]:
+              - /url: https://www.cpf.gov.sg/member/tools-and-services/calculators
+        - generic [ref=e286]:
+          - generic [ref=e287]:
+            - generic [ref=e288]: "55"
+            - generic [ref=e289]:
+              - text: THE 1M65 IDEA
+              - heading "A milestone, not a required target." [level=3] [ref=e290]
+          - paragraph [ref=e291]: “1M65” describes one possible CPF accumulation journey. Your useful target is the monthly income your own budget needs. At 55, CPF creates an RA and transfers savings under the rules for your cohort; check your own forecast and housing needs before voluntary top-ups or transfers.
+          - link "Choose the right CPF payout planner for your age ↗" [ref=e292] [cursor=pointer]:
+            - /url: https://www.cpf.gov.sg/service/article/i-am-below-55-can-i-use-this-monthly-payout-estimator-to-estimate-my-monthly-payout
+    - region "A drawdown plan for the years after work." [ref=e293]:
+      - generic [ref=e294]:
+        - generic [ref=e295]:
+          - generic [ref=e296]:
+            - paragraph [ref=e297]: Make investments easier to spend later
+            - heading "A drawdown plan for the years after work." [level=2] [ref=e299]
+          - paragraph [ref=e300]: If you hold a broad share fund such as VWRA, build a written transition plan over time. A retirement date does not require selling everything at once.
+        - generic [ref=e301]:
+          - generic [ref=e302]:
+            - article [ref=e303]:
+              - generic [ref=e304]: "01"
+              - generic [ref=e305]:
+                - heading "Calculate the gap first" [level=3] [ref=e306]
+                - paragraph [ref=e307]: Use the monthly plan above. Size investments against spending left after CPF LIFE and any other steady income.
+            - article [ref=e308]:
+              - generic [ref=e309]: "02"
+              - generic [ref=e310]:
+                - heading "Set an accessible spending reserve" [level=3] [ref=e311]
+                - paragraph [ref=e312]: Choose how many months of your investment-funded gap to hold in cash or similarly accessible savings, based on comfort and upcoming costs.
+            - article [ref=e313]:
+              - generic [ref=e314]: "03"
+              - generic [ref=e315]:
+                - heading "Build a fixed-income ladder gradually" [level=3] [ref=e316]
+                - paragraph [ref=e317]: Match maturities to planned spending. Singapore Savings Bonds can be redeemed monthly without a penalty; allow for processing time, so they are not instant cash.
+            - article [ref=e318]:
+              - generic [ref=e319]: "04"
+              - generic [ref=e320]:
+                - heading "Keep long-horizon money invested" [level=3] [ref=e321]
+                - paragraph [ref=e322]: Keep an equity allocation you can tolerate through market falls. Rebalance on a set schedule and use a written rule for replenishing cash after stronger markets.
+          - complementary [ref=e323]:
+            - generic [ref=e324]: SINGAPORE SAVINGS BONDS
+            - strong [ref=e325]: $200,000
+            - generic [ref=e326]: maximum holding per individual across cash and SRS
+            - paragraph [ref=e327]: Buy in $500 multiples. You can request redemption monthly, with no penalty; proceeds are paid after processing in the following month. Keep near-term bills in a more immediately accessible account.
+            - 'link "MAS: SSB limits and redemption ↗" [ref=e328] [cursor=pointer]':
+              - /url: https://www.mas.gov.sg/contact-us/faqs/singapore-savings-bonds-faqs
+        - paragraph [ref=e329]: There is no universal “sell VWRA at age X” rule. Decide in advance what the money is for, which spending years are covered by cash and bonds, and when you will rebalance. Investment values and bond rates can change.
+  - contentinfo [ref=e330]:
+    - generic [ref=e331]:
+      - link "Retirement Shield" [ref=e332] [cursor=pointer]:
+        - /url: "#top"
+        - img [ref=e334]
+        - generic [ref=e337]:
+          - text: Retirement
+          - strong [ref=e338]: Shield
+      - paragraph [ref=e339]: A clear monthly target, a visible income gap, and a plan for using your savings.
+      - generic [ref=e340]: Source links checked 8 Nov 2026 · Singapore
