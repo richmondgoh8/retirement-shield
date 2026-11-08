@@ -1,18 +1,24 @@
 {
+  "id": "./",
   "name": "Retirement Shield",
-  "short_name": "Retirement Shield",
-  "description": "A plain-language Singapore retirement policy explainer and comparison tool.",
-  "start_url": ".",
+  "short_name": "Retire SG",
+  "description": "Plan Solo + Helper retirement spending, CPF income and the investments needed to close your gap.",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#fbf8f1",
+  "background_color": "#f4f7fa",
   "theme_color": "#11253d",
   "lang": "en-SG",
+  "categories": ["finance", "education"],
   "icons": [
-    {
-      "src": "favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    }
-  ]
+    {"src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ],
+  "shortcuts": [
+    {"name": "My retirement plan", "url": "./#retirement-plan"},
+    {"name": "Spending breakdown", "url": "./#retirement-budget"},
+    {"name": "Funding plan", "url": "./#funding-steps"}
+  ],
+  "prefer_related_applications": false
 }

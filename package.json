@@ -1,0 +1,17 @@
+{
+  "name": "retirement-shield",
+  "private": true,
+  "version": "1.0.0",
+  "type": "commonjs",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "test": "node --test model.test.cjs pwa.test.cjs",
+    "format": "prettier --write app.js model.js styles.css index.html sw.js tools/*.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "sharp": "0.35.5",
+    "purgecss": "9.1.0",
+    "prettier": "3.9.10"
+  }
+}
