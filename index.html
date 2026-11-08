@@ -39,6 +39,7 @@
         </a>
         <nav class="top-nav" aria-label="Primary navigation">
           <a href="#retirement-plan">My answer</a>
+          <a href="#trajectory-section">Trajectory</a>
           <a href="#retirement-budget">Spending</a>
           <a href="#funding-steps">Funding plan</a>
           <a href="#later-life">Drawdown</a>
@@ -48,6 +49,14 @@
             ><span class="status-dot"></span
             ><span id="offline-label">Works offline</span></span
           >
+          <button
+            class="button button-small print-header-button"
+            type="button"
+            id="print-plan-btn"
+            title="Print or save 1-page PDF plan"
+          >
+            Print plan
+          </button>
           <button
             class="button button-small settings-header-button"
             type="button"
@@ -126,6 +135,7 @@
           </form>
         </div>
       </section>
+
       <section
         class="section simple-plan-section"
         id="retirement-plan"
@@ -143,18 +153,20 @@
                 FRS or ERS.
               </p>
             </div>
-            <button
-              class="settings-trigger"
-              type="button"
-              commandfor="plan-settings"
-              command="show-modal"
-            >
-              Adjust plan
-              <span aria-hidden="true"
-                ><svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M4 7h16M4 17h16M8 4v6m8 4v6" /></svg
-              ></span>
-            </button>
+            <div class="plan-heading-actions">
+              <button
+                class="settings-trigger"
+                type="button"
+                commandfor="plan-settings"
+                command="show-modal"
+              >
+                Adjust plan
+                <span aria-hidden="true"
+                  ><svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 7h16M4 17h16M8 4v6m8 4v6" /></svg
+                ></span>
+              </button>
+            </div>
           </div>
           <div class="baseline-strip">
             <span><b>Solo + Helper</b> · paid-up 2-room flat</span
@@ -169,6 +181,56 @@
             aria-atomic="true"
           ></p>
           <div id="simple-results"></div>
+
+          <section
+            class="trajectory-section card-surface"
+            id="trajectory-section"
+            aria-labelledby="trajectory-title"
+          >
+            <div class="trajectory-head">
+              <div>
+                <span class="form-kicker">LIFETIME PROJECTION</span>
+                <h3 id="trajectory-title">Cashflow & Wealth Trajectory</h3>
+                <p class="trajectory-desc">
+                  Explore how monthly spending, CPF payouts, and private asset
+                  drawdowns evolve through age 90.
+                </p>
+              </div>
+              <div class="trajectory-controls">
+                <div
+                  class="btn-group"
+                  role="group"
+                  aria-label="Trajectory chart mode"
+                >
+                  <button
+                    type="button"
+                    class="btn-toggle is-active"
+                    id="btn-chart-cashflow"
+                  >
+                    Monthly Cashflow
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-toggle"
+                    id="btn-chart-portfolio"
+                  >
+                    Portfolio Balance
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="chart-wrapper">
+              <div
+                id="trajectory-chart"
+                class="chart-area"
+                role="img"
+                aria-label="Interactive retirement trajectory chart"
+              ></div>
+              <div id="chart-tooltip" class="chart-tooltip" hidden></div>
+            </div>
+            <div class="chart-legend" id="chart-legend"></div>
+          </section>
+
           <details class="payout-options model-explanation">
             <summary>What did the calculator assume?</summary>
             <div class="payout-options-content">
@@ -184,52 +246,30 @@
                 model assumptions, not promised returns.
               </p>
               <p>
-                Without balances, CPF starts at $0. All future OA contributions
-                are assumed used for housing, so the salary-only CPF estimate
-                mainly counts SA contributions. Enter your actual OA, SA and
-                housing payment to refine it. Salary stays constant; the $8,000
-                monthly wage ceiling and 2026 age-based allocations are held
-                constant. OA grows at 2.5%, SA at 4%. Extra interest, bonuses,
-                MA overflow and contributions after 55 are excluded.
+                Without balances, CPF starts at $0. By default, future OA
+                contributions are assumed used for housing, so the salary-only
+                CPF estimate mainly counts SA contributions. Enter your actual
+                OA, SA and housing payment to refine it (or click "Set housing
+                deduction to $0" if your flat is paid up). Under 2025/2026 CPF
+                rules, your Special Account (SA) closes at age 55; balances up
+                to FRS form your Retirement Account (RA) earning at least 4%
+                p.a., with any excess moving to OA (2.5%) unless topped up to
+                the Enhanced Retirement Sum (ERS). Extra interest, bonuses, and
+                MA overflow are excluded for conservative planning.
               </p>
               <p>
                 The FRS scenario grows 2026’s $220,400 by an assumed 3.5% a year
-                until you turn 55. ERS comparison is twice that scenario. Future
-                sums are not announced this far ahead. ERS requires an eligible
-                voluntary commitment after 55.
+                until you turn 55. ERS comparison is twice that scenario
+                ($440,800 in 2026 terms). Future sums are not announced this far
+                ahead. ERS requires an eligible voluntary commitment after 55.
               </p>
               <p>
                 The salary path uses projected age-55 savings up to FRS. The FRS
                 and ERS comparisons assume their respective target is fully
-                funded. Each balance is scaled back to 2026 FRS terms,
-                interpolated against CPF Board’s male Standard Plan examples (up
-                to ERS), then its payout is scaled back by the same
-                retirement-sum factor. Payouts start at 65 and stay level in
-                this illustration. This is a scenario comparison, not CPF
-                Board’s personalised projection: sex, future pricing and rule
-                changes can change the result. It assumes OA is available at 55.
-                Projected CPF above the target is not automatically counted as
-                spendable investments. The FRS and ERS comparisons explicitly
-                require funding any target shortfall; the app does not assume
-                that money appears automatically.
-              </p>
-              <p>
-                Spending follows the chosen inflation and care example after
-                retirement while the reference CPF payout stays flat. The helper
-                model retains the normal levy throughout: it does not assume
-                future eligibility for the concession or automatically deduct
-                MediSave or subsidies. Each monthly investment shortfall is
-                discounted at 4%, including any bridge before 65. Existing cash
-                investments grow at 4%; the result is the additional fixed
-                monthly investment needed. The selected path shows two separate
-                pots: extra money earmarked to reach its CPF target by 55, and
-                an outside-CPF portfolio for the remaining spending. The first
-                pot assumes 4% while accumulating; eligibility may require
-                holding it outside CPF until a permitted transfer or top-up.
-                Contributions stop by the earlier of retirement or 55, then
-                compound to 55. Existing accessible assets are allocated only to
-                the outside portfolio. The comparison does not automatically
-                redirect the CPF funding amount into investments after 55.
+                funded. Payouts start at 65. The Standard Plan holds payouts
+                flat, while the Escalating Plan option starts ~20% lower and
+                compounds at 2% yearly. This is a scenario comparison, not CPF
+                Board’s personalised projection.
               </p>
               <a
                 href="https://www.cpf.gov.sg/service/article/how-much-cpf-payouts-can-i-get-every-month"
@@ -248,6 +288,7 @@
           </details>
         </div>
       </section>
+
       <section
         class="section budget-section"
         id="retirement-budget"
@@ -271,7 +312,7 @@
                   </h2>
                 </div>
                 <p class="section-intro">
-                  One independent 65-year-old single man, a paid-up 2-room Flexi
+                  One independent 65-year-old single, a paid-up 2-room Flexi
                   flat and one live-in helper. These are planning ranges for
                   that lifestyle, including a healthcare reserve. Future prices
                   and care needs are illustrative.
@@ -370,39 +411,6 @@
                   >
                 </article>
               </div>
-              <details class="payout-options">
-                <summary>What is included in the helper provision?</summary>
-                <div class="payout-options-content">
-                  <p>
-                    Budget for salary, levy, required insurance, six-monthly
-                    medical examinations, medical costs and a reserve for home
-                    leave or employment costs. Food is already in groceries.
-                    Actual agency charges and replacement or respite support can
-                    require separate cash. A refundable security bond is not the
-                    same as a monthly expense.
-                  </p>
-                  <p>
-                    At 65, an independent employer does not qualify for the
-                    elderly levy concession by age alone; the current age
-                    threshold is 67. Disability-based eligibility is separate.
-                    Future salary and insurance allowances are planning
-                    estimates.
-                  </p>
-                  <a
-                    href="https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-domestic-worker/foreign-domestic-worker-levy/paying-levy"
-                    target="_blank"
-                    rel="noreferrer"
-                    >MOM levy rates ↗</a
-                  >
-                  ·
-                  <a
-                    href="https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-domestic-worker/eligibility-and-requirements/six-monthly-medical-examination"
-                    target="_blank"
-                    rel="noreferrer"
-                    >MOM medical examination requirements ↗</a
-                  >
-                </div>
-              </details>
             </div>
           </details>
         </div>
@@ -425,10 +433,8 @@
               </p>
               <p>
                 For citizens/PRs, the cap is <b>$15,300 per year</b>—equivalent
-                to saving $1,275 a month. It is not $15,300 a month. SRS is
-                optional: its value depends on your marginal tax rate, other
-                reliefs, liquidity and withdrawal tax. Total personal income tax
-                relief is capped at $80,000 per year.
+                to saving $1,275 a month. Total personal income tax relief is
+                capped at $80,000 per year.
               </p>
               <details class="story-detail">
                 <summary>Where to invest SRS money</summary>
@@ -500,13 +506,19 @@
                   provision when sizing the spending reserve.
                 </p>
               </div>
+
+              <div
+                id="dynamic-drawdown-summary"
+                class="drawdown-dynamic-summary"
+              ></div>
+
               <div class="drawdown-layout">
                 <div class="drawdown-steps">
                   <article>
                     <span>01</span>
                     <div>
                       <h3>Calculate the gap first</h3>
-                      <p>
+                      <p id="drawdown-step1-desc">
                         Use the monthly plan above. Size investments against
                         spending left after CPF LIFE and any other steady
                         income.
@@ -517,7 +529,7 @@
                     <span>02</span>
                     <div>
                       <h3>Set an accessible spending reserve</h3>
-                      <p>
+                      <p id="drawdown-step2-desc">
                         Choose how many months of your investment-funded gap to
                         hold in cash or similarly accessible savings, based on
                         comfort and upcoming costs.
@@ -528,7 +540,7 @@
                     <span>03</span>
                     <div>
                       <h3>Build a fixed-income ladder gradually</h3>
-                      <p>
+                      <p id="drawdown-step3-desc">
                         Match maturities to planned spending. Singapore Savings
                         Bonds can be redeemed monthly without a penalty; allow
                         for processing time, so they are not instant cash.
@@ -539,7 +551,7 @@
                     <span>04</span>
                     <div>
                       <h3>Keep long-horizon money invested</h3>
-                      <p>
+                      <p id="drawdown-step4-desc">
                         Keep an equity allocation you can tolerate through
                         market falls. Rebalance on a set schedule and use a
                         written rule for replenishing cash after stronger
@@ -578,6 +590,8 @@
           </details>
         </div>
       </section>
+
+      <div id="print-sheet" class="print-only-sheet" aria-hidden="true"></div>
     </main>
 
     <footer class="site-footer">
@@ -652,7 +666,16 @@
           aria-controls="panel-invest"
           tabindex="-1"
         >
-          Investments
+          Investments</button
+        ><button
+          type="button"
+          id="tab-assumptions"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panel-assumptions"
+          tabindex="-1"
+        >
+          Assumptions
         </button>
       </div>
       <div id="panel-budget" role="tabpanel" aria-labelledby="tab-budget">
@@ -742,7 +765,10 @@
                 inputmode="decimal"
               />
             </div>
-            <small>Enter 0 if you do not use OA for housing.</small>
+            <small
+              >Enter 0 if your flat is paid up or mortgage is paid from cash.
+              Leaving blank assumes all future OA is used for housing.</small
+            >
           </div>
         </div>
       </div>
@@ -792,6 +818,84 @@
             <small
               >Optional. Compare your own amount with the calculated investment
               target.</small
+            >
+          </div>
+        </div>
+      </div>
+      <div
+        id="panel-assumptions"
+        role="tabpanel"
+        aria-labelledby="tab-assumptions"
+        hidden
+      >
+        <p class="settings-panel-note">
+          Stress-test growth rates, toggle the CPF LIFE plan, or model senior
+          salary contributions past 55.
+        </p>
+        <div class="field-grid">
+          <div class="field">
+            <label for="known-plan">CPF LIFE payout plan</label>
+            <div class="input-wrap select-wrap">
+              <select id="known-plan">
+                <option value="standard" selected>
+                  Standard Plan (Level / Flat for life)
+                </option>
+                <option value="escalating">
+                  Escalating Plan (+2% compounded / year)
+                </option>
+              </select>
+            </div>
+            <small
+              >Escalating starts ~20% lower, compounding by 2% yearly to hedge
+              late-life care costs.</small
+            >
+          </div>
+          <div class="field">
+            <label for="known-return">Net investment return</label>
+            <div class="input-wrap select-wrap">
+              <select id="known-return">
+                <option value="0.03">3.0% / year (Conservative)</option>
+                <option value="0.04" selected>
+                  4.0% / year (Baseline default)
+                </option>
+                <option value="0.05">5.0% / year (Optimistic)</option>
+              </select>
+            </div>
+            <small
+              >Real growth assumption for outside retirement investments after
+              fund fees.</small
+            >
+          </div>
+          <div class="field">
+            <label for="known-inflation">Long-term inflation</label>
+            <div class="input-wrap select-wrap">
+              <select id="known-inflation">
+                <option value="0.025">2.5% / year (Low)</option>
+                <option value="0.03" selected>
+                  3.0% / year (Baseline default)
+                </option>
+                <option value="0.035">3.5% / year (High)</option>
+              </select>
+            </div>
+            <small
+              >Applies to spending and late-life healthcare provisions.</small
+            >
+          </div>
+          <div class="field">
+            <label for="known-post55">Senior salary CPF (ages 55–65)</label>
+            <div class="input-wrap select-wrap">
+              <select id="known-post55">
+                <option value="false" selected>
+                  Exclude post-55 salary contributions
+                </option>
+                <option value="true">
+                  Include senior salary CPF if working past 55
+                </option>
+              </select>
+            </div>
+            <small
+              >Applies legislated senior contribution rates for working years
+              between 55 and retirement age.</small
             >
           </div>
         </div>

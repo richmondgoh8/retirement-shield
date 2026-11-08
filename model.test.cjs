@@ -1,6 +1,6 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {calculate,referencePayout,portfolioTarget,C}=require('./model.js');
+const {calculate,referencePayout,portfolioTarget,generateTrajectory,C}=require('./model.js');
 test('two known fields produce a complete finite answer without refinements',()=>{
  const r=calculate({age:35,salary:6000});
  for(const [k,v]of Object.entries(r))if(typeof v==='number')assert.ok(Number.isFinite(v),k);
@@ -90,4 +90,47 @@ test('displayed salary flow reconciles payroll deductions and the three CPF acco
  }
  const r=calculate({age:35,salary:6000});
  assert.equal(Math.round(r.currentOA),1380);assert.equal(Math.round(r.currentSA),360);assert.equal(Math.round(r.currentMA),480);
+});
+
+test('CPF LIFE Escalating plan starts lower and compounds by 2% yearly, overtaking standard around age 77',()=>{
+ const std = calculate({age:35,salary:6000,plan:'standard'});
+ const esc = calculate({age:35,salary:6000,plan:'escalating'});
+ const stdPayout65 = std.scenarios[1].payout;
+ const escPayout65 = esc.scenarios[1].payout;
+ assert.ok(Math.abs(escPayout65 - stdPayout65 * 0.8) < 1e-4);
+ const escPayout75 = esc.scenarios[1].payout75;
+ assert.ok(escPayout75 > escPayout65);
+ const escPayout80 = escPayout65 * (1.02 ** 15);
+ assert.ok(escPayout80 > stdPayout65);
+});
+
+test('sensitivity testing adjusts targets predictably',()=>{
+ const base = calculate({age:35,salary:6000,returnRate:0.04,inflationRate:0.03});
+ const highReturn = calculate({age:35,salary:6000,returnRate:0.05,inflationRate:0.03});
+ const highInflation = calculate({age:35,salary:6000,returnRate:0.04,inflationRate:0.035});
+ assert.ok(highReturn.saving < base.saving);
+ assert.ok(highInflation.saving > base.saving);
+});
+
+test('post-55 work option accumulates senior CPF contributions',()=>{
+ const withoutPost55 = calculate({age:35,salary:6000,retire:65,post55Work:false});
+ const withPost55 = calculate({age:35,salary:6000,retire:65,post55Work:true});
+ assert.ok(withPost55.cpf > withoutPost55.cpf);
+ assert.ok(withPost55.extraPost55CPF > 0);
+});
+
+test('generateTrajectory produces full chronological series to age 90 with valid invariants',()=>{
+ const {summary, selectedScenario, points} = generateTrajectory({age:35,salary:6000,retire:65});
+ assert.equal(points[0].age, 35);
+ assert.equal(points[points.length-1].age, 90);
+ for (const pt of points) {
+  assert.ok(Number.isFinite(pt.monthlySpend));
+  assert.ok(Number.isFinite(pt.monthlyCPF));
+  assert.ok(Number.isFinite(pt.monthlyGap));
+  assert.ok(Number.isFinite(pt.portfolioBalance));
+  assert.ok(pt.portfolioBalance >= 0);
+ }
+ const retirePt = points.find(p => p.age === 65);
+ assert.equal(retirePt.phase, 'drawdown');
+ assert.ok(retirePt.monthlyCPF > 0);
 });
