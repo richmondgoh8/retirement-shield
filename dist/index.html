@@ -24,6 +24,8 @@
         </a>
         <nav class="top-nav" aria-label="Primary navigation">
           <a href="#two-streams">Two streams</a>
+          <a href="#cpf-planner">CPF & 1M65</a>
+          <a href="#two-buckets">Two buckets</a>
           <a href="#compare">Compare</a>
           <a href="#push-back">Push-back kit</a>
         </nav>
@@ -188,10 +190,16 @@
                 <div class="field"><label for="exit-value">Cash value if you exit today</label><div class="input-wrap"><span>$</span><input id="exit-value" name="exit-value" type="number" inputmode="decimal" min="0" step="100" value="87000" /></div><small>Ask for “surrender value” in writing.</small></div>
                 <div class="field"><label for="monthly-payout">Promised / illustrated monthly payout</label><div class="input-wrap"><span>$</span><input id="monthly-payout" name="monthly-payout" type="number" inputmode="decimal" min="0" step="10" value="850" /></div><small>Label whether it is guaranteed.</small></div>
                 <div class="field"><label for="payout-years">Payout period (years)</label><div class="input-wrap"><span class="input-suffix">years</span><input id="payout-years" name="payout-years" type="number" inputmode="numeric" min="1" step="1" value="15" /></div><small>For life, use a separate note.</small></div>
+                <div class="field"><label for="illustration-type">Payout figure type</label><select id="illustration-type" name="illustration-type"><option value="illustrated" selected>Illustrated / non-guaranteed</option><option value="guaranteed">Guaranteed</option></select><small>Use the matching figure from the policy illustration.</small></div>
+                <div class="field"><label for="total-premiums">Total premiums over full term</label><div class="input-wrap"><span>$</span><input id="total-premiums" name="total-premiums" type="number" inputmode="decimal" min="0" step="100" value="120000" /></div><small>All premiums, including future premiums.</small></div>
+                <div class="field"><label for="premium-years">Years you pay premiums</label><div class="input-wrap"><span class="input-suffix">years</span><input id="premium-years" name="premium-years" type="number" inputmode="numeric" min="1" step="1" value="10" /></div></div>
+                <div class="field"><label for="payout-delay">Years until first payout</label><div class="input-wrap"><span class="input-suffix">years</span><input id="payout-delay" name="payout-delay" type="number" inputmode="numeric" min="0" step="1" value="15" /></div></div>
+                <div class="field"><label for="cpflife-monthly">Your estimated CPF LIFE monthly payout</label><div class="input-wrap"><span>$</span><input id="cpflife-monthly" name="cpflife-monthly" type="number" inputmode="decimal" min="0" step="10" value="1780" /></div><small>Enter your CPF personalised estimate and chosen start age / plan.</small></div>
+                <div class="field"><label for="final-benefit">Final lump sum at end (if any)</label><div class="input-wrap"><span>$</span><input id="final-benefit" name="final-benefit" type="number" inputmode="decimal" min="0" step="100" value="0" /></div><small>Use the matching guaranteed or illustrated amount.</small></div>
               </div>
               <fieldset class="commitment-field"><legend>Can you reach the money when you need it?</legend><div class="segmented-control"><label><input type="radio" name="access" value="yes" checked /><span>Yes, mostly</span></label><label><input type="radio" name="access" value="no" /><span>No / high charge</span></label><label><input type="radio" name="access" value="unknown" /><span>Not shown</span></label></div></fieldset>
               <button class="button button-dark full-button" type="submit">Show my comparison <span aria-hidden="true">→</span></button>
-              <p class="form-disclaimer">This is a comparison aid, not a return calculator or financial advice.</p>
+              <p class="form-disclaimer">The annualised return is an estimate from evenly spread monthly premiums and payouts, plus the entered final lump sum. It excludes unentered charges, tax and insurance value. It cannot make an illustrated payout guaranteed.</p>
             </form>
 
             <div class="compare-result" aria-live="polite" aria-atomic="true">
@@ -201,6 +209,7 @@
                 <div class="money-bar" aria-hidden="true"><span id="money-bar-fill"></span></div>
                 <div class="money-bar-labels"><span><strong id="exit-label">$87,000</strong><small>exit value</small></span><span><strong id="paid-label">$120,000</strong><small>paid to date</small></span></div>
                 <div class="result-stat-grid"><div><strong id="recovery-label">73%</strong><span>of premiums paid to date shown as exit value</span></div><div><strong id="income-total-label">$153,000</strong><span>illustrated payouts over 15 years</span></div></div>
+                <div class="roi-summary"><div><span id="roi-type-label">Illustrated cash-flow return</span><strong id="policy-irr">—</strong><small>annualised estimate, based on the inputs below</small></div><div><span>Monthly income difference</span><strong id="payout-difference">—</strong><small id="payout-difference-note">policy payout compared with your CPF LIFE estimate</small></div></div>
               </div>
               <div class="result-card result-card-ask"><span class="result-icon" aria-hidden="true">?</span><div><h3>Your next question</h3><p id="result-question">“Please show the surrender value at years 1, 3, 5, 10 and after the minimum commitment period.”</p><button class="text-button copy-question" type="button">Copy this question <span aria-hidden="true">↗</span></button></div></div>
             </div>
@@ -252,6 +261,95 @@
         </div>
         <div class="shell red-flags-wrap">
           <div class="red-flags"><div class="red-flags-title"><span class="warning-mark" aria-hidden="true">!</span><div><span class="form-kicker">PRESSURE SIGNALS</span><h3>Pause harder when you hear these.</h3></div></div><div class="flag-list"><span>“Sign today or the bonus disappears.”</span><span>“The illustration is basically guaranteed.”</span><span>“You can always withdraw.”</span><span>“Do not worry about the charges.”</span></div></div>
+        </div>
+      </section>
+
+      <section class="section cpf-section" id="cpf-planner" aria-labelledby="cpf-title">
+        <div class="shell">
+          <div class="section-heading split-heading">
+            <div>
+              <p class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> CPF, without the jargon</p>
+              <h2 id="cpf-title">Use CPF as the income floor. Then plan the rest.</h2>
+            </div>
+            <p class="section-intro">CPF LIFE is longevity insurance: it pays for life. Your separate cash and investments can cover goals CPF LIFE is not designed for, such as a renovation or a large one-off bill.</p>
+          </div>
+
+          <div class="cpf-facts" aria-label="2026 CPF reference figures">
+            <article><span>OA base rate</span><strong>2.5%</strong><small>per year · Oct–Dec 2026</small></article>
+            <article><span>SMRA base rate</span><strong>4.0%</strong><small>per year · Oct–Dec 2026</small></article>
+            <article><span>2026 FRS</span><strong>$220,400</strong><small>for members turning 55 in 2026</small></article>
+            <article><span>2026 ERS</span><strong>$440,800</strong><small>current maximum top-up reference at 55+</small></article>
+          </div>
+          <p class="source-note cpf-rate-note">CPF rates are reviewed and may change. Extra interest depends on age and combined CPF balances. These reference figures are not a personalised payout quote.</p>
+
+          <div class="cpf-planner-grid">
+            <form class="cpf-calculator card-surface" id="cpf-growth-form">
+              <div class="form-title-row"><div><span class="form-kicker">1M65 EXPLORER</span><h3>What could your CPF balance grow to?</h3></div><span class="demo-badge">Illustration</span></div>
+              <p class="calculator-intro">“1M65” is a popular milestone idea, not a CPF promise or a target everyone needs. Change the inputs to see a simplified compound-growth estimate.</p>
+              <div class="field-grid">
+                <div class="field"><label for="cpf-current">Current retirement savings</label><div class="input-wrap"><span>$</span><input id="cpf-current" name="cpf-current" type="number" inputmode="decimal" min="0" step="1000" value="80000" /></div><small>Use your CPF dashboard balance as a starting point.</small></div>
+                <div class="field"><label for="cpf-monthly">Monthly amount added</label><div class="input-wrap"><span>$</span><input id="cpf-monthly" name="cpf-monthly" type="number" inputmode="decimal" min="0" step="50" value="500" /></div><small>Approximate contributions and top-ups together.</small></div>
+                <div class="field"><label for="cpf-age">Your age</label><div class="input-wrap"><input id="cpf-age" name="cpf-age" type="number" inputmode="numeric" min="18" max="64" step="1" value="35" /></div><small>Projection ends at age 65.</small></div>
+                <div class="field"><label for="cpf-rate">Assumed annual growth</label><div class="input-wrap"><input id="cpf-rate" name="cpf-rate" type="number" inputmode="decimal" min="0" max="10" step="0.1" value="4" /><span class="input-suffix">%</span></div><small>Editable assumption; actual CPF account mix and rules differ.</small></div>
+              </div>
+              <div class="cpf-growth-result" aria-live="polite" aria-atomic="true"><span>Illustrative value at 65</span><strong id="cpf-projection">$0</strong><small id="cpf-projection-note">Based on your inputs, with monthly compounding.</small></div>
+              <a class="button button-dark full-button" href="https://www.cpf.gov.sg/member/tools-and-services/calculators" target="_blank" rel="noreferrer">Check with CPF’s official calculators <span aria-hidden="true">↗</span></a>
+              <p class="form-disclaimer">Estimate only. It excludes account allocation details, wage ceilings, contribution changes, withdrawals, housing use, future rule changes and exact CPF interest-crediting rules.</p>
+            </form>
+
+            <aside class="cpf-explainer">
+              <div class="cpf-explainer-top"><span class="cpf-big-number">55</span><div><span class="form-kicker">A KEY CPF MILESTONE</span><h3>What changes at 55?</h3></div></div>
+              <p>A Retirement Account is created. Savings move from SA first, then OA, up to the applicable Full Retirement Sum. Your own cohort’s FRS is set when you turn 55; the 2026 figure above is for that cohort only.</p>
+              <div class="cpf-mini-flow"><span>OA + SA</span><b aria-hidden="true">→</b><span>Retirement Account</span><b aria-hidden="true">→</b><span>CPF LIFE payouts</span></div>
+              <p class="cpf-warning"><strong>Pause before topping up:</strong> CPF cash top-ups and transfers to RA are generally irreversible and reserved for retirement payouts. Check housing plans, emergency cash and eligibility first.</p>
+              <a class="text-link dark-link" href="https://www.cpf.gov.sg/member/retirement-income/monthly-payouts/cpf-life" target="_blank" rel="noreferrer">How CPF LIFE works <span aria-hidden="true">↗</span></a>
+            </aside>
+          </div>
+
+          <div class="age-path" aria-labelledby="age-path-title">
+            <div class="age-path-heading"><div><p class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> A lighter checklist by age</p><h3 id="age-path-title">One next step at a time.</h3></div><p>Choose the age range that fits you. This is a prompt list, not a scorecard.</p></div>
+            <div class="age-tabs" role="group" aria-label="Choose age range">
+              <button type="button" class="age-tab is-active" data-age="30s" aria-pressed="true">30–44</button>
+              <button type="button" class="age-tab" data-age="40s" aria-pressed="false">45–54</button>
+              <button type="button" class="age-tab" data-age="50s" aria-pressed="false">55–64</button>
+              <button type="button" class="age-tab" data-age="60s" aria-pressed="false">65–74</button>
+              <button type="button" class="age-tab" data-age="70s" aria-pressed="false">75+</button>
+            </div>
+            <div class="age-content" id="age-content" aria-live="polite" aria-atomic="true"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section bucket-section" id="two-buckets" aria-labelledby="bucket-title">
+        <div class="shell">
+          <div class="section-heading split-heading"><div><p class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> A simple retirement structure</p><h2 id="bucket-title">Build two buckets around the job each dollar has.</h2></div><p class="section-intro">There is no universal gold standard allocation. A useful starting point is to separate reliable spending money from flexible money, then size both around your spending, health, housing and family needs.</p></div>
+          <div class="bucket-grid">
+            <article class="bucket-card bucket-floor"><span class="bucket-number">01 · PAY THE FLOOR</span><h3>Reliable income and near-term cash</h3><p>Cover essential monthly bills first with predictable income. Keep money for the next few years of planned costs accessible and low volatility.</p><ul><li>CPF LIFE for lifelong income, based on your chosen plan.</li><li>Cash or short dated deposits / government securities for emergencies and known expenses.</li><li>Review payout start age, liquidity, rates, eligibility and guarantee terms.</li></ul><p class="bucket-prompt"><strong>Ask:</strong> “How many months of essential spending can I meet without selling investments?”</p></article>
+            <article class="bucket-card bucket-flex"><span class="bucket-number">02 · FUND THE REST</span><h3>Flexible, longer-term money</h3><p>Keep a diversified growth pool for inflation protection, later life goals and discretionary spending. Expect values and income to move around.</p><ul><li>Use a mix you can hold through market falls; avoid relying on one fund or dividend stream.</li><li>Choose a scheduled withdrawal amount and review it yearly against portfolio value.</li><li>Understand fees, tax, currency exposure and how withdrawals affect capital.</li></ul><p class="bucket-prompt"><strong>Ask:</strong> “If markets fell sharply, could I reduce withdrawals or use the other bucket?”</p></article>
+          </div>
+          <p class="source-note">This is a planning framework, not an allocation prescription. The right cash reserve and investment mix depend on your situation and willingness to adjust spending.</p>
+        </div>
+      </section>
+
+      <section class="section payout-section" id="payout-tools" aria-labelledby="payout-title">
+        <div class="shell">
+          <div class="section-heading split-heading">
+            <div><p class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> Income tools, with the fine print visible</p><h2 id="payout-title">A payout button does not make income guaranteed.</h2></div>
+            <p class="section-intro">Endowus and Syfe can route investment distributions to a bank account. The amount can change, the fund value can fall, and a payout may include money that could otherwise stay invested.</p>
+          </div>
+          <div class="payout-grid">
+            <article class="payout-card payout-cpf"><span class="payout-type">Lifetime income</span><h3>CPF LIFE</h3><p>Government-backed lifelong payouts based on your CPF savings, start age and chosen plan.</p><ul><li>Payouts continue for life.</li><li>Escalating plan starts lower and grows 2% yearly.</li><li>Best used as a baseline for essential recurring expenses.</li></ul><a href="https://www.cpf.gov.sg/member/retirement-income/monthly-payouts/cpf-life" target="_blank" rel="noreferrer">CPF LIFE details ↗</a></article>
+            <article class="payout-card"><span class="payout-type">Investment distributions</span><h3>Endowus Income</h3><p>Income portfolios use investment funds and show a current payout target. Distributions depend on fund holdings and are not guaranteed.</p><ul><li>Check the live target, fees and portfolio risk.</li><li>Cash, CPF and SRS payout handling can differ by portfolio.</li><li>A distribution is not the same thing as total investment return.</li></ul><a href="https://help.endowus.com/hc/en-sg/articles/360000668413-Will-I-receive-dividends-or-interest-income-SG" target="_blank" rel="noreferrer">Endowus payout handling ↗</a></article>
+            <article class="payout-card"><span class="payout-type">Investment distributions</span><h3>Syfe Income+</h3><p>Selected portfolios offer monthly distribution payout settings. Payouts and portfolio value can vary with markets.</p><ul><li>Minimums and processing details depend on the portfolio.</li><li>Distribution yield is not a guaranteed return.</li><li>Check if the portfolio can sell assets to fund a payout.</li></ul><a href="https://help.syfe.com/hc/en-us/articles/48108713755545-Will-I-receive-dividends-and-how-are-they-handled" target="_blank" rel="noreferrer">Syfe payout handling ↗</a></article>
+          </div>
+          <div class="callout callout-teal"><span class="callout-icon" aria-hidden="true">i</span><p><strong>Good comparison:</strong> compare what lands in your bank account, what happens to capital, how much fees and tax apply, whether payouts can fall, and how long it lasts. Do not compare a projected fund distribution directly with CPF LIFE as if both are guaranteed for life.</p></div>
+        </div>
+      </section>
+
+      <section class="section exit-section" id="later-life" aria-labelledby="exit-title">
+        <div class="shell exit-layout">
+          <div><p class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> Make future-you’s life easier</p><h2 id="exit-title">Set up an exit system before it gets hard to track.</h2><p class="section-intro">The safest retirement plan is one you, or someone you trust, can understand later. Keep a short inventory and a repeatable review date.</p><div class="exit-mantra"><span>ONE PAGE</span><b>+</b><span>ONE TRUSTED PERSON</span><b>+</b><span>ONE REVIEW DATE</span></div></div>
+          <div class="exit-card"><h3>Annual “still right for me?” check</h3><ol><li><span>1</span><p>List every policy, CPF LIFE plan, investment account and bank account.</p></li><li><span>2</span><p>Write down the provider, purpose, current value, payout, fees and withdrawal steps.</p></li><li><span>3</span><p>Store statements and contact details securely. Do not put passwords or OTPs in the list.</p></li><li><span>4</span><p>Choose a trusted person who knows where the list is and how to contact providers.</p></li><li><span>5</span><p>Review beneficiaries, CPF nomination, bank details and recurring transfers after major life changes.</p></li></ol><p class="form-disclaimer">Never share Singpass credentials, passwords or one-time codes. Use official provider contact channels.</p></div>
         </div>
       </section>
 
