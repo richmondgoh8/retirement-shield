@@ -2579,3 +2579,75 @@ body {
     break-inside: avoid;
   }
 }
+
+.payout-direction {
+  display: block;
+  margin: 14px 0 4px;
+  color: var(--teal-deep);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.scenario-card .scenario-money-note {
+  font-size: 0.8rem;
+  margin: 8px 0 16px;
+  min-height: 0;
+}
+.settings-results {
+  margin-block: 20px;
+  padding-block: 16px;
+  border-block: 1px solid var(--line);
+}
+.settings-results h3 {
+  font-size: 1rem;
+  margin-bottom: 12px;
+}
+.settings-live-figures {
+  margin: 0;
+}
+.settings-live-figures > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding-block: 8px;
+}
+.settings-live-figures dt {
+  font-size: 0.84rem;
+  color: var(--ink-soft);
+}
+.settings-live-figures dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.settings-results p {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  line-height: 1.6;
+  margin-top: 12px;
+}
+.settings-footer {
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  z-index: 3;
+  padding-bottom: 4px;
+}
+#settings-live-summary {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--teal-deep);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.settings-results > summary {
+  color: var(--teal-deep);
+  font-weight: 600;
+  cursor: pointer;
+}
+.settings-results[open] > summary {
+  margin-bottom: 12px;
+}

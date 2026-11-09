@@ -975,6 +975,15 @@
             >
           </div>
         </div>
+        <div class="settings-results">
+          <h3 id="budget-live-title">Your own savings with salary CPF</h3>
+          <div id="budget-live-results"></div>
+          <p>
+            A higher budget means you need more of your own savings. It does not
+            change the FRS or ERS CPF goals. The age-65 budget uses today’s
+            money.
+          </p>
+        </div>
       </div>
       <div id="panel-cpf" role="tabpanel" aria-labelledby="tab-cpf" hidden>
         <p class="settings-panel-note">
@@ -1029,6 +1038,11 @@
             >
           </div>
         </div>
+        <details class="settings-results">
+          <summary>Your progress towards ERS</summary>
+          <div id="cpf-live-results"></div>
+          <p id="cpf-live-caption"></p>
+        </details>
       </div>
       <div
         id="panel-invest"
@@ -1179,6 +1193,12 @@
       </details>
       <p id="settings-error" class="settings-error" role="status"></p>
       <div class="settings-footer">
+        <p
+          id="settings-live-summary"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        ></p>
         <button type="button" class="text-button" id="reset-settings">
           Reset settings</button
         ><button
@@ -1187,7 +1207,7 @@
           commandfor="plan-settings"
           command="close"
         >
-          View updated plan →
+          See my plan →
         </button>
       </div>
     </dialog>

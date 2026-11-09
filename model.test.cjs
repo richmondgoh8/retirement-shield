@@ -287,3 +287,26 @@ test('budget previews reconcile categories, groups and custom totals for both pr
  assert.throws(()=>M.budgetBreakdown('unknown',2500));
  assert.throws(()=>M.budgetBreakdown('cca',-1));
 });
+
+
+test('OA balance visibly reduces ERS savings while the fully funded ERS payout stays fixed',()=>{
+ const M=require('./model.js');
+ for(const lifestyle of ['cca','home-helper']){
+  const p={age:35,salary:6000,lifestyle};const base=M.calculate(p),withOA=M.calculate({...p,oa:100000});
+  assert.ok(withOA.cpfAt55>base.cpfAt55);
+  assert.ok(withOA.scenarios[0].payout>base.scenarios[0].payout);
+  assert.ok(withOA.scenarios[2].cpfGap<base.scenarios[2].cpfGap);
+  assert.ok(withOA.scenarios[2].cpfFunding<base.scenarios[2].cpfFunding);
+  assert.equal(withOA.scenarios[2].payout,base.scenarios[2].payout);
+ }
+});
+test('budget changes own retirement savings, not CPF sum goals or ERS top-up savings',()=>{
+ const M=require('./model.js');
+ for(const lifestyle of ['cca','home-helper']){
+  const p={age:35,salary:6000,lifestyle,oa:100000};const base=M.calculate(p),higher=M.calculate({...p,spend:4500});
+  assert.equal(higher.ers,base.ers);assert.equal(higher.cpfAt55,base.cpfAt55);
+  assert.equal(higher.scenarios[2].cpfGap,base.scenarios[2].cpfGap);
+  assert.equal(higher.scenarios[2].cpfFunding,base.scenarios[2].cpfFunding);
+  for(let i=0;i<3;i++)assert.ok(higher.scenarios[i].privateSaving>base.scenarios[i].privateSaving);
+ }
+});
