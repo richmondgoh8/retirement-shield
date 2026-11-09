@@ -77,11 +77,13 @@
               <span class="eyebrow-line"></span> Singapore retirement, made
               easier
             </p>
-            <h1 id="hero-title">Can CPF fund your<br />Solo + Helper life?</h1>
+            <h1 id="hero-title">
+              Can CPF fund your<br />retirement lifestyle?
+            </h1>
             <p class="hero-lede">
-              Your baseline: living alone, a paid-up 2-room flat and one helper.
-              See whether CPF can cover it—and the investments needed to close
-              the gap.
+              Start with Community Care Apartments, or explore Home + Helper in
+              Adjust plan. See what CPF could cover and what to start saving
+              today.
             </p>
             <p class="hero-note">
               For salaried Singapore citizens and PRs aged 18–54 on full CPF
@@ -145,7 +147,7 @@
         <div class="shell">
           <div class="plan-heading">
             <div>
-              <p class="eyebrow eyebrow-dark">Your Solo + Helper plan</p>
+              <p class="eyebrow eyebrow-dark">Your retirement plan</p>
               <h2 id="simple-plan-title">
                 What will CPF cover—and what must I invest?
               </h2>
@@ -170,9 +172,10 @@
             </div>
           </div>
           <div class="baseline-strip">
-            <span><b>Solo + Helper</b> · paid-up 2-room flat</span
+            <span id="lifestyle-summary"
+              ><b>Community Care Apartments</b> · monthly living costs</span
             ><span id="baseline-summary"
-              >S$3,500/month in today’s prices · retire at 65</span
+              >S$2,500/month in today’s prices · retire at 65</span
             >
           </div>
           <p
@@ -268,22 +271,15 @@
             <summary>What did the calculator assume?</summary>
             <div class="payout-options-content">
               <p>
-                All projected money amounts are displayed in today’s purchasing
-                power, using your selected inflation to remove general price
-                increases. Current salary, balances and monthly savings are
-                amounts today. Defaults: retire at 65, fund spending to 90 and
-                use 4% nominal annual net investment return. The helper example
-                starts at $3,500 in 2026 prices with 3% general inflation. It
-                keeps the normal $300 helper levy fixed and adds an age-related
-                care allowance after 65, calibrated to the category midpoints
-                ($3,090 at 65 and about $3,170 at 75, both in today’s purchasing
-                power). The same age trend is extrapolated after 75; actual care
-                needs can differ substantially. Your optional spending amount is
-                treated as today’s prices. The S$3,500 starting budget includes
-                a cushion above the S$3,090 category midpoint; neither is an
-                official cost standard. These are model assumptions, not
-                promised returns. Educational illustration, not personalised
-                financial advice.
+                All projected money amounts are shown in today’s purchasing
+                power. Current salary, balances and monthly savings are amounts
+                today. Defaults: retire at 65, fund spending to 90, 4% nominal
+                net investment return and 3% general inflation.
+              </p>
+              <p id="lifestyle-assumptions">
+                CCA starts at $2,500/month; apartment purchase and move-in costs
+                are separate. The age-75 care allowance is $3,340 in today’s
+                prices. No automatic subsidies are assumed.
               </p>
               <p>
                 Without balances, CPF starts at $0. By default, future OA
@@ -350,126 +346,222 @@
           <details class="module-disclosure" id="budget-disclosure">
             <summary>
               <span>Spending detail</span
-              ><strong>How your Solo + Helper budget breaks down</strong
-              ><small>Age 65 versus 75 · six cost categories</small>
+              ><strong id="budget-summary-title"
+                >How your CCA budget breaks down</strong
+              ><small>Age 65 versus 75 · today’s purchasing power</small>
             </summary>
             <div class="module-content">
-              <div class="section-heading split-heading">
-                <div>
-                  <p class="eyebrow eyebrow-dark">
-                    Living independently, with help at home
-                  </p>
-                  <h2 id="budget-title">
-                    A helper changes the retirement number.
-                  </h2>
-                </div>
-                <p class="section-intro">
-                  One independent 65-year-old single, a paid-up 2-room Flexi
-                  flat and one live-in helper. These are planning ranges for
-                  that lifestyle, including a healthcare reserve. Future prices
-                  and care needs are illustrative.
+              <div class="section-heading">
+                <h2 id="budget-title">Your CCA living budget</h2>
+                <p id="budget-intro">
+                  A planning allowance for one person. Apartment purchase and
+                  move-in costs are separate.
                 </p>
               </div>
-              <div class="care-summary">
-                <article>
-                  <span>AGE 65 · TODAY’S PRICES</span
-                  ><strong>S$2,650–3,530</strong
-                  ><small>per month · category total</small>
-                </article>
-                <article class="care-target">
-                  <span>STARTING PLANNING TARGET</span><strong>S$3,500</strong
-                  ><small
-                    >per month today · includes room above the S$3,090
-                    midpoint</small
-                  >
-                </article>
-                <article>
-                  <span>AGE 75 · TODAY’S PRICES</span
-                  ><strong id="care-later-range"></strong
-                  ><small>per month · normal levy retained</small>
-                </article>
-              </div>
-              <div class="care-expenses card-surface">
-                <div class="care-table-head">
-                  <h3>What the money pays for</h3>
-                  <span>Both ages shown in today’s purchasing power</span>
+              <div id="cca-budget">
+                <div class="care-summary">
+                  <article>
+                    <span>AGE 65 · TODAY’S PRICES</span
+                    ><strong id="cca-now-total">$2,500</strong
+                    ><small>monthly living allowance</small>
+                  </article>
+                  <article>
+                    <span>AGE 75 · TODAY’S PRICES</span
+                    ><strong id="cca-later-total">$3,340</strong
+                    ><small>with a larger care provision</small>
+                  </article>
                 </div>
-                <div
-                  id="care-cost-rows"
-                  role="list"
-                  aria-label="Monthly expense ranges at age 65 and age 75"
-                ></div>
-                <div class="care-total-row">
-                  <b>Total monthly provision</b
-                  ><span>S$2,650–3,530 <small>at 65</small></span
-                  ><span
-                    ><b id="care-later-total"></b>
-                    <small>at 75 · today’s value</small></span
-                  >
+                <div class="care-expenses card-surface">
+                  <div class="care-table-head">
+                    <h3>What the allowance covers</h3>
+                    <span>Planning provisions, not provider quotes</span>
+                  </div>
+                  <div
+                    id="cca-cost-rows"
+                    role="list"
+                    aria-label="CCA monthly provisions at 65 and 75"
+                  ></div>
                 </div>
                 <p class="result-footnote">
-                  This reference example starts at age 65 today. Age-75 ranges
-                  remove ten years of 3% inflation from the original cost
-                  allowances, retaining changes in care needs. It is a fixed
-                  budget illustration; your personalised plan uses your age,
-                  budget and selected inflation. The calculator follows the
-                  overall midpoint trend, keeps the nominal levy fixed and
-                  scales from your budget.
+                  This reference starts at age 65 today. The $2,500 preset rises
+                  to $3,340 at 75 in today’s purchasing power as care provisions
+                  increase. Growth is smooth after 65 and extrapolated beyond
+                  75; actual needs and charges can differ. A custom budget
+                  scales the provisions proportionally. These are estimates, not
+                  an official all-in CCA price.
                 </p>
-              </div>
-              <div class="care-insights">
-                <p>
-                  <b>Helper ≈ 42% of the age-65 midpoint.</b> It is the largest
-                  single budget line.
-                </p>
-                <p>
-                  <b id="care-health-midpoint"></b> The care provision grows
-                  faster than general prices in this example.
-                </p>
-              </div>
-              <div class="care-gotchas">
-                <article>
-                  <h3>Count food once</h3>
+                <details class="result-details">
+                  <summary>What CCA services include</summary>
                   <p>
-                    Groceries cover both people. The helper line excludes food.
-                    At 65 it allows S$650–850 salary + S$300 levy + S$200–300
-                    for insurance, check-ups and other non-food employment
-                    provisions.
+                    CCA is designed for low-to-moderate care needs. Basic
+                    services include support with everyday matters and 24-hour
+                    emergency response. Meals, housekeeping, personal care and
+                    other add-on services may cost extra. Higher care needs
+                    require reassessment; living in a CCA does not guarantee
+                    every future care need can be met there.
                   </p>
-                </article>
-                <article>
-                  <h3>Check the levy at 67</h3>
                   <p>
-                    Current MOM rules offer an eligible Singapore citizen
-                    employer aged 67+ a S$60 levy, rather than S$300. That is
-                    <b>S$240 less a month</b>. For this age-65 reference
-                    example, the age-75 range in today’s purchasing power is
-                    <b id="care-concession-range"></b>. The main model retains
-                    S$300; future rules and eligibility can change.
+                    The $220 basic-service provision is an editable planning
+                    allowance, not a quote. Actual fees depend on the project,
+                    applicable date, GST and care/subsidy eligibility. No
+                    subsidy is automatically included.
                   </p>
-                  <a
-                    href="https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-domestic-worker/foreign-domestic-worker-levy/levy-concession"
-                    target="_blank"
-                    rel="noreferrer"
-                    >MOM concession eligibility ↗</a
+                  <p>
+                    Age eligibility was lowered to 55 from the October 2026
+                    sales exercise; revised service fees and subsidies start
+                    from Q2 2027. This preset plans a future lifestyle; it does
+                    not establish purchase eligibility, availability or care
+                    suitability. Check your HDB Flat Eligibility letter and
+                    current project terms.
+                  </p>
+                  <p>
+                    <a
+                      href="https://www.hdb.gov.sg/hdb-pulse/news/2026/Age-eligibility-for-community-care-apartments-lowered-from-65-to-55-years-old"
+                      target="_blank"
+                      rel="noreferrer"
+                      >HDB: CCA eligibility and service changes ↗</a
+                    >
+                    ·
+                    <a
+                      href="https://www.vanguardhealthcare.com.sg/our-services/assisted-living/basic-service-package"
+                      target="_blank"
+                      rel="noreferrer"
+                      >CCA operator: fees and qualifications ↗</a
+                    >
+                  </p>
+                  <small
+                    >Checked 9 Nov 2026. Future fees and eligibility may
+                    change.</small
                   >
-                </article>
-                <article>
-                  <h3>Health is a reserve, not a fixed bill</h3>
+                </details>
+                <details class="result-details">
+                  <summary>
+                    Before moving into a CCA: separate costs to fund
+                  </summary>
                   <p>
-                    Premiums, subsidies and treatment needs vary. Some premiums
-                    can be paid from MediSave; an Integrated Shield Plan quote
-                    may already include MediShield Life. Do not add the same
-                    cover twice. This budget includes a provision, not an
-                    insurer quote or cash-only premium schedule.
+                    The monthly answer excludes apartment purchase/lease, the
+                    service deposit, moving and setup costs, and any rent or
+                    mortgage. Obtain the project’s quote and map each cost to
+                    available cash or permitted CPF use before treating this
+                    plan as funded.
                   </p>
-                  <a
-                    href="https://www.cpf.gov.sg/member/healthcare-financing/medishield-life/medishield-life-premiums-and-subsidies"
-                    target="_blank"
-                    rel="noreferrer"
-                    >CPF premium and subsidy information ↗</a
-                  >
-                </article>
+                  <p>
+                    A refundable deposit still needs accessible money upfront.
+                    Do not count money reserved for the apartment in your
+                    retirement investment pot. Using OA for housing can reduce
+                    CPF available for retirement; update the CPF assumptions
+                    accordingly. Selling a home may involve costs and CPF
+                    refunds, so sale proceeds are not automatically included.
+                  </p>
+                  <p>
+                    Next step: check the property and service documents, then
+                    record your upfront funding separately from the monthly
+                    target.
+                  </p>
+                </details>
+              </div>
+              <div id="helper-budget" hidden>
+                <div class="care-summary">
+                  <article>
+                    <span>AGE 65 · TODAY’S PRICES</span
+                    ><strong>S$2,650–3,530</strong
+                    ><small>per month · category total</small>
+                  </article>
+                  <article class="care-target">
+                    <span>STARTING PLANNING TARGET</span><strong>S$3,500</strong
+                    ><small
+                      >per month today · includes room above the S$3,090
+                      midpoint</small
+                    >
+                  </article>
+                  <article>
+                    <span>AGE 75 · TODAY’S PRICES</span
+                    ><strong id="care-later-range"></strong
+                    ><small>per month · normal levy retained</small>
+                  </article>
+                </div>
+                <div class="care-expenses card-surface">
+                  <div class="care-table-head">
+                    <h3>What the money pays for</h3>
+                    <span>Both ages shown in today’s purchasing power</span>
+                  </div>
+                  <div
+                    id="care-cost-rows"
+                    role="list"
+                    aria-label="Monthly expense ranges at age 65 and age 75"
+                  ></div>
+                  <div class="care-total-row">
+                    <b>Total monthly provision</b
+                    ><span>S$2,650–3,530 <small>at 65</small></span
+                    ><span
+                      ><b id="care-later-total"></b>
+                      <small>at 75 · today’s value</small></span
+                    >
+                  </div>
+                  <p class="result-footnote">
+                    This reference example starts at age 65 today. Age-75 ranges
+                    remove ten years of 3% inflation from the original cost
+                    allowances, retaining changes in care needs. It is a fixed
+                    budget illustration; your personalised plan uses your age,
+                    budget and selected inflation. The calculator follows the
+                    overall midpoint trend, keeps the nominal levy fixed and
+                    scales from your budget.
+                  </p>
+                </div>
+                <div class="care-insights">
+                  <p>
+                    <b>Helper ≈ 42% of the age-65 midpoint.</b> It is the
+                    largest single budget line.
+                  </p>
+                  <p>
+                    <b id="care-health-midpoint"></b> The care provision grows
+                    faster than general prices in this example.
+                  </p>
+                </div>
+                <div class="care-gotchas">
+                  <article>
+                    <h3>Count food once</h3>
+                    <p>
+                      Groceries cover both people. The helper line excludes
+                      food. At 65 it allows S$650–850 salary + S$300 levy +
+                      S$200–300 for insurance, check-ups and other non-food
+                      employment provisions.
+                    </p>
+                  </article>
+                  <article>
+                    <h3>Check the levy at 67</h3>
+                    <p>
+                      Current MOM rules offer an eligible Singapore citizen
+                      employer aged 67+ a S$60 levy, rather than S$300. That is
+                      <b>S$240 less a month</b>. For this age-65 reference
+                      example, the age-75 range in today’s purchasing power is
+                      <b id="care-concession-range"></b>. The main model retains
+                      S$300; future rules and eligibility can change.
+                    </p>
+                    <a
+                      href="https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-domestic-worker/foreign-domestic-worker-levy/levy-concession"
+                      target="_blank"
+                      rel="noreferrer"
+                      >MOM concession eligibility ↗</a
+                    >
+                  </article>
+                  <article>
+                    <h3>Health is a reserve, not a fixed bill</h3>
+                    <p>
+                      Premiums, subsidies and treatment needs vary. Some
+                      premiums can be paid from MediSave; an Integrated Shield
+                      Plan quote may already include MediShield Life. Do not add
+                      the same cover twice. This budget includes a provision,
+                      not an insurer quote or cash-only premium schedule.
+                    </p>
+                    <a
+                      href="https://www.cpf.gov.sg/member/healthcare-financing/medishield-life/medishield-life-premiums-and-subsidies"
+                      target="_blank"
+                      rel="noreferrer"
+                      >CPF premium and subsidy information ↗</a
+                    >
+                  </article>
+                </div>
               </div>
             </div>
           </details>
@@ -544,8 +636,10 @@
           <details class="module-disclosure" id="drawdown-disclosure">
             <summary>
               <span>When retirement gets closer</span
-              ><strong>Turn your investment pot into spending money</strong
-              ><small>Cash reserve, bonds and gradual rebalancing</small>
+              ><strong>Make your money easier to manage later</strong
+              ><small
+                >Dependable income, fewer accounts and simpler decisions</small
+              >
             </summary>
             <div class="module-content">
               <div class="section-heading split-heading">
@@ -555,14 +649,14 @@
                     to spend later
                   </p>
                   <h2 id="drawdown-title">
-                    A drawdown plan for the years after work.
+                    Make your money easier to manage later.
                   </h2>
                 </div>
                 <p class="section-intro">
-                  If you hold a diversified equity fund, build a written
-                  transition plan over time. A retirement date does not require
-                  selling everything at once. Include the helper and healthcare
-                  provision when sizing the spending reserve.
+                  Build a simpler arrangement while you can make the choices
+                  comfortably. A retirement date does not require selling
+                  everything at once. Include care and healthcare provisions
+                  when sizing the spending reserve.
                 </p>
               </div>
 
@@ -576,7 +670,7 @@
                   <article>
                     <span>01</span>
                     <div>
-                      <h3>Calculate the gap first</h3>
+                      <h3>Build dependable income for essential bills</h3>
                       <p id="drawdown-step1-desc">
                         Use the monthly plan above. Size investments against
                         spending left after CPF LIFE and any other steady
@@ -587,7 +681,7 @@
                   <article>
                     <span>02</span>
                     <div>
-                      <h3>Set an accessible spending reserve</h3>
+                      <h3>Reduce accounts and repeated decisions</h3>
                       <p id="drawdown-step2-desc">
                         Choose how many months of your investment-funded gap to
                         hold in cash or similarly accessible savings, based on
@@ -598,7 +692,7 @@
                   <article>
                     <span>03</span>
                     <div>
-                      <h3>Build a fixed-income ladder gradually</h3>
+                      <h3>Automate spending money</h3>
                       <p id="drawdown-step3-desc">
                         Match maturities to planned spending. Singapore Savings
                         Bonds can be redeemed monthly without a penalty; allow
@@ -609,7 +703,7 @@
                   <article>
                     <span>04</span>
                     <div>
-                      <h3>Keep long-horizon money invested</h3>
+                      <h3>Simplify remaining investments</h3>
                       <p id="drawdown-step4-desc">
                         Keep an equity allocation you can tolerate through
                         market falls. Rebalance on a set schedule and use a
@@ -618,6 +712,39 @@
                       </p>
                     </div>
                   </article>
+                  <article>
+                    <span>05</span>
+                    <div>
+                      <h3>Review the arrangement periodically</h3>
+                      <p id="drawdown-step5-desc">
+                        Check affordability, inflation, care needs and whether
+                        this arrangement still feels manageable. Review after a
+                        health or family change as well as at a regular annual
+                        check.
+                      </p>
+                    </div>
+                  </article>
+                  <div class="guide-actions">
+                    <button
+                      type="button"
+                      class="button button-dark"
+                      id="drawdown-next"
+                    >
+                      Next action</button
+                    ><button
+                      type="button"
+                      class="text-button"
+                      id="drawdown-back"
+                      hidden
+                    >
+                      Previous
+                    </button>
+                  </div>
+                  <p
+                    id="drawdown-progress"
+                    class="guide-progress"
+                    role="status"
+                  ></p>
                 </div>
                 <aside class="ssb-card">
                   <span class="form-kicker">SINGAPORE SAVINGS BONDS</span
@@ -639,6 +766,29 @@
                   >
                 </aside>
               </div>
+              <details class="result-details">
+                <summary>What this guidance does—and does not—model</summary>
+                <p>
+                  The projection keeps your selected nominal return constant. It
+                  does not simulate moving to lower-risk assets, annuity
+                  purchases, account consolidation or automated withdrawals.
+                  These changes can alter returns, fees, liquidity and tax.
+                  Review the illustration when you change your arrangement.
+                </p>
+                <p>
+                  Moving everything into blue-chip shares still leaves company,
+                  dividend and market risks. There is no universal allocation or
+                  fixed age to sell everything. Government securities also have
+                  maturity and access rules; SSB redemption is monthly, not
+                  instant.
+                </p>
+                <a
+                  href="https://www.moneysense.gov.sg/investments/life-stage-investing/"
+                  target="_blank"
+                  rel="noreferrer"
+                  >MoneySense: life-stage investing ↗</a
+                ><small> · Checked 9 Nov 2026</small>
+              </details>
               <p class="drawdown-note">
                 There is no universal “sell equities at age X” rule. Decide in
                 advance what the money is for, which spending years are covered
@@ -681,7 +831,7 @@
     >
       <div class="settings-head">
         <div>
-          <span class="form-kicker">SOLO + HELPER</span>
+          <span class="form-kicker">YOUR RETIREMENT PLAN</span>
           <h2 id="settings-title">Fine-tune your plan</h2>
         </div>
         <button
@@ -739,9 +889,18 @@
       </div>
       <div id="panel-budget" role="tabpanel" aria-labelledby="tab-budget">
         <p class="settings-panel-note">
-          Baseline: one person, a paid-up 2-room flat and a live-in helper.
-          Housing purchase, rent and mortgage are excluded.
+          Choose the lifestyle to plan for. Apartment purchase and move-in costs
+          need separate funding. A custom budget applies to the selected preset.
         </p>
+        <div class="field">
+          <label for="known-lifestyle">Retirement lifestyle</label>
+          <div class="input-wrap select-wrap">
+            <select id="known-lifestyle">
+              <option value="cca" selected>Community Care Apartments</option>
+              <option value="home-helper">Home + Helper</option>
+            </select>
+          </div>
+        </div>
         <div class="field-grid">
           <div class="field">
             <label for="known-spend"
@@ -754,11 +913,13 @@
                 type="number"
                 min="0"
                 step="any"
-                placeholder="3500"
+                placeholder="2500"
                 inputmode="decimal"
               />
             </div>
-            <small>Blank uses S$3,500, including a healthcare provision.</small>
+            <small id="budget-default-note"
+              >Blank uses S$2,500, including healthcare and extra help.</small
+            >
           </div>
           <div class="field">
             <label for="known-retire">Age I want to retire</label>
@@ -774,8 +935,8 @@
               />
             </div>
             <small
-              >Blank uses age 65. Earlier retirement needs a bridge to CPF
-              LIFE.</small
+              >Blank uses age 65. CCA assumes moving in from retirement, at 55
+              or later. Earlier retirement needs a bridge to CPF LIFE.</small
             >
           </div>
         </div>
@@ -968,9 +1129,9 @@
         <summary>Your saved plan and privacy</summary>
         <p>
           Calculations run on this device. Inputs are saved in this browser and
-          included in the address after #. Anyone using this browser or
-          receiving a copied plan URL may see your salary and balances. The app
-          does not send these inputs to a server.
+          can be included in financial plan addresses after #. Anyone using this
+          browser or receiving a copied plan URL may see your salary and
+          balances. The app does not send these inputs to a server.
         </p>
         <p>
           Clear saved plan removes the browser copy, financial URL and guide

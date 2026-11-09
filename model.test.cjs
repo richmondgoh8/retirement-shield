@@ -1,6 +1,9 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {calculate,referencePayout,portfolioTarget,generateTrajectory,C}=require('./model.js');
+const {referencePayout,portfolioTarget,C}=require('./model.js');
+// Explicit legacy fixtures preserve the approved Home + Helper behaviour.
+const calculate=p=>require('./model.js').calculate({lifestyle:'home-helper',...p});
+const generateTrajectory=(p,key)=>require('./model.js').generateTrajectory({lifestyle:'home-helper',...p},key);
 test('two known fields produce a complete finite answer without refinements',()=>{
  const r=calculate({age:35,salary:6000});
  for(const [k,v]of Object.entries(r))if(typeof v==='number')assert.ok(Number.isFinite(v),k);
@@ -42,7 +45,7 @@ test('helper ranges add correctly without duplicate food; age-75 normal and conc
  assert.ok(Math.abs(expenseAt(3090,65,10,'helper')-4260)<1e-6);
  assert.deepEqual(careTotals('later').map(v=>v-240),[3390,4650]);
 });
-test('Solo + Helper is the only baseline and stays adjustable',()=>{
+test('explicit Home + Helper fixture stays adjustable',()=>{
  const p={age:35,salary:6000};assert.equal(calculate(p).todaySpend,3500);
  assert.ok(calculate({...p,spend:4000}).saving>calculate(p).saving);
  assert.ok(calculate(p).at75>calculate(p).todaySpend);
@@ -228,5 +231,42 @@ test('drawdown slices use one retirement date and cannot exceed the portfolio',(
    assert.ok(Math.abs(v.cashReserve+v.ssbLadder+v.equityCore-d.scenarios[i].privateTarget)<1e-6);
    assert.ok(v.ssbLadder<=todayValue(200000,retire,r.age,r.inflation));
   }
+ }
+});
+
+
+test('CCA is the new default with the approved spending provisions',()=>{
+ const M=require('./model.js');const r=M.calculate({age:35,salary:6000});
+ assert.equal(r.lifestyle,'cca');assert.equal(r.todaySpend,2500);
+ assert.equal(M.ccaRows.reduce((sum,row)=>sum+row.now,0),2500);
+ assert.equal(M.ccaRows.reduce((sum,row)=>sum+row.later,0),3340);
+ const d=M.todayPlan(r);
+ assert.ok(Math.abs(d.spend65-2500)<1e-8);assert.ok(Math.abs(d.spend75-3340)<1e-8);
+ assert.equal(M.expenseAt(2500,65,10,0,'cca'),3340);
+ assert.throws(()=>M.calculate({age:35,salary:6000,lifestyle:'unknown'}));
+ assert.throws(()=>M.calculate({age:35,salary:6000,retire:45}));
+ assert.equal(M.calculate({age:35,salary:6000,retire:45,lifestyle:'home-helper'}).retire,45);
+});
+test('CCA custom budgets scale care provisions, without a fixed levy',()=>{
+ const M=require('./model.js');const p={age:35,salary:6000};
+ const full=M.todayPlan(M.calculate(p)),half=M.todayPlan(M.calculate({...p,spend:1250}));
+ assert.ok(Math.abs(half.spend65/full.spend65-.5)<1e-8);
+ assert.ok(Math.abs(half.spend75/full.spend75-.5)<1e-8);
+ assert.equal(M.calculate({...p,spend:0}).target,0);
+});
+test('both presets reconcile answer, monthly trajectory and portfolio funding',()=>{
+ const M=require('./model.js');
+ for(const lifestyle of ['cca','home-helper'])for(const age of [28,45,54])for(const retire of [55,65,80])for(const plan of ['standard','escalating'])for(const key of ['salary','frs','ers']){
+  const p={age,salary:6000,lifestyle,retire,plan};
+  const t=M.generateTrajectory(p,key),d=M.todayPlan(t.summary),real=M.todayTrajectory(t),s=d.scenarios.find(x=>x.key===key);
+  assert.ok(Math.abs(t.points.find(x=>x.age===retire).portfolioBalance-t.selectedScenario.privateTarget)<1e-5);
+  assert.ok(t.points.at(-1).portfolioBalance<1e-4);
+  for(const milestone of [65,75]){
+   const pt=real.points.find(x=>x.age===milestone);
+   assert.ok(Math.abs(pt.monthlySpend-(milestone===65?d.spend65:d.spend75))<1e-7);
+   assert.ok(Math.abs(pt.monthlyCPF-(milestone===65?s.payout:s.payout75))<1e-7);
+  }
+  const slices=M.drawdownToday(t.summary,t.selectedScenario);
+  assert.ok(Math.abs(slices.cashReserve+slices.ssbLadder+slices.equityCore-s.privateTarget)<1e-6);
  }
 });

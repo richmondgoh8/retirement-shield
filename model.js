@@ -81,6 +81,20 @@
       note: "Phone, broadband, haircuts, clothing and social spending.",
     },
   ];
+  const ccaRows = [
+    { name: "Utilities, upkeep & housing charges", now: 250, later: 250 },
+    { name: "Food", now: 500, later: 500 },
+    { name: "Transport", now: 180, later: 220 },
+    { name: "Healthcare & insurance", now: 400, later: 700 },
+    { name: "Basic Service Package provision", now: 220, later: 220 },
+    { name: "Extra care & household help", now: 500, later: 1000 },
+    { name: "Personal & social spending", now: 250, later: 250 },
+    { name: "Contingency", now: 200, later: 200 },
+  ];
+  const lifestyles = {
+    cca: { label: "Community Care Apartments", budget: 2500 },
+    "home-helper": { label: "Home + Helper", budget: 3500 },
+  };
   function careTotals(key = "now") {
     return careRows.reduce(
       (s, row) => [s[0] + row[key][0], s[1] + row[key][1]],
@@ -91,8 +105,21 @@
   // Keep the $300 levy fixed; model general prices and an additional care-age allowance.
   const careAgeFactor = (age) =>
     ((4260 - 300) / (3090 - 300) / 1.03 ** 10) ** (Math.max(0, age - 65) / 10);
-  function expenseAt(spend, startAge, elapsed, inflation = C.inflation) {
+  function expenseAt(
+    spend,
+    startAge,
+    elapsed,
+    inflation = C.inflation,
+    lifestyle = "home-helper",
+  ) {
     const inf = typeof inflation === "number" ? inflation : C.inflation;
+    if (lifestyle === "cca") {
+      const care = (age) => (3340 / 2500) ** (Math.max(0, age - 65) / 10);
+      return (
+        (spend * (1 + inf) ** elapsed * care(startAge + elapsed)) /
+        care(startAge)
+      );
+    }
     const levy = Math.min(300, spend);
     return (
       ((spend - levy) *
@@ -119,6 +146,10 @@
       typeof opts.inflation === "number" ? opts.inflation : C.inflation;
     const plan = typeof opts === "object" && opts.plan ? opts.plan : "standard";
 
+    const lifestyle =
+      typeof opts === "object" && opts.lifestyle === "cca"
+        ? "cca"
+        : "home-helper";
     const rate = (1 + investmentReturn) ** (1 / 12) - 1;
     let target = 0;
     const totalMonths = Math.round((endAge - retirementAge) * 12);
@@ -134,7 +165,10 @@
             : income;
       }
       target +=
-        Math.max(0, expenseAt(spend, retirementAge, t, inflation) - cpf) /
+        Math.max(
+          0,
+          expenseAt(spend, retirementAge, t, inflation, lifestyle) - cpf,
+        ) /
         (1 + rate) ** m;
     }
     return target;
@@ -175,7 +209,14 @@
         throw new Error(
           "Use zero or a positive amount for balances, spending and monthly investments.",
         );
+    const lifestyle = p.lifestyle == null ? "cca" : p.lifestyle;
+    if (!Object.hasOwn(lifestyles, lifestyle))
+      throw new Error("Choose Community Care Apartments or Home + Helper.");
     const retire = p.retire == null ? 65 : Number(p.retire);
+    if (lifestyle === "cca" && retire < 55)
+      throw new Error(
+        "The CCA preset assumes moving in at retirement, from age 55. Choose 55 or later, or Home + Helper for an earlier retirement illustration.",
+      );
     if (!Number.isInteger(retire) || retire < Math.max(40, age) || retire > 80)
       throw new Error(
         "Retirement age must be at least your current age, between 40 and 80.",
@@ -268,12 +309,13 @@
         ? baseStandardPayout * C.escalatingRatio
         : baseStandardPayout;
 
-    const todaySpend = p.spend == null ? 3500 : Number(p.spend);
+    const todaySpend =
+      p.spend == null ? lifestyles[lifestyle].budget : Number(p.spend);
     const years = retire - age,
       months = years * 12,
-      futureSpend = expenseAt(todaySpend, age, years, inflation);
+      futureSpend = expenseAt(todaySpend, age, years, inflation, lifestyle);
 
-    const calcOpts = { investmentReturn, inflation, plan };
+    const calcOpts = { investmentReturn, inflation, plan, lifestyle };
     const target = portfolioTarget(
         futureSpend,
         baseStandardPayout,
@@ -298,8 +340,8 @@
       ((1 + C.saRate) ** years55 - 1) / ((1 + C.saRate) ** (1 / 12) - 1);
     const topup = Math.min(1000, Math.max(0, C.frs - Number(p.sa || 0))),
       delay = Math.min(10, years55);
-    const spend65 = expenseAt(todaySpend, age, 65 - age, inflation),
-      spend75 = expenseAt(todaySpend, age, 75 - age, inflation);
+    const spend65 = expenseAt(todaySpend, age, 65 - age, inflation, lifestyle),
+      spend75 = expenseAt(todaySpend, age, 75 - age, inflation, lifestyle);
     const fundingMonths = Math.max(0, Math.min(55, retire) - age) * 12;
     const cpfRate = 1.04 ** (1 / 12) - 1;
     const cpfFundingFactor = fundingMonths
@@ -344,7 +386,10 @@
           plan === "escalating"
             ? payout65 * (1 + C.escalatingRate) ** t
             : standardPayout;
-        if (expenseAt(spend65, 65, t, inflation) > currentPayout + 0.005) {
+        if (
+          expenseAt(spend65, 65, t, inflation, lifestyle) >
+          currentPayout + 0.005
+        ) {
           firstShortfallAge = 65 + t;
           break;
         }
@@ -383,6 +428,8 @@
 
     return {
       scenarios,
+      lifestyle,
+      lifestyleLabel: lifestyles[lifestyle].label,
       spend65,
       spend75,
       age,
@@ -533,8 +580,14 @@
 
       const tSpend = curAge >= r.retire ? curAge - r.retire : 0;
       const monthlySpend = isRetire
-        ? expenseAt(r.futureSpend, r.retire, tSpend, r.inflation)
-        : expenseAt(r.todaySpend, r.age, curAge - r.age, r.inflation);
+        ? expenseAt(r.futureSpend, r.retire, tSpend, r.inflation, r.lifestyle)
+        : expenseAt(
+            r.todaySpend,
+            r.age,
+            curAge - r.age,
+            r.inflation,
+            r.lifestyle,
+          );
 
       let monthlyCPF = 0;
       if (isCPFActive) {
@@ -582,6 +635,7 @@
             r.retire,
             elapsed,
             r.inflation,
+            r.lifestyle,
           );
           balance = Math.max(
             0,
@@ -601,6 +655,8 @@
     drawdownToday,
     allocation,
     careRows,
+    ccaRows,
+    lifestyles,
     careTotals,
     expenseAt,
     referencePayout,

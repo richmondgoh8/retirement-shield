@@ -2344,3 +2344,42 @@ body {
     background: transparent;
   }
 }
+
+/* Preset details and sequential actions retain the existing component system. */
+[hidden] {
+  display: none !important;
+}
+.scenario-card dd small {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.45;
+  margin-top: 6px;
+  color: var(--slate-600, #536475);
+}
+#panel-budget > .field {
+  margin-bottom: 20px;
+}
+#cca-budget .result-details {
+  margin-block: 24px;
+}
+#cca-cost-rows .care-cost-row {
+  padding-block: 16px;
+}
+#drawdown-progress {
+  margin-top: 16px;
+}
+
+.select-wrap select {
+  min-width: 0;
+}
+@media (max-width: 480px) {
+  .settings-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .settings-tabs button {
+    min-width: 0;
+    font-size: 0.875rem;
+  }
+}
