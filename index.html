@@ -178,6 +178,27 @@
               >S$2,500/month in today’s prices · retire at 65</span
             >
           </div>
+          <details class="preset-preview" id="preset-budget-preview">
+            <summary id="preset-budget-summary">
+              Explore what’s included in your monthly budget
+            </summary>
+            <div id="preset-budget-content"></div>
+            <p class="budget-check">
+              Check whether you need more for parent or dependant support, rent
+              or mortgage payments, debt, travel and major one-off costs. Avoid
+              counting costs already included twice. Apartment purchase and
+              move-in costs need separate funding.
+            </p>
+            <button
+              type="button"
+              class="text-button"
+              commandfor="plan-settings"
+              command="show-modal"
+              data-panel="budget"
+            >
+              Adjust my budget
+            </button>
+          </details>
           <p
             id="plan-status"
             class="sr-status"
@@ -900,6 +921,20 @@
               <option value="home-helper">Home + Helper</option>
             </select>
           </div>
+        </div>
+        <div class="drawer-budget-preview">
+          <p id="drawer-budget-caption"></p>
+          <div id="drawer-budget-chart"></div>
+          <details>
+            <summary>See the categories and what to add</summary>
+            <div id="drawer-budget-categories"></div>
+            <p class="budget-check">
+              Add any personal costs the allowance does not cover, such as
+              parent support, housing payments or debt. Set the monthly total
+              below; this preview scales the preset categories to that total. It
+              is a planning split, not itemised quotes.
+            </p>
+          </details>
         </div>
         <div class="field-grid">
           <div class="field">

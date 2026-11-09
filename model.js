@@ -95,6 +95,51 @@
     cca: { label: "Community Care Apartments", budget: 2500 },
     "home-helper": { label: "Home + Helper", budget: 3500 },
   };
+  function budgetBreakdown(
+    lifestyle = "cca",
+    total = lifestyles[lifestyle]?.budget,
+  ) {
+    if (
+      !Object.hasOwn(lifestyles, lifestyle) ||
+      !Number.isFinite(total) ||
+      total < 0
+    )
+      throw new Error("Choose a preset and a non-negative monthly budget.");
+    const source =
+      lifestyle === "cca"
+        ? ccaRows.map((row, i) => ({
+            name: row.name,
+            amount: row.now,
+            group: [0, 1, 2, 6].includes(i)
+              ? "living"
+              : i === 7
+                ? "buffer"
+                : "care",
+          }))
+        : [
+            ...careRows.map((row, i) => ({
+              name: row.name,
+              amount: (row.now[0] + row.now[1]) / 2,
+              group: [3, 4].includes(i) ? "care" : "living",
+            })),
+            { name: "Planning cushion", amount: 410, group: "buffer" },
+          ];
+    const rows = source.map((row) => ({
+      ...row,
+      amount: (row.amount * total) / lifestyles[lifestyle].budget,
+    }));
+    const groups = [
+      { key: "living", label: "Daily living" },
+      { key: "care", label: "Health & help" },
+      { key: "buffer", label: "Cushion" },
+    ].map((group) => ({
+      ...group,
+      amount: rows
+        .filter((row) => row.group === group.key)
+        .reduce((sum, row) => sum + row.amount, 0),
+    }));
+    return { total, rows, groups };
+  }
   function careTotals(key = "now") {
     return careRows.reduce(
       (s, row) => [s[0] + row[key][0], s[1] + row[key][1]],
@@ -657,6 +702,7 @@
     careRows,
     ccaRows,
     lifestyles,
+    budgetBreakdown,
     careTotals,
     expenseAt,
     referencePayout,

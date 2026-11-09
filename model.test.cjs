@@ -270,3 +270,20 @@ test('both presets reconcile answer, monthly trajectory and portfolio funding',(
   assert.ok(Math.abs(slices.cashReserve+slices.ssbLadder+slices.equityCore-s.privateTarget)<1e-6);
  }
 });
+
+test('budget previews reconcile categories, groups and custom totals for both presets',()=>{
+ const M=require('./model.js');
+ for(const lifestyle of ['cca','home-helper'])for(const total of [0,1000,2500,3500,4321.5]){
+  const b=M.budgetBreakdown(lifestyle,total);
+  assert.ok(Math.abs(b.rows.reduce((sum,row)=>sum+row.amount,0)-total)<1e-8);
+  assert.ok(Math.abs(b.groups.reduce((sum,group)=>sum+group.amount,0)-total)<1e-8);
+  assert.equal(b.groups.length,3);
+  for(const row of b.rows)assert.ok(Number.isFinite(row.amount)&&row.amount>=0);
+ }
+ const cca=M.budgetBreakdown();assert.equal(cca.total,2500);
+ assert.deepEqual(cca.groups.map(g=>g.amount),[1180,1120,200]);
+ const helper=M.budgetBreakdown('home-helper');assert.equal(helper.total,3500);
+ assert.equal(helper.rows.find(row=>row.name==='Planning cushion').amount,410);
+ assert.throws(()=>M.budgetBreakdown('unknown',2500));
+ assert.throws(()=>M.budgetBreakdown('cca',-1));
+});

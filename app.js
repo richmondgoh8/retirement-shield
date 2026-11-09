@@ -53,6 +53,16 @@ function renderLifestyle(r) {
   $("#lifestyle-assumptions").textContent = cca
     ? "CCA starts at $2,500/month; apartment purchase/lease, service deposit and move-in costs need separate funding. No subsidy is automatically included. In the reference example starting at 65 today, care provisions bring the total to $3,340 at 75 in today’s prices. The care trend grows smoothly after 65 and is extrapolated beyond 75. A custom budget scales all provisions. This is a planning estimate, not an official CCA price."
     : "Home + Helper starts at $3,500/month, including a cushion above the $3,090 category midpoint. The model keeps the nominal $300 levy fixed and adds an age-related care allowance after 65 calibrated to the original category trend. The trend is extrapolated beyond 75. Housing purchase, rent and mortgage are excluded. These are planning provisions, not promised costs.";
+  const breakdown = RetirementModel.budgetBreakdown(r.lifestyle, r.todaySpend);
+  const chart = `<figure class="budget-figure"><div class="budget-stack" aria-hidden="true">${breakdown.groups.map((group) => `<span class="budget-segment budget-${group.key}" style="width:${breakdown.total ? (group.amount / breakdown.total) * 100 : 0}%"></span>`).join("")}</div><figcaption class="budget-group-labels">${breakdown.groups.map((group) => `<span><span class="budget-group-name"><i class="budget-dot budget-${group.key}" aria-hidden="true"></i>${group.label}</span><b>${money(group.amount)}</b></span>`).join("")}</figcaption></figure>`;
+  const categories = `<dl class="budget-category-list">${breakdown.rows.map((row) => `<div><dt>${row.name}</dt><dd>${money(row.amount)}</dd></div>`).join("")}</dl><p class="budget-rounding">Monthly amounts in today’s dollars, rounded. This is the starting budget; care needs can change it later.</p>`;
+  $("#preset-budget-summary").textContent =
+    `What’s in your ${money(r.todaySpend)}/month ${cca ? "CCA" : "Home + Helper"} budget?`;
+  $("#preset-budget-content").innerHTML = chart + categories;
+  $("#drawer-budget-caption").textContent =
+    `${money(r.todaySpend)}/month · ${r.lifestyleLabel}`;
+  $("#drawer-budget-chart").innerHTML = chart;
+  $("#drawer-budget-categories").innerHTML = categories;
   const scale = r.todaySpend / 2500;
   $("#cca-now-total").textContent = money(r.todaySpend);
   $("#cca-later-total").textContent = money(3340 * scale);
@@ -529,6 +539,7 @@ function setupSimplePlan() {
         <p class="print-subtitle">All projections in today’s dollars · ${r.lifestyleLabel} plan · Age ${r.age} · Current Salary ${money(r.salary)}/mo · Target Retirement Age ${r.retire}</p>
       </div>
 
+      <p class="print-funding-summary">At 65: salary CPF path ${money(r.scenarios[0].payout)}/month · budget ${money(r.spend65)}/month · gap ${money(r.scenarios[0].gap65)}/month. All in today’s dollars. Start the savings amounts below from today.</p>
       <div class="print-grid">
         <div class="print-box">
           <h4>Illustrative Funding Target</h4>
@@ -750,6 +761,9 @@ function setupSimplePlan() {
     const signedMoney = (value) =>
       value < 0 ? `−${money(-value)}` : money(value);
     const remaining = r.afterCpf - s.totalFunding;
+    const salaryPath = r.scenarios[0];
+    const fundingSnapshot = `<div class="funding-snapshot"><p>${r.refined ? "What your CPF details and salary path could cover" : "What salary CPF alone could cover"} at 65 · today’s dollars</p><dl><div><dt>${r.refined ? "CPF income with entered details" : "Income from salary CPF"}</dt><dd>${money(salaryPath.payout)}<small>/month from 65</small></dd></div><div><dt>Your retirement budget</dt><dd>${money(r.spend65)}<small>/month at 65</small></dd></div><div><dt>Monthly gap after salary CPF</dt><dd>${money(salaryPath.gap65)}<small>/month at 65</small></dd></div></dl><p class="snapshot-note">${s.key !== "salary" ? `Your selected ${s.key.toUpperCase()} path could instead provide ${money(s.payout)}/month from 65, leaving ${money(s.gap65)}/month to fund at that age. Its additional savings are below.` : "Your investment pot needs to fund this gap and changing costs through age 90."} ${r.retire < 65 ? `Retiring at ${r.retire} also requires funding the years before CPF LIFE starts at 65.` : ""}</p></div>`;
+
     const housingNote =
       p.housing == null
         ? "All future OA is assumed spent on housing."
@@ -766,12 +780,16 @@ function setupSimplePlan() {
     <div class="verdict-card"><p class="form-kicker">YOUR CPF FOUNDATION</p><h3>CPF could provide ${money(s.payout)}/month in today’s dollars at 65.</h3><p>${verdict} Your next step is to check the balances and budget behind this estimate.</p><p>All projections below are in <b>today’s purchasing power</b> (rounded; totals may differ slightly), so spending and income can be compared directly. Your starting budget is <b>${money(r.todaySpend)}/month today</b>. CPF LIFE follows the <b>${r.plan === "escalating" ? "Escalating" : "Standard"}</b> plan.</p><div class="gap-timeline">${timeline(65, year65, r.spend65, s.gap65, s.payout)}${timeline(75, year75, r.spend75, s.gap75, s.payout75 || s.payout)}</div><details class="verdict-calculation"><summary>How are today’s-dollar amounts calculated?</summary><p>Each future amount is divided by (1 + ${(r.inflation * 100).toFixed(1)}% inflation) for every year from your current age to the age shown. Both spending and CPF income use the same conversion.</p><p>At 65, the purchasing-power equivalent of your living budget is ${money(r.spend65)}/month. ${r.lifestyle === "home-helper" ? "It can be below your starting budget because the model holds the nominal helper levy fixed." : "CCA has no helper levy; the full budget rises with general inflation, and the care allowance rises after 65."} After 65, an age-related care allowance can raise real spending. Standard CPF LIFE stays flat in cash, so its purchasing power falls; Escalating rises by 2% in cash each year and can still lag inflation.</p><p>Monthly savings targets are the actual amounts to start with now. The model keeps those cash contributions unchanged; it does not assume annual increases. Investment return is nominal, after fees. Future balances and payout comparisons are converted to today’s dollars for display only.</p></details><p class="verdict-note">Viewing: <b>${pathName[s.key]}</b>. ${s.key === "salary" ? "This uses projected salary CPF up to FRS. Compare the fully funded FRS or ERS scenarios below." : "This assumes the CPF target is fully funded. The extra savings required are shown below."} Actual balances, future rules and pricing can change the answer.</p></div>
     <details class="path-comparison" ${comparisonOpen ? "open" : ""}><summary>What if I save extra to reach FRS or ERS?</summary><div class="comparison-heading"><h3>Same salary. Three ways to fund retirement.</h3><p>All three use age ${r.age}, gross salary ${money(r.salary)}/month and the same budget. Your automatic ${money(r.contribution)}/month CPF contribution is already included. Amounts labelled extra come from your ${money(r.afterCpf)} salary after employee CPF.</p></div>
     <div class="scenario-grid">${r.scenarios.map((path) => `<article class="scenario-card${path.key === selected ? " is-selected" : ""}"><span class="scenario-title">${pathName[path.key]}</span><p>${descriptions[path.key]}</p><strong>${money(path.payout)}<small>/month at 65 · today’s dollars</small></strong><dl><div><dt>CPF funding · age-55 equivalent, today’s value</dt><dd>${money(path.balance)}</dd></div><div><dt>Spending gap at 65</dt><dd>${money(path.gap65)}/mo</dd></div><div><dt>Save for higher CPF payouts</dt><dd>${money(path.cpfFunding)}<small>${r.retiringNow ? "needed now" : `per month, starting now until age ${Math.min(55, r.retire)}`}</small></dd></div><div class="outside-goal"><dt>Invest for spending CPF won’t cover</dt><dd>${money(path.privateSaving)}<small>${r.retiringNow ? "needed now" : `per month, starting now until age ${r.retire}`}</small></dd></div></dl><button type="button" class="scenario-select" data-path="${path.key}" aria-pressed="${path.key === selected}">${path.key === selected ? "Viewing this path" : "Explore this path"} →</button></article>`).join("")}</div></details>
-    <section class="selected-funding card-surface" id="funding-steps" aria-labelledby="selected-path-title"><div class="funding-heading"><div><p class="form-kicker">YOUR FUNDING TARGET</p><h3 id="selected-path-title">${pathName[s.key]}: your extra savings plan</h3></div><button type="button" class="text-button" commandfor="plan-settings" command="show-modal" data-panel="invest">Set an affordable monthly amount ↗</button></div>
-      <p class="funding-caution">Monthly amounts below are what to start saving now; the model keeps them fixed in cash. Future balances are shown in today’s purchasing power. This is a planning target, not an amount you must invest now. ${!r.refined ? "Existing CPF is excluded and future OA is assumed used for housing." : "Your entered balances are included."} Protect current bills, tax, emergency savings and care for parents before choosing a monthly amount.</p>
-      <div class="funding-pots"><article><span>Save for higher CPF payouts</span><strong>${money(s.cpfFunding)}<small>${r.retiringNow ? "capital needed now" : `per month, starting now until age ${Math.min(55, r.retire)}`}</small></strong><p>${s.cpfGap > 0.005 ? `Target at 55: ${money(s.balance)} − salary CPF at 55 ${money(r.cpfAt55)} = ${money(s.cpfGap)} more to build, expressed in today’s dollars. This monthly saving starts now and assumes 4% nominal growth; it is additional to payroll CPF.` : "No extra CPF-target saving is assumed for this path. Your automatic salary contributions fund its modelled income."} ${s.cpfGap > 0.005 ? `This is a savings provision, not a required monthly CPF deduction.${s.key === "ers" ? " ERS funding may need to stay outside CPF until an eligible transfer or top-up from 55." : ""}` : ""}</p></article><article><span>Invest for spending CPF won’t cover</span><strong>${money(s.privateSaving)}<small>${r.retiringNow ? "capital shortfall now" : `per month, starting now until age ${r.retire}`}</small></strong><p>Targets a portfolio worth ${money(s.privateTarget)} in today’s purchasing power at ${r.retire}, to fund the spending left after this path’s CPF income through age 90.</p></article></div>
-      <div class="funding-total"><span>${r.retiringNow ? "Additional capital required today" : "Illustrative extra savings target"}</span><strong>${money(s.totalFunding)}${unit}</strong><small>${r.retiringNow ? "Compare these capital needs with available assets." : `${money(s.cpfFunding)} towards CPF and ${money(s.privateSaving)} invested for retirement each month. This does not include the ${money(r.employeeCpf)} already deducted as employee CPF.`}</small></div>
-      ${r.retiringNow ? "" : `<div class="take-home-check"><span>What that leaves for today’s bills and tax</span><p>${money(r.afterCpf)} salary after CPF − ${money(s.totalFunding)} extra savings = <b>${signedMoney(remaining)}/month</b></p><small>${remaining < 0 ? "This plan exceeds the salary available. Review the target, balances, spending or retirement age." : "This is the amount left before your current living costs, income tax and emergency savings."}</small></div><p class="funding-phase">${r.retire > 55 ? `From age 55 to ${r.retire}, the CPF-target saving ends; this model keeps the separate ${money(s.privateSaving)}/month investment going.` : `Savings stop at retirement (${r.retire}); any CPF-target reserve is assumed to grow until 55.`}</p>`}
+    <section class="selected-funding card-surface" id="funding-steps" aria-labelledby="selected-path-title"><div class="funding-heading"><div><p class="form-kicker">YOUR FUNDING TARGET</p><h3 id="selected-path-title">What to do from today</h3></div><button type="button" class="text-button" commandfor="plan-settings" command="show-modal" data-panel="invest">Set an affordable monthly amount ↗</button></div>
+      ${fundingSnapshot}
+      <p class="funding-start">${r.retiringNow ? `For your selected ${pathName[s.key]} path, the model needs ${money(s.totalFunding)} in additional capital today.` : `Start with an illustrative target of <b>${money(s.totalFunding)}/month saved from today</b> for this plan (${pathName[s.key]}), split below.`} Amounts are additional to payroll CPF.</p>
+      ${p.invest != null && !r.retiringNow ? `<p class="funding-start">Your entered ${money(p.invest)}/month investment already counts towards the investment target. ${s.contributionShortfall > 0.005 ? `Increase it by about ${money(s.contributionShortfall)}/month to reach that target.` : "No increase is needed to reach the illustrated investment target."} ${s.cpfFunding > 0.005 ? "The CPF-target provision below is separate." : ""}</p>` : ""}
+      <div class="funding-pots"><article><span>Save for higher CPF payouts</span><strong>${money(s.cpfFunding)}<small>${s.cpfFunding <= 0.005 ? "No additional CPF saving in this path" : r.retiringNow ? "capital needed now" : `per month, starting now until age ${Math.min(55, r.retire)}`}</small></strong><p>${s.cpfGap > 0.005 ? `Build money earmarked for your ${s.key.toUpperCase()} CPF target. This is a savings provision, not a compulsory monthly CPF top-up.${s.key === "ers" ? " ERS money may need to stay outside CPF until an eligible transfer from 55." : ""}` : "No extra CPF saving is assumed for this path. Your salary CPF contributions fund its modelled payouts."}</p></article><article><span>Invest for spending CPF won’t cover</span><strong>${money(s.privateSaving)}<small>${r.retiringNow ? "capital shortfall now" : `per month, starting now until age ${r.retire}`}</small></strong><p>Build a pot worth ${money(s.privateTarget)} in today’s dollars by age ${r.retire}, to pay the spending left after CPF through age 90.${s.gap65 <= 0.005 && s.privateSaving > 0.005 ? " Although CPF covers the modelled budget at 65, this pot helps fund rising costs later." : ""}</p></article></div>
+      <div class="funding-total"><span>${r.retiringNow ? "Additional capital required today" : "Your starting monthly saving target"}</span><strong>${money(s.totalFunding)}${unit}</strong><small>${r.retiringNow ? "Compare these capital needs with available assets." : `${money(s.cpfFunding)} towards CPF and ${money(s.privateSaving)} invested for retirement each month. This does not include the ${money(r.employeeCpf)} already deducted as employee CPF.`}</small></div>
+      ${r.retiringNow ? "" : `<div class="take-home-check"><span>What that leaves for today’s bills and tax</span><p>${money(r.afterCpf)} salary after CPF − ${money(s.totalFunding)} extra savings = <b>${signedMoney(remaining)}/month</b></p><small>${remaining < 0 ? "This plan exceeds the salary available. Review the target, balances, spending or retirement age." : "This is the amount left before your current living costs, income tax and emergency savings."}</small></div><p class="funding-phase">${s.cpfFunding <= 0.005 ? `This path uses salary CPF without additional CPF-target savings. Keep the separate investment amount going until retirement at ${r.retire}, then review your withdrawals.` : r.retire > 55 ? `At 55, the ${money(s.cpfFunding)}/month CPF-target provision ends. Continue the ${money(s.privateSaving)}/month investment until retirement at ${r.retire}.` : `Savings stop at retirement (${r.retire}); any CPF-target reserve is assumed to grow until 55.`}</p>`}
+      <details class="result-details"><summary>What to check before using this target</summary>      <p class="funding-caution">Monthly amounts below are what to start saving now; the model keeps them fixed in cash. Future balances are shown in today’s purchasing power. This is a planning target, not an amount you must invest now. ${!r.refined ? "Existing CPF is excluded and future OA is assumed used for housing." : "Your entered balances are included."} Protect current bills, tax, emergency savings and care for parents before choosing a monthly amount.</p>
       <p class="funding-caution">${r.scenarios[0].firstShortfallAge === null ? "Your salary path already covers modelled spending from 65 to 90. A higher CPF target is optional; compare the extra lock-in and liquidity before funding it." : s.totalFunding > r.afterCpf && !r.retiringNow ? "This exceeds salary after employee CPF. Add actual balances, review the budget or retirement date, and check affordability before using these contribution amounts." : !r.refined ? "This starts from salary alone: existing CPF is excluded and future OA is assumed used for housing. Add known balances in Settings to refine any apparent target shortfall." : "Your entered CPF and housing details refine the salary projection. Check the two funding pots against your emergency reserve and current bills."}</p>
+<p>${s.gap65 <= 0.005 ? "Even with no gap at 65, rising care costs and inflation can still require investment withdrawals later." : "The monthly saving builds capital over time; the monthly spending gap is what that capital helps fund after retirement."} Future balances use today’s purchasing power, and the model keeps your monthly cash contributions fixed.</p></details>
       <div class="investment-impact"><span class="form-kicker">WHAT OUTSIDE INVESTING ADDS</span><h4>${r.retiringNow ? "Compare your portfolio with the gap today" : `Starting with ${money(s.chosenInvest)}/month could build ${money(s.illustratedPortfolio)} in today’s dollars by ${r.retire}.`}</h4><p>${r.retiringNow ? `Your entered portfolio is ${money(s.illustratedPortfolio)} against a ${money(s.privateTarget)} target.` : `This includes ${money(Number(p.savings || 0))} already invested and assumes ${Math.round(r.investmentReturn * 100)}% nominal net annual growth. Portfolio values shown are in today’s dollars. The CPF-target reserve is excluded from this portfolio.`}</p><p><b>${s.remainingPortfolioGap > 0.5 ? `${money(s.remainingPortfolioGap)} portfolio shortfall remains${!r.retiringNow && p.invest != null ? `; roughly ${money(s.contributionShortfall)}/month more than your entered amount is needed` : ""}.` : "That reaches this portfolio target in the steady-return illustration."}</b></p><small>Investment withdrawals fund a finite period, not guaranteed lifelong income. Market falls, tax, fees and living beyond 90 can change the result.</small></div>
       ${selected === "ers" ? `<details class="result-details"><summary>What choosing ERS changes compared with FRS</summary><p class="result-detail-copy">ERS lowers the outside-investment target by ${money(Math.max(0, frs.privateSaving - ers.privateSaving))}${unit}, while requiring ${money(Math.max(0, ers.cpfFunding - frs.cpfFunding))}${unit} more earmarked for CPF. More CPF income needs funding first; compare liquidity and the combined commitment, not the payout alone.</p></details>` : ""}
       <details class="result-details"><summary>How to use this funding path</summary><ol class="personal-steps"><li>Keep emergency cash and housing money accessible before funding long-term targets.</li><li>Check your CPF dashboard to refine the projected target gap (${money(s.cpfGap)} in today’s purchasing power at 55). The reserve is a funding equivalent, not an instruction to top up that amount every month. ERS may require holding money outside CPF until an eligible RA top-up or transfer after 55.</li><li>Fund the separate outside-CPF investment pot. If using SRS, count those investments once and allow for access dates and withdrawal tax.</li><li>Review annually. Match the next spending years with cash and bond maturities as retirement gets closer.</li></ol><p class="result-footnote">An illustrative ${money(r.topup)} cash top-up now could compound to ${money(r.early)} in today’s dollars by 55, versus ${money(r.later)} if delayed ${r.delay} years at 4% nominal growth, after removing general inflation for display. (Under the CPF Retirement Sum Topping-Up Scheme, you can enjoy tax relief on cash top-ups of up to S$8,000 per calendar year for yourself). Actual eligibility and liquidity come first.</p>${r.housingShortfall ? `<p class="result-footnote">Your housing entry exceeds available OA by ${money(r.housingShortfall)} in today’s purchasing power across the projection; that needs another funding source.</p>` : ""}<a class="text-link dark-link" href="https://www.cpf.gov.sg/member/tools-and-services/calculators" target="_blank" rel="noreferrer">Check personalised CPF payouts ↗</a></details>
@@ -902,6 +920,140 @@ function setupSettings() {
   const dialog = $("#plan-settings"),
     tabs = $$('.settings-tabs [role="tab"]');
   let lastInvoker = null;
+  let modalPagePosition = null;
+  const rememberPagePosition = () => {
+    modalPagePosition = { x: window.scrollX, y: window.scrollY };
+  };
+  dialog.addEventListener("beforetoggle", (event) => {
+    if (event.newState === "open") rememberPagePosition();
+  });
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (
+        dialog.open &&
+        modalPagePosition &&
+        (window.scrollX !== modalPagePosition.x ||
+          window.scrollY !== modalPagePosition.y)
+      )
+        window.scrollTo({
+          left: modalPagePosition.x,
+          top: modalPagePosition.y,
+          behavior: "instant",
+        });
+    },
+    { passive: true },
+  );
+  // Native dialog keeps focus inert; contain gestures for browsers where
+  // non-scrollable/backdrop overscroll containment is not yet enforced.
+  // Do not change root overflow or remove the page scrollbar.
+  const insideDialog = (point) => {
+    const rect = dialog.getBoundingClientRect();
+    return (
+      point.clientX >= rect.left &&
+      point.clientX <= rect.right &&
+      point.clientY >= rect.top &&
+      point.clientY <= rect.bottom
+    );
+  };
+  const canScroll = (target, dx, dy) => {
+    const vertical = Math.abs(dy) >= Math.abs(dx);
+    const delta = vertical ? dy : dx;
+    for (
+      let el = target instanceof Element ? target : target?.parentElement;
+      el && dialog.contains(el);
+      el = el.parentElement
+    ) {
+      const style = getComputedStyle(el);
+      const overflow = vertical ? style.overflowY : style.overflowX;
+      const position = vertical ? el.scrollTop : el.scrollLeft;
+      const maximum = vertical
+        ? el.scrollHeight - el.clientHeight
+        : el.scrollWidth - el.clientWidth;
+      if (
+        /auto|scroll/.test(overflow) &&
+        maximum > 0 &&
+        (delta < 0 ? position > 0 : position < maximum - 1)
+      )
+        return true;
+      if (el === dialog) break;
+    }
+    return delta === 0;
+  };
+  document.addEventListener(
+    "wheel",
+    (event) => {
+      if (!dialog.open || event.ctrlKey) return;
+      if (
+        !insideDialog(event) ||
+        !canScroll(event.target, event.deltaX, event.deltaY)
+      )
+        event.preventDefault();
+    },
+    { passive: false },
+  );
+  document.addEventListener("keydown", (event) => {
+    if (
+      !dialog.open ||
+      event.defaultPrevented ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey
+    )
+      return;
+    const target = event.target;
+    if (
+      target instanceof Element &&
+      target.closest('input, textarea, select, [contenteditable="true"]')
+    )
+      return;
+    if (
+      event.key === " " &&
+      target instanceof Element &&
+      target.closest('button, a, summary, [role="button"]')
+    )
+      return;
+    const direction = {
+      ArrowDown: 1,
+      PageDown: 1,
+      End: 1,
+      ArrowUp: -1,
+      PageUp: -1,
+      Home: -1,
+      " ": event.shiftKey ? -1 : 1,
+    }[event.key];
+    if (direction && !canScroll(target, 0, direction)) event.preventDefault();
+  });
+  let touchPoint = null;
+  document.addEventListener(
+    "touchstart",
+    (event) => {
+      touchPoint =
+        dialog.open && event.touches.length === 1 ? event.touches[0] : null;
+    },
+    { passive: true },
+  );
+  document.addEventListener(
+    "touchmove",
+    (event) => {
+      if (!dialog.open || !touchPoint || event.touches.length !== 1) return;
+      const next = event.touches[0];
+      const dx = touchPoint.clientX - next.clientX,
+        dy = touchPoint.clientY - next.clientY;
+      if (!insideDialog(next) || !canScroll(event.target, dx, dy))
+        event.preventDefault();
+      touchPoint = next;
+    },
+    { passive: false },
+  );
+  document.addEventListener(
+    "touchend",
+    () => {
+      touchPoint = null;
+    },
+    { passive: true },
+  );
+
   const selectSettingsTab = (name) => {
     tabs.forEach((tab) => {
       const active = tab.id === "tab-" + name;
@@ -933,6 +1085,7 @@ function setupSettings() {
     if (!button) return;
     const command = button.getAttribute("command");
     if (command === "show-modal") {
+      if (!dialog.open) rememberPagePosition();
       lastInvoker = button;
       if (button.dataset.panel) selectSettingsTab(button.dataset.panel);
       button.setAttribute("aria-expanded", "true");
@@ -944,6 +1097,7 @@ function setupSettings() {
     }
   });
   dialog.addEventListener("close", () => {
+    modalPagePosition = null;
     $$('button[command="show-modal"]').forEach((button) =>
       button.setAttribute("aria-expanded", "false"),
     );
