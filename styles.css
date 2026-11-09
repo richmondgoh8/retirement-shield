@@ -1193,6 +1193,7 @@ body {
   color: var(--green);
 }
 .verdict-card h3 {
+  text-wrap: balance;
   margin: 14px 0 16px;
   font-size: clamp(1.6rem, 3vw, 2.3rem);
   max-width: 30ch;
@@ -2249,4 +2250,97 @@ body {
 }
 .chip-button:hover {
   background: #176a65;
+}
+
+/* Refinements keep the established navy identity and section flow. */
+.payroll-details > .salary-context {
+  margin-top: 18px;
+}
+.guide-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin: 20px 0;
+}
+.retirement-guide h4 {
+  font-size: 1.3rem;
+  margin: 12px 0;
+}
+.retirement-guide p {
+  max-width: 70ch;
+}
+.guide-progress {
+  color: var(--teal-deep);
+  font-size: 0.875rem;
+}
+.retirement-guide details {
+  margin-block: 16px;
+}
+.data-scroll {
+  overflow: auto;
+  max-height: 440px;
+  margin-top: 16px;
+}
+.trajectory-table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 560px;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+.trajectory-table caption {
+  text-align: left;
+  padding-bottom: 12px;
+}
+.trajectory-table th,
+.trajectory-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+}
+.trajectory-table th:first-child {
+  text-align: left;
+}
+.trajectory-table thead {
+  position: sticky;
+  top: 0;
+  background: #fffdf9;
+}
+.privacy-details {
+  margin: 20px 0;
+}
+.form-kicker,
+.field small {
+  font-size: 0.8rem;
+}
+.funding-total > strong {
+  font-size: clamp(1.7rem, 4vw, 2.6rem);
+}
+.verdict-card .coverage-number b {
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
+}
+@media (max-width: 620px) {
+  .hero {
+    min-height: auto;
+  }
+  .hero-grid {
+    padding-block: 16px 36px;
+    gap: 16px;
+  }
+  .hero-note {
+    margin-top: 16px;
+  }
+  .hero-lede {
+    margin-top: 16px;
+  }
+  .quick-start {
+    padding: 24px;
+  }
+  #print-plan-btn {
+    padding-inline: 10px;
+    white-space: nowrap;
+    font-size: 0.75rem;
+    background: transparent;
+  }
 }

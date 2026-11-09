@@ -84,7 +84,8 @@
               the gap.
             </p>
             <p class="hero-note">
-              For Singapore citizens and PRs aged 18–54 on full CPF rates.
+              For salaried Singapore citizens and PRs aged 18–54 on full CPF
+              rates.
             </p>
           </div>
           <form class="quick-start" id="quick-form">
@@ -192,8 +193,8 @@
                 <span class="form-kicker">LIFETIME PROJECTION</span>
                 <h3 id="trajectory-title">Cashflow & Wealth Trajectory</h3>
                 <p class="trajectory-desc">
-                  Explore how monthly spending, CPF payouts, and private asset
-                  drawdowns evolve through age 90.
+                  Explore monthly spending, CPF payouts and portfolio balances
+                  through age 90, all in today’s purchasing power.
                 </p>
               </div>
               <div class="trajectory-controls">
@@ -206,6 +207,7 @@
                     type="button"
                     class="btn-toggle is-active"
                     id="btn-chart-cashflow"
+                    aria-pressed="true"
                   >
                     Monthly Cashflow
                   </button>
@@ -213,6 +215,7 @@
                     type="button"
                     class="btn-toggle"
                     id="btn-chart-portfolio"
+                    aria-pressed="false"
                   >
                     Portfolio Balance
                   </button>
@@ -229,21 +232,58 @@
               <div id="chart-tooltip" class="chart-tooltip" hidden></div>
             </div>
             <div class="chart-legend" id="chart-legend"></div>
+            <details class="result-details">
+              <summary>Explore the yearly figures</summary>
+              <p>
+                Today’s dollars, rounded. Before retirement, spending is a
+                reference budget, not a withdrawal. CPF LIFE lasts for life;
+                this portfolio illustration ends at 90.
+              </p>
+              <div
+                class="data-scroll"
+                tabindex="0"
+                role="region"
+                aria-label="Yearly trajectory figures"
+              >
+                <table class="trajectory-table">
+                  <caption id="trajectory-caption">
+                    Yearly plan figures
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Age / year</th>
+                      <th scope="col">Spending / month</th>
+                      <th scope="col">CPF / month</th>
+                      <th scope="col">Outside funding / month</th>
+                      <th scope="col">Portfolio</th>
+                    </tr>
+                  </thead>
+                  <tbody id="trajectory-values"></tbody>
+                </table>
+              </div>
+            </details>
           </section>
 
           <details class="payout-options model-explanation">
             <summary>What did the calculator assume?</summary>
             <div class="payout-options-content">
               <p>
-                Defaults: retire at 65, fund spending to 90 and use 4% annual
-                net investment return. The helper example starts at $3,500 in
-                2026 prices with 3% general inflation. It keeps the normal $300
-                helper levy fixed and adds an age-related care allowance after
-                65, calibrated to the category midpoints ($3,090 at 65 and
-                $4,260 ten years later). The same age trend is extrapolated
-                after 75; actual care needs can differ substantially. Your
-                optional spending amount is treated as today’s prices. These are
-                model assumptions, not promised returns.
+                All projected money amounts are displayed in today’s purchasing
+                power, using your selected inflation to remove general price
+                increases. Current salary, balances and monthly savings are
+                amounts today. Defaults: retire at 65, fund spending to 90 and
+                use 4% nominal annual net investment return. The helper example
+                starts at $3,500 in 2026 prices with 3% general inflation. It
+                keeps the normal $300 helper levy fixed and adds an age-related
+                care allowance after 65, calibrated to the category midpoints
+                ($3,090 at 65 and about $3,170 at 75, both in today’s purchasing
+                power). The same age trend is extrapolated after 75; actual care
+                needs can differ substantially. Your optional spending amount is
+                treated as today’s prices. The S$3,500 starting budget includes
+                a cushion above the S$3,090 category midpoint; neither is an
+                official cost standard. These are model assumptions, not
+                promised returns. Educational illustration, not personalised
+                financial advice.
               </p>
               <p>
                 Without balances, CPF starts at $0. By default, future OA
@@ -258,18 +298,23 @@
                 MA overflow are excluded for conservative planning.
               </p>
               <p>
-                The FRS scenario grows 2026’s $220,400 by an assumed 3.5% a year
-                until you turn 55. ERS comparison is twice that scenario
-                ($440,800 in 2026 terms). Future sums are not announced this far
-                ahead. ERS requires an eligible voluntary commitment after 55.
+                The FRS scenario grows the published 2026 sum of $220,400 by an
+                assumed 3.5% a year until 55, then converts that future target
+                to today’s purchasing power for display. ERS is twice that
+                scenario (published 2026 amount: $440,800). Future sums are not
+                announced this far ahead. ERS requires an eligible voluntary
+                commitment after 55.
               </p>
               <p>
                 The salary path uses projected age-55 savings up to FRS. The FRS
                 and ERS comparisons assume their respective target is fully
-                funded. Payouts start at 65. The Standard Plan holds payouts
-                flat, while the Escalating Plan option starts ~20% lower and
-                compounds at 2% yearly. This is a scenario comparison, not CPF
-                Board’s personalised projection.
+                funded. The reference table is for a male member aged 55 in
+                2026; individual payouts differ. Scaling to future cohorts and
+                interpolating between balances are approximations. Payouts start
+                at 65. The Standard Plan holds payouts flat, while the
+                Escalating Plan option starts ~20% lower and compounds at 2%
+                yearly. This is a scenario comparison, not CPF Board’s
+                personalised projection.
               </p>
               <a
                 href="https://www.cpf.gov.sg/service/article/how-much-cpf-payouts-can-i-get-every-month"
@@ -283,6 +328,13 @@
                 target="_blank"
                 rel="noreferrer"
                 >CPF retirement sums ↗</a
+              >
+              ·
+              <a
+                href="https://www.cpf.gov.sg/member/infohub/educational-resources/new-cpf-contribution-rates-for-senior-workers"
+                target="_blank"
+                rel="noreferrer"
+                >CPF senior rates (2026/2027) ↗</a
               >
             </div>
           </details>
@@ -320,7 +372,8 @@
               </div>
               <div class="care-summary">
                 <article>
-                  <span>AGE 65 · 2026 PRICES</span><strong>S$2,650–3,530</strong
+                  <span>AGE 65 · TODAY’S PRICES</span
+                  ><strong>S$2,650–3,530</strong
                   ><small>per month · category total</small>
                 </article>
                 <article class="care-target">
@@ -331,15 +384,15 @@
                   >
                 </article>
                 <article>
-                  <span>AGE 75 · TEN YEARS LATER</span
-                  ><strong>S$3,630–4,890</strong
+                  <span>AGE 75 · TODAY’S PRICES</span
+                  ><strong id="care-later-range"></strong
                   ><small>per month · normal levy retained</small>
                 </article>
               </div>
               <div class="care-expenses card-surface">
                 <div class="care-table-head">
                   <h3>What the money pays for</h3>
-                  <span>3% yearly inflation ≈ 34% in ten years</span>
+                  <span>Both ages shown in today’s purchasing power</span>
                 </div>
                 <div
                   id="care-cost-rows"
@@ -349,13 +402,19 @@
                 <div class="care-total-row">
                   <b>Total monthly provision</b
                   ><span>S$2,650–3,530 <small>at 65</small></span
-                  ><span>S$3,630–4,890 <small>at 75</small></span>
+                  ><span
+                    ><b id="care-later-total"></b>
+                    <small>at 75 · today’s value</small></span
+                  >
                 </div>
                 <p class="result-footnote">
-                  The age-75 allowances include changing health and care needs,
-                  so each row is not simply the age-65 amount multiplied by
-                  1.34. The calculator follows the overall midpoint trend, keeps
-                  the levy fixed and scales from the selected planning target.
+                  This reference example starts at age 65 today. Age-75 ranges
+                  remove ten years of 3% inflation from the original cost
+                  allowances, retaining changes in care needs. It is a fixed
+                  budget illustration; your personalised plan uses your age,
+                  budget and selected inflation. The calculator follows the
+                  overall midpoint trend, keeps the nominal levy fixed and
+                  scales from your budget.
                 </p>
               </div>
               <div class="care-insights">
@@ -364,8 +423,8 @@
                   single budget line.
                 </p>
                 <p>
-                  <b>Healthcare midpoint: S$325 → S$675.</b> The care provision
-                  grows faster than general prices in this example.
+                  <b id="care-health-midpoint"></b> The care provision grows
+                  faster than general prices in this example.
                 </p>
               </div>
               <div class="care-gotchas">
@@ -383,9 +442,10 @@
                   <p>
                     Current MOM rules offer an eligible Singapore citizen
                     employer aged 67+ a S$60 levy, rather than S$300. That is
-                    <b>S$240 less a month</b>. On that basis, the age-75 range
-                    is <b>S$3,390–4,650</b>. The main model retains S$300;
-                    future rules and eligibility can change.
+                    <b>S$240 less a month</b>. For this age-65 reference
+                    example, the age-75 range in today’s purchasing power is
+                    <b id="care-concession-range"></b>. The main model retains
+                    S$300; future rules and eligibility can change.
                   </p>
                   <a
                     href="https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-domestic-worker/foreign-domestic-worker-levy/levy-concession"
@@ -441,11 +501,10 @@
                 <p>
                   Contributing alone leaves cash uninvested. For a long horizon,
                   consider a diversified, low-cost equity fund eligible for SRS,
-                  such as an SRS-supported fund portfolio through Endowus;
-                  compare fund and platform fees. SRS cannot simply buy any
-                  overseas ETF, so do not assume VWRA is available. For
-                  near-term spending, assess eligible deposits, SSBs or suitable
-                  bonds instead.
+                  through an eligible provider; compare fund and platform fees.
+                  SRS cannot simply buy any overseas ETF, so check each
+                  investment’s SRS eligibility. For near-term spending, assess
+                  eligible deposits, SSBs or suitable bonds instead.
                 </p>
               </details>
               <details class="story-detail">
@@ -459,10 +518,10 @@
                 </p>
               </details>
               <a
-                href="https://endowus.com/insights/best-srs-investment-options"
+                href="https://www.iras.gov.sg/taxes/individual-income-tax/basics-of-individual-income-tax/special-tax-schemes/tax-on-srs-withdrawals"
                 target="_blank"
                 rel="noreferrer"
-                >Example SRS investment routes ↗</a
+                >IRAS SRS withdrawal rules ↗</a
               >
               ·
               <a
@@ -500,7 +559,7 @@
                   </h2>
                 </div>
                 <p class="section-intro">
-                  If you hold a broad share fund such as VWRA, build a written
+                  If you hold a diversified equity fund, build a written
                   transition plan over time. A retirement date does not require
                   selling everything at once. Include the helper and healthcare
                   provision when sizing the spending reserve.
@@ -581,7 +640,7 @@
                 </aside>
               </div>
               <p class="drawdown-note">
-                There is no universal “sell VWRA at age X” rule. Decide in
+                There is no universal “sell equities at age X” rule. Decide in
                 advance what the money is for, which spending years are covered
                 by cash and bonds, and when you will rebalance. Investment
                 values and bond rates can change.
@@ -610,7 +669,7 @@
           your savings.
         </p>
         <span class="footer-date"
-          >Source links checked 8 Nov 2026 · Singapore</span
+          >Core rules checked 9 Nov 2026 · Singapore</span
         >
       </div>
     </footer>
@@ -765,6 +824,9 @@
                 inputmode="decimal"
               />
             </div>
+            <button type="button" class="text-button" id="btn-zero-housing">
+              Set housing deduction to S$0
+            </button>
             <small
               >Enter 0 if your flat is paid up or mortgage is paid from cash.
               Leaving blank assumes all future OA is used for housing.</small
@@ -862,7 +924,7 @@
               </select>
             </div>
             <small
-              >Real growth assumption for outside retirement investments after
+              >Nominal annual return for outside retirement investments after
               fund fees.</small
             >
           </div>
@@ -894,12 +956,31 @@
               </select>
             </div>
             <small
-              >Applies legislated senior contribution rates for working years
-              between 55 and retirement age.</small
+              >Uses announced 2027 senior rates (held constant thereafter) up to
+              age 65. RA additions stop at FRS; OA is excluded from payout
+              funding. Later RA additions are converted to an age-55 equivalent
+              for approximate payouts.</small
             >
           </div>
         </div>
       </div>
+      <details class="result-details privacy-details">
+        <summary>Your saved plan and privacy</summary>
+        <p>
+          Calculations run on this device. Inputs are saved in this browser and
+          included in the address after #. Anyone using this browser or
+          receiving a copied plan URL may see your salary and balances. The app
+          does not send these inputs to a server.
+        </p>
+        <p>
+          Clear saved plan removes the browser copy, financial URL and guide
+          progress, and returns to the editable example. Saving stays off for
+          this visit.
+        </p>
+        <button type="button" class="text-button" id="clear-saved-plan">
+          Clear saved plan
+        </button>
+      </details>
       <p id="settings-error" class="settings-error" role="status"></p>
       <div class="settings-footer">
         <button type="button" class="text-button" id="reset-settings">

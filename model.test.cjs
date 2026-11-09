@@ -134,3 +134,99 @@ test('generateTrajectory produces full chronological series to age 90 with valid
  assert.equal(retirePt.phase, 'drawdown');
  assert.ok(retirePt.monthlyCPF > 0);
 });
+
+test('senior allocation uses official 2026 and announced 2027 tables',()=>{
+ const {allocation}=require('./model.js');
+ assert.deepEqual(allocation(57,2026),[.353,.3382,.34]);
+ assert.deepEqual(allocation(62,2026),[.14,.44,.25]);
+ assert.deepEqual(allocation(57,2027),[.3382,.3661,.355]);
+ assert.deepEqual(allocation(62,2027),[.1347,.4615,.26]);
+});
+test('post-55 contributions cannot automatically turn OA into CPF LIFE funding',()=>{
+ const p={age:54,salary:8000,sa:1000000,housing:0};
+ const a=calculate(p), b=calculate({...p,post55Work:true});
+ assert.equal(b.extraPost55CPF,0);
+ assert.equal(b.post55RAContributions,0);
+ assert.ok(b.post55OA>0);
+ assert.equal(b.scenarios[0].payout,a.scenarios[0].payout);
+});
+test('later RA additions are capped and discounted rather than labelled age-55 balances',()=>{
+ const p={age:54,salary:8000};
+ const a=calculate(p), b=calculate({...p,post55Work:true});
+ assert.equal(b.cpfAt55,a.cpfAt55);
+ assert.ok(b.extraPost55CPF>0 && b.extraPost55CPF<b.post55RAContributions);
+ assert.ok(b.post55RAContributions<=b.frs-Math.min(b.cpfAt55,b.frs));
+ assert.ok(b.cpf<=b.frs);
+ assert.equal(calculate({...p,retire:55,post55Work:true}).extraPost55CPF,0);
+});
+
+test('future senior contributions cannot pre-fund an FRS or ERS commitment at 55',()=>{
+ const p={age:54,salary:8000};
+ const a=calculate(p),b=calculate({...p,post55Work:true});
+ for(const key of ['frs','ers']) {
+  const x=a.scenarios.find(s=>s.key===key),y=b.scenarios.find(s=>s.key===key);
+  assert.equal(y.cpfGap,x.cpfGap);
+  assert.equal(y.cpfFunding,x.cpfFunding);
+ }
+ assert.equal(b.scenarios[0].cpfFunding,0);
+});
+
+test('today-dollar display converts each future amount at its own date without changing savings',()=>{
+ const {todayPlan,todayValue}=require('./model');
+ for(const age of [28,35,45,54])for(const inflationRate of [.025,.03,.035])for(const plan of ['standard','escalating']){
+  const r=calculate({age,salary:6000,inflationRate,plan}),d=todayPlan(r);
+  const at=(x,a)=>todayValue(x,a,age,inflationRate);
+  assert.equal(d.spend65,at(r.spend65,65));assert.equal(d.spend75,at(r.spend75,75));
+  assert.equal(d.frs,at(r.frs,55));assert.equal(d.cpfAt55,at(r.cpfAt55,55));
+  assert.equal(d.salary,r.salary);assert.equal(d.afterCpf,r.afterCpf);
+  for(let i=0;i<3;i++){
+   assert.equal(d.scenarios[i].payout,at(r.scenarios[i].payout,65));
+   assert.equal(d.scenarios[i].payout75,at(r.scenarios[i].payout75,75));
+   assert.ok(Math.abs(d.scenarios[i].gap65-Math.max(0,d.spend65-d.scenarios[i].payout))<1e-9);
+   assert.ok(Math.abs(d.scenarios[i].gap75-Math.max(0,d.spend75-d.scenarios[i].payout75))<1e-9);
+   assert.equal(d.scenarios[i].privateSaving,r.scenarios[i].privateSaving);
+   assert.equal(d.scenarios[i].cpfFunding,r.scenarios[i].cpfFunding);
+   assert.equal(d.scenarios[i].privateTarget,at(r.scenarios[i].privateTarget,r.retire));
+  }
+  assert.equal(r.moneyBasis,undefined);
+ }
+});
+test('default today-dollar example and fixed-levy effect are explicit',()=>{
+ const {todayPlan,todayValue}=require('./model');const r=calculate({age:35,salary:6000}),d=todayPlan(r);
+ assert.equal(Math.round(d.spend65),3324);assert.equal(Math.round(d.scenarios[0].payout),639);
+ assert.equal(Math.round(d.scenarios[0].gap65),2684);
+ assert.equal(Math.round(d.scenarios[0].privateSaving),2869);
+ assert.equal(todayValue(1234,35,35,.03),1234);
+ assert.equal(todayValue(1234,65,35,0),1234);
+ const standard=todayPlan(calculate({age:35,salary:6000})).scenarios[0];
+ assert.ok(standard.payout75<standard.payout);
+});
+test('real chart values reconcile with the answer at both milestone ages',()=>{
+ const {todayPlan,todayTrajectory}=require('./model');
+ for(const plan of ['standard','escalating'])for(const retire of [45,65,75])for(const key of ['salary','frs','ers']){
+  const p={age:35,salary:6000,retire,plan},t=todayTrajectory(generateTrajectory(p,key)),d=todayPlan(t.summary),s=d.scenarios.find(x=>x.key===key);
+  for(const age of [65,75]){
+   const point=t.points.find(x=>x.age===age);
+   assert.ok(Math.abs(point.monthlyCPF-(age===65?s.payout:s.payout75))<1e-7);
+   if(age>=retire)assert.ok(Math.abs(point.monthlyGap-(age===65?s.gap65:s.gap75))<1e-6);
+  }
+ }
+});
+test('funded portfolio trajectory matches monthly withdrawal target through 90',()=>{
+ for(const plan of ['standard','escalating'])for(const retire of [45,65,75])for(const key of ['salary','frs','ers']){
+  const t=generateTrajectory({age:35,salary:6000,retire,plan},key),atRetire=t.points.find(x=>x.age===retire);
+  assert.ok(Math.abs(atRetire.portfolioBalance-t.selectedScenario.privateTarget)<1e-5);
+  assert.ok(t.points.at(-1).portfolioBalance<1e-4);
+ }
+});
+test('drawdown slices use one retirement date and cannot exceed the portfolio',()=>{
+ const {todayPlan,drawdownToday,todayValue}=require('./model');
+ for(const retire of [40,55,65,75,80])for(const spend of [0,500,3500]){
+  const r=calculate({age:35,salary:6000,retire,spend}),d=todayPlan(r);
+  for(let i=0;i<3;i++){
+   const v=drawdownToday(r,r.scenarios[i]);
+   assert.ok(Math.abs(v.cashReserve+v.ssbLadder+v.equityCore-d.scenarios[i].privateTarget)<1e-6);
+   assert.ok(v.ssbLadder<=todayValue(200000,retire,r.age,r.inflation));
+  }
+ }
+});

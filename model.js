@@ -139,7 +139,7 @@
     }
     return target;
   }
-  function allocation(age) {
+  function allocation(age, year = C.year) {
     return age <= 35
       ? [0.6217, 0.1621, 0.37]
       : age <= 45
@@ -149,8 +149,12 @@
           : age <= 55
             ? [0.4055, 0.3108, 0.37]
             : age <= 60
-              ? [0.3871, 0.3387, 0.31]
-              : [0.1591, 0.3636, 0.22];
+              ? year >= 2027
+                ? [0.3382, 0.3661, 0.355]
+                : [0.353, 0.3382, 0.34]
+              : year >= 2027
+                ? [0.1347, 0.4615, 0.26]
+                : [0.14, 0.44, 0.25];
   }
   function calculate(p) {
     const age = Number(p.age),
@@ -194,7 +198,8 @@
       baseContribution = wage * 0.37;
     let oa = Number(p.oa || 0),
       sa = Number(p.sa || 0),
-      housingShortfall = 0;
+      housingShortfall = 0,
+      housingShortfallToday = 0;
 
     for (let m = 0; m < months55; m++) {
       const a = age + m / 12;
@@ -204,30 +209,56 @@
       sa = sa * (1 + C.saRate) ** (1 / 12) + activeContribution * s;
       const housing =
         p.housing == null ? activeContribution * o : Number(p.housing);
-      housingShortfall += Math.max(0, housing - oa);
+      const shortfall = Math.max(0, housing - oa);
+      housingShortfall += shortfall;
+      housingShortfallToday += todayValue(
+        shortfall,
+        age + (m + 1) / 12,
+        age,
+        inflation,
+      );
       oa = Math.max(0, oa - housing);
     }
 
-    let extraPost55CPF = 0;
-    if (post55Work && retire > 55) {
-      const postMonths = Math.min(65 - 55, retire - 55) * 12;
-      let postOA = 0,
-        postRA = 0;
-      for (let m = 0; m < postMonths; m++) {
-        const a = 55 + m / 12;
-        const [o, r, totalRate] = allocation(a);
-        const monthlySeniorContrib = wage * totalRate;
-        postOA = postOA * (1 + C.oaRate) ** (1 / 12) + monthlySeniorContrib * o;
-        postRA = postRA * (1 + C.saRate) ** (1 / 12) + monthlySeniorContrib * r;
-      }
-      extraPost55CPF = postOA + postRA;
-    }
-
     const cpfAt55 = oa + sa,
-      cpf = cpfAt55 + extraPost55CPF,
       scale = (1 + C.sumGrowth) ** years55,
       frs = C.frs * scale,
       ers = 2 * frs;
+    let extraPost55CPF = 0,
+      post55OA = 0,
+      post55RAContributions = 0,
+      post55RAContributionsToday = 0;
+    if (post55Work && retire > 55) {
+      // CPF 2026/2027 employee allocation tables, checked 9 Nov 2026.
+      // RA contributions are capped at the cohort FRS; diverted funds stay in OA.
+      // Discount later RA additions to a 55-equivalent for the reference payout table.
+      let ra = Math.min(cpfAt55, frs);
+      const postMonths = Math.min(10, retire - 55) * 12;
+      for (let m = 0; m < postMonths; m++) {
+        const a = 55 + (m + 1) / 12;
+        const year = C.year + years55 + Math.floor(m / 12);
+        const [o, r, totalRate] = allocation(a, year);
+        const contribution = wage * totalRate;
+        ra *= (1 + C.saRate) ** (1 / 12);
+        const addition = Math.min(contribution * r, Math.max(0, frs - ra));
+        ra += addition;
+        post55RAContributions += addition;
+        post55RAContributionsToday += todayValue(
+          addition,
+          55 + (m + 1) / 12,
+          age,
+          inflation,
+        );
+        extraPost55CPF += addition / (1 + C.saRate) ** ((m + 1) / 12);
+        post55OA =
+          post55OA * (1 + C.oaRate) ** (1 / 12) +
+          contribution * o +
+          contribution * r -
+          addition;
+      }
+    }
+    // OA after 55 is not automatically committed to CPF LIFE.
+    const cpf = cpfAt55 + extraPost55CPF;
 
     // A scaled reference illustration, not CPF Board's personalised annuity pricing.
     const baseStandardPayout =
@@ -297,7 +328,7 @@
       const privateSaving = months
         ? Math.max(0, privateTarget - futureAssets) / factor
         : Math.max(0, privateTarget - savings);
-      const cpfGap = Math.max(0, balance - cpf);
+      const cpfGap = key === "salary" ? 0 : Math.max(0, balance - cpfAt55);
       const cpfFunding = cpfFundingFactor
         ? cpfGap / cpfFundingFactor
         : cpfGap / 1.04 ** years55;
@@ -362,7 +393,10 @@
       inflation,
       post55Work,
       extraPost55CPF,
-      at75: expenseAt(todaySpend, 65, 10, inflation),
+      post55OA,
+      post55RAContributions,
+      post55RAContributionsToday,
+      at75: spend75,
       retiringNow: months === 0,
       todaySpend,
       futureSpend,
@@ -376,8 +410,8 @@
       target,
       saving,
       savingNoCpf,
-      frsMonthly: Math.max(0, frs - cpf) / cpfFactor,
-      ersMonthly: Math.max(0, ers - cpf) / cpfFactor,
+      frsMonthly: Math.max(0, frs - cpfAt55) / cpfFactor,
+      ersMonthly: Math.max(0, ers - cpfAt55) / cpfFactor,
       employeeCpf: wage * 0.2,
       employerCpf: wage * 0.17,
       afterCpf: salary - wage * 0.2,
@@ -389,11 +423,98 @@
         baseContribution * (1 - allocation(age)[0] - allocation(age)[1]),
       gap: Math.max(0, futureSpend - (retire >= 65 ? income : 0)),
       housingShortfall,
+      housingShortfallToday,
       topup,
       early: topup * 1.04 ** years55,
       later: topup * 1.04 ** (years55 - delay),
       delay,
       refined: p.oa != null || p.sa != null || p.housing != null,
+    };
+  }
+
+  // Presentation only: financial calculations retain nominal cash flows.
+  function todayValue(value, atAge, currentAge, inflation = C.inflation) {
+    return value / (1 + inflation) ** (atAge - currentAge);
+  }
+  function todayPlan(r) {
+    const at = (value, age) => todayValue(value, age, r.age, r.inflation);
+    const result = { ...r, moneyBasis: "today" };
+    for (const key of [
+      "cpf",
+      "cpfAt55",
+      "oa",
+      "sa",
+      "frs",
+      "ers",
+      "extraPost55CPF",
+      "early",
+      "later",
+    ])
+      result[key] = at(r[key], 55);
+    for (const key of ["futureSpend", "target"])
+      result[key] = at(r[key], r.retire);
+    result.income = at(r.income, 65);
+    result.spend65 = at(r.spend65, 65);
+    result.spend75 = at(r.spend75, 75);
+    result.at75 = result.spend75;
+    result.gap = at(r.gap, r.retire);
+    result.post55RAContributions = r.post55RAContributionsToday;
+    result.housingShortfall = r.housingShortfallToday;
+    result.post55OA = at(r.post55OA, Math.min(65, r.retire));
+    result.scenarios = r.scenarios.map((s) => ({
+      ...s,
+      balance: at(s.balance, 55),
+      cpfGap: at(s.cpfGap, 55),
+      payout: at(s.payout, 65),
+      payout75: at(s.payout75, 75),
+      standardPayout: at(s.standardPayout, 65),
+      gap65: at(s.gap65, 65),
+      gap75: at(s.gap75, 75),
+      privateTarget: at(s.privateTarget, r.retire),
+      illustratedPortfolio: at(s.illustratedPortfolio, r.retire),
+      remainingPortfolioGap: at(s.remainingPortfolioGap, r.retire),
+    }));
+    return result;
+  }
+  function todayTrajectory(trajectory) {
+    const { summary: r } = trajectory;
+    return {
+      ...trajectory,
+      points: trajectory.points.map((point) => {
+        const at = (value) => todayValue(value, point.age, r.age, r.inflation);
+        return {
+          ...point,
+          monthlySpend: at(point.monthlySpend),
+          monthlyCPF: at(point.monthlyCPF),
+          monthlyGap: at(point.monthlyGap),
+          portfolioBalance: at(point.portfolioBalance),
+        };
+      }),
+    };
+  }
+  function drawdownToday(r, s) {
+    const income =
+      r.retire < 65
+        ? 0
+        : s.payout *
+          (r.plan === "escalating"
+            ? (1 + C.escalatingRate) ** (r.retire - 65)
+            : 1);
+    const gap = Math.max(0, r.futureSpend - income);
+    // All slices share the retirement date; never allocate more than the pot.
+    const cashReserve = Math.min(s.privateTarget, gap * 24);
+    const ssbLadder = Math.min(
+      Math.max(0, s.privateTarget - cashReserve),
+      200000,
+      gap * 60,
+    );
+    const equityCore = Math.max(0, s.privateTarget - cashReserve - ssbLadder);
+    const at = (value) => todayValue(value, r.retire, r.age, r.inflation);
+    return {
+      gap: at(gap),
+      cashReserve: at(cashReserve),
+      ssbLadder: at(ssbLadder),
+      equityCore: at(equityCore),
     };
   }
 
@@ -434,10 +555,10 @@
           : curAge < 65
             ? "bridge"
             : "drawdown",
-        monthlySpend: Math.round(monthlySpend),
-        monthlyCPF: Math.round(monthlyCPF),
-        monthlyGap: Math.round(monthlyGap),
-        portfolioBalance: Math.max(0, Math.round(balance)),
+        monthlySpend,
+        monthlyCPF,
+        monthlyGap,
+        portfolioBalance: Math.max(0, balance),
       });
 
       // Simulate 12 months forward for next age
@@ -445,7 +566,27 @@
         if (isAccumulating) {
           balance = balance * (1 + monthlyRate) + s.chosenInvest;
         } else {
-          balance = Math.max(0, (balance - monthlyGap) * (1 + monthlyRate));
+          // Match portfolioTarget: monthly spending and CPF escalation,
+          // with the withdrawal at month end after growth.
+          const elapsed = curAge - r.retire + m / 12;
+          const ageAtMonth = curAge + m / 12;
+          const cpfAtMonth =
+            ageAtMonth < 65
+              ? 0
+              : s.payout *
+                (r.plan === "escalating"
+                  ? (1 + C.escalatingRate) ** (ageAtMonth - 65)
+                  : 1);
+          const spending = expenseAt(
+            r.futureSpend,
+            r.retire,
+            elapsed,
+            r.inflation,
+          );
+          balance = Math.max(
+            0,
+            balance * (1 + monthlyRate) - Math.max(0, spending - cpfAtMonth),
+          );
         }
       }
     }
@@ -454,6 +595,11 @@
 
   const api = {
     C,
+    todayValue,
+    todayPlan,
+    todayTrajectory,
+    drawdownToday,
+    allocation,
     careRows,
     careTotals,
     expenseAt,
