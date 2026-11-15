@@ -2,11 +2,18 @@
 <html lang="en-SG">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#11253d" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#FDFBFA" id="meta-theme-color" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Retirement Shield" />
     <meta
       name="description"
-      content="See your monthly Singapore retirement spending target, compare it with CPF LIFE income, and plan how much to save."
+      content="See your monthly Singapore retirement spending target, compare it with CPF LIFE income, and plan how much to save across CPF and outside investments."
     />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -29,821 +36,1943 @@
   <body>
     <a class="skip-link" href="#main-content">Skip to content</a>
 
-    <header class="site-header">
-      <div class="shell header-inner">
-        <a class="brand" href="#top" aria-label="Retirement Shield home">
-          <span class="brand-mark" aria-hidden="true"
-            ><img src="favicon.svg" width="30" height="30" alt=""
-          /></span>
-          <span>Retirement <strong>Shield</strong></span>
-        </a>
-        <nav class="top-nav" aria-label="Primary navigation">
-          <a href="#retirement-plan">My answer</a>
-          <a href="#trajectory-section">Trajectory</a>
-          <a href="#retirement-budget">Spending</a>
-          <a href="#funding-steps">Funding plan</a>
-          <a href="#later-life">Drawdown</a>
-        </nav>
-        <div class="header-actions">
-          <span class="offline-badge"
-            ><span class="status-dot"></span
-            ><span id="offline-label">Works offline</span></span
+    <div class="app-shell" id="app-shell">
+      <aside class="app-sidebar" aria-label="Workspace navigation">
+        <button
+          type="button"
+          class="sidebar-collapse-btn"
+          id="sidebar-collapse-toggle"
+          aria-expanded="true"
+          aria-label="Collapse sidebar"
+          title="Collapse sidebar"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
           >
-          <button
-            class="button button-small print-header-button"
-            type="button"
-            id="print-plan-btn"
-            title="Print or save 1-page PDF plan"
-          >
-            Print plan
-          </button>
-          <button
-            class="button button-small settings-header-button"
-            type="button"
-            commandfor="plan-settings"
-            command="show-modal"
-          >
-            Adjust plan
-          </button>
-        </div>
-      </div>
-    </header>
-
-    <main id="main-content">
-      <section class="hero section-dark" id="top" aria-labelledby="hero-title">
-        <div class="shell hero-grid">
-          <div class="hero-copy">
-            <p class="eyebrow">
-              <span class="eyebrow-line"></span> Singapore retirement, made
-              easier
-            </p>
-            <h1 id="hero-title">
-              Can CPF fund your<br />retirement lifestyle?
-            </h1>
-            <p class="hero-lede">
-              Start with Community Care Apartments, or explore Home + Helper in
-              Adjust plan. See what CPF could cover and what to start saving
-              today.
-            </p>
-            <p class="hero-note">
-              For salaried Singapore citizens and PRs aged 18–54 on full CPF
-              rates.
-            </p>
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+        </button>
+        <div class="sidebar-scroll">
+          <div class="sidebar-top">
+            <a
+              class="brand"
+              href="#retirement-plan"
+              aria-label="Retirement Shield home"
+            >
+              <span class="brand-mark" aria-hidden="true"
+                ><img src="favicon.svg" width="28" height="28" alt=""
+              /></span>
+              <span class="brand-text"
+                ><span>Retirement <strong>Shield</strong></span
+                ><small>SG PLANNER</small></span
+              >
+            </a>
           </div>
-          <form class="quick-start" id="quick-form">
-            <span class="form-kicker">START HERE · EDITABLE EXAMPLE</span>
-            <h2>What do you know today?</h2>
-            <div class="field">
-              <label for="person-age">Your age</label>
-              <div class="input-wrap">
-                <input
-                  id="person-age"
-                  name="age"
-                  type="number"
-                  min="18"
-                  max="54"
-                  step="1"
-                  value="35"
-                  required
-                  inputmode="numeric"
-                />
-              </div>
+          <nav class="sidebar-nav" role="tablist" aria-label="Core views">
+            <div class="sidebar-group">
+              <span class="sidebar-group-label">OVERVIEW</span>
+              <button
+                type="button"
+                class="sidebar-tab is-active"
+                data-tab="overview"
+                role="tab"
+                aria-selected="true"
+                title="Overview"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="18"
+                  height="18"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="3" y="3" width="7" height="9" rx="1.5" />
+                  <rect x="14" y="3" width="7" height="5" rx="1.5" />
+                  <rect x="14" y="12" width="7" height="9" rx="1.5" />
+                  <rect x="3" y="16" width="7" height="5" rx="1.5" />
+                </svg>
+                <span class="sidebar-tab-label">Overview</span>
+              </button>
             </div>
-            <div class="field">
-              <label for="person-salary">Gross monthly salary</label>
-              <div class="input-wrap">
-                <span>$</span
-                ><input
-                  id="person-salary"
-                  name="salary"
-                  type="number"
-                  min="751"
-                  max="1000000"
-                  step="any"
-                  value="6000"
-                  required
-                  inputmode="decimal"
-                />
+            <div class="sidebar-group">
+              <span class="sidebar-group-label">PLANNING</span>
+              <button
+                type="button"
+                class="sidebar-tab"
+                data-tab="trajectory"
+                role="tab"
+                aria-selected="false"
+                title="Trajectory"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="18"
+                  height="18"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M3 3v18h18" />
+                  <path d="m7 14 4-4 4 3 5-6" />
+                </svg>
+                <span class="sidebar-tab-label">Trajectory</span>
+              </button>
+              <button
+                type="button"
+                class="sidebar-tab"
+                data-tab="allocator"
+                role="tab"
+                aria-selected="false"
+                title="Allocator"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="18"
+                  height="18"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+                  <path d="M22 12A10 10 0 0 0 12 2v10z" />
+                </svg>
+                <span class="sidebar-tab-label">Allocator</span>
+              </button>
+            </div>
+            <div class="sidebar-group">
+              <span class="sidebar-group-label">RULES &amp; TOOLS</span>
+              <button
+                type="button"
+                class="sidebar-tab"
+                data-tab="tax"
+                role="tab"
+                aria-selected="false"
+                title="Tax &amp; Rules"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="18"
+                  height="18"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  <path d="m9 12 2 2 4-4" />
+                </svg>
+                <span class="sidebar-tab-label">Tax &amp; Rules</span>
+              </button>
+              <button
+                type="button"
+                class="sidebar-tab sidebar-settings-btn"
+                data-open-profile
+                title="My Settings"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="18"
+                  height="18"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+                  />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                <span class="sidebar-tab-label">My Settings</span>
+              </button>
+            </div>
+          </nav>
+          <div class="sidebar-footer">
+            <button type="button" class="text-button" data-sg-reset>
+              Reset SG defaults
+            </button>
+            <small>2026 SG Rules · Today’s $ · 100% Local</small>
+          </div>
+        </div>
+      </aside>
+
+      <div class="app-workspace">
+        <header class="site-header">
+          <div class="header-inner">
+            <a
+              class="brand header-brand-mobile"
+              href="#retirement-plan"
+              aria-label="Retirement Shield home"
+            >
+              <span class="brand-mark" aria-hidden="true"
+                ><img src="favicon.svg" width="28" height="28" alt=""
+              /></span>
+              <span>Retirement <strong>Shield</strong></span>
+            </a>
+            <div class="header-context-bar">
+              <div class="header-jump-wrap">
+                <svg
+                  class="header-jump-icon"
+                  viewBox="0 0 24 24"
+                  width="15"
+                  height="15"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" />
+                </svg>
+                <select
+                  id="header-quick-jump"
+                  aria-label="Quick jump to section"
+                >
+                  <option value="">Jump to section…</option>
+                  <option value="overview">Overview Dashboard</option>
+                  <option value="trajectory">
+                    Trajectory &amp; Stress Test
+                  </option>
+                  <option value="timing-section">Top-Up Timing Compare</option>
+                  <option value="allocator">Asset Allocator &amp; Tiers</option>
+                  <option value="tax">Tax Sweet-Spot &amp; Rules</option>
+                  <option value="profile">My Settings &amp; Balances</option>
+                </select>
               </div>
-              <small
-                >Before employee CPF. Exclude employer CPF and bonuses.</small
+              <span class="header-readiness-chip" id="header-readiness-chip"
+                >Today’s $</span
               >
             </div>
-            <a class="button button-accent full-button" href="#retirement-plan"
-              >See if CPF is enough →</a
-            >
-            <p class="quick-note">
-              No CPF statement or financial forecasts needed.
-            </p>
-          </form>
-        </div>
-      </section>
-
-      <section
-        class="section simple-plan-section"
-        id="retirement-plan"
-        aria-labelledby="simple-plan-title"
-      >
-        <div class="shell">
-          <div class="plan-heading">
-            <div>
-              <p class="eyebrow eyebrow-dark">Your retirement plan</p>
-              <h2 id="simple-plan-title">
-                What will CPF cover—and what must I invest?
-              </h2>
-              <p class="section-intro">
-                Start with your salary CPF. Then compare adding savings to reach
-                FRS or ERS.
-              </p>
-            </div>
-            <div class="plan-heading-actions">
+            <div class="header-actions">
               <button
-                class="settings-trigger"
+                class="button button-small settings-header-button"
                 type="button"
                 commandfor="plan-settings"
                 command="show-modal"
               >
-                Adjust plan
-                <span aria-hidden="true"
-                  ><svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M4 7h16M4 17h16M8 4v6m8 4v6" /></svg
-                ></span>
+                <svg
+                  class="btn-icon"
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <line x1="4" y1="6" x2="20" y2="6" />
+                  <line x1="4" y1="12" x2="20" y2="12" />
+                  <line x1="4" y1="18" x2="20" y2="18" />
+                  <circle cx="9" cy="6" r="2" fill="currentColor" />
+                  <circle cx="15" cy="12" r="2" fill="currentColor" />
+                  <circle cx="10" cy="18" r="2" fill="currentColor" />
+                </svg>
+                <span>Assumptions</span>
+              </button>
+              <button
+                class="button button-small button-ember-primary print-header-button"
+                type="button"
+                id="print-plan-btn"
+                title="Print or save 1-page A4 infographic poster"
+              >
+                <svg
+                  class="btn-icon"
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M6 9V3h12v6" />
+                  <path
+                    d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"
+                  />
+                  <rect x="6" y="14" width="12" height="7" rx="1" />
+                </svg>
+                <span class="hide-sm">Print Poster</span>
               </button>
             </div>
           </div>
-          <div class="baseline-strip">
-            <span id="lifestyle-summary"
-              ><b>Community Care Apartments</b> · monthly living costs</span
-            ><span id="baseline-summary"
-              >S$2,500/month in today’s prices · retire at 65</span
-            >
-          </div>
-          <details class="preset-preview" id="preset-budget-preview">
-            <summary id="preset-budget-summary">
-              Explore what’s included in your monthly budget
-            </summary>
-            <div id="preset-budget-content"></div>
-            <p class="budget-check">
-              Check whether you need more for parent or dependant support, rent
-              or mortgage payments, debt, travel and major one-off costs. Avoid
-              counting costs already included twice. Apartment purchase and
-              move-in costs need separate funding.
-            </p>
-            <button
-              type="button"
-              class="text-button"
-              commandfor="plan-settings"
-              command="show-modal"
-              data-panel="budget"
-            >
-              Adjust my budget
-            </button>
-          </details>
-          <p
-            id="plan-status"
-            class="sr-status"
-            role="status"
-            aria-atomic="true"
-          ></p>
-          <div id="simple-results"></div>
+        </header>
 
-          <section
-            class="trajectory-section card-surface"
-            id="trajectory-section"
-            aria-labelledby="trajectory-title"
-          >
-            <div class="trajectory-head">
-              <div>
-                <span class="form-kicker">LIFETIME PROJECTION</span>
-                <h3 id="trajectory-title">Cashflow & Wealth Trajectory</h3>
-                <p class="trajectory-desc">
-                  Explore monthly spending, CPF payouts and portfolio balances
-                  through age 90, all in today’s purchasing power.
-                </p>
-              </div>
-              <div class="trajectory-controls">
-                <div
-                  class="btn-group"
-                  role="group"
-                  aria-label="Trajectory chart mode"
+        <main id="main-content" class="app-main">
+          <section class="hero" id="top" aria-labelledby="hero-title" hidden>
+            <div class="shell hero-grid">
+              <div class="hero-copy">
+                <button
+                  type="button"
+                  class="text-button profile-back-btn"
+                  data-close-profile
                 >
-                  <button
-                    type="button"
-                    class="btn-toggle is-active"
-                    id="btn-chart-cashflow"
-                    aria-pressed="true"
-                  >
-                    Monthly Cashflow
-                  </button>
-                  <button
-                    type="button"
-                    class="btn-toggle"
-                    id="btn-chart-portfolio"
-                    aria-pressed="false"
-                  >
-                    Portfolio Balance
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div class="chart-wrapper">
-              <div
-                id="trajectory-chart"
-                class="chart-area"
-                role="img"
-                aria-label="Interactive retirement trajectory chart"
-              ></div>
-              <div id="chart-tooltip" class="chart-tooltip" hidden></div>
-            </div>
-            <div class="chart-legend" id="chart-legend"></div>
-            <details class="result-details">
-              <summary>Explore the yearly figures</summary>
-              <p>
-                Today’s dollars, rounded. Before retirement, spending is a
-                reference budget, not a withdrawal. CPF LIFE lasts for life;
-                this portfolio illustration ends at 90.
-              </p>
-              <div
-                class="data-scroll"
-                tabindex="0"
-                role="region"
-                aria-label="Yearly trajectory figures"
-              >
-                <table class="trajectory-table">
-                  <caption id="trajectory-caption">
-                    Yearly plan figures
-                  </caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">Age / year</th>
-                      <th scope="col">Spending / month</th>
-                      <th scope="col">CPF / month</th>
-                      <th scope="col">Outside funding / month</th>
-                      <th scope="col">Portfolio</th>
-                    </tr>
-                  </thead>
-                  <tbody id="trajectory-values"></tbody>
-                </table>
-              </div>
-            </details>
-          </section>
-
-          <details class="payout-options model-explanation">
-            <summary>What did the calculator assume?</summary>
-            <div class="payout-options-content">
-              <p>
-                All projected money amounts are shown in today’s purchasing
-                power. Current salary, balances and monthly savings are amounts
-                today. Defaults: retire at 65, fund spending to 90, 4% nominal
-                net investment return and 3% general inflation.
-              </p>
-              <p id="lifestyle-assumptions">
-                CCA starts at $2,500/month; apartment purchase and move-in costs
-                are separate. The age-75 care allowance is $3,340 in today’s
-                prices. No automatic subsidies are assumed.
-              </p>
-              <p>
-                Without balances, CPF starts at $0. By default, future OA
-                contributions are assumed used for housing, so the salary-only
-                CPF estimate mainly counts SA contributions. Enter your actual
-                OA, SA and housing payment to refine it (or click "Set housing
-                deduction to $0" if your flat is paid up). Under 2025/2026 CPF
-                rules, your Special Account (SA) closes at age 55; balances up
-                to FRS form your Retirement Account (RA) earning at least 4%
-                p.a., with any excess moving to OA (2.5%) unless topped up to
-                the Enhanced Retirement Sum (ERS). Extra interest, bonuses, and
-                MA overflow are excluded for conservative planning.
-              </p>
-              <p>
-                The FRS scenario grows the published 2026 sum of $220,400 by an
-                assumed 3.5% a year until 55, then converts that future target
-                to today’s purchasing power for display. ERS is twice that
-                scenario (published 2026 amount: $440,800). Future sums are not
-                announced this far ahead. ERS requires an eligible voluntary
-                commitment after 55.
-              </p>
-              <p>
-                The salary path uses projected age-55 savings up to FRS. The FRS
-                and ERS comparisons assume their respective target is fully
-                funded. The reference table is for a male member aged 55 in
-                2026; individual payouts differ. Scaling to future cohorts and
-                interpolating between balances are approximations. Payouts start
-                at 65. The Standard Plan holds payouts flat, while the
-                Escalating Plan option starts ~20% lower and compounds at 2%
-                yearly. This is a scenario comparison, not CPF Board’s
-                personalised projection.
-              </p>
-              <a
-                href="https://www.cpf.gov.sg/service/article/how-much-cpf-payouts-can-i-get-every-month"
-                target="_blank"
-                rel="noreferrer"
-                >CPF payout references ↗</a
-              >
-              ·
-              <a
-                href="https://www.cpf.gov.sg/service/article/how-much-is-my-full-retirement-sum"
-                target="_blank"
-                rel="noreferrer"
-                >CPF retirement sums ↗</a
-              >
-              ·
-              <a
-                href="https://www.cpf.gov.sg/member/infohub/educational-resources/new-cpf-contribution-rates-for-senior-workers"
-                target="_blank"
-                rel="noreferrer"
-                >CPF senior rates (2026/2027) ↗</a
-              >
-            </div>
-          </details>
-        </div>
-      </section>
-
-      <section
-        class="section budget-section"
-        id="retirement-budget"
-        aria-labelledby="budget-title"
-      >
-        <div class="shell">
-          <details class="module-disclosure" id="budget-disclosure">
-            <summary>
-              <span>Spending detail</span
-              ><strong id="budget-summary-title"
-                >How your CCA budget breaks down</strong
-              ><small>Age 65 versus 75 · today’s purchasing power</small>
-            </summary>
-            <div class="module-content">
-              <div class="section-heading">
-                <h2 id="budget-title">Your CCA living budget</h2>
-                <p id="budget-intro">
-                  A planning allowance for one person. Apartment purchase and
-                  move-in costs are separate.
+                  ← Back to Overview
+                </button>
+                <h1 id="hero-title">My Settings &amp; Balances</h1>
+                <p class="hero-lede">
+                  Update your age, gross salary, target retirement age, CPF
+                  OA/SA/MA balances, and outside investment sleeves. All changes
+                  run locally and update your plan live.
+                </p>
+                <ul class="hero-pillars" aria-label="What this planner covers">
+                  <li>
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="18"
+                      height="18"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.75"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                      <path d="m9 12 2 2 4-4" />
+                    </svg>
+                    <span
+                      >2026/2027 CPF, BHS &amp; senior allocation rules</span
+                    >
+                  </li>
+                  <li>
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="18"
+                      height="18"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.75"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M3 3v18h18" />
+                      <path d="m7 14 4-4 4 3 5-6" />
+                    </svg>
+                    <span
+                      >5-tier outside-CPF priority list, ROI &amp; SG
+                      gotchas</span
+                    >
+                  </li>
+                  <li>
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="18"
+                      height="18"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.75"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <rect x="3" y="11" width="18" height="11" rx="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                    <span
+                      >100% offline &amp; private — zero data leaves your
+                      browser</span
+                    >
+                  </li>
+                </ul>
+                <p class="hero-note">
+                  For salaried Singapore citizens and PRs aged 18–54.
                 </p>
               </div>
-              <div id="cca-budget">
-                <div class="care-summary">
-                  <article>
-                    <span>AGE 65 · TODAY’S PRICES</span
-                    ><strong id="cca-now-total">$2,500</strong
-                    ><small>monthly living allowance</small>
-                  </article>
-                  <article>
-                    <span>AGE 75 · TODAY’S PRICES</span
-                    ><strong id="cca-later-total">$3,340</strong
-                    ><small>with a larger care provision</small>
-                  </article>
-                </div>
-                <div class="care-expenses card-surface">
-                  <div class="care-table-head">
-                    <h3>What the allowance covers</h3>
-                    <span>Planning provisions, not provider quotes</span>
+              <form class="quick-start" id="quick-form">
+                <h2>Choose a starting budget</h2>
+                <fieldset class="preset-picker">
+                  <legend class="visually-hidden">
+                    Choose a starting budget
+                  </legend>
+                  <div class="preset-options">
+                    <label class="preset-option">
+                      <input
+                        type="radio"
+                        name="lifestyle-choice"
+                        value="cca"
+                        checked
+                      />
+                      <span>
+                        <span class="preset-head">
+                          <span class="preset-icon" aria-hidden="true">
+                            <svg
+                              viewBox="0 0 24 24"
+                              width="20"
+                              height="20"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="1.75"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            >
+                              <rect x="4" y="3" width="16" height="18" rx="2" />
+                              <path
+                                d="M9 7h2M13 7h2M9 11h2M13 11h2M10 21v-4h4v4"
+                              />
+                            </svg>
+                          </span>
+                          <strong>Community Care Apartments</strong>
+                        </span>
+                        <span class="preset-price"
+                          >$2,500<small>/month</small></span
+                        >
+                        <span class="preset-description"
+                          >HDB assisted living with 24-hr support &amp; care
+                          services</span
+                        >
+                        <span class="preset-meta"
+                          >Retire from 55+ · Assisted living</span
+                        >
+                      </span>
+                    </label>
+                    <label class="preset-option">
+                      <input
+                        type="radio"
+                        name="lifestyle-choice"
+                        value="home-helper"
+                      />
+                      <span>
+                        <span class="preset-head">
+                          <span class="preset-icon" aria-hidden="true">
+                            <svg
+                              viewBox="0 0 24 24"
+                              width="20"
+                              height="20"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="1.75"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            >
+                              <path
+                                d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
+                              />
+                              <path d="M12 11v5M9.5 13.5h5" />
+                            </svg>
+                          </span>
+                          <strong>Home + Helper</strong>
+                        </span>
+                        <span class="preset-price"
+                          >$3,500<small>/month</small></span
+                        >
+                        <span class="preset-description"
+                          >Paid-up flat with live-in helper &amp; care
+                          reserve</span
+                        >
+                        <span class="preset-meta"
+                          >Retire from 40+ · Ageing in place</span
+                        >
+                      </span>
+                    </label>
                   </div>
-                  <div
-                    id="cca-cost-rows"
-                    role="list"
-                    aria-label="CCA monthly provisions at 65 and 75"
-                  ></div>
-                </div>
-                <p class="result-footnote">
-                  This reference starts at age 65 today. The $2,500 preset rises
-                  to $3,340 at 75 in today’s purchasing power as care provisions
-                  increase. Growth is smooth after 65 and extrapolated beyond
-                  75; actual needs and charges can differ. A custom budget
-                  scales the provisions proportionally. These are estimates, not
-                  an official all-in CCA price.
-                </p>
-                <details class="result-details">
-                  <summary>What CCA services include</summary>
-                  <p>
-                    CCA is designed for low-to-moderate care needs. Basic
-                    services include support with everyday matters and 24-hour
-                    emergency response. Meals, housekeeping, personal care and
-                    other add-on services may cost extra. Higher care needs
-                    require reassessment; living in a CCA does not guarantee
-                    every future care need can be met there.
+                  <div id="preset-budget-bar" class="preset-budget-bar"></div>
+                  <p id="preset-context" class="preset-context"></p>
+                  <p class="preset-fine-print">
+                    Today’s dollars. Flat purchase, lease top-up and move-in
+                    deposits stay separate.
                   </p>
-                  <p>
-                    The $220 basic-service provision is an editable planning
-                    allowance, not a quote. Actual fees depend on the project,
-                    applicable date, GST and care/subsidy eligibility. No
-                    subsidy is automatically included.
-                  </p>
-                  <p>
-                    Age eligibility was lowered to 55 from the October 2026
-                    sales exercise; revised service fees and subsidies start
-                    from Q2 2027. This preset plans a future lifestyle; it does
-                    not establish purchase eligibility, availability or care
-                    suitability. Check your HDB Flat Eligibility letter and
-                    current project terms.
-                  </p>
-                  <p>
-                    <a
-                      href="https://www.hdb.gov.sg/hdb-pulse/news/2026/Age-eligibility-for-community-care-apartments-lowered-from-65-to-55-years-old"
-                      target="_blank"
-                      rel="noreferrer"
-                      >HDB: CCA eligibility and service changes ↗</a
-                    >
-                    ·
-                    <a
-                      href="https://www.vanguardhealthcare.com.sg/our-services/assisted-living/basic-service-package"
-                      target="_blank"
-                      rel="noreferrer"
-                      >CCA operator: fees and qualifications ↗</a
-                    >
-                  </p>
-                  <small
-                    >Checked 9 Nov 2026. Future fees and eligibility may
-                    change.</small
+                  <select
+                    id="known-lifestyle"
+                    aria-label="Retirement lifestyle"
+                    hidden
                   >
-                </details>
-                <details class="result-details">
+                    <option value="cca" selected>
+                      Community Care Apartments
+                    </option>
+                    <option value="home-helper">Home + Helper</option>
+                  </select>
+                </fieldset>
+                <p
+                  id="budget-choice-status"
+                  class="budget-choice-status"
+                  role="status"
+                ></p>
+                <button
+                  type="button"
+                  id="use-preset-budget"
+                  class="text-button preset-budget-reset"
+                  hidden
+                ></button>
+
+                <h3 class="start-details-title">Add your details</h3>
+                <div class="start-fields">
+                  <div class="field">
+                    <label for="person-age">Your age</label>
+                    <div class="input-wrap">
+                      <input
+                        id="person-age"
+                        name="age"
+                        type="number"
+                        min="18"
+                        max="54"
+                        step="1"
+                        value="35"
+                        required
+                        inputmode="numeric"
+                      />
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label for="person-salary">Gross monthly salary</label>
+                    <div class="input-wrap">
+                      <span>$</span
+                      ><input
+                        id="person-salary"
+                        name="salary"
+                        type="number"
+                        min="751"
+                        max="1000000"
+                        step="any"
+                        value="5500"
+                        required
+                        inputmode="decimal"
+                      />
+                    </div>
+                    <small
+                      >Gross monthly salary before employee CPF (excludes
+                      employer CPF &amp; bonuses).</small
+                    >
+                  </div>
+                  <div class="field">
+                    <label for="known-retire">Age I want to retire</label>
+                    <div class="input-wrap">
+                      <input
+                        id="known-retire"
+                        type="number"
+                        min="55"
+                        max="80"
+                        step="1"
+                        value="65"
+                        placeholder="65"
+                        inputmode="numeric"
+                      />
+                    </div>
+                    <small
+                      >Defaults to age 65. Earlier ages fund years before CPF
+                      LIFE starts.</small
+                    >
+                  </div>
+                  <div class="field">
+                    <label for="known-spend"
+                      >Monthly living budget in today’s dollars</label
+                    >
+                    <div class="input-wrap">
+                      <span>$</span
+                      ><input
+                        id="known-spend"
+                        type="number"
+                        min="0"
+                        step="any"
+                        placeholder="2500"
+                        inputmode="decimal"
+                      />
+                    </div>
+                    <small id="budget-default-note"
+                      >Blank uses $2,500, including healthcare and extra
+                      help.</small
+                    >
+                  </div>
+                </div>
+                <p
+                  id="start-plan-error"
+                  class="start-plan-error"
+                  role="status"
+                ></p>
+
+                <details class="start-options" id="start-cpf-details">
                   <summary>
-                    Before moving into a CCA: separate costs to fund
+                    Add CPF balances, housing &amp; current investments
+                    (optional)
                   </summary>
                   <p>
-                    The monthly answer excludes apartment purchase/lease, the
-                    service deposit, moving and setup costs, and any rent or
-                    mortgage. Obtain the project’s quote and map each cost to
-                    available cash or permitted CPF use before treating this
-                    plan as funded.
+                    Enter balances from your CPF statement and accessible
+                    investments (ETFs, SSBs, SRS). Blank fields default to $0.
                   </p>
-                  <p>
-                    A refundable deposit still needs accessible money upfront.
-                    Do not count money reserved for the apartment in your
-                    retirement investment pot. Using OA for housing can reduce
-                    CPF available for retirement; update the CPF assumptions
-                    accordingly. Selling a home may involve costs and CPF
-                    refunds, so sale proceeds are not automatically included.
-                  </p>
-                  <p>
-                    Next step: check the property and service documents, then
-                    record your upfront funding separately from the monthly
-                    target.
-                  </p>
+                  <div class="start-fields">
+                    <div class="field">
+                      <label for="known-savings-step1"
+                        >Outside retirement investments today</label
+                      >
+                      <div class="input-wrap">
+                        <span>$</span
+                        ><input
+                          id="known-savings-step1"
+                          type="number"
+                          min="0"
+                          step="any"
+                          placeholder="0"
+                          inputmode="decimal"
+                        />
+                      </div>
+                      <small
+                        >Liquid portfolios, ETFs, SSBs or SRS accessible by
+                        retirement. Exclude home equity &amp; emergency
+                        cash.</small
+                      >
+                    </div>
+                    <div class="field">
+                      <label for="known-housing"
+                        >Monthly housing payment from OA</label
+                      >
+                      <div class="input-wrap">
+                        <span>$</span
+                        ><input
+                          id="known-housing"
+                          type="number"
+                          min="0"
+                          step="any"
+                          placeholder="All new OA"
+                          inputmode="decimal"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        class="text-button"
+                        id="btn-zero-housing"
+                      >
+                        Set housing deduction to $0
+                      </button>
+                      <small
+                        >Enter 0 if your flat is paid up or paid in cash. Blank
+                        assumes all future OA pays housing.</small
+                      >
+                    </div>
+                    <div class="field">
+                      <label for="known-oa"
+                        >Ordinary Account (OA) balance</label
+                      >
+                      <div class="input-wrap">
+                        <span>$</span
+                        ><input
+                          id="known-oa"
+                          type="number"
+                          min="0"
+                          step="any"
+                          value="0"
+                          placeholder="0"
+                          inputmode="decimal"
+                        />
+                      </div>
+                    </div>
+                    <div class="field">
+                      <label for="known-sa">Special Account (SA) balance</label>
+                      <div class="input-wrap">
+                        <span>$</span
+                        ><input
+                          id="known-sa"
+                          type="number"
+                          min="0"
+                          step="any"
+                          value="0"
+                          placeholder="0"
+                          inputmode="decimal"
+                        />
+                      </div>
+                    </div>
+                    <div class="field">
+                      <label for="known-ma">MediSave (MA) balance</label>
+                      <div class="input-wrap">
+                        <span>$</span
+                        ><input
+                          id="known-ma"
+                          type="number"
+                          min="0"
+                          step="any"
+                          value="0"
+                          placeholder="0"
+                          inputmode="decimal"
+                        />
+                      </div>
+                      <small
+                        >Used for extra-interest tiers and BHS overflow to
+                        SA/RA/OA, not spendable cash.</small
+                      >
+                    </div>
+                    <div class="field">
+                      <label for="known-ma-spend"
+                        >Monthly MediSave deductions</label
+                      >
+                      <div class="input-wrap">
+                        <span>$</span
+                        ><input
+                          id="known-ma-spend"
+                          type="number"
+                          min="0"
+                          step="any"
+                          placeholder="0"
+                          inputmode="decimal"
+                        />
+                      </div>
+                      <small
+                        >MediShield Life, CareShield LIFE or ISP premiums
+                        deducted from MA. Blank assumes $0.</small
+                      >
+                    </div>
+                    <div class="field">
+                      <label for="known-sa-invested"
+                        >Active CPFIS-SA investments</label
+                      >
+                      <div class="input-wrap">
+                        <span>$</span
+                        ><input
+                          id="known-sa-invested"
+                          type="number"
+                          min="0"
+                          step="any"
+                          placeholder="0"
+                          inputmode="decimal"
+                        />
+                      </div>
+                      <small
+                        >Reduces SA top-up room; CPFIS-SA value is excluded from
+                        RA payouts.</small
+                      >
+                    </div>
+                    <div class="field">
+                      <label for="known-equities"
+                        >Global Equities (VWRA / FWRA / ISAC)</label
+                      >
+                      <div class="input-wrap">
+                        <span>$</span
+                        ><input
+                          id="known-equities"
+                          type="number"
+                          min="0"
+                          step="any"
+                          value="35000"
+                          placeholder="35000"
+                          inputmode="decimal"
+                        />
+                      </div>
+                      <small
+                        >Irish-domiciled global UCITS ETFs (15% US dividend
+                        WHT). Updates outside investments.</small
+                      >
+                    </div>
+                    <div class="field">
+                      <label for="known-sg-dividends"
+                        >SG Dividends (STI / Banks / S-REITs)</label
+                      >
+                      <div class="input-wrap">
+                        <span>$</span
+                        ><input
+                          id="known-sg-dividends"
+                          type="number"
+                          min="0"
+                          step="any"
+                          value="5000"
+                          placeholder="5000"
+                          inputmode="decimal"
+                        />
+                      </div>
+                      <small
+                        >Local SGD cashflow sleeve (0–15% optional home
+                        hedge).</small
+                      >
+                    </div>
+                    <div class="field">
+                      <label for="known-ssb-cash"
+                        >SSB / T-Bills / High-Yield Cash</label
+                      >
+                      <div class="input-wrap">
+                        <span>$</span
+                        ><input
+                          id="known-ssb-cash"
+                          type="number"
+                          min="0"
+                          step="any"
+                          value="20000"
+                          placeholder="20000"
+                          inputmode="decimal"
+                        />
+                      </div>
+                      <small
+                        >Sovereign bonds &amp; liquid buffer counted toward your
+                        bond floor.</small
+                      >
+                    </div>
+                    <div class="field">
+                      <label for="known-srs">SRS balance today</label>
+                      <div class="input-wrap">
+                        <span>$</span
+                        ><input
+                          id="known-srs"
+                          type="number"
+                          min="0"
+                          step="any"
+                          placeholder="0"
+                          inputmode="decimal"
+                        />
+                      </div>
+                      <small
+                        >Supplementary Retirement Scheme balance (10-yr
+                        penalty-free drawdown at 63/64).</small
+                      >
+                    </div>
+                    <div class="field">
+                      <label for="known-srs-age"
+                        >SRS penalty-free withdrawal age</label
+                      >
+                      <div class="input-wrap select-wrap">
+                        <select id="known-srs-age">
+                          <option value="63" selected>
+                            63 (First contribution before 1 Jul 2026)
+                          </option>
+                          <option value="64">
+                            64 (Opened on or after 1 Jul 2026)
+                          </option>
+                        </select>
+                      </div>
+                      <small
+                        >Lock-in age follows the statutory retirement age when
+                        your first SRS contribution was made.</small
+                      >
+                    </div>
+                    <div class="field">
+                      <label for="known-srs-annual"
+                        >Planned annual SRS contribution</label
+                      >
+                      <div class="input-wrap">
+                        <span>$</span
+                        ><input
+                          id="known-srs-annual"
+                          type="number"
+                          min="0"
+                          max="15300"
+                          step="any"
+                          placeholder="0"
+                          inputmode="decimal"
+                        />
+                      </div>
+                      <small
+                        >Up to $15,300/yr for Singapore Citizens &amp; PRs
+                        ($35,700 for foreigners).</small
+                      >
+                    </div>
+                    <div class="field">
+                      <label for="known-srs-invested"
+                        >SRS funds invested in</label
+                      >
+                      <div class="input-wrap select-wrap">
+                        <select id="known-srs-invested">
+                          <option value="global" selected>
+                            Global Equity Index Funds (e.g. MSCI World)
+                          </option>
+                          <option value="balanced">
+                            Balanced 60/40 Portfolio
+                          </option>
+                          <option value="ssb">SSB / T-Bills</option>
+                          <option value="cash">
+                            Uninvested SRS Cash (0.05% p.a. warning)
+                          </option>
+                        </select>
+                      </div>
+                      <small
+                        >SRS cash earns 0.05% p.a. unless invested in index
+                        funds, T-bills, or SSB.</small
+                      >
+                    </div>
+                    <div class="field">
+                      <label for="known-annual-bonus"
+                        >Annual bonus / AWS ($/year)</label
+                      >
+                      <div class="input-wrap">
+                        <span>$</span
+                        ><input
+                          id="known-annual-bonus"
+                          type="number"
+                          min="0"
+                          step="any"
+                          placeholder="0"
+                          inputmode="decimal"
+                        />
+                      </div>
+                      <small
+                        >Used for IRAS tax bracket &amp; $102,000 annual CPF
+                        salary ceiling check.</small
+                      >
+                    </div>
+                    <div class="field">
+                      <label for="known-existing-reliefs"
+                        >Existing IRAS tax reliefs ($/year)</label
+                      >
+                      <div class="input-wrap">
+                        <span>$</span
+                        ><input
+                          id="known-existing-reliefs"
+                          type="number"
+                          min="0"
+                          max="80000"
+                          step="any"
+                          placeholder="1000"
+                          inputmode="decimal"
+                        />
+                      </div>
+                      <small
+                        >Blank uses $1,000 Earned Income Relief. $80,000 total
+                        personal relief cap applies.</small
+                      >
+                    </div>
+                  </div>
+                  <input id="known-target-equity" type="hidden" value="80" />
+                  <input id="known-sg-sleeve" type="hidden" value="10" />
                 </details>
-              </div>
-              <div id="helper-budget" hidden>
-                <div class="care-summary">
-                  <article>
-                    <span>AGE 65 · TODAY’S PRICES</span
-                    ><strong>S$2,650–3,530</strong
-                    ><small>per month · category total</small>
-                  </article>
-                  <article class="care-target">
-                    <span>STARTING PLANNING TARGET</span><strong>S$3,500</strong
-                    ><small
-                      >per month today · includes room above the S$3,090
-                      midpoint</small
-                    >
-                  </article>
-                  <article>
-                    <span>AGE 75 · TODAY’S PRICES</span
-                    ><strong id="care-later-range"></strong
-                    ><small>per month · normal levy retained</small>
-                  </article>
-                </div>
-                <div class="care-expenses card-surface">
-                  <div class="care-table-head">
-                    <h3>What the money pays for</h3>
-                    <span>Both ages shown in today’s purchasing power</span>
-                  </div>
-                  <div
-                    id="care-cost-rows"
-                    role="list"
-                    aria-label="Monthly expense ranges at age 65 and age 75"
-                  ></div>
-                  <div class="care-total-row">
-                    <b>Total monthly provision</b
-                    ><span>S$2,650–3,530 <small>at 65</small></span
-                    ><span
-                      ><b id="care-later-total"></b>
-                      <small>at 75 · today’s value</small></span
-                    >
-                  </div>
-                  <p class="result-footnote">
-                    This reference example starts at age 65 today. Age-75 ranges
-                    remove ten years of 3% inflation from the original cost
-                    allowances, retaining changes in care needs. It is a fixed
-                    budget illustration; your personalised plan uses your age,
-                    budget and selected inflation. The calculator follows the
-                    overall midpoint trend, keeps the nominal levy fixed and
-                    scales from your budget.
-                  </p>
-                </div>
-                <div class="care-insights">
-                  <p>
-                    <b>Helper ≈ 42% of the age-65 midpoint.</b> It is the
-                    largest single budget line.
-                  </p>
-                  <p>
-                    <b id="care-health-midpoint"></b> The care provision grows
-                    faster than general prices in this example.
-                  </p>
-                </div>
-                <div class="care-gotchas">
-                  <article>
-                    <h3>Count food once</h3>
-                    <p>
-                      Groceries cover both people. The helper line excludes
-                      food. At 65 it allows S$650–850 salary + S$300 levy +
-                      S$200–300 for insurance, check-ups and other non-food
-                      employment provisions.
-                    </p>
-                  </article>
-                  <article>
-                    <h3>Check the levy at 67</h3>
-                    <p>
-                      Current MOM rules offer an eligible Singapore citizen
-                      employer aged 67+ a S$60 levy, rather than S$300. That is
-                      <b>S$240 less a month</b>. For this age-65 reference
-                      example, the age-75 range in today’s purchasing power is
-                      <b id="care-concession-range"></b>. The main model retains
-                      S$300; future rules and eligibility can change.
-                    </p>
-                    <a
-                      href="https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-domestic-worker/foreign-domestic-worker-levy/levy-concession"
-                      target="_blank"
-                      rel="noreferrer"
-                      >MOM concession eligibility ↗</a
-                    >
-                  </article>
-                  <article>
-                    <h3>Health is a reserve, not a fixed bill</h3>
-                    <p>
-                      Premiums, subsidies and treatment needs vary. Some
-                      premiums can be paid from MediSave; an Integrated Shield
-                      Plan quote may already include MediShield Life. Do not add
-                      the same cover twice. This budget includes a provision,
-                      not an insurer quote or cash-only premium schedule.
-                    </p>
-                    <a
-                      href="https://www.cpf.gov.sg/member/healthcare-financing/medishield-life/medishield-life-premiums-and-subsidies"
-                      target="_blank"
-                      rel="noreferrer"
-                      >CPF premium and subsidy information ↗</a
-                    >
-                  </article>
-                </div>
-              </div>
+
+                <p id="data-io-status" class="data-io-status" role="status"></p>
+
+                <button type="submit" class="button button-accent full-button">
+                  Update Overview →
+                </button>
+              </form>
             </div>
-          </details>
-        </div>
-      </section>
+          </section>
 
-      <section class="section paper-section secondary-module" id="srs-notes">
-        <div class="shell">
-          <details class="module-disclosure">
-            <summary>
-              <span>Optional tax wrapper</span
-              ><strong>Where SRS fits into your investment pot</strong
-              ><small>Eligibility, investment choices and withdrawals</small>
-            </summary>
-            <div class="module-content srs-content">
-              <p>
-                <b>SRS is part of the outside-CPF portfolio in this plan.</b>
-                Count each investment once, and allow for withdrawal tax and
-                access dates. The illustration does not assume a tax saving or
-                automatic SRS contribution.
-              </p>
-              <p>
-                For citizens/PRs, the cap is <b>$15,300 per year</b>—equivalent
-                to saving $1,275 a month. Total personal income tax relief is
-                capped at $80,000 per year.
-              </p>
-              <details class="story-detail">
-                <summary>Where to invest SRS money</summary>
-                <p>
-                  Contributing alone leaves cash uninvested. For a long horizon,
-                  consider a diversified, low-cost equity fund eligible for SRS,
-                  through an eligible provider; compare fund and platform fees.
-                  SRS cannot simply buy any overseas ETF, so check each
-                  investment’s SRS eligibility. For near-term spending, assess
-                  eligible deposits, SSBs or suitable bonds instead.
-                </p>
-              </details>
-              <details class="story-detail">
-                <summary>How SRS withdrawals work</summary>
-                <p>
-                  Normal qualifying retirement withdrawals are 50% taxable and
-                  can generally be spread across 10 years. Early withdrawals are
-                  generally fully taxable plus a 5% penalty, subject to
-                  exceptions. Your qualifying retirement age depends on the age
-                  prevailing at your first SRS contribution.
-                </p>
-              </details>
-              <a
-                href="https://www.iras.gov.sg/taxes/individual-income-tax/basics-of-individual-income-tax/special-tax-schemes/tax-on-srs-withdrawals"
-                target="_blank"
-                rel="noreferrer"
-                >IRAS SRS withdrawal rules ↗</a
+          <section
+            class="section simple-plan-section"
+            id="retirement-plan"
+            aria-label="Your retirement estimate and savings"
+          >
+            <div class="shell">
+              <p
+                id="plan-status"
+                class="sr-status"
+                role="status"
+                aria-atomic="true"
+              ></p>
+              <p
+                id="plan-error-banner"
+                class="plan-error-banner"
+                role="alert"
+                hidden
+              ></p>
+
+              <section
+                id="tab-panel-overview"
+                class="tab-panel"
+                role="tabpanel"
+                aria-label="Overview"
               >
-              ·
-              <a
-                href="https://www.iras.gov.sg/taxes/individual-income-tax/basics-of-individual-income-tax/special-tax-schemes/srs-contributions"
-                target="_blank"
-                rel="noreferrer"
-                >IRAS SRS contribution rules ↗</a
+                <div id="overview-slot"></div>
+              </section>
+
+              <section
+                id="tab-panel-trajectory"
+                class="tab-panel"
+                role="tabpanel"
+                aria-label="Trajectory"
+                hidden
               >
-            </div>
-          </details>
-        </div>
-      </section>
-
-      <section
-        class="section drawdown-section"
-        id="later-life"
-        aria-labelledby="drawdown-title"
-      >
-        <div class="shell">
-          <details class="module-disclosure" id="drawdown-disclosure">
-            <summary>
-              <span>When retirement gets closer</span
-              ><strong>Make your money easier to manage later</strong
-              ><small
-                >Dependable income, fewer accounts and simpler decisions</small
-              >
-            </summary>
-            <div class="module-content">
-              <div class="section-heading split-heading">
-                <div>
-                  <p class="eyebrow eyebrow-dark">
-                    <span class="eyebrow-line"></span> Make investments easier
-                    to spend later
-                  </p>
-                  <h2 id="drawdown-title">
-                    Make your money easier to manage later.
-                  </h2>
-                </div>
-                <p class="section-intro">
-                  Build a simpler arrangement while you can make the choices
-                  comfortably. A retirement date does not require selling
-                  everything at once. Include care and healthcare provisions
-                  when sizing the spending reserve.
-                </p>
-              </div>
-
-              <div
-                id="dynamic-drawdown-summary"
-                class="drawdown-dynamic-summary"
-              ></div>
-
-              <div class="drawdown-layout">
-                <div class="drawdown-steps">
-                  <article>
-                    <span>01</span>
-                    <div>
-                      <h3>Build dependable income for essential bills</h3>
-                      <p id="drawdown-step1-desc">
-                        Use the monthly plan above. Size investments against
-                        spending left after CPF LIFE and any other steady
-                        income.
-                      </p>
+                <section
+                  id="savings-simulator"
+                  class="savings-simulator"
+                  aria-labelledby="simulator-title"
+                >
+                  <div class="simulator-header">
+                    <div class="simulator-title-row">
+                      <div>
+                        <span class="hero-kicker"
+                          >SAVINGS STRESS TEST &amp; AGE-90 LEDGER</span
+                        >
+                        <h2 id="simulator-title">
+                          Monthly Savings &amp; Withdrawal Explorer
+                        </h2>
+                        <p>
+                          Override suggested monthly CPF top-ups or outside
+                          investments to test depletion age and earliest
+                          readiness.
+                        </p>
+                      </div>
                     </div>
-                  </article>
-                  <article>
-                    <span>02</span>
-                    <div>
-                      <h3>Reduce accounts and repeated decisions</h3>
-                      <p id="drawdown-step2-desc">
-                        Choose how many months of your investment-funded gap to
-                        hold in cash or similarly accessible savings, based on
-                        comfort and upcoming costs.
-                      </p>
-                    </div>
-                  </article>
-                  <article>
-                    <span>03</span>
-                    <div>
-                      <h3>Automate spending money</h3>
-                      <p id="drawdown-step3-desc">
-                        Match maturities to planned spending. Singapore Savings
-                        Bonds can be redeemed monthly without a penalty; allow
-                        for processing time, so they are not instant cash.
-                      </p>
-                    </div>
-                  </article>
-                  <article>
-                    <span>04</span>
-                    <div>
-                      <h3>Simplify remaining investments</h3>
-                      <p id="drawdown-step4-desc">
-                        Keep an equity allocation you can tolerate through
-                        market falls. Rebalance on a set schedule and use a
-                        written rule for replenishing cash after stronger
-                        markets.
-                      </p>
-                    </div>
-                  </article>
-                  <article>
-                    <span>05</span>
-                    <div>
-                      <h3>Review the arrangement periodically</h3>
-                      <p id="drawdown-step5-desc">
-                        Check affordability, inflation, care needs and whether
-                        this arrangement still feels manageable. Review after a
-                        health or family change as well as at a regular annual
-                        check.
-                      </p>
-                    </div>
-                  </article>
-                  <div class="guide-actions">
-                    <button
-                      type="button"
-                      class="button button-dark"
-                      id="drawdown-next"
-                    >
-                      Next action</button
-                    ><button
-                      type="button"
-                      class="text-button"
-                      id="drawdown-back"
-                      hidden
-                    >
-                      Previous
-                    </button>
                   </div>
+
+                  <div class="sim-controls-card card-surface">
+                    <div class="field-grid">
+                      <div class="field">
+                        <label for="known-cpf-extra"
+                          >Extra CPF saving each month</label
+                        >
+                        <div class="saving-stepper">
+                          <button
+                            type="button"
+                            data-adjust="known-cpf-extra"
+                            data-delta="-50"
+                            aria-label="Decrease extra CPF saving by 50 dollars"
+                          >
+                            −
+                          </button>
+                          <div class="input-wrap">
+                            <span>$</span
+                            ><input
+                              id="known-cpf-extra"
+                              name="cpfExtra"
+                              type="number"
+                              min="0"
+                              step="any"
+                              inputmode="decimal"
+                              aria-describedby="cpf-extra-help"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            data-adjust="known-cpf-extra"
+                            data-delta="50"
+                            aria-label="Increase extra CPF saving by 50 dollars"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <small id="cpf-extra-help"
+                          >On top of salary CPF. Stops by 55 or retirement.
+                          Leave blank for the suggested amount.</small
+                        >
+                      </div>
+                      <div class="field">
+                        <label for="sim-invest"
+                          >Outside investments each month</label
+                        >
+                        <div class="saving-stepper">
+                          <button
+                            type="button"
+                            data-adjust="sim-invest"
+                            data-delta="-50"
+                            aria-label="Decrease outside investment by 50 dollars"
+                          >
+                            −
+                          </button>
+                          <div class="input-wrap">
+                            <span>$</span
+                            ><input
+                              id="sim-invest"
+                              name="investmentSimulation"
+                              type="number"
+                              min="0"
+                              step="any"
+                              inputmode="decimal"
+                              aria-describedby="sim-invest-help"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            data-adjust="sim-invest"
+                            data-delta="50"
+                            aria-label="Increase outside investment by 50 dollars"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <small id="sim-invest-help"
+                          >Separate from CPF (HYSA, SSBs, SRS, ETFs). Leave
+                          blank for the suggested amount.</small
+                        >
+                      </div>
+                    </div>
+                    <div class="sim-controls-actions">
+                      <button
+                        type="button"
+                        id="sim-use-target"
+                        class="text-button"
+                      >
+                        Reset to suggested amounts
+                      </button>
+                      <button
+                        type="button"
+                        class="text-button"
+                        data-step="2"
+                        data-reveal="outside"
+                      >
+                        See outside-CPF tier list &amp; split →
+                      </button>
+                    </div>
+                    <div id="simulation-results"></div>
+                  </div>
+
+                  <section
+                    class="trajectory-section card-surface"
+                    id="trajectory-section"
+                    aria-labelledby="trajectory-title"
+                  >
+                    <div class="trajectory-head">
+                      <div>
+                        <h2 id="trajectory-title">
+                          Cashflow &amp; Wealth Trajectory
+                        </h2>
+                        <p class="trajectory-desc">
+                          Monthly spending, CPF LIFE payouts and outside
+                          portfolio balance through age 90, in today’s
+                          purchasing power.
+                        </p>
+                      </div>
+                      <div class="trajectory-controls">
+                        <div
+                          class="btn-group"
+                          role="group"
+                          aria-label="Trajectory chart mode"
+                        >
+                          <button
+                            type="button"
+                            class="btn-toggle"
+                            id="btn-chart-networth"
+                            data-chart-mode="networth"
+                            aria-pressed="false"
+                          >
+                            Net Worth
+                          </button>
+                          <button
+                            type="button"
+                            class="btn-toggle"
+                            id="btn-chart-waterfall"
+                            data-chart-mode="waterfall"
+                            aria-pressed="false"
+                          >
+                            Waterfall (50–85)
+                          </button>
+                          <button
+                            type="button"
+                            class="btn-toggle is-active"
+                            id="btn-chart-cashflow"
+                            data-chart-mode="cashflow"
+                            aria-pressed="true"
+                          >
+                            Monthly Cashflow
+                          </button>
+                          <button
+                            type="button"
+                            class="btn-toggle"
+                            id="btn-chart-portfolio"
+                            data-chart-mode="portfolio"
+                            aria-pressed="false"
+                          >
+                            Portfolio Balance
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="chart-wrapper">
+                      <div
+                        id="trajectory-chart"
+                        class="chart-area"
+                        role="img"
+                        aria-label="Interactive retirement trajectory chart"
+                      ></div>
+                      <div
+                        id="chart-tooltip"
+                        class="chart-tooltip"
+                        hidden
+                      ></div>
+                    </div>
+                    <div class="chart-legend" id="chart-legend"></div>
+                    <details class="result-details">
+                      <summary>Explore the yearly figures table</summary>
+                      <p>
+                        Today’s dollars, rounded. Before retirement, spending is
+                        a reference budget, not a withdrawal. CPF LIFE lasts for
+                        life; the portfolio table ends at 90.
+                      </p>
+                      <div
+                        class="data-scroll"
+                        tabindex="0"
+                        role="region"
+                        aria-label="Yearly trajectory figures"
+                      >
+                        <table class="trajectory-table">
+                          <caption id="trajectory-caption">
+                            Yearly plan figures
+                          </caption>
+                          <thead>
+                            <tr>
+                              <th scope="col">Age / year</th>
+                              <th scope="col">Spending / month</th>
+                              <th scope="col">CPF / month</th>
+                              <th scope="col">Outside funding / month</th>
+                              <th scope="col">Portfolio</th>
+                            </tr>
+                          </thead>
+                          <tbody id="trajectory-values"></tbody>
+                        </table>
+                      </div>
+                    </details>
+                  </section>
+
                   <p
-                    id="drawdown-progress"
-                    class="guide-progress"
+                    id="simulation-status"
+                    class="sr-status"
                     role="status"
+                    aria-atomic="true"
                   ></p>
+
+                  <div class="step3-modules">
+                    <details class="module-disclosure" id="timing-section">
+                      <summary>
+                        <span class="module-icon" aria-hidden="true">
+                          <svg
+                            viewBox="0 0 24 24"
+                            width="20"
+                            height="20"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.75"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <circle cx="12" cy="12" r="9" />
+                            <path d="M12 7v5l3 3" />
+                          </svg>
+                        </span>
+                        <span class="module-summary-text">
+                          <strong>One-off CPF top-up timing comparison</strong>
+                          <small
+                            >Compare topping up earlier vs later (projected
+                            age-65 balance)</small
+                          >
+                        </span>
+                      </summary>
+                      <div class="module-content topup-timing">
+                        <div class="timing-head">
+                          <h2 id="timing-title">What if I top up earlier?</h2>
+                        </div>
+                        <p>
+                          Isolated one-off cash top-up check keeping your
+                          retirement age fixed. Does not alter your monthly
+                          savings simulation above.
+                        </p>
+                        <div class="field">
+                          <label for="timing-mode">What to compare</label
+                          ><select id="timing-mode">
+                            <option value="same">
+                              Same cash at both ages · compare compounding
+                            </option>
+                            <option value="target">
+                              Fill the target at each age · compare cash needed
+                            </option>
+                          </select>
+                        </div>
+                        <div class="field-grid">
+                          <div class="field">
+                            <label for="timing-target">Top-up target</label
+                            ><select id="timing-target">
+                              <option value="frs">
+                                FRS · Full Retirement Sum
+                              </option>
+                              <option value="ers" selected>
+                                ERS · Enhanced Retirement Sum
+                              </option>
+                            </select>
+                          </div>
+                          <div class="field">
+                            <label for="timing-early">First top-up age</label
+                            ><select
+                              id="timing-early"
+                              required
+                              aria-describedby="timing-help timing-early-error"
+                            ></select>
+                            <small
+                              id="timing-early-error"
+                              class="timing-error"
+                              hidden
+                            ></small>
+                          </div>
+                          <div class="field">
+                            <label for="timing-late">Compare with age</label
+                            ><select
+                              id="timing-late"
+                              required
+                              aria-describedby="timing-help timing-late-error"
+                            ></select>
+                            <small
+                              id="timing-late-error"
+                              class="timing-error"
+                              hidden
+                            ></small>
+                          </div>
+                          <div class="field">
+                            <label for="timing-amount"
+                              >One-off cash amount ($)</label
+                            ><input
+                              id="timing-amount"
+                              type="number"
+                              min="0"
+                              max="1000000000"
+                              step="any"
+                              placeholder="50000"
+                              inputmode="decimal"
+                              aria-describedby="timing-help timing-amount-error"
+                            />
+                            <small
+                              id="timing-amount-error"
+                              class="timing-error"
+                              hidden
+                            ></small>
+                          </div>
+                        </div>
+                        <p id="timing-help" class="field-footnote">
+                          Leave cash blank for automatic mode (smaller available
+                          room in “same cash”, or full target room in “fill
+                          target”). ERS top-ups start at 55.
+                        </p>
+                        <p
+                          id="timing-editing"
+                          class="timing-editing"
+                          role="status"
+                          hidden
+                        ></p>
+                        <div
+                          id="timing-results"
+                          role="status"
+                          aria-atomic="true"
+                        ></div>
+                        <details class="result-details">
+                          <summary>How this timing check works</summary>
+                          <ul class="compact-list">
+                            <li>
+                              <strong
+                                >Separate from monthly extra savings:</strong
+                              >
+                              Uses your starting balances, salary CPF and
+                              retirement age only; tax relief and outside
+                              returns while waiting are excluded.
+                            </li>
+                            <li>
+                              <strong>Future dollars at 65:</strong> Figures
+                              show future dollars at age 65, including accrued
+                              CPF interest across all accounts. Only RA supports
+                              CPF LIFE payouts.
+                            </li>
+                            <li>
+                              <a
+                                href="https://www.cpf.gov.sg/service/article/what-is-the-maximum-amount-of-top-ups-i-can-receive"
+                                target="_blank"
+                                rel="noopener"
+                                >CPF top-up limits ↗</a
+                              >
+                              ·
+                              <a
+                                href="https://www.cpf.gov.sg/service/article/what-are-the-cpf-interest-rates"
+                                target="_blank"
+                                rel="noopener"
+                                >CPF interest rates ↗</a
+                              >
+                            </li>
+                          </ul>
+                        </details>
+                      </div>
+                    </details>
+                  </div>
+                </section>
+              </section>
+
+              <section
+                id="tab-panel-allocator"
+                class="tab-panel"
+                role="tabpanel"
+                aria-label="Allocator"
+                hidden
+              >
+                <div id="allocator-slot"></div>
+                <div class="step3-modules allocator-disclosures">
+                  <section
+                    id="retirement-budget"
+                    aria-labelledby="budget-title"
+                  >
+                    <details class="module-disclosure" id="budget-disclosure">
+                      <summary>
+                        <span class="module-icon" aria-hidden="true">
+                          <svg
+                            viewBox="0 0 24 24"
+                            width="20"
+                            height="20"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.75"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <path
+                              d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"
+                            />
+                          </svg>
+                        </span>
+                        <span class="module-summary-text">
+                          <strong id="budget-summary-title"
+                            >How your CCA budget breaks down</strong
+                          >
+                          <small
+                            >Age 65 vs 75 care escalation · today’s purchasing
+                            power</small
+                          >
+                        </span>
+                      </summary>
+                      <div class="module-content">
+                        <div class="section-heading">
+                          <h2 id="budget-title">Your CCA living budget</h2>
+                          <p id="budget-intro">
+                            A planning allowance for one person. Apartment
+                            purchase and move-in costs are separate.
+                          </p>
+                        </div>
+                        <div id="cca-budget">
+                          <div class="care-summary">
+                            <article>
+                              <span>AGE 65 · TODAY’S PRICES</span
+                              ><strong id="cca-now-total">$2,500</strong
+                              ><small>monthly living allowance</small>
+                            </article>
+                            <article>
+                              <span>AGE 75 · TODAY’S PRICES</span
+                              ><strong id="cca-later-total">$3,340</strong
+                              ><small>with expanded care provision</small>
+                            </article>
+                          </div>
+                          <div class="care-expenses card-surface">
+                            <div class="care-table-head">
+                              <h3>What the allowance covers</h3>
+                              <span
+                                >Planning provisions, not provider quotes</span
+                              >
+                            </div>
+                            <ul
+                              id="cca-cost-rows"
+                              class="care-cost-list"
+                              aria-label="CCA monthly provisions at 65 and 75"
+                            ></ul>
+                          </div>
+                          <ul class="compact-list">
+                            <li>
+                              <strong>Care services &amp; age 55+ rule:</strong>
+                              Basic package covers 24-hr emergency response and
+                              community support; meals, housekeeping and
+                              personal care are paid add-ons. HDB lowered CCA
+                              eligibility to age 55 from Oct 2026 (revised
+                              fee/subsidy tiers from Q2 2027).
+                            </li>
+                            <li>
+                              <strong>Upfront capital excluded:</strong>
+                              Apartment lease, refundable service deposit and
+                              moving setup must be funded separately from your
+                              monthly retirement pot.
+                            </li>
+                            <li>
+                              <a
+                                href="https://www.hdb.gov.sg/hdb-pulse/news/2026/Age-eligibility-for-community-care-apartments-lowered-from-65-to-55-years-old"
+                                target="_blank"
+                                rel="noreferrer"
+                                >HDB CCA age-55 update ↗</a
+                              >
+                              ·
+                              <a
+                                href="https://www.vanguardhealthcare.com.sg/our-services/assisted-living/basic-service-package"
+                                target="_blank"
+                                rel="noreferrer"
+                                >CCA operator package info ↗</a
+                              >
+                            </li>
+                          </ul>
+                        </div>
+                        <div id="helper-budget" hidden>
+                          <div class="care-summary">
+                            <article>
+                              <span>AGE 65 · TODAY’S PRICES</span
+                              ><strong>$2,650–3,530</strong
+                              ><small>per month · category total</small>
+                            </article>
+                            <article class="care-target">
+                              <span>STARTING PLANNING TARGET</span
+                              ><strong>$3,500</strong
+                              ><small
+                                >per month today · cushion above $3,090
+                                midpoint</small
+                              >
+                            </article>
+                            <article>
+                              <span>AGE 75 · TODAY’S PRICES</span
+                              ><strong id="care-later-range"></strong
+                              ><small>per month · normal levy retained</small>
+                            </article>
+                          </div>
+                          <div class="care-expenses card-surface">
+                            <div class="care-table-head">
+                              <h3>What the money pays for</h3>
+                              <span>Both ages in today’s purchasing power</span>
+                            </div>
+                            <ul
+                              id="care-cost-rows"
+                              class="care-cost-list"
+                              aria-label="Monthly expense ranges at age 65 and age 75"
+                            ></ul>
+                            <div class="care-total-row">
+                              <b>Total monthly provision</b
+                              ><span>$2,650–3,530 <small>at 65</small></span
+                              ><span
+                                ><b id="care-later-total"></b>
+                                <small>at 75 · today’s value</small></span
+                              >
+                            </div>
+                          </div>
+                          <div class="care-insights">
+                            <p>
+                              <b>Helper ≈ 42% of the age-65 midpoint.</b> Insure
+                              your helper beyond MOM minimum hospitalisation
+                              limits to prevent catastrophic medical bills.
+                            </p>
+                            <p>
+                              <b id="care-health-midpoint"></b> Healthcare and
+                              help grow faster than general inflation after 65.
+                            </p>
+                          </div>
+                          <div class="care-gotchas">
+                            <article>
+                              <h3>Count food once &amp; insure helper</h3>
+                              <p>
+                                Groceries cover both people ($650–850 salary +
+                                $300 levy + $200–300 insurance, 6-monthly
+                                medicals &amp; replacement buffer).
+                              </p>
+                            </article>
+                            <article>
+                              <h3>Check the $60 MOM levy at 67</h3>
+                              <p>
+                                Singapore citizen employers aged 67+ qualify for
+                                a $60 concession levy ($240/mo less; age-75
+                                range becomes
+                                <b id="care-concession-range"></b>). Model
+                                retains $300 conservatively.
+                              </p>
+                              <a
+                                href="https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-domestic-worker/foreign-domestic-worker-levy/levy-concession"
+                                target="_blank"
+                                rel="noreferrer"
+                                >MOM levy concession ↗</a
+                              >
+                            </article>
+                            <article>
+                              <h3>ISP cash riders escalate</h3>
+                              <p>
+                                MediSave covers MediShield Life, CareShield LIFE
+                                and ISP base premiums up to AWL; private
+                                hospital cash riders must be paid in cash and
+                                jump steeply past 65.
+                              </p>
+                              <a
+                                href="https://www.cpf.gov.sg/member/healthcare-financing/medishield-life/medishield-life-premiums-and-subsidies"
+                                target="_blank"
+                                rel="noreferrer"
+                                >CPF MediShield Life guide ↗</a
+                              >
+                            </article>
+                          </div>
+                        </div>
+                      </div>
+                    </details>
+                  </section>
+
+                  <section id="later-life" aria-labelledby="drawdown-title">
+                    <details class="module-disclosure" id="drawdown-disclosure">
+                      <summary>
+                        <span class="module-icon" aria-hidden="true">
+                          <svg
+                            viewBox="0 0 24 24"
+                            width="20"
+                            height="20"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.75"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+                            <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
+                            <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
+                          </svg>
+                        </span>
+                        <span class="module-summary-text">
+                          <strong
+                            >Drawdown blueprint &amp; HDB equity backup</strong
+                          >
+                          <small
+                            >3-bucket cash/SSB/core split &amp; 5 later-life
+                            simplification steps</small
+                          >
+                        </span>
+                      </summary>
+                      <div class="module-content">
+                        <h2 id="drawdown-title">
+                          Make your money easier to manage later
+                        </h2>
+                        <p class="drawdown-lead">
+                          Retiring does not mean selling everything on day one.
+                          Segment your outside pot by when each dollar is spent
+                          so market dips never force emergency sales.
+                        </p>
+
+                        <div
+                          id="dynamic-drawdown-summary"
+                          class="drawdown-dynamic-summary"
+                        ></div>
+
+                        <div class="drawdown-layout">
+                          <ol class="drawdown-steps">
+                            <li>
+                              <span>01</span>
+                              <div>
+                                <h3>
+                                  Cover essential bills with lifelong income
+                                </h3>
+                                <p id="drawdown-step1-desc"></p>
+                              </div>
+                            </li>
+                            <li>
+                              <span>02</span>
+                              <div>
+                                <h3>
+                                  Hold 24 months of gap in liquid deposits
+                                </h3>
+                                <p id="drawdown-step2-desc"></p>
+                              </div>
+                            </li>
+                            <li>
+                              <span>03</span>
+                              <div>
+                                <h3>Ladder SSBs &amp; T-Bills for years 3–7</h3>
+                                <p id="drawdown-step3-desc"></p>
+                              </div>
+                            </li>
+                            <li>
+                              <span>04</span>
+                              <div>
+                                <h3>
+                                  Consolidate accounts &amp; rebalance on rules
+                                </h3>
+                                <p id="drawdown-step4-desc"></p>
+                              </div>
+                            </li>
+                            <li>
+                              <span>05</span>
+                              <div>
+                                <h3>
+                                  Keep HDB equity, LPA &amp; nominations ready
+                                </h3>
+                                <p id="drawdown-step5-desc">
+                                  Treat flat monetisation (right-sizing to CCA
+                                  from 55, 2-room Flexi + Silver Housing Bonus,
+                                  or Lease Buyback Scheme) as an uncounted
+                                  safety reserve, and keep CPF nominations and
+                                  Lasting Power of Attorney current.
+                                </p>
+                              </div>
+                            </li>
+                          </ol>
+                          <aside class="ssb-card">
+                            <strong>$200,000</strong>
+                            <span
+                              >Singapore Savings Bonds cap per person across
+                              Cash + SRS</span
+                            >
+                            <p>
+                              Issued in $500 multiples. Penalty-free monthly
+                              redemption pays on the 2nd business day of the
+                              <em>following</em> month—keep immediate bills in a
+                              bank account.
+                            </p>
+                            <a
+                              href="https://www.mas.gov.sg/contact-us/faqs/singapore-savings-bonds-faqs"
+                              target="_blank"
+                              rel="noreferrer"
+                              >MAS SSB rules &amp; redemption ↗</a
+                            >
+                          </aside>
+                        </div>
+                      </div>
+                    </details>
+                  </section>
                 </div>
-                <aside class="ssb-card">
-                  <span class="form-kicker">SINGAPORE SAVINGS BONDS</span
-                  ><strong>$200,000</strong
-                  ><span
-                    >maximum holding per individual across cash and SRS</span
-                  >
-                  <p>
-                    Buy in $500 multiples. You can request redemption monthly,
-                    with no penalty; proceeds are paid after processing in the
-                    following month. Keep near-term bills in a more immediately
-                    accessible account.
-                  </p>
-                  <a
-                    href="https://www.mas.gov.sg/contact-us/faqs/singapore-savings-bonds-faqs"
-                    target="_blank"
-                    rel="noreferrer"
-                    >MAS: SSB limits and redemption ↗</a
-                  >
-                </aside>
-              </div>
-              <details class="result-details">
-                <summary>What this guidance does—and does not—model</summary>
-                <p>
-                  The projection keeps your selected nominal return constant. It
-                  does not simulate moving to lower-risk assets, annuity
-                  purchases, account consolidation or automated withdrawals.
-                  These changes can alter returns, fees, liquidity and tax.
-                  Review the illustration when you change your arrangement.
-                </p>
-                <p>
-                  Moving everything into blue-chip shares still leaves company,
-                  dividend and market risks. There is no universal allocation or
-                  fixed age to sell everything. Government securities also have
-                  maturity and access rules; SSB redemption is monthly, not
-                  instant.
-                </p>
-                <a
-                  href="https://www.moneysense.gov.sg/investments/life-stage-investing/"
-                  target="_blank"
-                  rel="noreferrer"
-                  >MoneySense: life-stage investing ↗</a
-                ><small> · Checked 9 Nov 2026</small>
-              </details>
-              <p class="drawdown-note">
-                There is no universal “sell equities at age X” rule. Decide in
-                advance what the money is for, which spending years are covered
-                by cash and bonds, and when you will rebalance. Investment
-                values and bond rates can change.
-              </p>
+              </section>
+
+              <section
+                id="tab-panel-tax"
+                class="tab-panel"
+                role="tabpanel"
+                aria-label="Tax &amp; Rules"
+                hidden
+              >
+                <div id="tax-slot"></div>
+                <div class="step3-modules tax-disclosures">
+                  <details class="module-disclosure" id="model-assumptions">
+                    <summary>
+                      <span class="module-icon" aria-hidden="true">
+                        <svg
+                          viewBox="0 0 24 24"
+                          width="20"
+                          height="20"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.75"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path
+                            d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                          />
+                          <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
+                        </svg>
+                      </span>
+                      <span class="module-summary-text">
+                        <strong
+                          >Model rules, interest tiers &amp; assumptions</strong
+                        >
+                        <small
+                          >Single reference for CPF compounding, age-55 RA
+                          creation, payouts &amp; exclusions</small
+                        >
+                      </span>
+                    </summary>
+                    <div class="module-content">
+                      <h2 id="assumptions-title">
+                        What the calculator models (and excludes)
+                      </h2>
+                      <dl class="assumptions-grid">
+                        <div>
+                          <dt>Money basis &amp; timeline</dt>
+                          <dd>
+                            Starts Dec 2026 through age 90. Displayed outputs
+                            use today’s purchasing power (3% default inflation);
+                            monthly savings and salary stay level in cash with
+                            no bonuses.
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>CPF interest &amp; extra tiers</dt>
+                          <dd>
+                            OA 2.5%; SA/MA/RA 4% p.a. (computed monthly,
+                            credited annually). Extra interest: +1% on first
+                            $60k (&lt;55) or +2% first $30k / +1% next $30k
+                            (55+), max $20k from OA.
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Age-55 SA closure &amp; caps</dt>
+                          <dd>
+                            SA closes at 55; SA then OA fund RA up to cohort FRS
+                            (2026: $220.4k; 2027: $228.2k; +3.5%/yr assumed
+                            after). 2026 BHS is $79k (+5%/yr assumed),
+                            overflowing to SA/RA/OA.
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>CPF LIFE payout tables</dt>
+                          <dd>
+                            Interpolated from published 2026 male-member
+                            RA-at-65 anchors starting at 65. Standard is flat in
+                            cash; Escalating starts ~20% lower and rises 2%/yr.
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Lifestyle &amp; care trend</dt>
+                          <dd id="lifestyle-assumptions">
+                            CCA starts at $2,500/mo ($3,340 at 75 in today’s
+                            dollars); apartment lease and move-in deposits are
+                            excluded.
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Returns &amp; exclusions</dt>
+                          <dd>
+                            Default 4% net nominal portfolio return (constant,
+                            no crash sequence). Blank housing assumes new OA
+                            pays housing; flat sale proceeds and subsidies stay
+                            excluded.
+                          </dd>
+                        </div>
+                      </dl>
+                      <p class="assumptions-links">
+                        <a
+                          href="https://www.cpf.gov.sg/service/article/what-are-the-cpf-interest-rates"
+                          target="_blank"
+                          rel="noreferrer"
+                          >CPF interest rates ↗</a
+                        >
+                        ·
+                        <a
+                          href="https://www.cpf.gov.sg/service/article/how-much-extra-interest-can-i-earn-on-my-cpf-savings"
+                          target="_blank"
+                          rel="noreferrer"
+                          >Extra interest ↗</a
+                        >
+                        ·
+                        <a
+                          href="https://www.cpf.gov.sg/service/article/how-much-cpf-payouts-can-i-get-every-month"
+                          target="_blank"
+                          rel="noreferrer"
+                          >CPF LIFE payouts ↗</a
+                        >
+                        ·
+                        <a
+                          href="https://www.cpf.gov.sg/service/article/how-much-is-my-full-retirement-sum"
+                          target="_blank"
+                          rel="noreferrer"
+                          >Retirement sums ↗</a
+                        >
+                        ·
+                        <a
+                          href="https://www.moneysense.gov.sg/investments/life-stage-investing/"
+                          target="_blank"
+                          rel="noreferrer"
+                          >MoneySense ↗</a
+                        >
+                      </p>
+                    </div>
+                  </details>
+                </div>
+              </section>
             </div>
-          </details>
-        </div>
-      </section>
+          </section>
 
-      <div id="print-sheet" class="print-only-sheet" aria-hidden="true"></div>
-    </main>
+          <div
+            id="print-sheet"
+            class="print-only-sheet"
+            aria-hidden="true"
+          ></div>
 
-    <footer class="site-footer">
-      <div class="shell footer-inner">
-        <a class="brand footer-brand" href="#top"
-          ><span class="brand-mark" aria-hidden="true"
-            ><svg viewBox="0 0 32 32">
-              <path
-                d="M16 3 27 7v8c0 7.2-4.4 11.6-11 14C9.4 26.6 5 22.2 5 15V7l11-4Z"
-              />
-              <path d="m11 16 3.2 3.2L21.5 12" /></svg></span
-          ><span>Retirement <strong>Shield</strong></span></a
-        >
-        <p>
-          A clear monthly target, a visible income gap, and a plan for using
-          your savings.
-        </p>
-        <span class="footer-date"
-          >Core rules checked 9 Nov 2026 · Singapore</span
-        >
+          <footer class="site-footer">
+            <div class="shell footer-inner">
+              <a class="brand footer-brand" href="#retirement-plan"
+                ><span class="brand-mark" aria-hidden="true"
+                  ><img src="favicon.svg" width="22" height="22" alt="" /></span
+                ><span>Retirement <strong>Shield</strong></span></a
+              >
+              <span class="footer-date"
+                >2026 Singapore CPF &amp; IRAS Rules · Checked 13 Nov 2026 ·
+                100% Local</span
+              >
+            </div>
+          </footer>
+        </main>
       </div>
-    </footer>
+    </div>
+
+    <nav class="mobile-tabbar" role="tablist" aria-label="Mobile navigation">
+      <button
+        type="button"
+        class="mobile-tab is-active"
+        data-tab="overview"
+        role="tab"
+        aria-selected="true"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="20"
+          height="20"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <rect x="3" y="3" width="7" height="9" rx="1.5" />
+          <rect x="14" y="3" width="7" height="5" rx="1.5" />
+          <rect x="14" y="12" width="7" height="9" rx="1.5" />
+          <rect x="3" y="16" width="7" height="5" rx="1.5" />
+        </svg>
+        <span>Overview</span>
+      </button>
+      <button
+        type="button"
+        class="mobile-tab"
+        data-tab="trajectory"
+        role="tab"
+        aria-selected="false"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="20"
+          height="20"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M3 3v18h18" />
+          <path d="m7 14 4-4 4 3 5-6" />
+        </svg>
+        <span>Trajectory</span>
+      </button>
+      <button
+        type="button"
+        class="mobile-tab"
+        data-tab="allocator"
+        role="tab"
+        aria-selected="false"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="20"
+          height="20"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+          <path d="M22 12A10 10 0 0 0 12 2v10z" />
+        </svg>
+        <span>Allocator</span>
+      </button>
+      <button
+        type="button"
+        class="mobile-tab"
+        data-tab="tax"
+        role="tab"
+        aria-selected="false"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="20"
+          height="20"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          <path d="m9 12 2 2 4-4" />
+        </svg>
+        <span>Tax &amp; Rules</span>
+      </button>
+    </nav>
 
     <dialog
       id="plan-settings"
@@ -852,346 +1981,109 @@
     >
       <div class="settings-head">
         <div>
-          <span class="form-kicker">YOUR RETIREMENT PLAN</span>
-          <h2 id="settings-title">Fine-tune your plan</h2>
+          <h2 id="settings-title">Model Assumptions</h2>
         </div>
         <button
           class="dialog-dismiss"
           type="button"
           commandfor="plan-settings"
           command="close"
-          aria-label="Close settings"
+          aria-label="Close assumptions"
         >
           ×
         </button>
       </div>
-      <p class="settings-intro">
-        Change only what you know. Blank fields keep the starting assumptions;
-        your illustration updates as you edit.
-      </p>
-      <div class="settings-tabs" role="tablist" aria-label="Plan settings">
-        <button
-          type="button"
-          id="tab-budget"
-          role="tab"
-          aria-selected="true"
-          aria-controls="panel-budget"
-          tabindex="0"
-        >
-          Budget</button
-        ><button
-          type="button"
-          id="tab-cpf"
-          role="tab"
-          aria-selected="false"
-          aria-controls="panel-cpf"
-          tabindex="-1"
-        >
-          CPF</button
-        ><button
-          type="button"
-          id="tab-invest"
-          role="tab"
-          aria-selected="false"
-          aria-controls="panel-invest"
-          tabindex="-1"
-        >
-          Investments</button
-        ><button
-          type="button"
-          id="tab-assumptions"
-          role="tab"
-          aria-selected="false"
-          aria-controls="panel-assumptions"
-          tabindex="-1"
-        >
-          Assumptions
-        </button>
+      <div class="settings-scroll-body">
+        <div id="panel-assumptions">
+          <div class="field-grid">
+            <div class="field">
+              <label for="known-plan">CPF LIFE payout plan</label>
+              <div class="input-wrap select-wrap">
+                <select id="known-plan">
+                  <option value="standard" selected>
+                    Standard Plan (Level payouts)
+                  </option>
+                  <option value="escalating">
+                    Escalating Plan (+2% yearly)
+                  </option>
+                </select>
+              </div>
+              <small
+                >Escalating starts ~20% lower and rises 2%/yr on payout
+                anniversaries, overtaking Standard around age 77–78.</small
+              >
+            </div>
+            <div class="field">
+              <label for="known-return">Net investment return</label>
+              <div class="input-wrap select-wrap">
+                <select id="known-return">
+                  <option value="0">0% / year (No growth)</option>
+                  <option value="0.03">3.0% / year (Conservative)</option>
+                  <option value="0.04" selected>
+                    4.0% / year (Baseline default)
+                  </option>
+                  <option value="0.05">5.0% / year (Optimistic)</option>
+                </select>
+              </div>
+              <small
+                >Annual return for outside retirement investments after
+                fees.</small
+              >
+            </div>
+            <div class="field">
+              <label for="known-inflation">Long-term inflation</label>
+              <div class="input-wrap select-wrap">
+                <select id="known-inflation">
+                  <option value="0.025">2.5% / year (Low)</option>
+                  <option value="0.03" selected>
+                    3.0% / year (Baseline default)
+                  </option>
+                  <option value="0.035">3.5% / year (High)</option>
+                </select>
+              </div>
+              <small
+                >Applies to general spending and late-life healthcare
+                provisions.</small
+              >
+            </div>
+            <div class="field">
+              <label for="known-post55">Senior salary CPF (ages 55–65)</label>
+              <div class="input-wrap select-wrap">
+                <select id="known-post55">
+                  <option value="false" selected>
+                    Exclude post-55 salary CPF
+                  </option>
+                  <option value="true">Include post-55 CPF up to age 65</option>
+                </select>
+              </div>
+              <small
+                >Uses announced 2027 senior rates up to age 65; RA additions
+                stop at FRS.</small
+              >
+            </div>
+            <div class="field">
+              <label for="known-reserve-return"
+                >Interest on cash waiting for age-55 top-up</label
+              >
+              <div class="input-wrap select-wrap">
+                <select id="known-reserve-return">
+                  <option value="0" selected>0% / year (Default)</option>
+                  <option value="0.02">2% / year (HYSA / T-Bills)</option>
+                  <option value="0.04">4% / year (Fixed Income)</option>
+                </select>
+              </div>
+              <small
+                >Before 55, CPF cash top-ups stop at FRS. Extra cash earmarked
+                for ERS waits outside CPF until age 55 and earns this return
+                meanwhile.</small
+              >
+            </div>
+          </div>
+        </div>
+        <input id="known-invest" type="hidden" value="" />
+        <input id="known-savings" type="hidden" value="" />
+        <p id="settings-error" class="settings-error" role="status"></p>
       </div>
-      <div id="panel-budget" role="tabpanel" aria-labelledby="tab-budget">
-        <p class="settings-panel-note">
-          Choose the lifestyle to plan for. Apartment purchase and move-in costs
-          need separate funding. A custom budget applies to the selected preset.
-        </p>
-        <div class="field">
-          <label for="known-lifestyle">Retirement lifestyle</label>
-          <div class="input-wrap select-wrap">
-            <select id="known-lifestyle">
-              <option value="cca" selected>Community Care Apartments</option>
-              <option value="home-helper">Home + Helper</option>
-            </select>
-          </div>
-        </div>
-        <div class="drawer-budget-preview">
-          <p id="drawer-budget-caption"></p>
-          <div id="drawer-budget-chart"></div>
-          <details>
-            <summary>See the categories and what to add</summary>
-            <div id="drawer-budget-categories"></div>
-            <p class="budget-check">
-              Add any personal costs the allowance does not cover, such as
-              parent support, housing payments or debt. Set the monthly total
-              below; this preview scales the preset categories to that total. It
-              is a planning split, not itemised quotes.
-            </p>
-          </details>
-        </div>
-        <div class="field-grid">
-          <div class="field">
-            <label for="known-spend"
-              >Monthly living budget in today’s dollars</label
-            >
-            <div class="input-wrap">
-              <span>$</span
-              ><input
-                id="known-spend"
-                type="number"
-                min="0"
-                step="any"
-                placeholder="2500"
-                inputmode="decimal"
-              />
-            </div>
-            <small id="budget-default-note"
-              >Blank uses S$2,500, including healthcare and extra help.</small
-            >
-          </div>
-          <div class="field">
-            <label for="known-retire">Age I want to retire</label>
-            <div class="input-wrap">
-              <input
-                id="known-retire"
-                type="number"
-                min="40"
-                max="80"
-                step="1"
-                placeholder="65"
-                inputmode="numeric"
-              />
-            </div>
-            <small
-              >Blank uses age 65. CCA assumes moving in from retirement, at 55
-              or later. Earlier retirement needs a bridge to CPF LIFE.</small
-            >
-          </div>
-        </div>
-        <div class="settings-results">
-          <h3 id="budget-live-title">Your own savings with salary CPF</h3>
-          <div id="budget-live-results"></div>
-          <p>
-            A higher budget means you need more of your own savings. It does not
-            change the FRS or ERS CPF goals. The age-65 budget uses today’s
-            money.
-          </p>
-        </div>
-      </div>
-      <div id="panel-cpf" role="tabpanel" aria-labelledby="tab-cpf" hidden>
-        <p class="settings-panel-note">
-          Use current balances from your CPF dashboard. If blank, existing CPF
-          is excluded and future OA is assumed used for housing.
-        </p>
-        <div class="field-grid">
-          <div class="field">
-            <label for="known-oa">Ordinary Account balance</label>
-            <div class="input-wrap">
-              <span>$</span
-              ><input
-                id="known-oa"
-                type="number"
-                min="0"
-                step="any"
-                inputmode="decimal"
-              />
-            </div>
-          </div>
-          <div class="field">
-            <label for="known-sa">Special Account balance</label>
-            <div class="input-wrap">
-              <span>$</span
-              ><input
-                id="known-sa"
-                type="number"
-                min="0"
-                step="any"
-                inputmode="decimal"
-              />
-            </div>
-          </div>
-          <div class="field">
-            <label for="known-housing">Monthly housing payment from OA</label>
-            <div class="input-wrap">
-              <span>$</span
-              ><input
-                id="known-housing"
-                type="number"
-                min="0"
-                step="any"
-                inputmode="decimal"
-              />
-            </div>
-            <button type="button" class="text-button" id="btn-zero-housing">
-              Set housing deduction to S$0
-            </button>
-            <small
-              >Enter 0 if your flat is paid up or mortgage is paid from cash.
-              Leaving blank assumes all future OA is used for housing.</small
-            >
-          </div>
-        </div>
-        <details class="settings-results">
-          <summary>Your progress towards ERS</summary>
-          <div id="cpf-live-results"></div>
-          <p id="cpf-live-caption"></p>
-        </details>
-      </div>
-      <div
-        id="panel-invest"
-        role="tabpanel"
-        aria-labelledby="tab-invest"
-        hidden
-      >
-        <p class="settings-panel-note">
-          These funds are separate from the money earmarked for a CPF target.
-          Exclude CPF, your home and emergency cash.
-        </p>
-        <div class="field-grid">
-          <div class="field">
-            <label for="known-savings"
-              >Accessible retirement investments today</label
-            >
-            <div class="input-wrap">
-              <span>$</span
-              ><input
-                id="known-savings"
-                type="number"
-                min="0"
-                step="any"
-                inputmode="decimal"
-              />
-            </div>
-            <small
-              >Use money you can access by your chosen retirement age.</small
-            >
-          </div>
-          <div class="field">
-            <label for="known-invest"
-              >Monthly amount I can invest outside CPF</label
-            >
-            <div class="input-wrap">
-              <span>$</span
-              ><input
-                id="known-invest"
-                type="number"
-                min="0"
-                step="any"
-                inputmode="decimal"
-              />
-            </div>
-            <small
-              >Optional. Compare your own amount with the calculated investment
-              target.</small
-            >
-          </div>
-        </div>
-      </div>
-      <div
-        id="panel-assumptions"
-        role="tabpanel"
-        aria-labelledby="tab-assumptions"
-        hidden
-      >
-        <p class="settings-panel-note">
-          Stress-test growth rates, toggle the CPF LIFE plan, or model senior
-          salary contributions past 55.
-        </p>
-        <div class="field-grid">
-          <div class="field">
-            <label for="known-plan">CPF LIFE payout plan</label>
-            <div class="input-wrap select-wrap">
-              <select id="known-plan">
-                <option value="standard" selected>
-                  Standard Plan (Level / Flat for life)
-                </option>
-                <option value="escalating">
-                  Escalating Plan (+2% compounded / year)
-                </option>
-              </select>
-            </div>
-            <small
-              >Escalating starts ~20% lower, compounding by 2% yearly to hedge
-              late-life care costs.</small
-            >
-          </div>
-          <div class="field">
-            <label for="known-return">Net investment return</label>
-            <div class="input-wrap select-wrap">
-              <select id="known-return">
-                <option value="0.03">3.0% / year (Conservative)</option>
-                <option value="0.04" selected>
-                  4.0% / year (Baseline default)
-                </option>
-                <option value="0.05">5.0% / year (Optimistic)</option>
-              </select>
-            </div>
-            <small
-              >Nominal annual return for outside retirement investments after
-              fund fees.</small
-            >
-          </div>
-          <div class="field">
-            <label for="known-inflation">Long-term inflation</label>
-            <div class="input-wrap select-wrap">
-              <select id="known-inflation">
-                <option value="0.025">2.5% / year (Low)</option>
-                <option value="0.03" selected>
-                  3.0% / year (Baseline default)
-                </option>
-                <option value="0.035">3.5% / year (High)</option>
-              </select>
-            </div>
-            <small
-              >Applies to spending and late-life healthcare provisions.</small
-            >
-          </div>
-          <div class="field">
-            <label for="known-post55">Senior salary CPF (ages 55–65)</label>
-            <div class="input-wrap select-wrap">
-              <select id="known-post55">
-                <option value="false" selected>
-                  Exclude post-55 salary contributions
-                </option>
-                <option value="true">
-                  Include senior salary CPF if working past 55
-                </option>
-              </select>
-            </div>
-            <small
-              >Uses announced 2027 senior rates (held constant thereafter) up to
-              age 65. RA additions stop at FRS; OA is excluded from payout
-              funding. Later RA additions are converted to an age-55 equivalent
-              for approximate payouts.</small
-            >
-          </div>
-        </div>
-      </div>
-      <details class="result-details privacy-details">
-        <summary>Your saved plan and privacy</summary>
-        <p>
-          Calculations run on this device. Inputs are saved in this browser and
-          can be included in financial plan addresses after #. Anyone using this
-          browser or receiving a copied plan URL may see your salary and
-          balances. The app does not send these inputs to a server.
-        </p>
-        <p>
-          Clear saved plan removes the browser copy, financial URL and guide
-          progress, and returns to the editable example. Saving stays off for
-          this visit.
-        </p>
-        <button type="button" class="text-button" id="clear-saved-plan">
-          Clear saved plan
-        </button>
-      </details>
-      <p id="settings-error" class="settings-error" role="status"></p>
       <div class="settings-footer">
         <p
           id="settings-live-summary"
@@ -1200,14 +2092,15 @@
           aria-atomic="true"
         ></p>
         <button type="button" class="text-button" id="reset-settings">
-          Reset settings</button
+          Reset SG defaults</button
         ><button
           type="button"
           class="button button-dark"
           commandfor="plan-settings"
           command="close"
+          data-step="2"
         >
-          See my plan →
+          Done
         </button>
       </div>
     </dialog>

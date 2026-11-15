@@ -6,8 +6,8 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f4f7fa",
-  "theme_color": "#11253d",
+  "background_color": "#fdfbfa",
+  "theme_color": "#fdfbfa",
   "lang": "en-SG",
   "categories": ["finance", "education"],
   "icons": [
@@ -31,9 +31,18 @@
     }
   ],
   "shortcuts": [
-    { "name": "My retirement plan", "url": "./#retirement-plan" },
-    { "name": "Spending breakdown", "url": "./#retirement-budget" },
-    { "name": "Funding plan", "url": "./#funding-steps" }
+    {
+      "name": "My retirement plan",
+      "url": "./#retirement-plan"
+    },
+    {
+      "name": "Spending breakdown",
+      "url": "./#retirement-budget"
+    },
+    {
+      "name": "Try monthly savings",
+      "url": "./#savings-simulator"
+    }
   ],
   "prefer_related_applications": false
 }
