@@ -74,9 +74,19 @@ test("production HTML and CSS reference existing local files and no external fon
 });
 test("service worker has a concrete build revision and bounded app cache", () => {
   const sw = fs.readFileSync("dist/sw.js", "utf8");
+  const html = fs.readFileSync("dist/index.html", "utf8");
   assert.equal(sw.includes("__PRECACHE__"), false);
   assert.equal(sw.includes("__CACHE_VERSION__"), false);
   assert.ok(sw.includes("retirement-shield-"));
   assert.ok(sw.includes("startsWith("));
   assert.ok(sw.includes("text/html"));
+  assert.match(sw, /cache:\s*"reload"/);
+  const revMatch = html.match(
+    /<meta name="app-revision" content="([a-f0-9]{12})"/,
+  );
+  assert.ok(revMatch, "index.html should embed 12-hex app-revision meta tag");
+  assert.ok(
+    sw.includes(`retirement-shield-${revMatch[1]}`),
+    "sw.js cache version should match dist/index.html app-revision",
+  );
 });

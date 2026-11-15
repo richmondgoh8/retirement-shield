@@ -35,7 +35,6 @@ html = html
   .replace(/<!--[^]*?-->/g, "")
   .replace(/^\s+/gm, "")
   .replace(/\n{2,}/g, "\n");
-await writeFile("dist/index.html", html);
 const assets = (await readdir("dist/assets"))
   .filter((file) => file !== "OFL.txt" && file !== "icon.svg")
   .map((file) => `./assets/${file}`);
@@ -49,13 +48,19 @@ const precache = [
 let revision = html;
 for (const file of precache.filter((file) => file !== "./index.html"))
   revision += hash(await readFile(`dist/${file.slice(2)}`));
+const buildRev = hash(revision);
+html = html.replace(
+  /<meta name="app-revision" content="[^"]*"/,
+  `<meta name="app-revision" content="${buildRev}"`,
+);
+await writeFile("dist/index.html", html);
 const sw = (await readFile("sw.js", "utf8"))
-  .replace("__CACHE_VERSION__", hash(revision))
+  .replace("__CACHE_VERSION__", buildRev)
   .replace("__PRECACHE__", JSON.stringify(precache));
 await writeFile(
   "dist/sw.js",
   (await transform(sw, { loader: "js", minify: true, target: "es2022" })).code,
 );
 console.log(
-  `Built ${outputs.join(", ")}; offline cache ${hash(revision)} (${precache.length} resources).`,
+  `Built ${outputs.join(", ")}; offline cache ${buildRev} (${precache.length} resources).`,
 );

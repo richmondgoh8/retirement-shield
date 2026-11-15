@@ -400,25 +400,24 @@ function renderTrajectoryChart(
     scrubLine.setAttribute("x1", svgX);
     scrubLine.setAttribute("x2", svgX);
     scrubLine.style.display = "block";
-    const tooltipLeft =
-      svgRect.left + (svgX / W) * svgRect.width - wrapRect.left;
-    const tooltipTop =
-      svgRect.top - wrapRect.top + (padT / H) * svgRect.height - 8;
     tooltipEl.hidden = false;
-    tooltipEl.style.left = `${tooltipLeft}px`;
-    tooltipEl.style.top = `${tooltipTop}px`;
-    tooltipEl.style.transform =
-      tooltipLeft < 115
-        ? "translate(0%, -100%)"
-        : tooltipLeft > wrapRect.width - 115
-          ? "translate(-100%, -100%)"
-          : "translate(-50%, -100%)";
     tooltipEl.innerHTML = `
       <div class="tt-head">Age ${pt.age} (${pt.year}) · ${pt.phase.toUpperCase()}</div>
       <div class="tt-row"><span>Spend</span><b>${m(pt.monthlySpend, "/mo")}</b></div>
       <div class="tt-row"><span>CPF LIFE</span><b class="sem-cpf">${m(pt.monthlyCPF, "/mo")}</b></div>
       ${pt.monthlyGap > 0 ? `<div class="tt-row"><span>Outside gap</span><b class="sem-eq">${m(pt.monthlyGap, "/mo")}</b></div>` : ""}
       <div class="tt-row"><span>Portfolio</span><b>${m(pt.portfolioBalance)}</b></div>`;
+    positionChartTooltip(
+      tooltipEl,
+      wrapRect,
+      svgRect,
+      svgX,
+      dY(pt.portfolioBalance),
+      W,
+      H,
+      padT,
+      padB,
+    );
   };
   const handleLeave = () => {
     scrubLine.style.display = "none";
@@ -547,7 +546,13 @@ function getMilestoneNodes(fire, r, s, simulation) {
   ];
 }
 
-function buildConcentricRingsSVG(rings, centerPct, centerSub, size = 176) {
+function buildConcentricRingsSVG(
+  rings,
+  centerPct,
+  centerSub,
+  size = 176,
+  interactive = false,
+) {
   const cx = size / 2;
   const cy = size / 2;
   const radii = [
@@ -563,13 +568,18 @@ function buildConcentricRingsSVG(rings, centerPct, centerSub, size = 176) {
       const circ = 2 * Math.PI * r;
       const pct = Math.max(0, Math.min(100, ring.pct || 0));
       const dash = (pct / 100) * circ;
+      const shortSub = ring.shortLabel || centerSub;
       return `
         <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--border)" stroke-width="${strokeW}" />
-        ${pct > 0 ? `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${ring.color}" stroke-width="${strokeW}" stroke-linecap="round" stroke-dasharray="${dash.toFixed(2)} ${circ.toFixed(2)}" transform="rotate(-90 ${cx} ${cy})" />` : ""}
+        ${
+          pct > 0
+            ? `<circle class="ember-ring-arc" data-ring-idx="${idx}" data-ring-pct="${ring.text || `${pct}%`}" data-ring-sub="${shortSub}" cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${ring.color}" stroke-width="${strokeW}" stroke-linecap="round" stroke-dasharray="${dash.toFixed(2)} ${circ.toFixed(2)}" transform="rotate(-90 ${cx} ${cy})" />`
+            : ""
+        }
       `;
     })
     .join("");
-  return `<div class="ember-rings-wrap" style="--ring-size:${size}px;">
+  return `<div class="ember-rings-wrap${interactive ? " is-interactive" : ""}" style="--ring-size:${size}px;" data-default-pct="${centerPct}%" data-default-sub="${centerSub}">
     <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" class="ember-rings-svg" aria-hidden="true">
       ${arcs}
     </svg>
@@ -846,6 +856,7 @@ function renderPrintSheet(
       $("#print-nw-legend", printContainer),
       fire,
       ctx.basis || "today",
+      { interactive: false, forcedSeries: "all" },
     );
     renderCashflowWaterfallSVG(
       $("#print-wf-chart", printContainer),
@@ -1131,14 +1142,89 @@ function buildCoverageSection(r, s) {
   </section>`;
 }
 
+const NW_SERIES = [
+  {
+    key: "cpf",
+    name: "CPF (OA + SA/RA + MA)",
+    short: "CPF",
+    color: "#059669",
+    ttClass: "sem-cpf",
+  },
+  {
+    key: "srs",
+    name: "SRS",
+    short: "SRS",
+    color: "#7C3AED",
+    ttClass: "sem-srs",
+  },
+  {
+    key: "ssb",
+    name: "SSB / T-Bills / Cash",
+    short: "SSB / Cash",
+    color: "#D97706",
+    ttClass: "sem-cash",
+  },
+  {
+    key: "eq",
+    name: "Global & SG Equities",
+    short: "Equities",
+    color: "#2563EB",
+    ttClass: "sem-eq",
+  },
+];
+
+let netWorthSelectedSeries = "all";
+
+function positionChartTooltip(
+  tooltipEl,
+  wrapRect,
+  svgRect,
+  svgX,
+  svgY,
+  W,
+  H,
+  padT,
+  padB,
+) {
+  const cursorX = svgRect.left + (svgX / W) * svgRect.width - wrapRect.left;
+  const placeLeft = cursorX > wrapRect.width * 0.56;
+  const ttH = tooltipEl.offsetHeight || 132;
+  const ttW = tooltipEl.offsetWidth || 180;
+  const minY = Math.max(
+    6,
+    svgRect.top - wrapRect.top + (padT / H) * svgRect.height + 6,
+  );
+  const maxY = Math.max(minY, wrapRect.height - ttH - 8);
+  const rawY =
+    svgRect.top - wrapRect.top + (svgY / H) * svgRect.height - ttH / 2;
+  const tTop = Math.max(minY, Math.min(maxY, rawY));
+  const desiredLeft = placeLeft ? cursorX - ttW - 14 : cursorX + 14;
+  const clampedLeft = Math.max(
+    8,
+    Math.min(wrapRect.width - ttW - 8, desiredLeft),
+  );
+  tooltipEl.style.left = `${clampedLeft}px`;
+  tooltipEl.style.top = `${tTop}px`;
+  tooltipEl.style.transform = "none";
+}
+
 function renderStackedNetWorthSVG(
   chartArea,
   tooltipEl,
   legendEl,
   fire,
   basis = "today",
+  opts = {},
 ) {
   if (!chartArea || !fire?.points?.length) return;
+  const interactive = opts.interactive !== false;
+  const activeSeries =
+    opts.forcedSeries || (interactive ? netWorthSelectedSeries : "all");
+  const soloSeries =
+    activeSeries !== "all"
+      ? NW_SERIES.find((item) => item.key === activeSeries) || null
+      : null;
+
   const pts = fire.points.map((pt) => {
     const src = basis === "today" ? pt.today : pt;
     return {
@@ -1164,7 +1250,10 @@ function renderStackedNetWorthSVG(
     maxAge = pts[pts.length - 1].age;
   const dX = (age) =>
     padL + ((age - minAge) / Math.max(1, maxAge - minAge)) * plotW;
-  const rawMax = Math.max(10000, ...pts.map((p) => p.total));
+  const rawMax = Math.max(
+    10000,
+    ...pts.map((p) => (soloSeries ? p[soloSeries.key] : p.total)),
+  );
   const { maxVal, ticks } = niceAxis(rawMax, 4);
   const dY = (val) => padT + (1 - Math.max(0, val) / maxVal) * plotH;
 
@@ -1202,23 +1291,62 @@ function renderStackedNetWorthSVG(
       .join(" ");
     return `${fwd} ${bwd} Z`;
   };
+  const topLinePath = (topFn) =>
+    pts
+      .map((p, i) => `${i === 0 ? "M" : "L"} ${dX(p.age)} ${dY(topFn(p))}`)
+      .join(" ");
 
-  const eqArea = areaPath(
-    (p) => p.total,
-    (p) => p.cpf + p.srs + p.ssb,
-  );
-  const ssbArea = areaPath(
-    (p) => p.cpf + p.srs + p.ssb,
-    (p) => p.cpf + p.srs,
-  );
-  const srsArea = areaPath(
-    (p) => p.cpf + p.srs,
-    (p) => p.cpf,
-  );
-  const cpfArea = areaPath(
-    (p) => p.cpf,
-    () => 0,
-  );
+  const uid = (chartArea.id || "nw").replace(/[^a-z0-9_-]/gi, "");
+  const stackDefs = [
+    {
+      ...NW_SERIES[0],
+      top: (p) => p.cpf,
+      bot: () => 0,
+    },
+    {
+      ...NW_SERIES[1],
+      top: (p) => p.cpf + p.srs,
+      bot: (p) => p.cpf,
+    },
+    {
+      ...NW_SERIES[2],
+      top: (p) => p.cpf + p.srs + p.ssb,
+      bot: (p) => p.cpf + p.srs,
+    },
+    {
+      ...NW_SERIES[3],
+      top: (p) => p.total,
+      bot: (p) => p.cpf + p.srs + p.ssb,
+    },
+  ];
+
+  const gradientsSVG = `<defs>
+    ${NW_SERIES.map(
+      (
+        sItem,
+      ) => `<linearGradient id="${uid}-grad-${sItem.key}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${sItem.color}" stop-opacity="${soloSeries ? "0.38" : "0.30"}" />
+        <stop offset="100%" stop-color="${sItem.color}" stop-opacity="0.04" />
+      </linearGradient>`,
+    ).join("")}
+  </defs>`;
+
+  const bandsSVG = soloSeries
+    ? `<g class="nw-band is-solo" data-series="${soloSeries.key}">
+        <path class="nw-band-fill" d="${areaPath(
+          (p) => p[soloSeries.key],
+          () => 0,
+        )}" fill="url(#${uid}-grad-${soloSeries.key})" />
+        <path class="nw-band-stroke" d="${topLinePath((p) => p[soloSeries.key])}" fill="none" stroke="${soloSeries.color}" stroke-width="2.5" stroke-linejoin="round" />
+      </g>`
+    : stackDefs
+        .map(
+          (band) => `<g class="nw-band" data-series="${band.key}">
+            <path class="nw-band-fill" d="${areaPath(band.top, band.bot)}" fill="url(#${uid}-grad-${band.key})" />
+            <path class="nw-band-stroke" d="${topLinePath(band.top)}" fill="none" stroke="${band.color}" stroke-width="1.85" stroke-linejoin="round" />
+          </g>`,
+        )
+        .join("");
 
   const rawMilestones = [
     {
@@ -1268,46 +1396,123 @@ function renderStackedNetWorthSVG(
       const labelY = row === 0 ? padT - 20 : row === 1 ? padT - 5 : padT + 10;
       const anchor =
         x < padL + 44 ? "start" : x > W - padR - 44 ? "end" : "middle";
-      return `<line x1="${x}" y1="${padT}" x2="${x}" y2="${H - padB}" stroke="${mItem.color}" stroke-width="1.5" stroke-dasharray="4,3" stroke-opacity="0.7" />
+      return `<line x1="${x}" y1="${padT}" x2="${x}" y2="${H - padB}" stroke="${mItem.color}" stroke-width="1.35" stroke-dasharray="4,3" stroke-opacity="0.65" />
         <text x="${x}" y="${labelY}" text-anchor="${anchor}" font-size="11" font-weight="700" fill="${mItem.color}">${mItem.label}</text>`;
     })
     .join("");
 
-  // Direct data labels for key milestones & end net worth
+  const valForCallout = (pt) => (soloSeries ? pt[soloSeries.key] : pt.total);
   const calloutAges = [fire.retire, 65, maxAge].filter(
     (a, idx, arr) => arr.indexOf(a) === idx && a >= minAge + 2 && a <= maxAge,
   );
   const calloutsSVG = calloutAges
     .map((ageTarget) => {
       const pt = pts.find((p) => p.age === ageTarget);
-      if (!pt || pt.total <= 0) return "";
+      const val = pt ? valForCallout(pt) : 0;
+      if (!pt || val <= 0) return "";
       const x = dX(pt.age);
-      const y = Math.max(padT + 14, dY(pt.total) - 10);
+      const y = Math.max(padT + 14, dY(val) - 10);
       const anchor = x > W - padR - 48 ? "end" : "middle";
-      return `<circle cx="${x}" cy="${dY(pt.total)}" r="3.5" fill="var(--ink)" stroke="var(--surface)" stroke-width="1.5" />
-        <text x="${x}" y="${y}" text-anchor="${anchor}" font-size="11" font-weight="700" fill="var(--ink)">${svgCompactMoney(pt.total)}</text>`;
+      const dotColor = soloSeries ? soloSeries.color : "var(--ink)";
+      return `<circle cx="${x}" cy="${dY(val)}" r="3.5" fill="${dotColor}" stroke="var(--surface)" stroke-width="1.5" />
+        <text x="${x}" y="${y}" text-anchor="${anchor}" font-size="11" font-weight="700" fill="var(--ink)">${svgCompactMoney(val)}</text>`;
     })
+    .join("");
+
+  const scrubDotsSVG = (soloSeries ? [soloSeries] : NW_SERIES)
+    .map(
+      (sItem) =>
+        `<circle class="nw-scrub-dot" data-series="${sItem.key}" cx="0" cy="0" r="4" fill="${sItem.color}" stroke="var(--surface)" stroke-width="1.75" style="display:none;" />`,
+    )
     .join("");
 
   chartArea.innerHTML = `
     <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="xMidYMid meet">
+      ${gradientsSVG}
       ${yTicks}${xTicks}
-      <path d="${cpfArea}" fill="#059669" fill-opacity="0.82" />
-      <path d="${srsArea}" fill="#7C3AED" fill-opacity="0.78" />
-      <path d="${ssbArea}" fill="#D97706" fill-opacity="0.78" />
-      <path d="${eqArea}" fill="#2563EB" fill-opacity="0.82" />
+      ${bandsSVG}
       ${milestoneSVG}
       ${calloutsSVG}
-      <line class="nw-scrub-line" x1="0" y1="${padT}" x2="0" y2="${H - padB}" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="3,3" style="display:none;" />
+      <line class="nw-scrub-line" x1="0" y1="${padT}" x2="0" y2="${H - padB}" stroke="var(--ink)" stroke-width="1.4" stroke-dasharray="3,3" style="display:none;" />
+      ${scrubDotsSVG}
     </svg>`;
 
   if (legendEl) {
-    legendEl.innerHTML = `
-      <span class="legend-item"><i class="legend-swatch" style="background:#2563EB;"></i> Global &amp; SG Equities</span>
-      <span class="legend-item"><i class="legend-swatch" style="background:#D97706;"></i> SSB / T-Bills / Cash</span>
-      <span class="legend-item"><i class="legend-swatch" style="background:#7C3AED;"></i> SRS</span>
-      <span class="legend-item"><i class="legend-swatch" style="background:#059669;"></i> CPF (OA + SA/RA + MA)</span>`;
+    if (interactive) {
+      legendEl.innerHTML = `
+        <button type="button" class="legend-chip${!soloSeries ? " is-active" : ""}" data-series="all" aria-pressed="${!soloSeries}">
+          All Layers
+        </button>
+        ${[...NW_SERIES]
+          .reverse()
+          .map((sItem) => {
+            const isSel = soloSeries?.key === sItem.key;
+            return `<button type="button" class="legend-chip${isSel ? " is-active" : ""}" data-series="${sItem.key}" aria-pressed="${isSel}">
+              <i class="legend-swatch" style="background:${sItem.color};"></i>
+              <span>${sItem.name}</span>
+            </button>`;
+          })
+          .join("")}`;
+    } else {
+      legendEl.innerHTML = [...NW_SERIES]
+        .reverse()
+        .map(
+          (sItem) =>
+            `<span class="legend-item"><i class="legend-swatch" style="background:${sItem.color};"></i> ${sItem.name}</span>`,
+        )
+        .join("");
+    }
   }
+
+  if (!interactive) return;
+
+  const setHoveredBand = (seriesKey) => {
+    const svg = chartArea.querySelector("svg");
+    if (svg) {
+      svg.classList.toggle(
+        "has-hover-series",
+        Boolean(seriesKey) && !soloSeries,
+      );
+      svg.querySelectorAll(".nw-band").forEach((el) => {
+        el.classList.toggle("is-hovered", el.dataset.series === seriesKey);
+      });
+    }
+    if (legendEl) {
+      legendEl.querySelectorAll(".legend-chip").forEach((btn) => {
+        btn.classList.toggle("is-hovered", btn.dataset.series === seriesKey);
+      });
+    }
+  };
+
+  const toggleSeriesSelection = (seriesKey) => {
+    if (!seriesKey) return;
+    if (tooltipEl) tooltipEl.hidden = true;
+    if (seriesKey === "all") netWorthSelectedSeries = "all";
+    else
+      netWorthSelectedSeries =
+        netWorthSelectedSeries === seriesKey ? "all" : seriesKey;
+    renderStackedNetWorthSVG(chartArea, tooltipEl, legendEl, fire, basis, opts);
+  };
+
+  if (legendEl) {
+    legendEl.onmouseover = (e) => {
+      const btn = e.target.closest(".legend-chip");
+      if (btn && btn.dataset.series !== "all")
+        setHoveredBand(btn.dataset.series);
+    };
+    legendEl.onmouseout = (e) => {
+      if (!legendEl.contains(e.relatedTarget)) setHoveredBand(null);
+    };
+    legendEl.onclick = (e) => {
+      const btn = e.target.closest(".legend-chip");
+      if (btn) toggleSeriesSelection(btn.dataset.series);
+    };
+  }
+
+  chartArea.onclick = (e) => {
+    const band = e.target.closest(".nw-band");
+    if (band) toggleSeriesSelection(band.dataset.series);
+  };
 
   const wrap = chartArea.parentElement;
   const scrub = chartArea.querySelector(".nw-scrub-line");
@@ -1318,6 +1523,7 @@ function renderStackedNetWorthSVG(
     const svgRect = svg.getBoundingClientRect();
     const wrapRect = wrap.getBoundingClientRect();
     const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
     const left = svgRect.left + (padL / W) * svgRect.width;
     const width = (plotW / W) * svgRect.width;
     const frac = Math.max(0, Math.min(1, (cx - left) / width));
@@ -1327,27 +1533,66 @@ function renderStackedNetWorthSVG(
     scrub.setAttribute("x1", sx);
     scrub.setAttribute("x2", sx);
     scrub.style.display = "block";
-    const tLeft = svgRect.left + (sx / W) * svgRect.width - wrapRect.left;
-    const tTop = svgRect.top - wrapRect.top + (padT / H) * svgRect.height - 6;
+
+    const bandTarget = e.target.closest?.(".nw-band");
+    const hoveredKey = soloSeries
+      ? soloSeries.key
+      : bandTarget?.dataset?.series || null;
+    if (!soloSeries) setHoveredBand(hoveredKey);
+
+    const cumulativeAt = {
+      cpf: pt.cpf,
+      srs: pt.cpf + pt.srs,
+      ssb: pt.cpf + pt.srs + pt.ssb,
+      eq: pt.total,
+    };
+    svg.querySelectorAll(".nw-scrub-dot").forEach((dot) => {
+      const key = dot.dataset.series;
+      const val = soloSeries ? pt[key] : cumulativeAt[key];
+      dot.setAttribute("cx", sx);
+      dot.setAttribute("cy", dY(val));
+      dot.style.display = "block";
+    });
+
     tooltipEl.hidden = false;
-    tooltipEl.style.left = `${tLeft}px`;
-    tooltipEl.style.top = `${tTop}px`;
-    tooltipEl.style.transform =
-      tLeft < 115
-        ? "translate(0%, -100%)"
-        : tLeft > wrapRect.width - 115
-          ? "translate(-100%, -100%)"
-          : "translate(-50%, -100%)";
-    tooltipEl.innerHTML = `
+    tooltipEl.innerHTML = soloSeries
+      ? `
+      <div class="tt-head">Age ${pt.age} (${pt.year})</div>
+      <div class="tt-row is-highlighted"><span>${soloSeries.short}</span><b class="${soloSeries.ttClass}">${m(pt[soloSeries.key])}</b></div>
+      <div class="tt-row"><span>Total Net Worth</span><b>${m(pt.total)}</b></div>`
+      : `
       <div class="tt-head">Age ${pt.age} (${pt.year})</div>
       <div class="tt-row"><span>Total Net Worth</span><b>${m(pt.total)}</b></div>
-      <div class="tt-row"><span>Equities</span><b class="sem-eq">${m(pt.eq)}</b></div>
-      <div class="tt-row"><span>SSB / Cash</span><b class="sem-cash">${m(pt.ssb)}</b></div>
-      <div class="tt-row"><span>SRS</span><b class="sem-srs">${m(pt.srs)}</b></div>
-      <div class="tt-row"><span>CPF</span><b class="sem-cpf">${m(pt.cpf)}</b></div>`;
+      <div class="tt-row${hoveredKey === "eq" ? " is-highlighted" : ""}"><span>Equities</span><b class="sem-eq">${m(pt.eq)}</b></div>
+      <div class="tt-row${hoveredKey === "ssb" ? " is-highlighted" : ""}"><span>SSB / Cash</span><b class="sem-cash">${m(pt.ssb)}</b></div>
+      <div class="tt-row${hoveredKey === "srs" ? " is-highlighted" : ""}"><span>SRS</span><b class="sem-srs">${m(pt.srs)}</b></div>
+      <div class="tt-row${hoveredKey === "cpf" ? " is-highlighted" : ""}"><span>CPF</span><b class="sem-cpf">${m(pt.cpf)}</b></div>`;
+
+    const svgHoverY = Math.max(
+      padT,
+      Math.min(H - padB, ((cy - svgRect.top) / svgRect.height) * H),
+    );
+    positionChartTooltip(
+      tooltipEl,
+      wrapRect,
+      svgRect,
+      sx,
+      svgHoverY,
+      W,
+      H,
+      padT,
+      padB,
+    );
   };
   const onLeave = () => {
     scrub.style.display = "none";
+    const svg = chartArea.querySelector("svg");
+    if (svg) {
+      svg
+        .querySelectorAll(".nw-scrub-dot")
+        .forEach((dot) => (dot.style.display = "none"));
+    }
+    setHoveredBand(null);
     tooltipEl.hidden = true;
   };
   wrap.onmousemove = onMove;
@@ -1502,17 +1747,7 @@ function renderCashflowWaterfallSVG(
     scrub.setAttribute("x1", sx);
     scrub.setAttribute("x2", sx);
     scrub.style.display = "block";
-    const tLeft = svgRect.left + (sx / W) * svgRect.width - wrapRect.left;
-    const tTop = svgRect.top - wrapRect.top + (padT / H) * svgRect.height - 6;
     tooltipEl.hidden = false;
-    tooltipEl.style.left = `${tLeft}px`;
-    tooltipEl.style.top = `${tTop}px`;
-    tooltipEl.style.transform =
-      tLeft < 115
-        ? "translate(0%, -100%)"
-        : tLeft > wrapRect.width - 115
-          ? "translate(-100%, -100%)"
-          : "translate(-50%, -100%)";
     tooltipEl.innerHTML = `
       <div class="tt-head">Age ${pt.age} (${pt.year})</div>
       <div class="tt-row"><span>Target Spend</span><b>${m(pt.spend, "/mo")}</b></div>
@@ -1524,6 +1759,17 @@ function renderCashflowWaterfallSVG(
              ${pt.shortfall > 0.5 ? `<div class="tt-row tt-alert"><span>Shortfall Alert</span><b>${m(pt.shortfall, "/mo")}</b></div>` : ""}`
           : `<div class="tt-note">Accumulating (pre-FIRE)</div>`
       }`;
+    positionChartTooltip(
+      tooltipEl,
+      wrapRect,
+      svgRect,
+      sx,
+      dY(pt.spend),
+      W,
+      H,
+      padT,
+      padB,
+    );
   };
   const onLeave = () => {
     scrub.style.display = "none";
@@ -1669,18 +1915,21 @@ function buildEmberBentoRow(
   const ringsData = [
     {
       label: `Overall Funding at ${fire.retire}`,
+      shortLabel: "FUNDED",
       pct: Math.min(100, pct),
       text: `${pct}%`,
       color: onTrack ? "#059669" : "#E0533C",
     },
     {
       label: "CPF LIFE Core (65+ Bills)",
+      shortLabel: "CPF LIFE",
       pct: cpfCoveragePct,
       text: `${cpfCoveragePct}%`,
       color: "#0D9488",
     },
     {
       label: "Nest Egg Built Today",
+      shortLabel: "BUILT NOW",
       pct: builtTodayPct,
       text: `${builtTodayPct}%`,
       color: "#7C3AED",
@@ -1730,13 +1979,13 @@ function buildEmberBentoRow(
         </div>
       </div>
       <div class="ember-rings-stage">
-        ${buildConcentricRingsSVG(ringsData, pct, "FUNDED", 172)}
+        ${buildConcentricRingsSVG(ringsData, pct, "FUNDED", 172, true)}
       </div>
       <ul class="ember-rings-legend">
         ${ringsData
           .map(
-            (item) =>
-              `<li><span><i style="background:${item.color};"></i>${item.label}</span><strong>${item.text}</strong></li>`,
+            (item, idx) =>
+              `<li><button type="button" class="ember-ring-btn" data-ring-idx="${idx}" data-ring-pct="${item.text}" data-ring-sub="${item.shortLabel}" aria-pressed="false"><span><i style="background:${item.color};"></i>${item.label}</span><strong>${item.text}</strong></button></li>`,
           )
           .join("")}
       </ul>
@@ -3551,11 +3800,151 @@ function setupFieldHelp() {
   }
 }
 
-if ("serviceWorker" in navigator) {
+function setupEmberRingsInteractivity() {
+  let lockedIdx = null;
+  const applyRingState = (card, activeIdx) => {
+    if (!card) return;
+    const wrap = card.querySelector(".ember-rings-wrap");
+    const centerStrong = card.querySelector(".ember-rings-center strong");
+    const centerSpan = card.querySelector(".ember-rings-center span");
+    if (!wrap || !centerStrong || !centerSpan) return;
+    const hasActive = activeIdx != null && activeIdx !== "";
+    card.classList.toggle("has-focused-ring", hasActive);
+    card.querySelectorAll(".ember-ring-arc").forEach((arc) => {
+      arc.classList.toggle(
+        "is-active",
+        arc.dataset.ringIdx === String(activeIdx),
+      );
+    });
+    card.querySelectorAll(".ember-ring-btn").forEach((btn) => {
+      const isFocused = btn.dataset.ringIdx === String(activeIdx);
+      btn.classList.toggle("is-active", isFocused);
+      btn.setAttribute(
+        "aria-pressed",
+        String(lockedIdx === btn.dataset.ringIdx),
+      );
+    });
+    if (hasActive) {
+      const src =
+        card.querySelector(`.ember-ring-btn[data-ring-idx="${activeIdx}"]`) ||
+        card.querySelector(`.ember-ring-arc[data-ring-idx="${activeIdx}"]`);
+      if (src) {
+        centerStrong.textContent =
+          src.dataset.ringPct || wrap.dataset.defaultPct;
+        centerSpan.textContent = src.dataset.ringSub || wrap.dataset.defaultSub;
+      }
+    } else {
+      centerStrong.textContent = wrap.dataset.defaultPct || "";
+      centerSpan.textContent = wrap.dataset.defaultSub || "";
+    }
+  };
+  document.addEventListener("plan-rendered", () => {
+    lockedIdx = null;
+  });
+  document.addEventListener("mouseover", (e) => {
+    const target = e.target.closest?.(".ember-ring-btn, .ember-ring-arc");
+    if (!target) return;
+    applyRingState(target.closest(".ember-rings-card"), target.dataset.ringIdx);
+  });
+  document.addEventListener("mouseout", (e) => {
+    const card = e.target.closest?.(".ember-rings-card");
+    if (!card) return;
+    const next = e.relatedTarget?.closest?.(".ember-ring-btn, .ember-ring-arc");
+    if (!next || next.closest(".ember-rings-card") !== card) {
+      applyRingState(card, lockedIdx);
+    }
+  });
+  document.addEventListener("click", (e) => {
+    const target = e.target.closest?.(".ember-ring-btn, .ember-ring-arc");
+    if (!target) return;
+    const card = target.closest(".ember-rings-card");
+    const idx = target.dataset.ringIdx;
+    lockedIdx = lockedIdx === idx ? null : idx;
+    applyRingState(card, lockedIdx);
+  });
+}
+
+function setupServiceWorkerUpdates() {
+  if (!("serviceWorker" in navigator)) return;
+  const updateBtn = $("#app-update-btn");
+  const pageRev =
+    document.querySelector('meta[name="app-revision"]')?.content || "dev";
+  const hadController = Boolean(navigator.serviceWorker.controller);
+  let lastCheckAt = 0;
+
+  const revealUpdate = () => {
+    if (updateBtn) updateBtn.hidden = false;
+  };
+
+  if (updateBtn) {
+    updateBtn.addEventListener("click", () => {
+      window.location.reload();
+    });
+  }
+
+  const verifyRevision = (worker) => {
+    if (!worker || pageRev === "dev" || typeof MessageChannel === "undefined")
+      return;
+    try {
+      const ch = new MessageChannel();
+      ch.port1.onmessage = (event) => {
+        const swRev = String(event.data?.cacheVersion || "").replace(
+          "retirement-shield-",
+          "",
+        );
+        if (swRev && swRev !== pageRev) revealUpdate();
+      };
+      worker.postMessage({ type: "GET_VERSION" }, [ch.port2]);
+    } catch {
+      // Ignore postMessage failure on torn-down workers
+    }
+  };
+
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (hadController) revealUpdate();
+    verifyRevision(navigator.serviceWorker.controller);
+  });
+
   navigator.serviceWorker
     .register("sw.js", { updateViaCache: "none" })
+    .then((reg) => {
+      verifyRevision(navigator.serviceWorker.controller || reg.active);
+      if (reg.waiting && navigator.serviceWorker.controller) revealUpdate();
+      reg.addEventListener("updatefound", () => {
+        const installing = reg.installing;
+        if (!installing) return;
+        installing.addEventListener("statechange", () => {
+          if (
+            installing.state === "installed" &&
+            navigator.serviceWorker.controller
+          ) {
+            revealUpdate();
+          }
+        });
+      });
+
+      const checkForUpdate = () => {
+        if (!navigator.onLine) return;
+        const now = Date.now();
+        if (now - lastCheckAt < 120_000) return;
+        lastCheckAt = now;
+        reg.update().catch(() => {});
+        verifyRevision(navigator.serviceWorker.controller || reg.active);
+      };
+
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") checkForUpdate();
+      });
+      window.addEventListener("online", checkForUpdate);
+      window.addEventListener("pageshow", (event) => {
+        if (event.persisted) checkForUpdate();
+      });
+    })
     .catch(() => {});
 }
+
+setupEmberRingsInteractivity();
+setupServiceWorkerUpdates();
 
 setupCareBreakdown();
 setupSimplePlan();

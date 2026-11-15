@@ -1,6 +1,6 @@
 /* Build fills the revision and the bounded list of app-owned public assets. */
 const CACHE_PREFIX = "retirement-shield-";
-const CACHE_NAME = CACHE_PREFIX + "__CACHE_VERSION__";
+const CACHE_NAME = "retirement-shield-__CACHE_VERSION__";
 const APP_SHELL = __PRECACHE__;
 const appURL = (path) => new URL(path, self.registration.scope).href;
 const assetURLs = new Set(APP_SHELL.map(appURL));
@@ -13,10 +13,25 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE_NAME);
-      await cache.addAll(APP_SHELL);
+      await Promise.all(
+        APP_SHELL.map(async (item) => {
+          const url = appURL(item);
+          const response = await fetch(new Request(url, { cache: "reload" }));
+          if (!response.ok) throw new Error(`Failed to precache ${item}`);
+          await cache.put(url, response);
+        }),
+      );
       await self.skipWaiting();
     })(),
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "GET_VERSION") {
+    event.ports?.[0]?.postMessage({ cacheVersion: CACHE_NAME });
+  } else if (event.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("activate", (event) => {

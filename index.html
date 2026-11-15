@@ -7,6 +7,7 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <meta name="theme-color" content="#FDFBFA" id="meta-theme-color" />
+    <meta name="app-revision" content="dev" id="meta-app-revision" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -268,6 +269,16 @@
               >
             </div>
             <div class="header-actions">
+              <button
+                class="button button-small update-ready-button"
+                type="button"
+                id="app-update-btn"
+                hidden
+                title="A newer version of Retirement Shield is ready — click to reload"
+              >
+                <span class="update-dot" aria-hidden="true"></span>
+                <span>Update Ready · Reload</span>
+              </button>
               <button
                 class="button button-small settings-header-button"
                 type="button"

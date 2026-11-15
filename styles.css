@@ -2701,6 +2701,15 @@ svg text {
   margin-right: 5px;
 }
 
+.tt-row.is-highlighted {
+  background: var(--primary-soft);
+  margin-inline: -6px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
 .tt-alert {
   color: var(--sem-alert);
   font-weight: 600;
@@ -2711,16 +2720,63 @@ svg text {
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 10px 18px;
+  gap: 8px 10px;
   font-size: 0.81rem;
   color: var(--ink-soft);
-  padding: 4px 0 10px;
+  padding: 6px 0 10px;
 }
 
 .legend-item {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+}
+
+.legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--canvas);
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.legend-chip:hover,
+.legend-chip.is-hovered {
+  background: var(--surface);
+  border-color: var(--ink-muted);
+  color: var(--ink);
+}
+
+.legend-chip.is-active {
+  background: var(--surface);
+  border-color: var(--primary);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(224, 83, 60, 0.14);
+}
+
+.nw-band {
+  cursor: pointer;
+  transition: opacity 150ms ease;
+}
+
+.has-hover-series .nw-band:not(.is-hovered) {
+  opacity: 0.24;
+}
+
+.has-hover-series .nw-band.is-hovered .nw-band-stroke {
+  stroke-width: 2.6;
 }
 
 .legend-swatch {
@@ -5209,6 +5265,15 @@ svg text {
   height: 100%;
 }
 
+.ember-rings-wrap.is-interactive .ember-ring-arc {
+  cursor: pointer;
+  transition: opacity 150ms ease;
+}
+
+.ember-rings-card.has-focused-ring .ember-ring-arc:not(.is-active) {
+  opacity: 0.24;
+}
+
 .ember-rings-center {
   position: absolute;
   inset: 0;
@@ -5217,7 +5282,7 @@ svg text {
   align-items: center;
   justify-content: center;
   text-align: center;
-  pointer-events: auto;
+  pointer-events: none;
 }
 
 .ember-rings-center strong {
@@ -5240,7 +5305,7 @@ svg text {
   margin: 4px 0 12px;
   padding: 0;
   display: grid;
-  gap: 7px;
+  gap: 3px;
   font-size: 0.8rem;
 }
 
@@ -5252,7 +5317,41 @@ svg text {
   color: var(--ink-soft);
 }
 
-.ember-rings-legend li span {
+.ember-ring-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.ember-ring-btn:hover,
+.ember-ring-btn.is-active {
+  background: var(--canvas);
+  border-color: var(--border-strong);
+  color: var(--ink);
+}
+
+.ember-ring-btn[aria-pressed="true"] {
+  background: var(--primary-soft);
+  border-color: var(--primary-border);
+  color: var(--ink);
+}
+
+.ember-rings-legend li span,
+.ember-ring-btn span {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -5269,6 +5368,31 @@ svg text {
 .ember-rings-legend strong {
   color: var(--ink);
   font-weight: 700;
+}
+
+.update-ready-button {
+  background: var(--primary-soft);
+  border-color: var(--primary-border);
+  color: var(--primary-ink);
+  font-weight: 600;
+}
+
+.update-ready-button:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+.update-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--primary);
+  flex-shrink: 0;
+}
+
+.update-ready-button:hover .update-dot {
+  background: #ffffff;
 }
 
 .ember-card-actions {
