@@ -239,10 +239,10 @@ function renderTrajectoryChart(
   }
 
   const W = 760,
-    H = 300,
+    H = 312,
     padL = 74,
     padR = 26,
-    padT = 32,
+    padT = 44,
     padB = 40;
   const plotW = W - padL - padR,
     plotH = H - padT - padB;
@@ -337,9 +337,9 @@ function renderTrajectoryChart(
       <path d="${spendPath}" fill="none" stroke="var(--ink-soft)" stroke-width="2.2" stroke-dasharray="6,3" />
       <path d="${cpfPath} L ${dX(maxAge)} ${dY(0)} L ${dX(minAge)} ${dY(0)} Z" fill="url(#cpfGrad)" />
       <path d="${cpfPath}" fill="none" stroke="#059669" stroke-width="2.4" />
-      ${summary.retire < 65 ? `<line x1="${retireX}" y1="${padT}" x2="${retireX}" y2="${H - padB}" stroke="#D97706" stroke-width="1.6" stroke-dasharray="4,3" /><text x="${retireX}" y="${padT - 10}" text-anchor="${markerAnchor(retireX)}" font-size="11.5" font-weight="600" fill="#D97706">Retire ${summary.retire}</text>` : ""}
+      ${summary.retire < 65 ? `<line x1="${retireX}" y1="${padT}" x2="${retireX}" y2="${H - padB}" stroke="#D97706" stroke-width="1.6" stroke-dasharray="4,3" /><text x="${retireX}" y="${padT - 20}" text-anchor="${markerAnchor(retireX)}" font-size="11.5" font-weight="600" fill="#D97706">Retire ${summary.retire}</text>` : ""}
       <line x1="${age65X}" y1="${padT}" x2="${age65X}" y2="${H - padB}" stroke="#059669" stroke-width="1.6" stroke-dasharray="4,3" />
-      <text x="${age65X}" y="${closeTogether && summary.retire < 65 ? padT + 14 : padT - 10}" text-anchor="${markerAnchor(age65X)}" font-size="11.5" font-weight="600" fill="#059669">CPF LIFE 65</text>`;
+      <text x="${age65X}" y="${closeTogether && summary.retire < 65 ? padT - 6 : padT - 20}" text-anchor="${markerAnchor(age65X)}" font-size="11.5" font-weight="600" fill="#059669">CPF LIFE 65</text>`;
     legend = `
       <span class="legend-item"><i class="legend-swatch" style="background:var(--ink-soft);"></i> Target Monthly Spend</span>
       <span class="legend-item"><i class="legend-swatch" style="background:#059669;"></i> CPF LIFE Payout (${summary.plan === "escalating" ? "Escalating +2%/yr" : "Standard Flat"})</span>
@@ -361,9 +361,9 @@ function renderTrajectoryChart(
       <path d="${balPath} L ${dX(maxAge)} ${dY(0)} L ${dX(minAge)} ${dY(0)} Z" fill="url(#portGrad)" />
       <path d="${balPath}" fill="none" stroke="#2563EB" stroke-width="2.4" />
       <line x1="${retireX}" y1="${padT}" x2="${retireX}" y2="${H - padB}" stroke="#D97706" stroke-width="1.6" stroke-dasharray="4,3" />
-      <text x="${retireX}" y="${padT - 10}" text-anchor="${markerAnchor(retireX)}" font-size="11.5" font-weight="600" fill="#D97706">Retire ${summary.retire}</text>
+      <text x="${retireX}" y="${padT - 18}" text-anchor="${markerAnchor(retireX)}" font-size="11.5" font-weight="600" fill="#D97706">Retire ${summary.retire}</text>
       <circle cx="${dX(peakPt.age)}" cy="${dY(peakPt.portfolioBalance)}" r="3.5" fill="#2563EB" />
-      <text x="${dX(peakPt.age)}" y="${Math.max(padT + 12, dY(peakPt.portfolioBalance) - 10)}" text-anchor="${markerAnchor(dX(peakPt.age))}" font-size="11.5" font-weight="700" fill="#2563EB">Peak ${svgCompactMoney(peakPt.portfolioBalance)}</text>`;
+      <text x="${dX(peakPt.age)}" y="${Math.max(padT + 14, dY(peakPt.portfolioBalance) - 10)}" text-anchor="${markerAnchor(dX(peakPt.age))}" font-size="11.5" font-weight="700" fill="#2563EB" paint-order="stroke" stroke="var(--surface)" stroke-width="3" stroke-linejoin="round">Peak ${svgCompactMoney(peakPt.portfolioBalance)}</text>`;
     legend = `
       <span class="legend-item"><i class="legend-swatch" style="background:#2563EB;"></i> Outside Portfolio Balance</span>
       <span class="legend-item"><i class="legend-swatch" style="background:#D97706;"></i> Target Retirement Age ${summary.retire}</span>`;
@@ -1239,10 +1239,10 @@ function renderStackedNetWorthSVG(
     };
   });
   const W = 860,
-    H = 296,
+    H = 316,
     padL = 74,
     padR = 32,
-    padT = 46,
+    padT = 66,
     padB = 40;
   const plotW = W - padL - padR,
     plotH = H - padT - padB;
@@ -1382,20 +1382,23 @@ function renderStackedNetWorthSVG(
     }
   }
 
-  let lastRow0X = -999;
-  let lastRow1X = -999;
+  const rowBoxes = [[], [], [], []];
+  const rowYs = [14, 28, 42, 56];
   const milestoneSVG = milestones
     .map((mItem) => {
       const x = dX(mItem.age);
-      let row = 0;
-      if (x - lastRow0X < 92) {
-        row = x - lastRow1X < 92 ? 2 : 1;
-      }
-      if (row === 0) lastRow0X = x;
-      else if (row === 1) lastRow1X = x;
-      const labelY = row === 0 ? padT - 20 : row === 1 ? padT - 5 : padT + 10;
       const anchor =
-        x < padL + 44 ? "start" : x > W - padR - 44 ? "end" : "middle";
+        x < padL + 48 ? "start" : x > W - padR - 48 ? "end" : "middle";
+      const estW = mItem.label.length * 6.4 + 10;
+      const x1 =
+        anchor === "start" ? x : anchor === "end" ? x - estW : x - estW / 2;
+      const x2 = x1 + estW;
+      let chosenRow = rowBoxes.findIndex((boxes) =>
+        boxes.every((b) => x2 + 8 <= b.x1 || x1 - 8 >= b.x2),
+      );
+      if (chosenRow === -1) chosenRow = rowBoxes.length - 1;
+      rowBoxes[chosenRow].push({ x1, x2 });
+      const labelY = rowYs[chosenRow];
       return `<line x1="${x}" y1="${padT}" x2="${x}" y2="${H - padB}" stroke="${mItem.color}" stroke-width="1.35" stroke-dasharray="4,3" stroke-opacity="0.65" />
         <text x="${x}" y="${labelY}" text-anchor="${anchor}" font-size="11" font-weight="700" fill="${mItem.color}">${mItem.label}</text>`;
     })
@@ -1405,17 +1408,46 @@ function renderStackedNetWorthSVG(
   const calloutAges = [fire.retire, 65, maxAge].filter(
     (a, idx, arr) => arr.indexOf(a) === idx && a >= minAge + 2 && a <= maxAge,
   );
+  const placedCallouts = [];
   const calloutsSVG = calloutAges
     .map((ageTarget) => {
       const pt = pts.find((p) => p.age === ageTarget);
       const val = pt ? valForCallout(pt) : 0;
       if (!pt || val <= 0) return "";
       const x = dX(pt.age);
-      const y = Math.max(padT + 14, dY(val) - 10);
+      const dotY = dY(val);
       const anchor = x > W - padR - 48 ? "end" : "middle";
+      const labelText = compactMoney(val);
+      const estW = labelText.length * 7 + 8;
+      const x1 = anchor === "end" ? x - estW : x - estW / 2;
+      const x2 = x1 + estW;
+      const aboveY = Math.max(padT + 14, dotY - 10);
+      const belowY = Math.min(H - padB - 8, dotY + 18);
+      const overlaps = (cy) =>
+        placedCallouts.some(
+          (b) =>
+            !(
+              x2 + 6 <= b.x1 ||
+              x1 - 6 >= b.x2 ||
+              cy + 8 <= b.y1 ||
+              cy - 14 >= b.y2
+            ),
+        );
+      let labelY = aboveY;
+      let showLabel = true;
+      if (overlaps(aboveY)) {
+        if (dotY < H - padB - 24 && !overlaps(belowY)) {
+          labelY = belowY;
+        } else {
+          showLabel = false;
+        }
+      }
+      if (showLabel) {
+        placedCallouts.push({ x1, x2, y1: labelY - 12, y2: labelY + 3 });
+      }
       const dotColor = soloSeries ? soloSeries.color : "var(--ink)";
-      return `<circle cx="${x}" cy="${dY(val)}" r="3.5" fill="${dotColor}" stroke="var(--surface)" stroke-width="1.5" />
-        <text x="${x}" y="${y}" text-anchor="${anchor}" font-size="11" font-weight="700" fill="var(--ink)">${svgCompactMoney(val)}</text>`;
+      return `<circle cx="${x}" cy="${dotY}" r="3.5" fill="${dotColor}" stroke="var(--surface)" stroke-width="1.5" />
+        ${showLabel ? `<text x="${x}" y="${labelY}" text-anchor="${anchor}" font-size="11" font-weight="700" fill="var(--ink)" paint-order="stroke" stroke="var(--surface)" stroke-width="3" stroke-linejoin="round">${svgCompactMoney(val)}</text>` : ""}`;
     })
     .join("");
 
@@ -1837,41 +1869,41 @@ function buildEmberKpiStrip(fire, r, s, simulation, pctOfPay) {
   const retireNw = ptAtRetire?.today?.totalNetWorth ?? 0;
 
   return `<section class="ember-kpi-strip" aria-label="Key retirement metrics">
-    <article class="ember-stat-card" style="--stat-accent:#E0533C;">
+    <button type="button" class="ember-stat-card is-interactive" data-quick-edit="goal" style="--stat-accent:#E0533C;" aria-label="Earliest Readiness Age: ${readyText}. Click to adjust target retirement age">
       <span class="ember-stat-label">Earliest Readiness Age</span>
       <div class="ember-stat-row">
         <strong>${readyText}</strong>
         <span class="ember-stat-pill">${readyPill}</span>
       </div>
       <small>Target ${fire.retire} · ${fn.fullyFundedTo95 ? "Sustained to 95+" : `Funded to ${fire.depletionAge ?? 90}`}</small>
-    </article>
+    </button>
 
-    <article class="ember-stat-card" style="--stat-accent:#0D9488;">
+    <button type="button" class="ember-stat-card is-interactive" data-quick-edit="budget" style="--stat-accent:#0D9488;" aria-label="Monthly Income Covered: ${money(s.payout)} per month. Click to adjust lifestyle budget or CPF LIFE plan">
       <span class="ember-stat-label">Monthly Income Covered (65+)</span>
       <div class="ember-stat-row">
         <strong>${m(s.payout, "/mo")}</strong>
         <span class="ember-stat-pill">${cpfCov65Pct}% by CPF</span>
       </div>
       <small>Target spend ${m(r.spend65, "/mo")} · ${m(s.gap65, "/mo")} outside</small>
-    </article>
+    </button>
 
-    <article class="ember-stat-card" style="--stat-accent:#059669;">
+    <button type="button" class="ember-stat-card is-interactive" data-quick-edit="income" style="--stat-accent:#059669;" aria-label="Monthly Saving Needed. Click to adjust salary, housing, or monthly savings">
       <span class="ember-stat-label">Monthly Saving Needed</span>
       <div class="ember-stat-row">
         <strong>${r.retiringNow ? m(s.privateSaving, " now") : m(contribution, "/mo")}</strong>
         <span class="ember-stat-pill">${r.retiringNow ? "Lump sum" : `${pctOfPay}% of pay`}</span>
       </div>
       <small>${r.retiringNow ? "Immediate portfolio requirement" : `${m(simulation.cpfExtra)} extra CPF + ${m(s.privateSaving)} outside`}</small>
-    </article>
+    </button>
 
-    <article class="ember-stat-card" style="--stat-accent:#7C3AED;">
+    <button type="button" class="ember-stat-card is-interactive" data-quick-edit="balances" style="--stat-accent:#7C3AED;" aria-label="Projected Net Worth at ${fire.retire}: ${compactMoney(retireNw)}. Click to adjust CPF and investment balances">
       <span class="ember-stat-label">Projected Net Worth at ${fire.retire}</span>
       <div class="ember-stat-row">
         <strong>${compactMoney(retireNw)}</strong>
         <span class="ember-stat-pill">${fn.pctFunded}% goal</span>
       </div>
       <small>${m(fn.totalRequiredToday)} outside + ${m(fire.phase2.projectedCpfAt65Today)} CPF at 65</small>
-    </article>
+    </button>
   </section>`;
 }
 
@@ -2606,9 +2638,18 @@ function setupSimplePlan() {
     $("#print-sheet").replaceChildren();
     $("#start-plan-error").textContent = message;
     $("#settings-error").textContent = message;
+    const qeErr = $("#qe-error");
+    if (qeErr) {
+      qeErr.textContent = message;
+      qeErr.hidden = !message;
+    }
     delete $("#settings-live-summary").dataset.budget;
     $("#settings-live-summary").textContent =
       "Enter valid details to update your estimate.";
+    if ($("#qe-live-summary")) {
+      $("#qe-live-summary").textContent =
+        "Enter valid details to update your estimate.";
+    }
     $("#plan-status").textContent = message;
   };
 
@@ -3008,13 +3049,12 @@ function setupSimplePlan() {
       ${bentoRowHTML}
       ${strategyLedgerHTML}`;
 
-    const fnHdr = fire.fireNumber;
-    const hdrChip = $("#header-readiness-chip");
-    if (hdrChip) {
-      const hdrReady = fnHdr.pctFunded >= 100 && fnHdr.fullyFundedTo95;
-      hdrChip.textContent = `Age ${r.age} → ${r.retire} · ${hdrReady ? "On Track" : `${fnHdr.pctFunded}% Funded`}`;
-      hdrChip.className = `header-readiness-chip ${hdrReady ? "is-good" : fnHdr.pctFunded >= 80 ? "is-warn" : "is-danger"}`;
+    const qeErrClear = $("#qe-error");
+    if (qeErrClear) {
+      qeErrClear.textContent = "";
+      qeErrClear.hidden = true;
     }
+    syncQuickEditState(r, fire, simulation);
 
     const activeBogleEl = document.activeElement;
     const draggingBogleSlider =
@@ -3342,6 +3382,253 @@ function setupSimplePlan() {
     resetSgDefaults();
   });
 
+  const qeDialog = $("#quick-edit-modal");
+  const qeBindings = [
+    ["qe-retire", "known-retire"],
+    ["qe-lifestyle", "known-lifestyle"],
+    ["qe-spend", "known-spend"],
+    ["qe-plan", "known-plan"],
+    ["qe-salary", "person-salary"],
+    ["qe-housing", "known-housing"],
+    ["qe-cpf-extra", "known-cpf-extra"],
+    ["qe-invest", "known-invest"],
+    ["qe-oa", "known-oa"],
+    ["qe-sa", "known-sa"],
+    ["qe-ma", "known-ma"],
+    ["qe-equities", "known-equities"],
+    ["qe-sg-dividends", "known-sg-dividends"],
+    ["qe-ssb-cash", "known-ssb-cash"],
+    ["qe-srs", "known-srs"],
+  ];
+  let lastQeInvoker = null;
+  let activeQeTab = "goal";
+
+  function getMinRetireAge() {
+    const curAge = Number($("#person-age")?.value || 35);
+    const lifeMin = $("#known-lifestyle")?.value === "cca" ? 55 : 40;
+    return Math.max(lifeMin, Number.isFinite(curAge) ? curAge : 35);
+  }
+
+  function syncQuickEditState(r = null, fire = null, simulation = null) {
+    if (!qeDialog) return;
+    const minRetire = getMinRetireAge();
+    const qeRetire = $("#qe-retire");
+    if (qeRetire) qeRetire.min = String(minRetire);
+
+    for (const [qeId, srcId] of qeBindings) {
+      const qeEl = $("#" + qeId);
+      const srcEl = $("#" + srcId);
+      if (!qeEl || !srcEl) continue;
+      if (document.activeElement !== qeEl) {
+        qeEl.value = srcEl.value;
+      }
+    }
+
+    const curRetire = Number($("#known-retire")?.value || 65);
+    $$("[data-qe-retire-delta]").forEach((btn) => {
+      const delta = Number(btn.dataset.qeRetireDelta);
+      btn.disabled =
+        (delta < 0 && curRetire <= minRetire) || (delta > 0 && curRetire >= 80);
+    });
+
+    const lifestyleVal = $("#known-lifestyle")?.value || "cca";
+    const defaultBudget =
+      RetirementModel.lifestyles[lifestyleVal]?.budget || 2500;
+    const qeSpend = $("#qe-spend");
+    if (qeSpend) qeSpend.placeholder = String(defaultBudget);
+    const qeResetSpend = $("#qe-reset-spend");
+    if (qeResetSpend) {
+      qeResetSpend.hidden = ($("#known-spend")?.value || "").trim() === "";
+    }
+    const qeLifestyleHint = $("#qe-lifestyle-hint");
+    if (qeLifestyleHint) {
+      qeLifestyleHint.textContent =
+        lifestyleVal === "cca"
+          ? "CCA assumes moving in at retirement, from age 55."
+          : "Assumes a paid-up flat with live-in helper, from age 40.";
+    }
+
+    if (r && simulation) {
+      if ($("#qe-cpf-extra")) {
+        $("#qe-cpf-extra").placeholder = String(Math.ceil(simulation.cpfExtra));
+        $("#qe-cpf-extra").disabled = r.retiringNow;
+      }
+      if ($("#qe-invest")) {
+        $("#qe-invest").placeholder = String(Math.ceil(simulation.invest));
+        $("#qe-invest").disabled = r.retiringNow;
+      }
+    }
+
+    if (r && fire) {
+      const fn = fire.fireNumber;
+      const readyBtn = $("#qe-use-ready-age");
+      if (readyBtn) {
+        const showReady =
+          fn.projectedFireAge != null &&
+          fn.projectedFireAge !== fire.retire &&
+          fn.projectedFireAge >= minRetire &&
+          fn.projectedFireAge <= 80;
+        readyBtn.hidden = !showReady;
+        if (showReady) {
+          readyBtn.dataset.readyAge = String(fn.projectedFireAge);
+          readyBtn.textContent = `Use ready age ${fn.projectedFireAge}`;
+        }
+      }
+      const qeSummary = $("#qe-live-summary");
+      if (qeSummary) {
+        const funded =
+          fn.pctFunded >= 100 && fn.fullyFundedTo95
+            ? "On Track"
+            : `${fn.pctFunded}% Funded`;
+        const horizon = fn.fullyFundedTo95
+          ? "Sustained to 95+"
+          : `Funded to ${fire.depletionAge ?? 90}`;
+        qeSummary.textContent = `Age ${r.age} → ${r.retire} · ${funded} · ${horizon}`;
+      }
+    }
+  }
+
+  const qePanelMeta = {
+    goal: { title: "Target Retirement Age", focus: "#qe-retire" },
+    budget: { title: "Living Budget & CPF LIFE", focus: "#qe-lifestyle" },
+    income: { title: "Monthly Savings & Salary", focus: "#qe-salary" },
+    balances: { title: "CPF & Investment Balances", focus: "#qe-oa" },
+  };
+
+  function setQuickEditPanel(panelKey, focusInput = false) {
+    const validPanels = Object.keys(qePanelMeta);
+    activeQeTab = validPanels.includes(panelKey) ? panelKey : "goal";
+    qeDialog.dataset.qePanel = activeQeTab;
+    const titleEl = $("#quick-edit-title");
+    if (titleEl) titleEl.textContent = qePanelMeta[activeQeTab].title;
+    validPanels.forEach((key) => {
+      const panel = $(`#qe-panel-${key}`);
+      if (panel) panel.hidden = key !== activeQeTab;
+    });
+    if (focusInput) {
+      requestAnimationFrame(() => $(qePanelMeta[activeQeTab].focus)?.focus());
+    }
+  }
+
+  if (qeDialog) {
+    document.addEventListener("click", (event) => {
+      const trigger = event.target.closest("[data-quick-edit]");
+      if (!trigger) return;
+      event.preventDefault();
+      lastQeInvoker = trigger;
+      syncQuickEditState(null, currentFirePlan, null);
+      setQuickEditPanel(trigger.dataset.quickEdit || "goal", true);
+      const scroller = qeDialog.querySelector(".settings-scroll-body");
+      if (scroller) scroller.scrollTop = 0;
+      if (!qeDialog.open) qeDialog.showModal();
+      render();
+    });
+
+    let qeBackdropPointerDown = false;
+    qeDialog.addEventListener("pointerdown", (event) => {
+      const rect = qeDialog.getBoundingClientRect();
+      qeBackdropPointerDown =
+        event.target === qeDialog &&
+        (event.clientX < rect.left ||
+          event.clientX > rect.right ||
+          event.clientY < rect.top ||
+          event.clientY > rect.bottom);
+    });
+
+    qeDialog.addEventListener("click", (event) => {
+      const deltaBtn = event.target.closest("[data-qe-retire-delta]");
+      if (deltaBtn) {
+        const minRetire = getMinRetireAge();
+        const cur = Number($("#known-retire")?.value || 65);
+        const next = Math.min(
+          80,
+          Math.max(
+            minRetire,
+            Math.round(cur + Number(deltaBtn.dataset.qeRetireDelta)),
+          ),
+        );
+        $("#known-retire").value = String(next);
+        if ($("#qe-retire")) $("#qe-retire").value = String(next);
+        render();
+        return;
+      }
+      if (event.target.closest("#qe-use-ready-age")) {
+        const age = $("#qe-use-ready-age")?.dataset.readyAge;
+        if (age) {
+          $("#known-retire").value = age;
+          if ($("#qe-retire")) $("#qe-retire").value = age;
+          render();
+        }
+        return;
+      }
+      if (event.target.closest("#qe-reset-spend")) {
+        $("#known-spend").value = "";
+        if ($("#qe-spend")) $("#qe-spend").value = "";
+        render();
+        return;
+      }
+      if (event.target.closest("#qe-zero-housing")) {
+        $("#known-housing").value = "0";
+        if ($("#qe-housing")) $("#qe-housing").value = "0";
+        render();
+        return;
+      }
+      if (event.target.closest("#qe-open-full-settings")) {
+        qeDialog.dataset.flowNavigation = "true";
+        qeDialog.close();
+        document.querySelector("[data-open-profile]")?.click();
+        return;
+      }
+      if (event.target.closest("[data-qe-close]")) {
+        qeDialog.close();
+        return;
+      }
+      const shouldCloseBackdrop = qeBackdropPointerDown;
+      qeBackdropPointerDown = false;
+      const rect = qeDialog.getBoundingClientRect();
+      if (
+        shouldCloseBackdrop &&
+        event.target === qeDialog &&
+        (event.clientX < rect.left ||
+          event.clientX > rect.right ||
+          event.clientY < rect.top ||
+          event.clientY > rect.bottom)
+      ) {
+        qeDialog.close();
+      }
+    });
+
+    qeBindings.forEach(([qeId, srcId]) => {
+      const qeEl = $("#" + qeId);
+      const srcEl = $("#" + srcId);
+      if (!qeEl || !srcEl) return;
+      const syncBack = () => {
+        const prevVal = srcEl.value;
+        srcEl.value = qeEl.value;
+        if (srcId === "known-lifestyle" && prevVal !== qeEl.value) {
+          $("#known-spend").value = "";
+          if ($("#qe-spend")) $("#qe-spend").value = "";
+        }
+        if (bucketIds.includes(srcId)) {
+          syncBucketsToTotal();
+        }
+        render();
+      };
+      qeEl.addEventListener("input", syncBack);
+      qeEl.addEventListener("change", syncBack);
+    });
+
+    qeDialog.addEventListener("close", () => {
+      if (qeDialog.dataset.flowNavigation) {
+        delete qeDialog.dataset.flowNavigation;
+        return;
+      }
+      if (lastQeInvoker?.isConnected) {
+        lastQeInvoker.focus({ preventScroll: true });
+      }
+    });
+  }
+
   if (
     !($("#known-savings")?.value || "").trim() &&
     bucketIds.some((id) => ($("#" + id)?.value || "").trim() !== "")
@@ -3380,9 +3667,22 @@ function setupSettings() {
     if (lastInvoker?.isConnected) lastInvoker.focus({ preventScroll: true });
     else $(".settings-header-button").focus({ preventScroll: true });
   });
+  let psBackdropPointerDown = false;
+  dialog.addEventListener("pointerdown", (event) => {
+    const r = dialog.getBoundingClientRect();
+    psBackdropPointerDown =
+      event.target === dialog &&
+      (event.clientX < r.left ||
+        event.clientX > r.right ||
+        event.clientY < r.top ||
+        event.clientY > r.bottom);
+  });
   dialog.addEventListener("click", (event) => {
+    const shouldCloseBackdrop = psBackdropPointerDown;
+    psBackdropPointerDown = false;
     const r = dialog.getBoundingClientRect();
     if (
+      shouldCloseBackdrop &&
       event.target === dialog &&
       (event.clientX < r.left ||
         event.clientX > r.right ||
@@ -3445,6 +3745,10 @@ function setupGuidedFlow() {
   });
   $(".preset-picker").addEventListener("change", (event) => {
     if (event.target.name !== "lifestyle-choice") return;
+    if (lifestyle.value !== event.target.value) {
+      $("#known-spend").value = "";
+      if ($("#qe-spend")) $("#qe-spend").value = "";
+    }
     lifestyle.value = event.target.value;
     lifestyle.dispatchEvent(new Event("input", { bubbles: true }));
   });
@@ -3504,6 +3808,10 @@ function setupGuidedFlow() {
     if ($("#plan-settings").open)
       $("#plan-settings").dataset.flowNavigation = "true";
     $("#plan-settings").close();
+    if ($("#quick-edit-modal")?.open) {
+      $("#quick-edit-modal").dataset.flowNavigation = "true";
+      $("#quick-edit-modal").close();
+    }
     activeTab = TABS.includes(tab) ? tab : "overview";
     profileOpen = profile;
     applyViewState(focus, true);
@@ -3603,27 +3911,6 @@ function setupGuidedFlow() {
     try {
       localStorage.setItem("rs_sidebar_collapsed", String(next));
     } catch (_) {}
-  });
-
-  const quickJump = $("#header-quick-jump");
-  quickJump?.addEventListener("change", () => {
-    const dest = quickJump.value;
-    quickJump.value = "";
-    if (!dest) return;
-    if (dest === "profile") {
-      navigateTo({ profile: true });
-      return;
-    }
-    if (dest === "timing-section") {
-      navigateTo({ tab: "trajectory", profile: false });
-      const timingSection = $("#timing-section");
-      if (timingSection) timingSection.open = true;
-      requestAnimationFrame(() =>
-        timingSection?.scrollIntoView({ block: "start", behavior: "instant" }),
-      );
-      return;
-    }
-    navigateTo({ tab: dest, profile: false });
   });
 
   form.addEventListener("submit", (event) => {
@@ -3728,7 +4015,6 @@ function setupGuidedFlow() {
 function setupFieldHelp() {
   const nativePopover = "popover" in HTMLElement.prototype;
   const essential = {
-    "person-salary": "Exclude employer CPF and bonuses.",
     "known-housing": "Blank assumes future OA pays housing.",
     "known-cpf-extra": "Extra saving above salary CPF.",
     "sim-invest": "Separate from CPF savings.",

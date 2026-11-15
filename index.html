@@ -232,42 +232,6 @@
               /></span>
               <span>Retirement <strong>Shield</strong></span>
             </a>
-            <div class="header-context-bar">
-              <div class="header-jump-wrap">
-                <svg
-                  class="header-jump-icon"
-                  viewBox="0 0 24 24"
-                  width="15"
-                  height="15"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="m21 21-4.3-4.3" />
-                </svg>
-                <select
-                  id="header-quick-jump"
-                  aria-label="Quick jump to section"
-                >
-                  <option value="">Jump to section…</option>
-                  <option value="overview">Overview Dashboard</option>
-                  <option value="trajectory">
-                    Trajectory &amp; Stress Test
-                  </option>
-                  <option value="timing-section">Top-Up Timing Compare</option>
-                  <option value="allocator">Asset Allocator &amp; Tiers</option>
-                  <option value="tax">Tax Sweet-Spot &amp; Rules</option>
-                  <option value="profile">My Settings &amp; Balances</option>
-                </select>
-              </div>
-              <span class="header-readiness-chip" id="header-readiness-chip"
-                >Today’s $</span
-              >
-            </div>
             <div class="header-actions">
               <button
                 class="button button-small update-ready-button"
@@ -2113,6 +2077,323 @@
         >
           Done
         </button>
+      </div>
+    </dialog>
+
+    <dialog
+      id="quick-edit-modal"
+      class="plan-settings quick-edit-modal"
+      aria-labelledby="quick-edit-title"
+    >
+      <div class="settings-head">
+        <div>
+          <h2 id="quick-edit-title">Edit Retirement Plan</h2>
+        </div>
+        <button
+          class="dialog-dismiss"
+          type="button"
+          data-qe-close
+          aria-label="Close quick edit"
+        >
+          ×
+        </button>
+      </div>
+      <div class="settings-scroll-body">
+        <div id="qe-panel-goal" class="qe-panel">
+          <div class="qe-stack">
+            <div class="qe-field">
+              <label for="qe-retire">Target retirement age</label>
+              <div class="qe-retire-row">
+                <div class="saving-stepper qe-retire-stepper">
+                  <button
+                    type="button"
+                    data-qe-retire-delta="-1"
+                    aria-label="Decrease target retirement age by 1 year"
+                  >
+                    −
+                  </button>
+                  <div class="input-wrap">
+                    <input
+                      id="qe-retire"
+                      type="number"
+                      min="55"
+                      max="80"
+                      step="1"
+                      inputmode="numeric"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    data-qe-retire-delta="1"
+                    aria-label="Increase target retirement age by 1 year"
+                  >
+                    +
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  id="qe-use-ready-age"
+                  class="goal-chip qe-shortcut-btn"
+                  hidden
+                ></button>
+              </div>
+              <p class="qe-hint" id="qe-retire-hint">
+                Age 55–80 for CCA, or 40–80 for Home + Helper. Earlier ages fund
+                years before CPF LIFE starts at 65.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div id="qe-panel-budget" class="qe-panel" hidden>
+          <div class="qe-stack">
+            <div class="qe-field">
+              <label for="qe-lifestyle">Retirement lifestyle</label>
+              <div class="input-wrap select-wrap">
+                <select id="qe-lifestyle">
+                  <option value="cca">
+                    Community Care Apartments ($2,500/mo)
+                  </option>
+                  <option value="home-helper">Home + Helper ($3,500/mo)</option>
+                </select>
+              </div>
+              <p class="qe-hint" id="qe-lifestyle-hint"></p>
+            </div>
+            <div class="qe-field">
+              <label for="qe-spend"
+                >Custom monthly living budget (today’s $)</label
+              >
+              <div class="qe-inline-row">
+                <div class="input-wrap">
+                  <span>$</span>
+                  <input
+                    id="qe-spend"
+                    type="number"
+                    min="0"
+                    step="any"
+                    inputmode="decimal"
+                    placeholder="2500"
+                  />
+                </div>
+                <button
+                  type="button"
+                  id="qe-reset-spend"
+                  class="text-button"
+                  hidden
+                >
+                  Use preset
+                </button>
+              </div>
+              <p class="qe-hint">
+                Leave blank to use the selected lifestyle preset.
+              </p>
+            </div>
+            <div class="qe-field">
+              <label for="qe-plan">CPF LIFE payout plan</label>
+              <div class="input-wrap select-wrap">
+                <select id="qe-plan">
+                  <option value="standard">
+                    Standard Plan (Level payouts)
+                  </option>
+                  <option value="escalating">
+                    Escalating Plan (+2% yearly)
+                  </option>
+                </select>
+              </div>
+              <p class="qe-hint">
+                Escalating starts ~20% lower and rises 2%/yr from 65.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div id="qe-panel-income" class="qe-panel" hidden>
+          <div class="field-grid">
+            <div class="qe-field">
+              <label for="qe-salary">Gross monthly salary</label>
+              <div class="input-wrap">
+                <span>$</span>
+                <input
+                  id="qe-salary"
+                  type="number"
+                  min="751"
+                  max="1000000"
+                  step="any"
+                  inputmode="decimal"
+                />
+              </div>
+              <p class="qe-hint">Before employee CPF; excludes bonuses.</p>
+            </div>
+            <div class="qe-field">
+              <label for="qe-housing">Monthly housing from OA</label>
+              <div class="input-wrap">
+                <span>$</span>
+                <input
+                  id="qe-housing"
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="All new OA"
+                  inputmode="decimal"
+                />
+              </div>
+              <button type="button" id="qe-zero-housing" class="text-button">
+                Set housing to $0 (Paid up)
+              </button>
+            </div>
+            <div class="qe-field">
+              <label for="qe-cpf-extra">Extra CPF saving / month</label>
+              <div class="input-wrap">
+                <span>$</span>
+                <input
+                  id="qe-cpf-extra"
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="Suggested"
+                  inputmode="decimal"
+                />
+              </div>
+              <p class="qe-hint">Leave blank for target path suggestion.</p>
+            </div>
+            <div class="qe-field">
+              <label for="qe-invest">Outside investments / month</label>
+              <div class="input-wrap">
+                <span>$</span>
+                <input
+                  id="qe-invest"
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="Suggested"
+                  inputmode="decimal"
+                />
+              </div>
+              <p class="qe-hint">Leave blank for suggested saving target.</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="qe-panel-balances" class="qe-panel" hidden>
+          <div class="field-grid">
+            <div class="qe-field">
+              <label for="qe-oa">CPF Ordinary Account (OA)</label>
+              <div class="input-wrap">
+                <span>$</span>
+                <input
+                  id="qe-oa"
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="0"
+                  inputmode="decimal"
+                />
+              </div>
+            </div>
+            <div class="qe-field">
+              <label for="qe-sa">CPF Special Account (SA)</label>
+              <div class="input-wrap">
+                <span>$</span>
+                <input
+                  id="qe-sa"
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="0"
+                  inputmode="decimal"
+                />
+              </div>
+            </div>
+            <div class="qe-field">
+              <label for="qe-ma">CPF MediSave (MA)</label>
+              <div class="input-wrap">
+                <span>$</span>
+                <input
+                  id="qe-ma"
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="0"
+                  inputmode="decimal"
+                />
+              </div>
+            </div>
+            <div class="qe-field">
+              <label for="qe-equities">Global Equities (VWRA / FWRA)</label>
+              <div class="input-wrap">
+                <span>$</span>
+                <input
+                  id="qe-equities"
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="0"
+                  inputmode="decimal"
+                />
+              </div>
+            </div>
+            <div class="qe-field">
+              <label for="qe-sg-dividends">SG Dividends (STI / REITs)</label>
+              <div class="input-wrap">
+                <span>$</span>
+                <input
+                  id="qe-sg-dividends"
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="0"
+                  inputmode="decimal"
+                />
+              </div>
+            </div>
+            <div class="qe-field">
+              <label for="qe-ssb-cash">SSB / T-Bills / Cash</label>
+              <div class="input-wrap">
+                <span>$</span>
+                <input
+                  id="qe-ssb-cash"
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="0"
+                  inputmode="decimal"
+                />
+              </div>
+            </div>
+            <div class="qe-field">
+              <label for="qe-srs">SRS balance today</label>
+              <div class="input-wrap">
+                <span>$</span>
+                <input
+                  id="qe-srs"
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="0"
+                  inputmode="decimal"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        <p id="qe-error" class="settings-error" role="status" hidden></p>
+      </div>
+      <div class="settings-footer qe-footer">
+        <p
+          id="qe-live-summary"
+          class="qe-live-summary"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        ></p>
+        <div class="qe-footer-actions">
+          <button type="button" class="text-button" id="qe-open-full-settings">
+            All settings →
+          </button>
+          <button type="button" class="button button-dark" data-qe-close>
+            Done
+          </button>
+        </div>
       </div>
     </dialog>
     <script src="model.js" defer></script>
