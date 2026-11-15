@@ -1,12 +1,23 @@
 import { PurgeCSS } from "purgecss";
 import { readFile, writeFile } from "node:fs/promises";
+
 const css = await readFile("styles.css", "utf8");
 const [result] = await new PurgeCSS().purge({
   content: ["index.html", "app.js"],
   css: [{ raw: css }],
   safelist: {
-    standard: ["is-selected", "sr-status"],
-    greedy: [/focus-visible/, /::backdrop/],
+    standard: ["is-active", "sr-status"],
+    greedy: [
+      /^budget-/,
+      /^is-/,
+      /^state-/,
+      /^status-/,
+      /^seg-/,
+      /^th-/,
+      /^cov-/,
+      /focus-visible/,
+      /::backdrop/,
+    ],
   },
   rejected: true,
 });

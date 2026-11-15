@@ -3,7 +3,14 @@ SHELL := /bin/sh
 
 PORT ?= 4173
 
-.PHONY: run build stop
+.PHONY: dev local run build stop test
+
+dev: run
+
+local: run
+
+test:
+	npm test
 
 run:
 	$(MAKE) build
