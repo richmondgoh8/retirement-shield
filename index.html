@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#F5F6FA" id="meta-theme-color" />
+    <meta name="theme-color" content="#F4F6FA" id="meta-theme-color" />
     <meta name="app-revision" content="dev" id="meta-app-revision" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -53,12 +53,14 @@
                   height="18"
                   fill="none"
                   stroke="#ffffff"
-                  stroke-width="2.1"
+                  stroke-width="2.2"
                   stroke-linecap="round"
                   stroke-linejoin="round"
                 >
                   <path d="M12 21s7-3.5 7-9V5l-7-2.5L5 5v7c0 5.5 7 9 7 9z" />
-                  <path d="m8.5 13 2.5-2.5 2 2 3-3.5" />
+                  <path d="M9 14v-2.5" />
+                  <path d="M12 14v-4.5" />
+                  <path d="M15 14V8" />
                 </svg>
               </span>
               <span class="brand-text"
@@ -312,12 +314,14 @@
                   height="18"
                   fill="none"
                   stroke="#ffffff"
-                  stroke-width="2.1"
+                  stroke-width="2.2"
                   stroke-linecap="round"
                   stroke-linejoin="round"
                 >
                   <path d="M12 21s7-3.5 7-9V5l-7-2.5L5 5v7c0 5.5 7 9 7 9z" />
-                  <path d="m8.5 13 2.5-2.5 2 2 3-3.5" />
+                  <path d="M9 14v-2.5" />
+                  <path d="M12 14v-4.5" />
+                  <path d="M15 14V8" />
                 </svg>
               </span>
               <span>Retirement<strong>Shield</strong></span>
@@ -332,23 +336,29 @@
                 aria-expanded="false"
                 aria-controls="header-lifestyle-menu"
               >
+                <span
+                  class="header-account-avatar"
+                  id="header-lifestyle-avatar"
+                  aria-hidden="true"
+                  >C</span
+                >
+                <span id="header-lifestyle-label"
+                  >Community Care ($2,800/mo)</span
+                >
                 <svg
+                  class="header-account-caret"
                   viewBox="0 0 24 24"
                   width="14"
                   height="14"
                   fill="none"
                   stroke="currentColor"
-                  stroke-width="2"
+                  stroke-width="2.2"
                   stroke-linecap="round"
                   stroke-linejoin="round"
                   aria-hidden="true"
                 >
-                  <path d="m7 15 5 5 5-5" />
-                  <path d="m7 9 5-5 5 5" />
+                  <path d="m6 9 6 6 6-6" />
                 </svg>
-                <span id="header-lifestyle-label"
-                  >Community Care ($2,800/mo)</span
-                >
               </button>
               <div
                 class="header-account-menu"
@@ -918,7 +928,8 @@
                         />
                       </div>
                       <small>
-                        Local SGD cashflow sleeve (0–15% optional home hedge).
+                        Local SGD cashflow sleeve (default 15% of equities ·
+                        85/15 Global/SG split).
                       </small>
                     </div>
                     <div class="field">
@@ -1046,7 +1057,7 @@
                 </section>
 
                 <input id="known-target-equity" type="hidden" value="80" />
-                <input id="known-sg-sleeve" type="hidden" value="10" />
+                <input id="known-sg-sleeve" type="hidden" value="15" />
                 <div class="settings-page-footer">
                   <button type="submit" class="button button-accent">
                     Done · Back to Overview →

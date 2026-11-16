@@ -1454,3 +1454,134 @@ test("HealthShield age-band step-up and limited-pay GE Life curve fund old-age c
     assert.equal(fire.points.at(-1).age, 95);
   }
 });
+
+test("4-Tap retirement architecture, SRS age-63 $400k/$450k-$500k ballooning trap guardrail, 85/15 equity split, $150k SSB buffer, and age-55 $500k OA interest tap", () => {
+  const M = require("./model.js");
+
+  // 1. Default 85% Global Growth / 15% SG Dividend split inside Equity Sleeve
+  assert.equal(M.DEMO_PLAN.sgSleevePct, 15);
+  const bogleDefault = M.bogleheadAllocation(
+    {
+      age: 35,
+      oa: 80000,
+      sa: 60000,
+      ma: 45000,
+      equities: 100000,
+      sgDividends: 15000,
+      ssbCash: 35000,
+      srs: 20000,
+      targetEquityPct: 80,
+    },
+    2000,
+  );
+  assert.equal(bogleDefault.holistic.globalEquitySplitPct, 85);
+  assert.equal(bogleDefault.holistic.sgEquitySplitPct, 15);
+  assert.equal(bogleDefault.holistic.targetGlobalPct, 68);
+  assert.equal(bogleDefault.holistic.targetSgPct, 12);
+
+  // 2. SRS Age-63 Ballooning Trap Guardrail ($400k tax-free ceiling vs $450k-$500k trap)
+  const safeSrs = M.taxSweetSpot({
+    age: 40,
+    salary: 9000,
+    srs: 30000,
+    srsAnnual: 5000,
+    srsInvestedIn: "global",
+  });
+  assert.equal(safeSrs.srsTrapStatus, "safe");
+  assert.ok(safeSrs.srsProjectedAt63 <= 400000);
+  assert.equal(safeSrs.srsWithdrawalTaxAt63.annualTax, 0);
+  assert.ok(safeSrs.srsMaxSafeAnnualTo400k > 5000);
+
+  const nearCapSrs = M.taxSweetSpot({
+    age: 50,
+    salary: 10000,
+    srs: 150000,
+    srsAnnual: 9000,
+    srsInvestedIn: "global",
+  });
+  assert.equal(nearCapSrs.srsTrapStatus, "near-cap");
+  assert.ok(
+    nearCapSrs.srsProjectedAt63 > 400000 &&
+      nearCapSrs.srsProjectedAt63 < 450000,
+  );
+
+  const balloonTrapSrs = M.taxSweetSpot({
+    age: 35,
+    salary: 12000,
+    srs: 80000,
+    srsAnnual: 15300,
+    srsInvestedIn: "global",
+  });
+  assert.equal(balloonTrapSrs.srsTrapStatus, "balloon-trap");
+  assert.ok(balloonTrapSrs.srsProjectedAt63 >= 450000);
+  assert.ok(balloonTrapSrs.srsTenYearAnnualDraw >= 45000);
+  assert.ok(balloonTrapSrs.srsTaxableAnnualAt63 >= 22500);
+  assert.ok(balloonTrapSrs.srsWithdrawalTaxAt63.annualTax > 0);
+  assert.ok(balloonTrapSrs.srsTrapGuidance.includes("brokerage"));
+
+  // 3. $150k SSB Post-Buffer Target (after 12-month emergency buffer)
+  const cp80k = M.cashParkingPlan({
+    summary: { todaySpend: 2800 },
+    guide: { emergencyMin: 16800, emergencyMax: 33600 },
+    params: { ssbCash: 80000 },
+  });
+  assert.equal(cp80k.ssbTargetBuffer, 150000);
+  assert.equal(cp80k.ssbTargetProgress, 80000 - 33600);
+  assert.equal(cp80k.ssbTargetRemaining, 150000 - (80000 - 33600));
+
+  const cp200k = M.cashParkingPlan({
+    summary: { todaySpend: 2800 },
+    guide: { emergencyMin: 16800, emergencyMax: 33600 },
+    params: { ssbCash: 200000 },
+  });
+  assert.equal(cp200k.ssbTargetProgress, 150000);
+  assert.equal(cp200k.ssbTargetRemaining, 0);
+
+  // 4. Age-55 $500k OA = ~$1,000/mo ($1,042/mo exact) & 4-Tap Retirement Income Summary
+  const p55 = {
+    ...M.DEMO_PLAN,
+    age: 35,
+    retire: 55,
+    salary: 8500,
+    oa: 220000,
+    sa: 120000,
+    ma: 55000,
+  };
+  const sum55 = M.calculate(p55);
+  const sim55 = M.simulate(p55, "salary", { summary: sum55 });
+  const r55 = M.todayPlan(sum55);
+  const s55 = M.todayPlan({ ...sum55, scenarios: [sim55.selectedScenario] })
+    .scenarios[0];
+  const fire55 = M.firePlan(p55, "salary", {
+    summary: sum55,
+    simulation: sim55,
+  });
+  const bogle55 = M.bogleheadAllocation(p55, sim55.invest);
+  const tax55 = M.taxSweetSpot(p55);
+  const taps = M.retirementTapsPlan({
+    summary: r55,
+    selectedScenario: s55,
+    simulation: sim55,
+    fire: fire55,
+    bogle: bogle55,
+    tax: tax55,
+    params: p55,
+  });
+
+  assert.equal(fire55.milestones.age55.oaRef500kMonthly, 1042);
+  assert.ok(fire55.milestones.age55.oaInterestMonthlyNominal > 0);
+  assert.equal(taps.tap1Cpf.targetRefMonthly, 2200);
+  assert.equal(taps.tap1Cpf.oa500kRefMonthly, 1000);
+  assert.equal(taps.tap1Cpf.oa500kMonthlyExact, 1042);
+  assert.equal(taps.tap1Cpf.brs.sum, 110200);
+  assert.equal(taps.tap1Cpf.frs.sum, 220400);
+  assert.equal(taps.tap1Cpf.ers.sum, 440800);
+  assert.equal(taps.tap2Srs.softCapAt63, 400000);
+  assert.equal(taps.tap2Srs.trapFloorAt63, 450000);
+  assert.equal(taps.tap3Equities.globalSplitPct, 85);
+  assert.equal(taps.tap3Equities.sgDividendSplitPct, 15);
+  assert.equal(taps.tap3Equities.benchmarkMinMonthly, 1200);
+  assert.equal(taps.tap3Equities.benchmarkMaxMonthly, 2200);
+  assert.equal(taps.tap4Ssb.targetBuffer, 150000);
+  assert.equal(taps.tap4Ssb.masCap, 200000);
+});

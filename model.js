@@ -27,6 +27,17 @@
     srsTaxFreeAnnual: 40000,
     rstuReliefCap: 8000,
     personalReliefCap: 80000,
+    ssbTargetBuffer: 150000,
+    srsSoftCapAt63: 400000,
+    srsTrapFloorAt63: 450000,
+    srsTrapCeilingAt63: 500000,
+    cpfLifeTargetRef: 2200,
+    equityTapMinRef: 1200,
+    equityTapMaxRef: 2200,
+    oaInterestRefBalance: 500000,
+    oaInterestRefMonthly: 1000,
+    defaultGlobalEquitySplitPct: 85,
+    defaultSgDividendSplitPct: 15,
   };
 
   // Official IRAS resident individual income tax brackets (YA 2024 onwards).
@@ -1787,7 +1798,7 @@
     srsInvestedIn: "global",
     existingReliefs: 1000,
     targetEquityPct: 80,
-    sgSleevePct: 10,
+    sgSleevePct: 15,
     plan: "standard",
     returnRate: 0.05,
     inflationRate: 0.03,
@@ -1816,8 +1827,8 @@
       };
     }
     const total = Math.max(0, Number(p.savings || 0));
-    const equities = total * 0.7;
-    const sgDividends = total * 0.1;
+    const equities = total * 0.68;
+    const sgDividends = total * 0.12;
     const ssbCash = total * 0.2;
     return {
       hasBuckets: false,
@@ -1891,6 +1902,98 @@
       taxBefore.annualTax - taxAfterBoth.annualTax,
     );
     const srsLockInAge = Number(p.srsAge) === 64 ? 64 : 63;
+    const curAge = Math.max(18, Math.min(100, Number(p.age ?? 35)));
+    const srsBalanceToday = Math.max(0, Number(p.srs || 0));
+    const srsAnnualPlanned = Math.min(
+      C.srsCap,
+      Math.max(0, Number(p.srsAnnual || 0)),
+    );
+    const srsInvestedIn = p.srsInvestedIn || "global";
+    const srsReturnRate =
+      srsInvestedIn === "cash"
+        ? C.srsIdleRate
+        : Math.max(0, Number(p.returnRate ?? C.investmentReturn));
+    const srsMonthsToLockIn = Math.max(
+      0,
+      Math.round((srsLockInAge - curAge) * 12),
+    );
+    const srsMonthlyRate = monthlyRate(srsReturnRate);
+    const srsAnnuity = annuityFactor(srsMonthlyRate, srsMonthsToLockIn);
+    const srsCoastAt63 =
+      srsBalanceToday * (1 + srsMonthlyRate) ** srsMonthsToLockIn;
+    const srsProjectedAt63 =
+      srsCoastAt63 + (srsAnnualPlanned / 12) * srsAnnuity;
+    const srsFullCapProjectedAt63 = srsCoastAt63 + (C.srsCap / 12) * srsAnnuity;
+    const srsMaxSafeAnnualTo400k =
+      srsMonthsToLockIn > 0 && srsAnnuity > 0
+        ? Math.min(
+            C.srsCap,
+            Math.max(0, ((C.srsSoftCapAt63 - srsCoastAt63) / srsAnnuity) * 12),
+          )
+        : srsCoastAt63 < C.srsSoftCapAt63
+          ? Math.min(C.srsCap, C.srsSoftCapAt63 - srsCoastAt63)
+          : 0;
+    const srsTenYearAnnualDraw = srsProjectedAt63 / 10;
+    const srsTenYearMonthlyDraw = srsTenYearAnnualDraw / 12;
+    const srsTaxableAnnualAt63 = srsTenYearAnnualDraw * 0.5;
+    const srsWithdrawalTaxAt63 = residentTax(srsTaxableAnnualAt63);
+
+    let srsTrapStatus = "safe";
+    let srsTrapHeadline =
+      "Within $400k tax-free SRS target at age " + srsLockInAge;
+    let srsTrapGuidance =
+      "Withdraw over 10 years from age " +
+      srsLockInAge +
+      " with a 50% tax concession (up to $40,000/yr or $3,333/mo tax-free if you have no other taxable income).";
+    if (srsProjectedAt63 >= C.srsTrapFloorAt63) {
+      srsTrapStatus = "balloon-trap";
+      srsTrapHeadline =
+        "SRS Ballooning Trap: Projected $" +
+        Math.round(srsProjectedAt63).toLocaleString("en-SG") +
+        " at age " +
+        srsLockInAge +
+        " exceeds $450k–$500k";
+      srsTrapGuidance =
+        "Forced 10-year withdrawals ($" +
+        Math.round(srsTenYearAnnualDraw).toLocaleString("en-SG") +
+        "/yr → $" +
+        Math.round(srsTaxableAnnualAt63).toLocaleString("en-SG") +
+        "/yr taxable after 50% concession) push you back into progressive tax brackets (~$" +
+        Math.round(srsWithdrawalTaxAt63.annualTax).toLocaleString("en-SG") +
+        "/yr tax). Once on track to hit ~$400k by " +
+        srsLockInAge +
+        " (≤$" +
+        Math.round(srsMaxSafeAnnualTo400k).toLocaleString("en-SG") +
+        "/yr), direct excess cash into your personal brokerage account instead.";
+    } else if (srsProjectedAt63 >= C.srsSoftCapAt63) {
+      srsTrapStatus = "near-cap";
+      srsTrapHeadline =
+        "On track for ~$400k SRS soft cap ($" +
+        Math.round(srsProjectedAt63).toLocaleString("en-SG") +
+        " at age " +
+        srsLockInAge +
+        ")";
+      srsTrapGuidance =
+        "Do not let your SRS pot balloon past ~$450k–$500k by age " +
+        srsLockInAge +
+        ". Keep annual SRS ≤$" +
+        Math.round(srsMaxSafeAnnualTo400k).toLocaleString("en-SG") +
+        "/yr and direct excess cash into your personal brokerage (85% Global Growth / 15% SG Dividend) instead.";
+    } else if (
+      srsFullCapProjectedAt63 > C.srsTrapFloorAt63 &&
+      srsAnnualPlanned === 0
+    ) {
+      srsTrapGuidance +=
+        " Pacing tip: maxing $15,300/yr every year until " +
+        srsLockInAge +
+        " would balloon to ~$" +
+        Math.round(srsFullCapProjectedAt63).toLocaleString("en-SG") +
+        "; a steady ~$" +
+        Math.round(srsMaxSafeAnnualTo400k).toLocaleString("en-SG") +
+        "/yr hits the optimal $400k pot by " +
+        srsLockInAge +
+        ".";
+    }
 
     let tier, headline, guidance;
     if (reliefCapRemaining <= 0) {
@@ -1936,7 +2039,23 @@
       srsStandaloneTaxSaved,
       combinedTaxSaved,
       srsLockInAge,
-      srsInvestedIn: p.srsInvestedIn || "global",
+      srsInvestedIn,
+      srsBalanceToday,
+      srsAnnualPlanned,
+      srsReturnRate,
+      srsCoastAt63,
+      srsProjectedAt63,
+      srsFullCapProjectedAt63,
+      srsMaxSafeAnnualTo400k,
+      srsTenYearAnnualDraw,
+      srsTenYearMonthlyDraw,
+      srsTaxableAnnualAt63,
+      srsWithdrawalTaxAt63,
+      srsSoftCapAt63: C.srsSoftCapAt63,
+      srsTrapFloorAt63: C.srsTrapFloorAt63,
+      srsTrapStatus,
+      srsTrapHeadline,
+      srsTrapGuidance,
       tier,
       headline,
       guidance,
@@ -1972,11 +2091,14 @@
       95,
       Math.max(20, Number(p.targetEquityPct ?? 80)),
     );
-    const sgSleevePct = Math.min(15, Math.max(0, Number(p.sgSleevePct ?? 10)));
-    const globalTargetShareOfEquities =
-      targetEquityPct > 0
-        ? Math.max(0, targetEquityPct - sgSleevePct) / targetEquityPct
-        : 1;
+    const sgSleevePct = Math.min(
+      30,
+      Math.max(0, Number(p.sgSleevePct ?? C.defaultSgDividendSplitPct)),
+    );
+    const sgEquitySplitPct = sgSleevePct;
+    const globalEquitySplitPct = Math.max(0, 100 - sgEquitySplitPct);
+    const globalTargetShareOfEquities = globalEquitySplitPct / 100;
+    const sgTargetShareOfEquities = sgEquitySplitPct / 100;
 
     const effectiveEquityPct =
       totalNetWorth > 0 ? (totalEquities / totalNetWorth) * 100 : 0;
@@ -1986,12 +2108,21 @@
       liquidTotal > 0 ? (totalEquities / liquidTotal) * 100 : 0;
     const liquidBondPct =
       liquidTotal > 0 ? (liquidBonds / liquidTotal) * 100 : 0;
+    const currentGlobalShareOfEq =
+      totalEquities > 0
+        ? Math.round((globalEquities / totalEquities) * 100)
+        : globalEquitySplitPct;
+    const currentSgShareOfEq =
+      totalEquities > 0 ? 100 - currentGlobalShareOfEq : sgEquitySplitPct;
 
     const targetEquityAmt = totalNetWorth * (targetEquityPct / 100);
     const targetBondAmt = totalNetWorth - targetEquityAmt;
-    const targetGlobalAmt =
-      totalNetWorth * (Math.max(0, targetEquityPct - sgSleevePct) / 100);
-    const targetSgAmt = targetEquityAmt - targetGlobalAmt;
+    const targetGlobalAmt = targetEquityAmt * globalTargetShareOfEquities;
+    const targetSgAmt = targetEquityAmt * sgTargetShareOfEquities;
+    const targetGlobalPct =
+      Math.round(targetEquityPct * globalTargetShareOfEquities * 10) / 10;
+    const targetSgPct =
+      Math.round((targetEquityPct - targetGlobalPct) * 10) / 10;
     const equityGap = targetEquityAmt - totalEquities;
     const globalGap = Math.max(0, targetGlobalAmt - globalEquities);
     const sgGap = Math.max(0, targetSgAmt - sgDividends);
@@ -2069,6 +2200,14 @@
         targetEquityPct,
         targetBondPct: 100 - targetEquityPct,
         sgSleevePct,
+        globalEquitySplitPct,
+        sgEquitySplitPct,
+        currentGlobalShareOfEq,
+        currentSgShareOfEq,
+        targetGlobalPct,
+        targetSgPct,
+        targetGlobalAmt,
+        targetSgAmt,
         targetEquityAmt,
         targetBondAmt,
         equityGap,
@@ -2472,6 +2611,12 @@
               ers: summary.ers,
               ra55: ptAt55.cpfSARA,
               oaOverflow: ptAt55.cpfOA,
+              oaOverflowToday: ptAt55.today.cpfOA,
+              oaInterestMonthlyNominal: (ptAt55.cpfOA * C.oaRate) / 12,
+              oaInterestMonthlyToday: (ptAt55.today.cpfOA * C.oaRate) / 12,
+              oaRef500kMonthly: Math.round(
+                (C.oaInterestRefBalance * C.oaRate) / 12,
+              ),
             }
           : null,
         srsAge: srsWithdrawalAge,
@@ -2677,13 +2822,13 @@
             0.95,
             Math.max(0.2, Number(params?.targetEquityPct ?? 80) / 100),
           );
-          const sgShareOfEq =
-            eqShare > 0
-              ? Math.min(
-                  0.15,
-                  Math.max(0, Number(params?.sgSleevePct ?? 10) / 100),
-                ) / eqShare
-              : 0;
+          const sgShareOfEq = Math.min(
+            0.3,
+            Math.max(
+              0,
+              Number(params?.sgSleevePct ?? C.defaultSgDividendSplitPct) / 100,
+            ),
+          );
           const eqTarget = Math.round(liquidPool * eqShare);
           ssbMo = Math.max(0, Math.round(liquidPool) - eqTarget);
           sgEqMo = Math.round(eqTarget * sgShareOfEq);
@@ -3916,6 +4061,13 @@
     const tier2Alloc = Math.min(afterTier1, C.ssbCap);
     const tier3Alloc = Math.max(0, afterTier1 - tier2Alloc);
 
+    const ssbPostBufferCash = Math.max(0, currentCash - emergencyMax);
+    const ssbTargetProgress = Math.min(C.ssbTargetBuffer, ssbPostBufferCash);
+    const ssbTargetRemaining = Math.max(
+      0,
+      C.ssbTargetBuffer - ssbTargetProgress,
+    );
+
     return {
       asOf: catalog.asOf,
       masAsOfDate: catalog.masAsOfDate,
@@ -3926,6 +4078,9 @@
         formatSgFullDate(catalog.masAsOfDate),
       sdicCap: C.sdicCap,
       ssbCap: C.ssbCap,
+      ssbTargetBuffer: C.ssbTargetBuffer,
+      ssbTargetProgress,
+      ssbTargetRemaining,
       emergencyMonthlyBase,
       emergencyMin,
       emergencyMax,
@@ -3966,6 +4121,124 @@
         },
       ],
       catalog,
+    };
+  }
+
+  function retirementTapsPlan({
+    summary,
+    selectedScenario,
+    simulation,
+    fire,
+    bogle,
+    tax,
+    params = {},
+  } = {}) {
+    const effP = withEffectiveSavings(params);
+    const sum = summary || calculate(effP);
+    const sim =
+      simulation ||
+      simulate(effP, selectedScenario?.key || "salary", { summary: sum });
+    const todaySum = sum.moneyBasis === "today" ? sum : todayPlan(sum);
+    const scen =
+      selectedScenario ||
+      todaySum.scenarios.find(
+        (x) => x.key === (sim.selectedScenario?.key || "salary"),
+      ) ||
+      todaySum.scenarios[0];
+    const fp =
+      fire || firePlan(effP, scen.key, { summary: sum, simulation: sim });
+    const bg = bogle || bogleheadAllocation(effP, sim.invest);
+    const tx = tax || taxSweetSpot(effP);
+
+    const keepOA = projectCPF(effP);
+    const oaAt55Nominal = Math.max(0, keepOA.availableAt55 - keepOA.cpfAt55);
+    const oaAt55Today = todayValue(oaAt55Nominal, 55, sum.age, sum.inflation);
+    const oaInterestMonthlyNominal = (oaAt55Nominal * C.oaRate) / 12;
+    const oaInterestMonthlyToday = (oaAt55Today * C.oaRate) / 12;
+    const oa500kMonthlyExact = Math.round(
+      (C.oaInterestRefBalance * C.oaRate) / 12,
+    );
+
+    const portAtRetireToday = todayValue(
+      sim.portfolioAtRetire || 0,
+      sum.retire,
+      sum.age,
+      sum.inflation,
+    );
+    const fundingRatio =
+      scen.privateTarget > 0
+        ? Math.min(2, portAtRetireToday / scen.privateTarget)
+        : 1;
+    const portDrawToday =
+      scen.gap65 > 0
+        ? scen.gap65 * fundingRatio
+        : (portAtRetireToday * 0.04) / 12;
+    const ssb10YrRate =
+      (DEFAULT_MAS_LIVE_RATES.ssb?.year10Return || 2.39) / 100;
+    const ssb150kMonthlyYield = Math.round(
+      (C.ssbTargetBuffer * ssb10YrRate) / 12,
+    );
+
+    return {
+      tap1Cpf: {
+        plan: sum.plan,
+        monthlyPayoutToday: scen.payout,
+        standardMonthlyToday: scen.standardPayout,
+        escalatingMonthlyToday: scen.standardPayout * C.escalatingRatio,
+        targetRefMonthly: C.cpfLifeTargetRef,
+        brs: { sum: C.brs, monthly: 950 },
+        frs: { sum: C.frs, monthly: 1780 },
+        ers: { sum: C.ers, monthly: 3440, post55Only: true },
+        oaAt55Nominal,
+        oaAt55Today,
+        oaInterestMonthlyNominal,
+        oaInterestMonthlyToday,
+        oa500kRefBalance: C.oaInterestRefBalance,
+        oa500kRefMonthly: C.oaInterestRefMonthly,
+        oa500kMonthlyExact,
+      },
+      tap2Srs: {
+        startAge: tx.srsLockInAge,
+        endAge: tx.srsLockInAge + 10,
+        annualCap: C.srsCap,
+        idleRate: C.srsIdleRate,
+        taxFreeAnnual: C.srsTaxFreeAnnual,
+        taxFreeMonthly: Math.round(C.srsTaxFreeAnnual / 12),
+        softCapAt63: C.srsSoftCapAt63,
+        trapFloorAt63: C.srsTrapFloorAt63,
+        trapCeilingAt63: C.srsTrapCeilingAt63,
+        projectedAt63: tx.srsProjectedAt63,
+        tenYearAnnualDraw: tx.srsTenYearAnnualDraw,
+        tenYearMonthlyDraw: tx.srsTenYearMonthlyDraw,
+        withdrawalTaxAnnual: tx.srsWithdrawalTaxAt63.annualTax,
+        maxSafeAnnualTo400k: tx.srsMaxSafeAnnualTo400k,
+        trapStatus: tx.srsTrapStatus,
+        trapHeadline: tx.srsTrapHeadline,
+        trapGuidance: tx.srsTrapGuidance,
+      },
+      tap3Equities: {
+        globalSplitPct: bg.holistic.globalEquitySplitPct,
+        sgDividendSplitPct: bg.holistic.sgEquitySplitPct,
+        currentEquities: bg.holistic.totalEquities,
+        projectedMonthlyDrawToday: portDrawToday,
+        benchmarkMinMonthly: C.equityTapMinRef,
+        benchmarkMaxMonthly: C.equityTapMaxRef,
+      },
+      tap4Ssb: {
+        currentSsbCash: bg.buckets.ssbCash,
+        targetBuffer: C.ssbTargetBuffer,
+        masCap: C.ssbCap,
+        monthlyYieldAt150k: ssb150kMonthlyYield,
+      },
+      vhr: {
+        oaRate: C.oaRate,
+        saRate: C.saRate,
+        rstuCap: C.rstuReliefCap,
+        personalReliefCap: C.personalReliefCap,
+        oaAt55Nominal,
+        oaAt55Today,
+        oaInterestMonthlyToday,
+      },
     };
   }
 
@@ -4018,6 +4291,7 @@
     CASH_PARKING_CATALOG,
     resolveCashParkingCatalog,
     cashParkingPlan,
+    retirementTapsPlan,
     buildPrintReportModel,
     generateTrajectory,
   };
