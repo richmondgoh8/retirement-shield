@@ -1,0 +1,165 @@
+{
+  "source": "Monetary Authority of Singapore (eservices.mas.gov.sg)",
+  "fetchedAt": "2026-11-16T04:58:09.602Z",
+  "asOfDate": "2026-11-16",
+  "ssb": {
+    "issueCode": "GX26120A",
+    "trancheCode": "SBDEC26",
+    "annDate": "2026-11-02",
+    "lastDayToApply": "2026-11-25",
+    "issueDate": "2026-12-01",
+    "maturityDate": "2036-12-01",
+    "issueSizeM": 500,
+    "year1Coupon": 1.83,
+    "year1Return": 1.83,
+    "year5Return": 2.16,
+    "year10Coupon": 2.83,
+    "year10Return": 2.39,
+    "prevTrancheCode": "SBNOV26",
+    "prevYear10Return": 2.45,
+    "history": {
+      "yr1": {
+        "count": 12,
+        "min": 1.99,
+        "max": 2.45,
+        "avg": 2.18,
+        "percentile": 92
+      },
+      "yr5": {
+        "count": 60,
+        "min": 1.64,
+        "max": 3.47,
+        "avg": 2.63,
+        "percentile": 35
+      },
+      "allTime": {
+        "count": 135,
+        "min": 0.8,
+        "max": 3.47,
+        "avg": 2.23,
+        "percentile": 60,
+        "sinceYear": 2015
+      },
+      "deltaPrev": -0.06,
+      "recent6": [
+        {
+          "code": "SBJUL26",
+          "label": "Jul '26",
+          "rate": 2.11
+        },
+        {
+          "code": "SBAUG26",
+          "label": "Aug '26",
+          "rate": 2.06
+        },
+        {
+          "code": "SBSEP26",
+          "label": "Sep '26",
+          "rate": 2.25
+        },
+        {
+          "code": "SBOCT26",
+          "label": "Oct '26",
+          "rate": 2.32
+        },
+        {
+          "code": "SBNOV26",
+          "label": "Nov '26",
+          "rate": 2.45
+        },
+        {
+          "code": "SBDEC26",
+          "label": "Dec '26",
+          "rate": 2.39
+        }
+      ]
+    }
+  },
+  "tbills": {
+    "sixMonth": {
+      "issueCode": "BS26122V",
+      "auctionDate": "2026-11-04",
+      "issueDate": "2026-11-10",
+      "maturityDate": "2027-05-11",
+      "cutoffYield": 1.86,
+      "medianYield": 1.8,
+      "avgYield": 1.63,
+      "bidToCover": 2.45,
+      "nextIssueCode": "BS26123A",
+      "nextAuctionDate": "2026-11-19",
+      "nextIssueSizeM": 8600,
+      "history": {
+        "yr1": {
+          "count": 26,
+          "min": 1.36,
+          "max": 1.95,
+          "avg": 1.54,
+          "percentile": 88
+        },
+        "multiYear": {
+          "count": 172,
+          "min": 0.2,
+          "max": 4.4,
+          "avg": 2.07,
+          "percentile": 52,
+          "sinceYear": 2020
+        },
+        "deltaPrev": -0.09,
+        "recent6": [
+          {
+            "code": "BS26117A",
+            "label": "27 Aug",
+            "rate": 1.6
+          },
+          {
+            "code": "BS26118E",
+            "label": "10 Sep",
+            "rate": 1.7
+          },
+          {
+            "code": "BS26119F",
+            "label": "24 Sep",
+            "rate": 1.92
+          },
+          {
+            "code": "BS26120W",
+            "label": "8 Oct",
+            "rate": 1.9
+          },
+          {
+            "code": "BS26121N",
+            "label": "22 Oct",
+            "rate": 1.95
+          },
+          {
+            "code": "BS26122V",
+            "label": "4 Nov",
+            "rate": 1.86
+          }
+        ]
+      }
+    },
+    "oneYear": {
+      "issueCode": "BY26103X",
+      "auctionDate": "2026-10-15",
+      "issueDate": "2026-10-20",
+      "maturityDate": "2027-10-19",
+      "cutoffYield": 1.92,
+      "medianYield": 1.87,
+      "avgYield": 1.72,
+      "bidToCover": 2.15,
+      "nextIssueCode": null,
+      "nextAuctionDate": null,
+      "history": {
+        "yr1": {
+          "count": 4,
+          "min": 1.44,
+          "max": 1.92,
+          "avg": 1.63,
+          "percentile": 100
+        },
+        "deltaPrev": 0.24
+      }
+    }
+  }
+}

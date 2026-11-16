@@ -165,6 +165,32 @@
                 </svg>
                 <span class="sidebar-tab-label">Allocator</span>
               </button>
+              <button
+                type="button"
+                class="sidebar-tab"
+                data-tab="cash-parking"
+                role="tab"
+                aria-selected="false"
+                title="Cash Parking & Yield"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="18"
+                  height="18"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"
+                  />
+                  <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4" />
+                </svg>
+                <span class="sidebar-tab-label">Cash Parking</span>
+              </button>
               <div class="sidebar-subgroup">
                 <span class="sidebar-group-heading">Tax &amp; Rules</span>
                 <button
@@ -248,7 +274,7 @@
                 type="button"
                 class="sidebar-tab"
                 data-sg-reset
-                title="Reset SG defaults"
+                title="Reset defaults"
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -321,7 +347,7 @@
                   <path d="m7 9 5-5 5 5" />
                 </svg>
                 <span id="header-lifestyle-label"
-                  >Community Care ($2,500/mo)</span
+                  >Community Care ($2,800/mo)</span
                 >
               </button>
               <div
@@ -339,7 +365,7 @@
                 >
                   <div>
                     <strong>Community Care Apartments</strong>
-                    <small>$2,500/mo baseline · assisted living from 55</small>
+                    <small>$2,800/mo baseline · assisted living from 55</small>
                   </div>
                 </button>
                 <button
@@ -351,7 +377,7 @@
                 >
                   <div>
                     <strong>Home + Helper</strong>
-                    <small>$3,500/mo baseline · ageing in place</small>
+                    <small>$3,900/mo baseline · ageing in place</small>
                   </div>
                 </button>
                 <button
@@ -374,9 +400,9 @@
                   type="button"
                   role="menuitem"
                   class="header-menu-item is-action"
-                  data-quick-edit="budget"
+                  data-open-expense-modal="auto"
                 >
-                  <span>Customise budget &amp; CPF LIFE…</span>
+                  <span>Manage living expenses &amp; CPF LIFE…</span>
                 </button>
               </div>
             </div>
@@ -581,10 +607,10 @@
                       <div class="input-wrap select-wrap">
                         <select id="known-lifestyle">
                           <option value="cca" selected>
-                            Community Care ($2,500/mo)
+                            Community Care ($2,800/mo)
                           </option>
                           <option value="home-helper">
-                            Home + Helper ($3,500/mo)
+                            Home + Helper ($3,900/mo)
                           </option>
                         </select>
                       </div>
@@ -595,7 +621,7 @@
                     </div>
                     <div class="field">
                       <label for="known-spend"
-                        >Custom monthly budget (today’s $)</label
+                        >Custom retirement budget (today’s $)</label
                       >
                       <div class="input-wrap">
                         <span>$</span
@@ -605,13 +631,13 @@
                           min="0"
                           max="1000000"
                           step="any"
-                          placeholder="2500"
+                          placeholder="2800"
                           inputmode="decimal"
                         />
                       </div>
                       <small>
-                        Blank uses your selected preset baseline, including
-                        healthcare and care provisions.
+                        What you need per month in retirement (today’s $). Blank
+                        uses your selected preset baseline.
                       </small>
                       <button
                         type="button"
@@ -698,8 +724,9 @@
                         />
                       </div>
                       <small>
-                        MediShield Life, CareShield LIFE or ISP premiums
-                        deducted from MA. Blank assumes $0.
+                        MediShield Life, CareShield LIFE or AIA HealthShield Max
+                        (MediSave AWL portion) deducted from MA. Blank assumes
+                        $0.
                       </small>
                     </div>
                     <div class="field">
@@ -1306,6 +1333,16 @@
               </section>
 
               <section
+                id="tab-panel-cash-parking"
+                class="tab-panel"
+                role="tabpanel"
+                aria-label="Cash Parking"
+                hidden
+              >
+                <div id="cash-parking-slot"></div>
+              </section>
+
+              <section
                 id="tab-panel-tax"
                 class="tab-panel"
                 role="tabpanel"
@@ -1459,6 +1496,31 @@
       <button
         type="button"
         class="mobile-tab"
+        data-tab="cash-parking"
+        role="tab"
+        aria-selected="false"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="20"
+          height="20"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path
+            d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"
+          />
+          <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4" />
+        </svg>
+        <span>Cash</span>
+      </button>
+      <button
+        type="button"
+        class="mobile-tab"
         data-tab="tax"
         data-tab-group="tax"
         role="tab"
@@ -1527,10 +1589,13 @@
                 <select id="known-return">
                   <option value="0">0% / year (No growth)</option>
                   <option value="0.03">3.0% / year (Conservative)</option>
-                  <option value="0.04" selected>
-                    4.0% / year (Baseline default)
+                  <option value="0.04">4.0% / year (Cautious)</option>
+                  <option value="0.05" selected>
+                    5.0% / year (Balanced default)
                   </option>
-                  <option value="0.05">5.0% / year (Optimistic)</option>
+                  <option value="0.06">
+                    6.0% / year (Growth / equity-tilted)
+                  </option>
                 </select>
               </div>
               <small
@@ -1542,10 +1607,11 @@
               <label for="known-inflation">Long-term inflation</label>
               <div class="input-wrap select-wrap">
                 <select id="known-inflation">
-                  <option value="0.025">2.5% / year (Low)</option>
-                  <option value="0.03" selected>
-                    3.0% / year (Baseline default)
+                  <option value="0.02">2.0% / year (Low)</option>
+                  <option value="0.025" selected>
+                    2.5% / year (Baseline default)
                   </option>
+                  <option value="0.03">3.0% / year (Elevated)</option>
                   <option value="0.035">3.5% / year (High)</option>
                 </select>
               </div>
@@ -1587,6 +1653,24 @@
               >
             </div>
           </div>
+          <div class="assumptions-baseline-note">
+            <strong>What preset budgets include</strong>
+            <p>
+              Both presets reflect typical Singapore living costs: $800/mo for
+              food and dining, AIA HealthShield Gold Max A with VitalHealth Pro
+              A ($153/mo at age 35: $86 cash + $67 MediSave), GE Supreme
+              Multiplier Life with personal accident and term cover, HDB fire
+              and home insurance, utilities, fibre broadband and streaming,
+              daily supplements ($35/mo), home maintenance and aircon servicing
+              ($120–$150/mo), and an annual travel and contingency reserve
+              ($410–$540/mo), plus either the CCA Basic Service Package
+              ($175/mo) or a live-in helper ($1,230/mo including levy).
+              Projections automatically step up HealthShield Max A + VitalHealth
+              Pro A across older age brackets ($153/mo at 35 → $621/mo at 65 →
+              $1,216/mo at 75 → $1,730/mo at 85 in today’s $) while GE Supreme
+              Multiplier and term/personal accident cover finish by retirement.
+            </p>
+          </div>
         </div>
         <input id="known-invest" type="hidden" value="" />
         <input id="known-savings" type="hidden" value="" />
@@ -1600,13 +1684,12 @@
           aria-atomic="true"
         ></p>
         <button type="button" class="text-button" id="reset-settings">
-          Reset SG defaults</button
+          Reset defaults</button
         ><button
           type="button"
           class="button button-dark"
           commandfor="plan-settings"
           command="close"
-          data-step="2"
         >
           Done
         </button>
@@ -1701,90 +1784,31 @@
           </div>
         </div>
 
-        <div id="qe-panel-budget" class="qe-panel" hidden>
-          <div class="qe-stack">
-            <div class="qe-field">
-              <label for="qe-lifestyle">Preset</label>
-              <div class="input-wrap select-wrap">
-                <select id="qe-lifestyle">
-                  <option value="cca">
-                    Community Care Apartments ($2,500/mo)
-                  </option>
-                  <option value="home-helper">Home + Helper ($3,500/mo)</option>
-                  <option value="custom">Custom</option>
-                </select>
-              </div>
-              <p class="qe-hint" id="qe-lifestyle-hint"></p>
+        <div id="qe-panel-salary" class="qe-panel" hidden>
+          <div class="qe-field">
+            <label for="qe-salary">Gross monthly salary</label>
+            <div class="input-wrap">
+              <span>$</span>
+              <input
+                id="qe-salary"
+                type="number"
+                min="751"
+                max="1000000"
+                step="any"
+                inputmode="decimal"
+              />
             </div>
-            <div class="qe-field">
-              <label for="qe-spend"
-                >Custom monthly living budget (today’s $)</label
-              >
-              <div class="qe-inline-row">
-                <div class="input-wrap">
-                  <span>$</span>
-                  <input
-                    id="qe-spend"
-                    type="number"
-                    min="0"
-                    max="1000000"
-                    step="any"
-                    inputmode="decimal"
-                    placeholder="2500"
-                  />
-                </div>
-                <button
-                  type="button"
-                  id="qe-reset-spend"
-                  class="text-button"
-                  hidden
-                >
-                  Use preset
-                </button>
-              </div>
-              <p class="qe-hint">
-                Leave blank for preset, or enter $0–$1,000,000/mo.
-              </p>
-            </div>
-            <div class="qe-field">
-              <label for="qe-plan">CPF LIFE payout plan</label>
-              <div class="input-wrap select-wrap">
-                <select id="qe-plan">
-                  <option value="standard">
-                    Standard Plan (Level payouts)
-                  </option>
-                  <option value="escalating">
-                    Escalating Plan (+2% yearly)
-                  </option>
-                </select>
-              </div>
-              <p class="qe-hint">
-                Escalating starts ~20% lower and rises 2%/yr from 65.
-              </p>
-            </div>
+            <p class="qe-hint">Excludes bonuses; before employee CPF.</p>
+            <div
+              class="qe-salary-split"
+              id="qe-salary-takehome"
+              aria-live="polite"
+            ></div>
           </div>
         </div>
 
         <div id="qe-panel-income" class="qe-panel" hidden>
           <div class="field-grid">
-            <div class="qe-field qe-span-full">
-              <label for="qe-salary">Gross monthly salary</label>
-              <div class="input-wrap">
-                <span>$</span>
-                <input
-                  id="qe-salary"
-                  type="number"
-                  min="751"
-                  max="1000000"
-                  step="any"
-                  inputmode="decimal"
-                />
-              </div>
-              <p class="qe-hint">
-                Allowed: $751–$1,000,000/mo (before employee CPF; excludes
-                bonuses).
-              </p>
-            </div>
             <div class="qe-field">
               <label for="qe-cpf-extra">Extra CPF saving / month</label>
               <div class="input-wrap">
@@ -1799,7 +1823,9 @@
                   inputmode="decimal"
                 />
               </div>
-              <p class="qe-hint">Leave blank for target path suggestion.</p>
+              <p class="qe-hint" id="qe-cpf-extra-hint">
+                Leave blank for target path suggestion.
+              </p>
             </div>
             <div class="qe-field">
               <label for="qe-invest">Outside investments / month</label>
@@ -1815,7 +1841,9 @@
                   inputmode="decimal"
                 />
               </div>
-              <p class="qe-hint">Leave blank for suggested saving target.</p>
+              <p class="qe-hint" id="qe-invest-hint">
+                Leave blank for suggested saving target.
+              </p>
             </div>
             <div class="qe-field qe-span-full housing-calc-box is-compact">
               <label for="qe-housing-mode">Housing loan (from CPF OA)</label>
@@ -2043,6 +2071,50 @@
             All settings →
           </button>
           <button type="button" class="button button-dark" data-qe-close>
+            Done
+          </button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog
+      id="expense-modal"
+      class="plan-settings quick-edit-modal expense-modal"
+      aria-labelledby="expense-modal-title"
+    >
+      <div class="settings-head">
+        <div>
+          <h2 id="expense-modal-title">
+            Retirement Living Budget &amp; Target
+          </h2>
+        </div>
+        <button
+          class="dialog-dismiss"
+          type="button"
+          data-exp-modal-close
+          aria-label="Close monthly living expenses modal"
+        >
+          ×
+        </button>
+      </div>
+      <div class="settings-scroll-body" id="expense-modal-body"></div>
+      <div class="settings-footer qe-footer">
+        <p
+          id="exp-modal-live-summary"
+          class="qe-live-summary"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        ></p>
+        <div class="qe-footer-actions">
+          <button
+            type="button"
+            class="text-button"
+            id="exp-modal-open-settings"
+          >
+            All settings →
+          </button>
+          <button type="button" class="button button-dark" data-exp-modal-close>
             Done
           </button>
         </div>

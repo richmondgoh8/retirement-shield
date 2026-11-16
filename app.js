@@ -5,11 +5,6 @@ const fmtInt = (value) =>
 const money = (value) => `$${fmtInt(value)}`;
 const m = (value, suffix = "") =>
   `<span class="curr-wrap"><span class="curr-prefix">$</span><span class="curr-num">${fmtInt(value)}</span>${suffix ? `<span class="curr-suffix">${suffix}</span>` : ""}</span>`;
-const cents = (value) =>
-  `$${Math.max(0, Number(value) || 0).toLocaleString("en-SG", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
 const centsHtml = (value) => {
   const parts = Math.max(0, Number(value) || 0)
     .toLocaleString("en-SG", {
@@ -92,7 +87,7 @@ function resetControl(el, clearTextInputs = false) {
 
 function syncCustomBudgetReset() {
   const selected = $("#known-lifestyle")?.value || "cca";
-  const amount = RetirementModel.lifestyles[selected]?.budget || 2500;
+  const amount = RetirementModel.lifestyles[selected]?.budget || 2800;
   const custom = $("#known-spend");
   if (!custom) return;
   custom.placeholder = String(amount);
@@ -105,8 +100,36 @@ function syncCustomBudgetReset() {
   const reset = $("#use-preset-budget");
   if (reset) {
     reset.hidden = !hasCustom;
-    reset.textContent = `Reset to ${selected === "cca" ? "CCA ($2,500)" : "Home + Helper ($3,500)"} preset`;
+    reset.textContent = `Reset to ${selected === "cca" ? "CCA ($2,800)" : "Home + Helper ($3,900)"} preset`;
   }
+}
+
+function bindDialogBackdropDismiss(dialog) {
+  if (!dialog) return;
+  let backdropPointerDown = false;
+  dialog.addEventListener("pointerdown", (event) => {
+    const r = dialog.getBoundingClientRect();
+    backdropPointerDown =
+      event.target === dialog &&
+      (event.clientX < r.left ||
+        event.clientX > r.right ||
+        event.clientY < r.top ||
+        event.clientY > r.bottom);
+  });
+  dialog.addEventListener("click", (event) => {
+    const shouldClose = backdropPointerDown;
+    backdropPointerDown = false;
+    if (!shouldClose || event.target !== dialog) return;
+    const r = dialog.getBoundingClientRect();
+    if (
+      event.clientX < r.left ||
+      event.clientX > r.right ||
+      event.clientY < r.top ||
+      event.clientY > r.bottom
+    ) {
+      dialog.close();
+    }
+  });
 }
 
 function renderTrajectoryChart(
@@ -330,7 +353,6 @@ function renderTrajectoryChart(
       W,
       H,
       padT,
-      padB,
     );
   };
   const handleLeave = () => {
@@ -406,13 +428,7 @@ function getMilestoneNodes(fire, r, s, simulation) {
   ];
 }
 
-function buildConcentricRingsSVG(
-  rings,
-  centerPct,
-  centerSub,
-  size = 176,
-  interactive = false,
-) {
+function buildConcentricRingsSVG(rings, centerPct, centerSub, size = 176) {
   const cx = size / 2;
   const cy = size / 2;
   const radii = [
@@ -428,18 +444,17 @@ function buildConcentricRingsSVG(
       const circ = 2 * Math.PI * r;
       const pct = Math.max(0, Math.min(100, ring.pct || 0));
       const dash = (pct / 100) * circ;
-      const shortSub = ring.shortLabel || centerSub;
       return `
         <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--border)" stroke-width="${strokeW}" />
         ${
           pct > 0
-            ? `<circle class="ember-ring-arc" data-ring-idx="${idx}" data-ring-pct="${ring.text || `${pct}%`}" data-ring-sub="${shortSub}" cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${ring.color}" stroke-width="${strokeW}" stroke-linecap="round" stroke-dasharray="${dash.toFixed(2)} ${circ.toFixed(2)}" transform="rotate(-90 ${cx} ${cy})" />`
+            ? `<circle class="ember-ring-arc" cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${ring.color}" stroke-width="${strokeW}" stroke-linecap="round" stroke-dasharray="${dash.toFixed(2)} ${circ.toFixed(2)}" transform="rotate(-90 ${cx} ${cy})" />`
             : ""
         }
       `;
     })
     .join("");
-  return `<div class="ember-rings-wrap${interactive ? " is-interactive" : ""}" style="--ring-size:${size}px;" data-default-pct="${centerPct}%" data-default-sub="${centerSub}">
+  return `<div class="ember-rings-wrap" style="--ring-size:${size}px;">
     <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" class="ember-rings-svg" aria-hidden="true">
       ${arcs}
     </svg>
@@ -506,7 +521,7 @@ function renderPrintSheet({
     fire?.points?.[0];
 
   const presetBaseline =
-    RetirementModel.lifestyles[r.lifestyle]?.budget || 2500;
+    RetirementModel.lifestyles[r.lifestyle]?.budget || 2800;
   const isCustomBudget =
     Math.round(Number(r.todaySpend || 0) * 100) !==
     Math.round(presetBaseline * 100);
@@ -689,7 +704,7 @@ function renderPrintSheet({
       </section>
 
       <footer class="poster-colophon">
-        <span><sup>1</sup> Today’s purchasing power (${Number((r.inflation * 100).toFixed(1))}% inflation, ${Number((r.investmentReturn * 100).toFixed(1))}% net return, ${r.post55Work ? "post-55 CPF included" : "post-55 CPF excluded"}). <sup>2</sup> 2026 SG Rules (FRS $220.4k, ERS $440.8k, BHS $79k, OW cap $8k). Age-55 cohort sums grow 3.5%/yr.</span>
+        <span><sup>1</sup> Today’s purchasing power (${Number((r.inflation * 100).toFixed(1))}% inflation, ${Number((r.investmentReturn * 100).toFixed(1))}% net return, ${r.post55Work ? "post-55 CPF included" : "post-55 CPF excluded"}). <sup>2</sup> Based on 2026 CPF rules (FRS $220.4k, ERS $440.8k, BHS $79k, OW cap $8k). Age-55 cohort sums grow 3.5%/yr.</span>
         <span>100% Local Calculation · Educational planning illustration only</span>
       </footer>
     </div>`;
@@ -764,7 +779,6 @@ function positionChartTooltip(
   W,
   H,
   padT,
-  padB,
 ) {
   const cursorX = svgRect.left + (svgX / W) * svgRect.width - wrapRect.left;
   const placeLeft = cursorX > wrapRect.width * 0.56;
@@ -1203,7 +1217,6 @@ function renderStackedNetWorthSVG(
       W,
       H,
       padT,
-      padB,
     );
   };
   const onLeave = () => {
@@ -1398,7 +1411,6 @@ function renderCashflowWaterfallSVG(
       W,
       H,
       padT,
-      padB,
     );
   };
   const onLeave = () => {
@@ -1413,7 +1425,7 @@ function renderCashflowWaterfallSVG(
 
 let finActivityTab = "coverage";
 
-function buildFinActivityBarsSVG(fire, r, s, fn) {
+function buildFinActivityBarsSVG(fire, fn) {
   const pts = fire?.points || [];
   if (!pts.length) return "";
   const candAges = [55, 60, 65, 70, 75, 80, 85];
@@ -1446,8 +1458,6 @@ function buildFinActivityBarsSVG(fire, r, s, fn) {
     return { age: pt.age, val };
   });
 
-  const ptRet = pts.find((p) => p.age === fire.retire) || pts[pts.length - 1];
-  const retireNw = ptRet?.today?.totalNetWorth ?? 0;
   const goalTarget = Math.max(
     10000,
     (fn?.totalRequiredToday || 0) + (fire?.phase2?.projectedCpfAt65Today || 0),
@@ -1581,7 +1591,7 @@ function buildFinReadinessGaugeSVG(
   </div>`;
 }
 
-function buildOverviewPageHeader(fire, r, s, isCustomSpend = false) {
+function buildOverviewPageHeader(fire) {
   const fn = fire.fireNumber;
   const pct = Math.min(150, Math.max(0, fn.pctFunded));
   const onTrack = pct >= 100 && fn.fullyFundedTo95;
@@ -1606,6 +1616,287 @@ function buildOverviewPageHeader(fire, r, s, isCustomSpend = false) {
   </header>`;
 }
 
+function describePieSlicePath(cx, cy, outerR, innerR, startDeg, endDeg) {
+  const full = endDeg - startDeg >= 359.9;
+  if (full) {
+    return `M ${cx} ${cy - outerR} A ${outerR} ${outerR} 0 1 1 ${cx - 0.01} ${cy - outerR} Z M ${cx} ${cy - innerR} A ${innerR} ${innerR} 0 1 0 ${cx - 0.01} ${cy - innerR} Z`;
+  }
+  const toRad = (d) => ((d - 90) * Math.PI) / 180;
+  const x1 = cx + outerR * Math.cos(toRad(startDeg));
+  const y1 = cy + outerR * Math.sin(toRad(startDeg));
+  const x2 = cx + outerR * Math.cos(toRad(endDeg));
+  const y2 = cy + outerR * Math.sin(toRad(endDeg));
+  const x3 = cx + innerR * Math.cos(toRad(endDeg));
+  const y3 = cy + innerR * Math.sin(toRad(endDeg));
+  const x4 = cx + innerR * Math.cos(toRad(startDeg));
+  const y4 = cy + innerR * Math.sin(toRad(startDeg));
+  const large = endDeg - startDeg > 180 ? 1 : 0;
+  return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${outerR} ${outerR} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} L ${x3.toFixed(2)} ${y3.toFixed(2)} A ${innerR} ${innerR} 0 ${large} 0 ${x4.toFixed(2)} ${y4.toFixed(2)} Z`;
+}
+
+function buildExpensePieSVG(ep) {
+  const cats = (ep?.categories || []).filter((c) => c.amount > 0);
+  const total = Math.max(0, Number(ep?.total || 0));
+  const cx = 92;
+  const cy = 92;
+  const outerR = 83;
+  const innerR = 54;
+  let cursor = 0;
+  const activeCount = cats.length;
+  const gapDeg = activeCount > 1 ? 2.2 : 0;
+
+  const slices =
+    total <= 0 || !cats.length
+      ? `<circle cx="${cx}" cy="${cy}" r="${(outerR + innerR) / 2}" fill="none" stroke="var(--border)" stroke-width="${outerR - innerR}" />`
+      : cats
+          .map((cat) => {
+            const sweep = (cat.amount / total) * 360;
+            const start = cursor + gapDeg / 2;
+            const end = Math.max(start + 0.5, cursor + sweep - gapDeg / 2);
+            cursor += sweep;
+            const d = describePieSlicePath(cx, cy, outerR, innerR, start, end);
+            return `<path class="exp-pie-slice" data-exp-cat="${cat.key}" d="${d}" fill="${cat.color}" fill-rule="evenodd" tabindex="0" role="img" aria-label="${cat.label}: ${money(cat.amount)} per month (${cat.pct.toFixed(0)}%)"><title>${cat.label}: ${money(cat.amount)}/mo (${cat.pct.toFixed(1)}%)</title></path>`;
+          })
+          .join("");
+
+  return `<div class="exp-pie-stage">
+    <svg class="exp-pie-svg" viewBox="0 0 184 184" width="184" height="184" role="img" aria-label="Monthly living expense breakdown pie chart totaling ${money(total)} per month">
+      ${slices}
+    </svg>
+    <div class="exp-pie-center" aria-hidden="true">
+      <small>Retire Need</small>
+      <strong>${m(total)}</strong>
+      <span>per month</span>
+    </div>
+    <div class="exp-pie-hover-pill" id="exp-pie-hover-pill" hidden></div>
+  </div>`;
+}
+
+function escapeAttr(val) {
+  return String(val ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function renderReadOnlyExpenseTable(items, catLabelMap, ariaLabel) {
+  return `
+    <div class="exp-items-table is-readonly" role="region" aria-label="${ariaLabel}">
+      <div class="exp-items-head" aria-hidden="true">
+        <span>Category</span>
+        <span>Expense item</span>
+        <span>Monthly ($)</span>
+        <span>Share</span>
+      </div>
+      <div class="exp-items-body">
+        ${items
+          .map(
+            (it) => `<div class="exp-ro-row">
+              <span class="exp-ro-cat">${escapeAttr(catLabelMap[it.category] || it.category)}</span>
+              <span class="exp-ro-name">${escapeAttr(it.name)}</span>
+              <strong class="exp-ro-amt">${m(it.amount, "/mo")}</strong>
+              <span class="exp-ro-pct">${Math.round(it.pct)}%</span>
+            </div>`,
+          )
+          .join("")}
+      </div>
+    </div>`;
+}
+
+function buildExpenseModalBodyHTML(ep, r) {
+  const isCustom = Boolean(ep.isCustom);
+  const catList = RetirementModel.EXPENSE_CATEGORIES || [];
+  const catLabelMap = Object.fromEntries(catList.map((c) => [c.key, c.label]));
+  const catOptions = (selectedKey) =>
+    catList
+      .map(
+        (cat) =>
+          `<option value="${cat.key}"${cat.key === selectedKey ? " selected" : ""}>${cat.label}</option>`,
+      )
+      .join("");
+  const planVal = r?.plan === "escalating" ? "escalating" : "standard";
+
+  const sourceBar = `<div class="exp-modal-source-bar" role="group" aria-label="Living budget preset or Custom">
+    <button type="button" class="exp-modal-source-btn${!isCustom && ep.lifestyle === "cca" ? " is-active" : ""}" data-exp-load="cca" aria-pressed="${!isCustom && ep.lifestyle === "cca"}">
+      <strong>Community Care</strong>
+      <span>$2,800/mo · Fixed preset</span>
+    </button>
+    <button type="button" class="exp-modal-source-btn${!isCustom && ep.lifestyle === "home-helper" ? " is-active" : ""}" data-exp-load="home-helper" aria-pressed="${!isCustom && ep.lifestyle === "home-helper"}">
+      <strong>Home + Helper</strong>
+      <span>$3,900/mo · Fixed preset</span>
+    </button>
+    <button type="button" class="exp-modal-source-btn${isCustom ? " is-active" : ""}" data-exp-enter-custom aria-pressed="${isCustom}">
+      <strong>Custom</strong>
+      <span>${isCustom ? `${m(ep.total, "/mo")} · ${ep.itemizedActive ? `${ep.items.length} item${ep.items.length === 1 ? "" : "s"}` : "Single figure"}` : "Single figure or items"}</span>
+    </button>
+  </div>`;
+
+  const mainSection = !isCustom
+    ? `<div class="exp-modal-section">
+        <div class="exp-readonly-banner">
+          <span><strong>${ep.lifestyleLabel}</strong> is a fixed preset (${m(ep.total, "/mo")}) for today’s budget; projections step up HealthShield premiums with age. Switch to Custom to edit items.</span>
+          <button type="button" class="button button-small button-accent" data-exp-enter-custom>Switch to Custom →</button>
+        </div>
+        ${renderReadOnlyExpenseTable(ep.items, catLabelMap, `${ep.lifestyleLabel} preset monthly expense breakdown`)}
+      </div>`
+    : `<div class="exp-modal-section">
+        <div class="exp-editor-toolbar">
+          <div class="fin-segmented-tabs exp-mode-tabs" role="group" aria-label="Custom budget entry mode">
+            <button type="button" class="fin-seg-tab${!ep.itemizedActive ? " is-active" : ""}" data-exp-custom-mode="figure" aria-pressed="${!ep.itemizedActive}">Single figure</button>
+            <button type="button" class="fin-seg-tab${ep.itemizedActive ? " is-active" : ""}" data-exp-custom-mode="itemized" aria-pressed="${ep.itemizedActive}">Break down &amp; add items</button>
+          </div>
+        </div>
+        ${
+          !ep.itemizedActive
+            ? `<div class="exp-figure-panel">
+                <label class="exp-figure-field" for="exp-total-input">
+                  <span>Custom monthly retirement budget (today’s $)</span>
+                  <div class="input-wrap">
+                    <span>$</span>
+                    <input type="number" id="exp-total-input" min="0" max="1000000" step="any" inputmode="decimal" value="${ep.total}" />
+                  </div>
+                  <small>Updates your Retire Budget and scales the breakdown below proportionally.</small>
+                </label>
+                <div id="exp-figure-table-slot">
+                  ${renderReadOnlyExpenseTable(ep.items, catLabelMap, "Proportionally scaled custom monthly expense breakdown")}
+                </div>
+              </div>`
+            : `<div class="exp-itemized-bar">
+                <span class="exp-itemized-sum">Total: <strong id="exp-editor-sum">${m(ep.total, "/mo")}</strong> <small>(updates Retire Budget)</small></span>
+                <button type="button" class="button button-small button-accent" data-exp-add>+ Add item</button>
+              </div>
+              <div class="exp-items-table" role="region" aria-label="Editable monthly expense items">
+                <div class="exp-items-head" aria-hidden="true">
+                  <span>Category</span>
+                  <span>Expense item</span>
+                  <span>Monthly ($)</span>
+                  <span>Share</span>
+                  <span></span>
+                </div>
+                <div class="exp-items-body" id="exp-items-body">
+                  ${ep.items
+                    .map(
+                      (
+                        it,
+                        idx,
+                      ) => `<div class="exp-item-row" data-exp-row="${idx}">
+                        <div class="input-wrap select-wrap exp-cat-select-wrap">
+                          <select name="exp-cat-${idx}" data-exp-field="category" data-exp-idx="${idx}" aria-label="Category for item ${idx + 1}">
+                            ${catOptions(it.category)}
+                          </select>
+                        </div>
+                        <div class="input-wrap">
+                          <input type="text" name="exp-name-${idx}" data-exp-field="name" data-exp-idx="${idx}" value="${escapeAttr(it.name)}" placeholder="e.g. Groceries, WiFi" maxlength="60" aria-label="Expense item name ${idx + 1}" />
+                        </div>
+                        <div class="input-wrap">
+                          <span>$</span>
+                          <input type="number" name="exp-amt-${idx}" min="0" max="1000000" step="any" inputmode="decimal" data-exp-field="amount" data-exp-idx="${idx}" value="${it.amount}" aria-label="Monthly amount for ${escapeAttr(it.name)}" />
+                        </div>
+                        <span class="exp-item-pct" data-exp-pct="${idx}">${Math.round(it.pct)}%</span>
+                        <button type="button" class="exp-remove-btn" data-exp-remove="${idx}" aria-label="Remove ${escapeAttr(it.name)}" title="Remove item">×</button>
+                      </div>`,
+                    )
+                    .join("")}
+                </div>
+              </div>`
+        }
+      </div>`;
+
+  const cpfPlanRow = `<div class="exp-modal-plan-row">
+    <div class="qe-field">
+      <label for="exp-modal-plan">CPF LIFE payout plan</label>
+      <div class="input-wrap select-wrap">
+        <select id="exp-modal-plan">
+          <option value="standard"${planVal === "standard" ? " selected" : ""}>Standard Plan (Level payouts)</option>
+          <option value="escalating"${planVal === "escalating" ? " selected" : ""}>Escalating Plan (+2% yearly)</option>
+        </select>
+      </div>
+      <p class="qe-hint">Escalating starts ~20% lower and rises +2%/yr on payout anniversaries, overtaking Standard around age 77–78.</p>
+    </div>
+  </div>`;
+
+  return `${sourceBar}${mainSection}${cpfPlanRow}`;
+}
+
+function buildExpenseCardHTML(ep, r) {
+  const isCustom = Boolean(ep.isCustom);
+  const modeLabel = !isCustom
+    ? `${ep.lifestyleLabel} preset · Fixed`
+    : ep.itemizedActive
+      ? `Custom · ${ep.items.length} item${ep.items.length === 1 ? "" : "s"}`
+      : "Custom · Single figure";
+  const ageNeedLabel =
+    r.retire < 65
+      ? `Age ${r.retire} est: ${money(r.futureSpend)}/mo`
+      : `Age 65 est: ${money(r.spend65)}/mo`;
+  const captionText = `Models what you need per month in retirement (<strong>${m(ep.total, "/mo")}</strong> today’s $). Separate from today’s take-home pay.`;
+  const topPreview = ep.items
+    .filter((it) => it.amount > 0)
+    .slice()
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 4);
+
+  return `<section class="fin-card fin-expense-card card-surface" id="expense-breakdown-card" aria-labelledby="expense-card-title">
+    <div class="fin-expense-head">
+      <div class="fin-expense-title-col">
+        <div class="fin-expense-title-row">
+          <h2 id="expense-card-title">Retirement Living Budget</h2>
+          <span class="fin-target-pill" id="exp-mode-pill">${modeLabel}</span>
+        </div>
+        <p id="exp-sync-caption">${captionText}</p>
+      </div>
+      <div class="fin-expense-actions">
+        <span class="status-pill is-info" id="exp-takehome-pill">${ageNeedLabel}</span>
+        <button type="button" class="button button-small fin-pill-btn" data-open-expense-modal="${isCustom ? "custom" : "preset"}">
+          ${!isCustom ? "View preset items" : "Edit budget / items"}
+        </button>
+        ${!isCustom ? '<button type="button" class="button button-small button-accent" data-exp-enter-custom>Switch to Custom</button>' : ""}
+      </div>
+    </div>
+
+    <div class="fin-expense-body">
+      <div class="fin-expense-chart-col" id="exp-pie-slot">
+        ${buildExpensePieSVG(ep)}
+      </div>
+      <div class="fin-expense-summary-col">
+        <div class="fin-expense-cats" id="exp-cats-slot">
+          ${ep.categories
+            .map((cat) => {
+              const barW =
+                ep.total > 0 && cat.amount > 0
+                  ? Math.max(4, Math.round(cat.pct))
+                  : 0;
+              return `<div class="exp-cat-row" data-exp-cat="${cat.key}">
+                <div class="exp-cat-meta">
+                  <span class="exp-cat-name"><i style="background:${cat.color};"></i>${cat.label} <small>(${cat.items.length})</small></span>
+                  <strong class="exp-cat-val">${m(cat.amount, "/mo")} <span>${Math.round(cat.pct)}%</span></strong>
+                </div>
+                <div class="exp-cat-track" aria-hidden="true">
+                  <span style="width:${barW}%;background:${cat.color};"></span>
+                </div>
+              </div>`;
+            })
+            .join("")}
+        </div>
+        <div class="exp-preview-strip" id="exp-preview-slot">
+          <span class="exp-preview-label">Top items:</span>
+          ${
+            topPreview.length
+              ? topPreview
+                  .map(
+                    (it) =>
+                      `<span class="exp-item-chip">${escapeAttr(it.name)} · <b>${money(it.amount)}</b></span>`,
+                  )
+                  .join("")
+              : '<span class="exp-item-chip">No expense items ($0/mo)</span>'
+          }
+        </div>
+      </div>
+    </div>
+  </section>`;
+}
+
 function buildFinOverviewGrid(
   fire,
   r,
@@ -1613,11 +1904,10 @@ function buildFinOverviewGrid(
   p,
   simulation,
   bogle,
-  simGuide,
-  tax,
   pctOfPay,
   selected,
   isCustomSpend = false,
+  expenseData = null,
 ) {
   const fn = fire.fireNumber;
   const pct = Math.min(150, Math.max(0, fn.pctFunded));
@@ -1668,12 +1958,14 @@ function buildFinOverviewGrid(
       : s.key === "frs"
         ? "FRS Path"
         : "ERS Path";
-  const lifestyleCardLabel = isCustomSpend
-    ? "Custom"
-    : r.lifestyle === "cca"
-      ? "Community Care"
-      : "Home + Helper";
-  const lifestyleCardValue = `${lifestyleCardLabel} (${m(r.todaySpend)}/mo)`;
+  const isItemizedTarget = Boolean(expenseData?.itemizedActive);
+  const lifestyleCardLabel = isItemizedTarget
+    ? "Custom itemized"
+    : isCustomSpend
+      ? "Custom"
+      : r.lifestyle === "cca"
+        ? "Community Care"
+        : "Home + Helper";
   const lifestyleCardAria = `${lifestyleCardLabel} (${money(r.todaySpend)}/mo)`;
 
   const pathMeta = {
@@ -1712,41 +2004,52 @@ function buildFinOverviewGrid(
   const activeCoverage = finActivityTab === "coverage";
   const activePaycheck = finActivityTab === "paycheck";
   const activeMilestones = finActivityTab === "milestones";
+  const takeHomePctOfGross =
+    r.salary > 0 ? Math.round((r.afterCpf / r.salary) * 100) : 0;
 
   return `<div class="fin-top-kpis" role="region" aria-label="Key plan inputs">
-    <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="age" aria-label="Your current age ${fire.age}${p.dob ? `, born ${formatDobShort(p.dob)}` : ""}. Click to edit">
+    <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="age" aria-label="Edit your current age ${fire.age}${p.dob ? `, born ${formatDobShort(p.dob)}` : ""}">
       <div class="fin-kpi-head">
         <span class="fin-kpi-label">Your Age</span>
         <span class="fin-kpi-tag">Now</span>
       </div>
       <strong class="fin-kpi-val">Age ${fire.age}</strong>
-      <span class="fin-kpi-sub">${p.dob ? `DOB ${formatDobShort(p.dob)} · Click to edit` : "Click to set date of birth"}</span>
+      <span class="fin-kpi-sub">${p.dob ? `DOB ${formatDobShort(p.dob)}` : "Set date of birth"}</span>
     </button>
-    <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="goal" aria-label="Target retirement age ${fire.retire}. Click to adjust">
+    <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="goal" aria-label="Edit target retirement age ${fire.retire}">
       <div class="fin-kpi-head">
         <span class="fin-kpi-label">Target Retire Age</span>
         <span class="fin-kpi-tag">${r.retiringNow ? "Retiring now" : `${yearsToRetire} yr${yearsToRetire === 1 ? "" : "s"} to go`}</span>
       </div>
       <strong class="fin-kpi-val">Age ${fire.retire}</strong>
-      <span class="fin-kpi-sub">Click to adjust target</span>
+      <span class="fin-kpi-sub">${fire.retire < 65 ? `${65 - fire.retire}-yr bridge to 65` : fire.retire === 65 ? "Standard CPF LIFE age" : "Deferred payout start"}</span>
     </button>
-    <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="balances" aria-label="Total current assets ${money(startingTotalAssets)}. Click to view breakdown and edit balances">
+    <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="salary" aria-label="Edit monthly salary. Take-home ${money(r.afterCpf)} per month on ${money(r.salary)} gross">
       <div class="fin-kpi-head">
-        <span class="fin-kpi-label">Total Current Assets</span>
+        <span class="fin-kpi-label">Take-Home Pay</span>
+        <span class="fin-kpi-tag">${takeHomePctOfGross}% net</span>
+      </div>
+      <strong class="fin-kpi-val">${m(r.afterCpf, "/mo")}</strong>
+      <span class="fin-kpi-sub">Gross ${m(r.salary)}/mo</span>
+    </button>
+    <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="balances" aria-label="Edit total assets ${money(startingTotalAssets)}">
+      <div class="fin-kpi-head">
+        <span class="fin-kpi-label">Total Assets</span>
         <span class="fin-kpi-tag">Breakdown ↗</span>
       </div>
       <strong class="fin-kpi-val">${m(startingTotalAssets)}</strong>
       <span class="fin-kpi-sub">${m(startingCpf)} CPF · ${m(startingOutside)} outside</span>
     </button>
-    <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="budget" aria-label="Living budget ${lifestyleCardAria}. Click to adjust lifestyle or CPF LIFE">
+    <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="budget" aria-label="Edit retirement budget ${lifestyleCardAria}">
       <div class="fin-kpi-head">
-        <span class="fin-kpi-label">Living Target</span>
+        <span class="fin-kpi-label">Retire Budget</span>
         <span class="fin-kpi-tag">${selectedPathName}</span>
       </div>
       <strong class="fin-kpi-val">${m(r.todaySpend, "/mo")}</strong>
-      <span class="fin-kpi-sub">${lifestyleCardLabel} · CPF LIFE ${r.plan === "escalating" ? "Esc" : "Std"}</span>
+      <span class="fin-kpi-sub">${isItemizedTarget ? `${expenseData.items.length} custom items` : lifestyleCardLabel} · CPF LIFE ${r.plan === "escalating" ? "Esc" : "Std"}</span>
     </button>
   </div>
+  ${expenseData ? buildExpenseCardHTML(expenseData, r) : ""}
   <div class="fin-overview-grid">
     <div class="fin-col-main">
       <section class="fin-card fin-hero-card card-surface" aria-labelledby="ember-traj-title">
@@ -1758,8 +2061,8 @@ function buildFinOverviewGrid(
               <span class="fin-curr">SGD</span>
             </div>
             <p class="fin-delta-line">
-              <span>${m(fn.totalRequiredToday)} outside + ${m(fire.phase2.projectedCpfAt65Today)} CPF at 65</span>
-              <span class="fin-delta-badge ${onTrack ? "is-good" : "is-warn"}">${fn.pctFunded}% goal</span>
+              <span>${m(ptAtRetire?.today?.totalOutside ?? 0)} outside + ${m(ptAtRetire?.today?.cpfTotal ?? 0)} CPF at ${fire.retire}</span>
+              <span class="fin-delta-badge ${onTrack ? "is-good" : "is-warn"}">${fn.pctFunded}% of age-95 goal</span>
             </p>
           </div>
           <div class="fin-hero-actions">
@@ -1842,20 +2145,161 @@ function buildFinOverviewGrid(
     </div>
 
     <div class="fin-col-rail">
-      <button type="button" class="fin-card fin-saving-card card-surface is-interactive" data-quick-edit="income" aria-label="Monthly Saving Needed. Click to adjust salary, housing, or monthly savings">
-        <div class="fin-saving-top">
-          <span class="fin-saving-title">Monthly saving needed</span>
-          <span class="fin-outline-pill">${r.retiringNow ? "Lump sum" : `${pctOfPay}% of take-home`}</span>
-        </div>
-        <div class="fin-saving-val-row">
-          <strong>${r.retiringNow ? m(s.privateSaving) : m(contribution)}</strong>
-          <span class="fin-curr">SGD${r.retiringNow ? " now" : "/mo"}</span>
-        </div>
-        <div class="fin-saving-meta">
-          <span>${r.retiringNow ? "Immediate portfolio requirement" : `${m(simulation.cpfExtra)} extra CPF · ${m(s.privateSaving)} outside`}</span>
-          <small>Take-home ${m(r.afterCpf)}/mo (Gross ${m(r.salary)}) · Click to edit</small>
-        </div>
-      </button>
+      <section class="fin-card fin-saving-card card-surface" aria-label="Monthly saving needed">
+        ${(() => {
+          if (r.retiringNow) {
+            const pillTone = s.remainingPortfolioGap > 0 ? "warn" : "good";
+            return `<div class="fin-saving-top">
+                <span class="fin-saving-title">Portfolio gap now</span>
+                <span class="status-pill is-${pillTone}">Lump sum</span>
+              </div>
+              <div class="fin-saving-val-row">
+                <strong>${m(s.privateSaving)}</strong>
+                <span class="fin-curr">SGD now</span>
+                <button type="button" class="fin-link-pill fin-saving-edit" data-quick-edit="income">Review</button>
+              </div>
+              <div class="fin-saving-meta">
+                <span>Immediate portfolio requirement</span>
+              </div>`;
+          }
+
+          const exactPct =
+            r.afterCpf > 0 ? (contribution / r.afterCpf) * 100 : 0;
+          const clampedPct = Math.min(100, Math.max(0, exactPct));
+          const leftAfterSave = r.afterCpf - contribution;
+          const exceedsPay = leftAfterSave < 0;
+          const isCritical = exceedsPay || pctOfPay > 85;
+          const isStretched = !isCritical && pctOfPay > 50;
+          const pillTone = isCritical
+            ? "danger"
+            : isStretched
+              ? "warn"
+              : "good";
+          const bandLabel = exceedsPay
+            ? "Exceeds pay"
+            : pctOfPay > 85
+              ? "Critical"
+              : pctOfPay > 50
+                ? "Stretched"
+                : pctOfPay > 30
+                  ? "Healthy"
+                  : "Comfortable";
+          const pillText = `${bandLabel} · ${pctOfPay}%`;
+
+          const healthyFill =
+            Math.round(
+              Math.min(100, (Math.min(clampedPct, 50) / 50) * 100) * 10,
+            ) / 10;
+          const stretchedFill =
+            clampedPct > 50
+              ? Math.round(
+                  Math.min(100, ((Math.min(clampedPct, 85) - 50) / 35) * 100) *
+                    10,
+                ) / 10
+              : 0;
+          const criticalFill =
+            clampedPct > 85
+              ? Math.round(
+                  Math.min(100, ((Math.min(clampedPct, 100) - 85) / 15) * 100) *
+                    10,
+                ) / 10
+              : 0;
+          const markerPos = Math.round(clampedPct * 10) / 10;
+          const leftSharePct = Math.max(0, 100 - pctOfPay);
+
+          const meterHtml = `<div class="fin-band-meter">
+            <div class="fin-band-track-wrap" role="img" aria-label="Monthly saving takes ${pctOfPay}% of take-home pay. Thresholds: up to 50% healthy, 51 to 85% stretched, over 85% critical.">
+              <div class="fin-band-track">
+                <div class="fin-band-zone is-healthy">
+                  <span class="fin-band-fill" style="width:${healthyFill}%;"></span>
+                </div>
+                <div class="fin-band-zone is-stretched">
+                  <span class="fin-band-fill" style="width:${stretchedFill}%;"></span>
+                </div>
+                <div class="fin-band-zone is-critical">
+                  <span class="fin-band-fill" style="width:${criticalFill}%;"></span>
+                </div>
+              </div>
+              <span class="fin-band-marker is-${pillTone}" style="left:clamp(6px, ${markerPos}%, calc(100% - 6px));"></span>
+            </div>
+            <div class="fin-band-scale" aria-hidden="true">
+              <span data-tick="0">0%</span>
+              <span data-tick="50">50%</span>
+              <span data-tick="85">85%</span>
+              <span data-tick="100">100%</span>
+            </div>
+            <div class="fin-band-legend">
+              <span><i style="background:var(--sem-cpf);"></i>≤50% Healthy</span>
+              <span><i style="background:var(--sem-cash);"></i>51–85% Stretched</span>
+              <span><i style="background:var(--sem-alert);"></i>&gt;85% Critical</span>
+            </div>
+          </div>`;
+
+          const hasMonthlyShortfall = s.contributionShortfall > 1;
+          const monthlyChipLabel = hasMonthlyShortfall
+            ? "Invest more / mo"
+            : "Cap saving";
+          const shortfallLine = hasMonthlyShortfall
+            ? ` <span class="fin-saving-gap-note">Currently saving ${m(s.chosenInvest, "/mo")} — ${m(s.contributionShortfall, "/mo")} below target.</span>`
+            : "";
+
+          const statusHtml = exceedsPay
+            ? `<div class="fin-saving-alert is-danger" role="status">
+                <p>Exceeds your <strong>${m(r.afterCpf)}</strong> take-home by <strong>${m(-leftAfterSave, "/mo")}</strong>.${shortfallLine}</p>
+                <div class="fin-saving-actions">
+                  <button type="button" class="fin-action-chip" data-quick-edit="balances">Invest assets</button>
+                  <button type="button" class="fin-action-chip" commandfor="plan-settings" command="show-modal">Boost return</button>
+                  <button type="button" class="fin-action-chip" data-quick-edit="income">${monthlyChipLabel}</button>
+                  <button type="button" class="fin-action-chip" data-quick-edit="goal">Retire later</button>
+                  <button type="button" class="fin-action-chip" data-quick-edit="budget">Trim retire budget</button>
+                </div>
+              </div>`
+            : isCritical
+              ? `<div class="fin-saving-alert is-danger" role="status">
+                  <p>Above the <strong>85%</strong> critical threshold — leaves <strong>${m(leftAfterSave, "/mo")}</strong> (${leftSharePct}%) of take-home for living &amp; tax.${shortfallLine}</p>
+                  <div class="fin-saving-actions">
+                    <button type="button" class="fin-action-chip" data-quick-edit="balances">Invest assets</button>
+                    <button type="button" class="fin-action-chip" commandfor="plan-settings" command="show-modal">Boost return</button>
+                    <button type="button" class="fin-action-chip" data-quick-edit="income">${monthlyChipLabel}</button>
+                    <button type="button" class="fin-action-chip" data-quick-edit="goal">Retire later</button>
+                    <button type="button" class="fin-action-chip" data-quick-edit="budget">Trim retire budget</button>
+                  </div>
+                </div>`
+              : isStretched
+                ? `<div class="fin-saving-alert is-warn" role="status">
+                    <p>Above the <strong>50%</strong> healthy threshold — leaves <strong>${m(leftAfterSave, "/mo")}</strong> (${leftSharePct}%) of take-home for living &amp; tax.${shortfallLine}</p>
+                    <div class="fin-saving-actions">
+                      ${hasMonthlyShortfall ? `<button type="button" class="fin-action-chip" data-quick-edit="income">Invest more / mo</button>` : ""}
+                      <button type="button" class="fin-action-chip" data-quick-edit="balances">Invest assets</button>
+                      <button type="button" class="fin-action-chip" commandfor="plan-settings" command="show-modal">Boost return</button>
+                      <button type="button" class="fin-action-chip" data-go-tab="allocator">Where to invest →</button>
+                    </div>
+                  </div>`
+                : `<div class="fin-saving-ok-row">
+                    <p class="fin-saving-ok">Within the <strong>≤50%</strong> healthy threshold — leaves <strong>${m(leftAfterSave, "/mo")}</strong> (${leftSharePct}%) for living &amp; tax.${shortfallLine}</p>
+                    <div class="fin-saving-ok-links">
+                      ${hasMonthlyShortfall ? `<button type="button" class="text-button fin-inline-action" data-quick-edit="income">Invest more / mo</button>` : ""}
+                      <button type="button" class="text-button fin-inline-action" data-go-tab="allocator">Where to invest →</button>
+                    </div>
+                  </div>`;
+
+          return `<div class="fin-saving-top">
+              <span class="fin-saving-title">Monthly saving needed</span>
+              <span class="status-pill is-${pillTone}">${pillText}</span>
+            </div>
+            <div class="fin-saving-val-row">
+              <strong>${m(contribution)}</strong>
+              <span class="fin-curr">SGD/mo</span>
+              ${exceedsPay ? "" : `<button type="button" class="fin-link-pill fin-saving-edit" data-quick-edit="income">Adjust</button>`}
+            </div>
+            <div class="fin-saving-meta">
+              <span>${m(simulation.cpfExtra)} extra CPF · ${m(s.privateSaving)} outside</span>
+              <small>${exceedsPay ? `Exceeds ${m(r.afterCpf)} take-home by ${m(-leftAfterSave, "/mo")}` : `Leaves ${m(leftAfterSave, "/mo")} of ${m(r.afterCpf)} take-home`}</small>
+            </div>
+            ${meterHtml}
+            ${statusHtml}`;
+        })()}
+      </section>
 
       <section class="fin-card fin-activity-card card-surface" aria-label="Income, paycheck allocation, and milestones">
         <div class="fin-activity-head">
@@ -1884,7 +2328,7 @@ function buildFinOverviewGrid(
             </div>
           </div>
           <div class="fin-bars-stage">
-            ${buildFinActivityBarsSVG(fire, r, s, fn)}
+            ${buildFinActivityBarsSVG(fire, fn)}
           </div>
         </div>
 
@@ -1935,7 +2379,7 @@ function buildFinOverviewGrid(
         </div>
       </section>
 
-      <button type="button" class="fin-card fin-gauge-card card-surface is-interactive" data-quick-edit="goal" aria-label="Retirement Readiness: Earliest age ${readyText}, ${survivalAnswer}. Click to adjust target retirement age">
+      <button type="button" class="fin-card fin-gauge-card card-surface is-interactive" data-quick-edit="goal" aria-label="Edit target retirement age. Earliest safe age ${readyText}, ${survivalAnswer}">
         <div class="fin-gauge-head">
           <h2>Retirement Readiness</h2>
           <span class="fin-target-pill">Goal: Age ${fire.retire}</span>
@@ -1992,7 +2436,7 @@ function svgDonut(segments, centerTop, centerBottom) {
   </div>`;
 }
 
-function buildBogleheadSection(bogle, r) {
+function buildBogleheadSection(bogle) {
   const liq = bogle.liquid;
   const hol = bogle.holistic;
   const reb = bogle.monthlyRebalance;
@@ -2138,6 +2582,7 @@ function buildBogleheadSection(bogle, r) {
           <span class="pill-eq"><i class="sem-dot" style="background:#2563EB;"></i><b>${m(reb.buyGlobalMonthly, "/mo")}</b> Global UCITS</span>
           <span class="pill-sg"><i class="sem-dot" style="background:#60A5FA;"></i><b>${m(reb.buySgMonthly, "/mo")}</b> SG Dividends</span>
           <span class="pill-cash"><i class="sem-dot" style="background:#D97706;"></i><b>${m(reb.buyBondMonthly, "/mo")}</b> SSB / T-Bills</span>
+          <button type="button" class="fin-link-pill cash-crosslink-btn" data-go-tab="cash-parking">Compare SSB, HYSA &amp; MMFs →</button>
         </div>
       </div>
     </div>
@@ -2188,6 +2633,264 @@ function buildTaxSweetSpotSection(tax) {
       <span>${tax.srsIdleWarning}</span>
     </div>
   </section>`;
+}
+
+function buildCashCardsMarkup(cp, filterKey = "all", entering = false) {
+  const items = cp?.catalog?.items || [];
+  const visibleItems =
+    filterKey === "all"
+      ? items
+      : items.filter((it) => it.category === filterKey);
+
+  return `<div class="cash-cards-grid">
+    ${visibleItems
+      .map((item, idx) => {
+        const tiers = Array.isArray(item.rateTiers) ? item.rateTiers : [];
+        const tierRows = tiers.length
+          ? `<div class="cash-rate-rows">${tiers
+              .map(
+                (t) =>
+                  `<div class="cash-rate-row${t.tone ? ` is-${t.tone}` : ""}">
+                    <span class="cash-rate-label">${t.label}</span>
+                    <strong class="cash-rate-fig">${t.value}</strong>
+                  </div>`,
+              )
+              .join("")}</div>`
+          : `<strong class="cash-rate-val">${item.rateHeadline}</strong>`;
+        const metaRow =
+          item.metaBadge || item.syncBadge
+            ? `<div class="cash-rate-meta">
+                ${item.metaBadge ? `<span class="cash-tranche-tag">${item.metaBadge}</span>` : "<span></span>"}
+                ${item.syncBadge ? `<span class="cash-sync-tag">${item.syncBadge}</span>` : ""}
+              </div>`
+            : "";
+
+        return `<a class="cash-card card-surface${entering ? " is-entering" : ""}" style="--stagger:${Math.min(idx, 6)}" href="${item.url}" target="_blank" rel="noopener noreferrer" aria-label="${item.name} — ${item.rateHeadline}, ${item.capLabel}. Opens ${item.urlDomain} in a new tab">
+          <div class="cash-card-top">
+            <span class="cash-cat-tag">${item.categoryLabel}</span>
+            <span class="cash-safety-pill is-${item.protectionTone}">${item.protection}</span>
+          </div>
+          <div class="cash-card-title">
+            <h3>${item.name}</h3>
+            <span class="cash-provider">${item.provider}</span>
+          </div>
+          <div class="cash-rate-box">
+            ${metaRow}
+            ${tierRows}
+            <small class="cash-rate-note">${item.rateDetail}</small>
+          </div>
+          ${
+            item.rateContext
+              ? (() => {
+                  const rc = item.rateContext;
+                  const bars = rc.recent6 || [];
+                  const minB = Math.min(
+                    ...bars.map((b) => b.rate),
+                    rc.yr1.min || 0,
+                  );
+                  const maxB = Math.max(...bars.map((b) => b.rate), 0.1);
+                  const spanB = Math.max(0.25, maxB - minB * 0.88);
+                  const minAvgPos = Math.max(
+                    4,
+                    Math.min(
+                      96,
+                      Math.round(
+                        ((rc.yr1.avg - rc.yr1.min) /
+                          Math.max(0.01, rc.yr1.max - rc.yr1.min)) *
+                          100,
+                      ),
+                    ),
+                  );
+                  return `<div class="cash-hist-box">
+                  <div class="cash-hist-head">
+                    <span class="cash-hist-verdict is-${rc.tone}">${rc.verdict}</span>
+                    ${rc.prevLabel ? `<span class="cash-hist-delta ${rc.deltaPrev >= 0 ? "is-up" : "is-down"}">${rc.deltaText} ${rc.prevLabel}</span>` : ""}
+                  </div>
+                  <div class="cash-hist-range">
+                    <div class="cash-hist-range-labels">
+                      <span>12M low ${rc.yr1.min.toFixed(2)}%</span>
+                      <span>12M avg ${rc.yr1.avg.toFixed(2)}%</span>
+                      <span>high ${rc.yr1.max.toFixed(2)}%</span>
+                    </div>
+                    <div class="cash-hist-track" aria-hidden="true">
+                      <span class="cash-hist-avg-mark" style="left:${minAvgPos}%" title="12M avg"></span>
+                      <span class="cash-hist-dot" style="left:${rc.yr1.posPct}%"></span>
+                    </div>
+                    ${rc.longTerm ? `<div class="cash-hist-long">${rc.longTerm.label}: ${rc.longTerm.min.toFixed(2)}%–${rc.longTerm.max.toFixed(2)}% (avg ${rc.longTerm.avg.toFixed(2)}% · ${rc.longTerm.pctText || rc.longTerm.percentile + "th pct"})</div>` : ""}
+                  </div>
+                  ${
+                    bars.length
+                      ? `<div class="cash-hist-spark" aria-label="Last ${bars.length} tranches">
+                        ${bars
+                          .map((b, bi) => {
+                            const hPct = Math.max(
+                              22,
+                              Math.min(
+                                100,
+                                Math.round(
+                                  ((b.rate - minB * 0.88) / spanB) * 100,
+                                ),
+                              ),
+                            );
+                            const isCur = bi === bars.length - 1;
+                            return `<div class="cash-spark-col${isCur ? " is-current" : ""}" title="${b.code}: ${b.rate.toFixed(2)}%">
+                              <span class="cash-spark-val">${b.rate.toFixed(2)}</span>
+                              <span class="cash-spark-bar-wrap"><span class="cash-spark-bar" style="height:${hPct}%"></span></span>
+                              <span class="cash-spark-lbl">${b.label}</span>
+                            </div>`;
+                          })
+                          .join("")}
+                      </div>`
+                      : ""
+                  }
+                  <p class="cash-hist-action">${rc.action}</p>
+                </div>`;
+                })()
+              : ""
+          }
+          <dl class="cash-specs">
+            <div>
+              <dt>Limit / Cap</dt>
+              <dd>${item.capLabel}</dd>
+            </div>
+            <div>
+              <dt>Liquidity</dt>
+              <dd>${item.liquidity}</dd>
+            </div>
+          </dl>
+          <p class="cash-req">${item.requirements}</p>
+          <div class="cash-card-foot">
+            <span>Verify live rates</span>
+            <span class="cash-domain-link">${item.urlDomain} ↗</span>
+          </div>
+        </a>`;
+      })
+      .join("")}
+  </div>`;
+}
+
+function buildCashPlanCardHTML(cp) {
+  return `<section class="card-surface cash-plan-card" aria-labelledby="cash-layer-title">
+    <div class="rules-card-head">
+      <div>
+        <h2 id="cash-layer-title">Your Cash Buffer &amp; Cap Positioning</h2>
+        <p>${cp.positionNote}</p>
+      </div>
+      <span class="status-pill is-${cp.positionTone}">${cp.positionHeadline}</span>
+    </div>
+
+    <dl class="tax-metrics-grid cash-kpi-grid">
+      <div class="tax-metric-box">
+        <dt>6–12m Emergency Target</dt>
+        <dd>${m(cp.emergencyMin)}–${m(cp.emergencyMax)}</dd>
+        <small>6–12m × ${money(cp.emergencyMonthlyBase)}/mo retire budget</small>
+      </div>
+      <div class="tax-metric-box">
+        <dt>Entered SSB / Cash Bucket</dt>
+        <dd>${m(cp.currentCash)}</dd>
+        <small>vs ${money(cp.sdicCap)} SDIC/bank · ${money(cp.ssbCap)} SSB cap</small>
+      </div>
+      <div class="tax-metric-box">
+        <dt>Monthly Cash / Bond Slice</dt>
+        <dd>${cp.monthlyCashSlice > 0 ? m(cp.monthlyCashSlice, "/mo") : m(0, "/mo")}</dd>
+        <small>${cp.hasSrs ? "Idle SRS earns 0.05% — park in T-Bills/MMFs" : "From Allocator SSB / T-Bills target"}</small>
+      </div>
+    </dl>
+
+    <div class="cash-ladder-grid" aria-label="Suggested cash parking waterfall">
+      ${cp.tiers
+        .map(
+          (tier) => `<div class="cash-tier-box">
+            <div class="cash-tier-head">
+              <strong>${tier.step}</strong>
+              <span>${tier.limit}</span>
+            </div>
+            <div class="cash-tier-val">${m(tier.allocated)} <small>of current cash</small></div>
+            <p>${tier.vehicles}</p>
+          </div>`,
+        )
+        .join("")}
+    </div>
+  </section>`;
+}
+
+function syncCashFilterGlider(bar, immediate = false) {
+  if (!bar) return;
+  const glider = bar.querySelector(".cash-filter-glider");
+  const active = bar.querySelector(".cash-filter-btn.is-active");
+  if (!glider || !active) return;
+  const width = active.offsetWidth;
+  const height = active.offsetHeight;
+  if (!width || !height) return;
+  const left = active.offsetLeft;
+  const top = active.offsetTop;
+  if (immediate) {
+    glider.style.transition = "none";
+  }
+  glider.style.width = `${width}px`;
+  glider.style.height = `${height}px`;
+  glider.style.transform = `translate3d(${left}px, ${top}px, 0)`;
+  glider.style.opacity = "1";
+  if (immediate) {
+    void glider.offsetHeight;
+    glider.style.transition = "";
+  } else if (bar.scrollWidth > bar.clientWidth + 4) {
+    active.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "center",
+    });
+  }
+}
+
+function buildCashParkingSection(cp, filterKey = "all") {
+  if (!cp?.catalog) return "";
+  const items = cp.catalog.items || [];
+  const categories = cp.catalog.categories || [];
+  const counts = { all: items.length };
+  items.forEach((it) => {
+    counts[it.category] = (counts[it.category] || 0) + 1;
+  });
+  const activeFilter = counts[filterKey] ? filterKey : "all";
+  const syncText = cp.masSyncLabel || `Reference · ${cp.asOf}`;
+
+  return `
+    <header class="ember-page-header">
+      <div>
+        <h1>Cash Parking &amp; Yield Mediums</h1>
+        <p class="cash-page-sub">Compare Singapore cash vehicles, holding limits, and SDIC coverage. Click any card to view live rates on the official provider site.</p>
+      </div>
+      <div class="cash-header-sync">
+        <span class="fin-target-pill cash-sync-pill">${syncText}</span>
+        <button type="button" class="button button-small cash-sync-btn" data-cash-sync title="Check latest SSB tranche &amp; T-Bill auction cut-off">↻ Sync MAS</button>
+      </div>
+    </header>
+
+    <div class="cash-plan-slot">${buildCashPlanCardHTML(cp)}</div>
+
+    <div class="cash-toolbar">
+      <div class="cash-filter-bar" role="group" aria-label="Filter cash parking mediums">
+        <span class="cash-filter-glider" aria-hidden="true"></span>
+        ${categories
+          .map((cat) => {
+            const active = cat.key === activeFilter;
+            const count = counts[cat.key] || 0;
+            return `<button type="button" class="cash-filter-btn${active ? " is-active" : ""}" data-cash-filter="${cat.key}" aria-pressed="${active}">${cat.label} <span class="cash-filter-count">${count}</span></button>`;
+          })
+          .join("")}
+      </div>
+      <span class="cash-live-hint">Click any medium to verify live rates ↗</span>
+    </div>
+
+    <div class="cash-cards-wrap">
+      ${buildCashCardsMarkup(cp, activeFilter, false)}
+    </div>
+
+    <div class="cash-rules-note" role="note">
+      <strong>Key Limit Reminders (${cp.asOf}):</strong>
+      <span>SDIC insures eligible SGD deposits up to <b>$100,000 per depositor, per DI Scheme bank</b> (DBS &amp; POSB share one combined $100k limit). MAS Singapore Savings Bonds have a <b>$200,000 individual holding cap</b> across all tranches. Money Market Funds and cash-management portfolios are investment products — <b>not SDIC-insured</b>.</span>
+    </div>
+  `;
 }
 
 function formatDobShort(dobStr) {
@@ -2264,6 +2967,7 @@ function setupSimplePlan() {
   const planRoot = $("#retirement-plan");
   const overviewSlot = $("#overview-slot");
   const allocatorSlot = $("#allocator-slot");
+  const cashParkingSlot = $("#cash-parking-slot");
   const taxSlot = $("#tax-slot");
   const cpfRulesSlot = $("#cpf-rules-slot");
   const errorBanner = $("#plan-error-banner");
@@ -2275,6 +2979,25 @@ function setupSimplePlan() {
   const dashChartBasis = "today";
   let currentTrajectory = null;
   let currentFirePlan = null;
+  let currentAfterCpfCap = 0;
+  let currentCashPlan = null;
+  let liveMasRates = null;
+  let cashParkingFilter = "all";
+  let cashAnimFrame = 0;
+  const expDialog = $("#expense-modal");
+  const expModalBody = $("#expense-modal-body");
+  let lastExpInvoker = null;
+  let customBudgetActive = false;
+  let useItemizedExpenses = false;
+  let customExpenseItems = [];
+  const clearCustomBudgetState = () => {
+    customBudgetActive = false;
+    useItemizedExpenses = false;
+    customExpenseItems = [];
+  };
+  const sumCustomExpenseItems = () =>
+    Math.round(customExpenseItems.reduce((s, it) => s + it.amount, 0) * 100) /
+    100;
   let rafHandle = null;
 
   let savingEnabled = true;
@@ -2286,7 +3009,6 @@ function setupSimplePlan() {
     savingEnabled = sessionStorage.getItem("rs_private_mode") !== "true";
     if (localStorage.getItem("rs_plan_version") !== "2") {
       localStorage.removeItem("rs_plan_state");
-      localStorage.removeItem("rs_guide_step");
       localStorage.setItem("rs_plan_version", "2");
     }
   } catch (_) {}
@@ -2350,6 +3072,42 @@ function setupSimplePlan() {
       if (["salary", "frs", "ers"].includes(params.get("selected"))) {
         selected = params.get("selected");
       }
+      if (params.get("expMode") === "itemized" && params.get("expItems")) {
+        try {
+          const parsed = JSON.parse(params.get("expItems"));
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            customExpenseItems = parsed
+              .filter((row) => Array.isArray(row) && row.length >= 3)
+              .map((row, idx) => ({
+                id: "exp-" + (idx + 1),
+                name: String(row[0] || "Expense " + (idx + 1)),
+                category: String(row[1] || "food"),
+                amount: Math.max(0, Number(row[2]) || 0),
+              }));
+            if (customExpenseItems.length > 0) {
+              customBudgetActive = true;
+              useItemizedExpenses = true;
+              const tot = sumCustomExpenseItems();
+              if ($("#known-spend")) $("#known-spend").value = String(tot);
+            }
+          }
+        } catch (_) {}
+      } else {
+        const restoredLife = params.get("lifestyle") || "cca";
+        const presetBudget =
+          RetirementModel.lifestyles[restoredLife]?.budget || 2800;
+        const rawSpend = (params.get("spend") || "").trim();
+        if (
+          params.get("expMode") === "figure" ||
+          (rawSpend !== "" &&
+            Number.isFinite(Number(rawSpend)) &&
+            Math.round(Number(rawSpend) * 100) !==
+              Math.round(presetBudget * 100))
+        ) {
+          customBudgetActive = true;
+          useItemizedExpenses = false;
+        }
+      }
     } catch (_) {}
   };
   restoreSavedState();
@@ -2363,6 +3121,16 @@ function setupSimplePlan() {
         learningTarget,
         version: 2,
       };
+      if (customBudgetActive) {
+        if (useItemizedExpenses && customExpenseItems.length > 0) {
+          data.expMode = "itemized";
+          data.expItems = JSON.stringify(
+            customExpenseItems.map((it) => [it.name, it.category, it.amount]),
+          );
+        } else {
+          data.expMode = "figure";
+        }
+      }
       const search = new URLSearchParams();
       for (const [k, v] of Object.entries(data)) {
         if (v != null && v !== "") search.set(k, String(v));
@@ -2378,13 +3146,14 @@ function setupSimplePlan() {
 
   const lastValidFieldValues = {};
   let lastCustomSpend = "";
+  let lastCustomLifestyle = "";
   const qePanelForSrc = {
     "person-dob": { panel: "age", qeId: "qe-dob" },
     "known-retire": { panel: "goal", qeId: "qe-retire" },
-    "known-lifestyle": { panel: "budget", qeId: "qe-lifestyle" },
-    "known-spend": { panel: "budget", qeId: "qe-spend" },
-    "known-plan": { panel: "budget", qeId: "qe-plan" },
-    "person-salary": { panel: "income", qeId: "qe-salary" },
+    "known-lifestyle": { panel: "budget", qeId: null },
+    "known-spend": { panel: "budget", qeId: null },
+    "known-plan": { panel: "budget", qeId: null },
+    "person-salary": { panel: "salary", qeId: "qe-salary" },
     "known-housing": { panel: "income", qeId: "qe-housing" },
     "known-housing-mode": { panel: "income", qeId: "qe-housing-mode" },
     "known-housing-balance": { panel: "income", qeId: "qe-housing-balance" },
@@ -2405,19 +3174,22 @@ function setupSimplePlan() {
   const getCustomSpendState = (rLifestyle = null) => {
     const lifestyleKey = rLifestyle || $("#known-lifestyle")?.value || "cca";
     const presetBudget =
-      RetirementModel.lifestyles[lifestyleKey]?.budget || 2500;
+      RetirementModel.lifestyles[lifestyleKey]?.budget || 2800;
     const spendEl = $("#known-spend");
     const raw = (spendEl?.value || "").trim();
-    const isCustom =
+    const hasNumericOverride =
       raw !== "" &&
       Boolean(spendEl?.validity?.valid) &&
-      Number.isFinite(Number(raw)) &&
+      Number.isFinite(Number(raw));
+    const differsFromPreset =
+      hasNumericOverride &&
       Math.round(Number(raw) * 100) !== Math.round(presetBudget * 100);
+    const isCustom = Boolean(customBudgetActive || differsFromPreset);
     return {
       lifestyleKey,
       presetBudget,
       isCustom,
-      spend: isCustom ? Number(raw) : presetBudget,
+      spend: hasNumericOverride ? Number(raw) : presetBudget,
     };
   };
   const isCurrencyField = (input) =>
@@ -2472,6 +3244,7 @@ function setupSimplePlan() {
         "Enter valid details to update your simulation.";
       overviewSlot.innerHTML = "";
       allocatorSlot.innerHTML = "";
+      if (cashParkingSlot) cashParkingSlot.innerHTML = "";
       taxSlot.innerHTML = "";
       currentTrajectory = null;
       $("#trajectory-chart").replaceChildren();
@@ -2573,6 +3346,10 @@ function setupSimplePlan() {
       "Enter valid details to update your estimate.";
     if ($("#qe-live-summary")) {
       $("#qe-live-summary").textContent =
+        "Enter valid details to update your estimate.";
+    }
+    if ($("#exp-modal-live-summary")) {
+      $("#exp-modal-live-summary").textContent =
         "Enter valid details to update your estimate.";
     }
     $("#plan-status").textContent = message;
@@ -2753,12 +3530,6 @@ function setupSimplePlan() {
     const curAgeVal = dobAgeInfo.valid ? dobAgeInfo.age : 35;
     const lifeMinAge = $("#known-lifestyle").value === "cca" ? 55 : 40;
     $("#known-retire").min = String(Math.max(lifeMinAge, curAgeVal));
-    const cpfPosOpen =
-      planRoot.querySelector("#cpf-position-details")?.open || false;
-    const salaryCapOpen =
-      planRoot.querySelector("#salary-cpf-caps")?.open || false;
-    const learningOpen =
-      planRoot.querySelector("#cpf-goal-guide")?.open || false;
     const housingModeVal = $("#known-housing-mode")?.value || "all-oa";
     const p = {};
     for (const [key, id] of Object.entries(fields)) {
@@ -2956,6 +3727,11 @@ function setupSimplePlan() {
     const left = r.afterCpf - combined;
     const takeHomePct =
       r.afterCpf > 0 ? Math.round((combined / r.afterCpf) * 100) : 0;
+    currentAfterCpfCap = Math.max(0, Math.floor(r.afterCpf));
+    const maxStr = String(currentAfterCpfCap);
+    $("#known-cpf-extra").max = maxStr;
+    $("#sim-invest").max = maxStr;
+    $("#known-invest").max = maxStr;
     $("#known-cpf-extra").placeholder = String(Math.ceil(simulation.cpfExtra));
     $("#sim-invest").value = $("#known-invest").value;
     $("#sim-invest").placeholder = String(Math.ceil(simulation.invest));
@@ -3081,24 +3857,6 @@ function setupSimplePlan() {
     const contribution = simulation.cpfExtra + s.privateSaving;
     const pctOfPay =
       r.afterCpf > 0 ? Math.round((contribution / r.afterCpf) * 100) : 0;
-    const isTight = pctOfPay > 50;
-    const readinessTone =
-      !simulation.fullyFunded || contribution > r.afterCpf || isTight
-        ? "status-warn"
-        : "status-good";
-    const readinessHeadline = r.retiringNow
-      ? simulation.fullyFunded
-        ? "Ready today on your entered assets"
-        : `${m(s.remainingPortfolioGap)} capital gap today`
-      : !simulation.fullyFunded
-        ? `${m(s.remainingPortfolioGap)} shortfall at ${r.retire}`
-        : s.privateSaving <= 0.005 && simulation.cpfExtra <= 0.005
-          ? "Already funded by your starting assets"
-          : contribution > r.afterCpf
-            ? `Critical target: ${m(contribution, "/mo")} (${pctOfPay}% of take-home pay)`
-            : isTight
-              ? `Stretch target: ${m(contribution, "/mo")} (${pctOfPay}% of take-home pay)`
-              : `On track saving ${m(contribution, "/mo")} (${pctOfPay}% of take-home pay)`;
 
     Object.values(fields).forEach((id) => {
       const el = $("#" + id);
@@ -3111,13 +3869,17 @@ function setupSimplePlan() {
       getCustomSpendState(r.lifestyle);
     if (isCustomSpend) {
       lastCustomSpend = String(Math.round(customSpendVal * 100) / 100);
+      lastCustomLifestyle = r.lifestyle;
     }
-    const overviewHeaderHTML = buildOverviewPageHeader(
-      fire,
-      r,
-      s,
-      isCustomSpend,
-    );
+    const overviewHeaderHTML = buildOverviewPageHeader(fire);
+    const expenseData = RetirementModel.expensePlan({
+      lifestyle: r.lifestyle,
+      spend: r.todaySpend,
+      itemizedActive: useItemizedExpenses,
+      customExpenses: customExpenseItems,
+      afterCpf: r.afterCpf,
+      customActive: isCustomSpend,
+    });
     const finGridHTML = buildFinOverviewGrid(
       fire,
       r,
@@ -3125,20 +3887,77 @@ function setupSimplePlan() {
       p,
       simulation,
       bogle,
-      simGuide,
-      tax,
       pctOfPay,
       selected,
       isCustomSpend,
+      expenseData,
     );
 
-    const bogleHTML = buildBogleheadSection(bogle, r);
+    const bogleHTML = buildBogleheadSection(bogle);
     const taxSweetHTML = buildTaxSweetSpotSection(tax);
 
     overviewSlot.innerHTML = `
       ${overviewHeaderHTML}
       ${rangeNote}
       ${finGridHTML}`;
+
+    if (expDialog && expModalBody) {
+      const activeEl = document.activeElement;
+      const editingExpenseInput =
+        activeEl &&
+        expModalBody.contains(activeEl) &&
+        ((activeEl.matches?.(
+          'input[data-exp-field="name"], input[data-exp-field="amount"]',
+        ) &&
+          expenseData.isCustom &&
+          expenseData.itemizedActive) ||
+          (activeEl.id === "exp-total-input" &&
+            expenseData.isCustom &&
+            !expenseData.itemizedActive));
+      if (editingExpenseInput) {
+        const tmp = document.createElement("div");
+        tmp.innerHTML = buildExpenseModalBodyHTML(expenseData, r);
+        for (const idSel of ["#exp-editor-sum", "#exp-figure-table-slot"]) {
+          const oldPart = expModalBody.querySelector(idSel);
+          const newPart = tmp.querySelector(idSel);
+          if (oldPart && newPart) oldPart.replaceWith(newPart);
+        }
+        const customSourceSub = expModalBody.querySelector(
+          ".exp-modal-source-btn[data-exp-enter-custom] span",
+        );
+        const newCustomSourceSub = tmp.querySelector(
+          ".exp-modal-source-btn[data-exp-enter-custom] span",
+        );
+        if (customSourceSub && newCustomSourceSub) {
+          customSourceSub.textContent = newCustomSourceSub.textContent;
+        }
+        expenseData.items.forEach((it, idx) => {
+          const pctNode = expModalBody.querySelector(`[data-exp-pct="${idx}"]`);
+          if (pctNode) pctNode.textContent = `${Math.round(it.pct)}%`;
+        });
+      } else {
+        const activePlanSelect = activeEl?.id === "exp-modal-plan";
+        const activeCatIdx = activeEl?.matches?.(
+          'select[data-exp-field="category"]',
+        )
+          ? activeEl.dataset.expIdx
+          : null;
+        expModalBody.innerHTML = buildExpenseModalBodyHTML(expenseData, r);
+        if (activePlanSelect) {
+          $("#exp-modal-plan")?.focus({ preventScroll: true });
+        } else if (activeCatIdx != null) {
+          expModalBody
+            .querySelector(
+              `select[data-exp-field="category"][data-exp-idx="${activeCatIdx}"]`,
+            )
+            ?.focus({ preventScroll: true });
+        }
+      }
+      if ($("#exp-modal-live-summary")) {
+        $("#exp-modal-live-summary").textContent =
+          `Retire Budget ${money(r.todaySpend)}/mo · CPF LIFE ${r.plan === "escalating" ? "Escalating" : "Standard"}`;
+      }
+    }
 
     if ($("#header-lifestyle-label")) {
       $("#header-lifestyle-label").textContent =
@@ -3159,8 +3978,8 @@ function setupSimplePlan() {
     if ($("#header-custom-sub")) {
       $("#header-custom-sub").textContent = isCustomSpend
         ? `${money(r.todaySpend)}/mo · ${r.lifestyle === "cca" ? "CCA care rules" : "Home + Helper care rules"}`
-        : lastCustomSpend
-          ? `${money(Number(lastCustomSpend))}/mo saved · click to restore`
+        : lastCustomSpend && lastCustomLifestyle === r.lifestyle
+          ? `${money(Number(lastCustomSpend))}/mo saved`
           : "Set custom monthly budget…";
     }
 
@@ -3196,6 +4015,41 @@ function setupSimplePlan() {
       if (sRead) sRead.textContent = `${bogle.holistic.sgSleevePct}%`;
     } else {
       allocatorSlot.innerHTML = bogleHTML;
+    }
+
+    currentCashPlan = RetirementModel.cashParkingPlan({
+      summary: r,
+      guide: simGuide,
+      params: p,
+      bogle,
+      masRates: liveMasRates,
+    });
+    if (cashParkingSlot) {
+      const existingBar = cashParkingSlot.querySelector(".cash-filter-bar");
+      const existingWrap = cashParkingSlot.querySelector(".cash-cards-wrap");
+      const existingPlanSlot = cashParkingSlot.querySelector(".cash-plan-slot");
+      const syncPill = cashParkingSlot.querySelector(".cash-sync-pill");
+      if (existingBar && existingWrap && existingPlanSlot) {
+        existingPlanSlot.innerHTML = buildCashPlanCardHTML(currentCashPlan);
+        if (syncPill && currentCashPlan.masSyncLabel) {
+          syncPill.textContent = currentCashPlan.masSyncLabel;
+        }
+        existingWrap.innerHTML = buildCashCardsMarkup(
+          currentCashPlan,
+          cashParkingFilter,
+          false,
+        );
+        syncCashFilterGlider(existingBar, true);
+      } else {
+        cashParkingSlot.innerHTML = buildCashParkingSection(
+          currentCashPlan,
+          cashParkingFilter,
+        );
+        syncCashFilterGlider(
+          cashParkingSlot.querySelector(".cash-filter-bar"),
+          true,
+        );
+      }
     }
 
     const marginalTaxPct = `${(tax.taxBefore.marginalRate * 100).toFixed(1).replace(/\.0$/, "")}%`;
@@ -3263,6 +4117,77 @@ function setupSimplePlan() {
     });
   };
 
+  const loadMasRates = async (force = false, triggerBtn = null) => {
+    if (triggerBtn) {
+      triggerBtn.disabled = true;
+      triggerBtn.textContent = "Syncing…";
+    }
+    try {
+      const url = "./assets/mas-rates.json";
+      const res = await fetch(url, { cache: force ? "no-store" : "no-cache" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if (json?.ssb?.issueCode && json?.tbills?.sixMonth?.cutoffYield != null) {
+        liveMasRates = json;
+        render();
+      }
+      if (triggerBtn) {
+        triggerBtn.textContent = "✓ MAS Synced";
+        setTimeout(() => {
+          if (triggerBtn.isConnected) {
+            triggerBtn.textContent = "↻ Sync MAS";
+            triggerBtn.disabled = false;
+          }
+        }, 1600);
+      }
+    } catch {
+      if (triggerBtn) {
+        triggerBtn.textContent = "Offline snapshot";
+        setTimeout(() => {
+          if (triggerBtn.isConnected) {
+            triggerBtn.textContent = "↻ Sync MAS";
+            triggerBtn.disabled = false;
+          }
+        }, 1800);
+      }
+    }
+  };
+  loadMasRates(false);
+
+  window.addEventListener("rs:tabchange", (ev) => {
+    if (ev.detail?.tab === "cash-parking" && !ev.detail?.profileOpen) {
+      requestAnimationFrame(() => {
+        syncCashFilterGlider(
+          cashParkingSlot?.querySelector(".cash-filter-bar"),
+          true,
+        );
+      });
+    }
+  });
+  window.addEventListener("resize", () => {
+    syncCashFilterGlider(
+      cashParkingSlot?.querySelector(".cash-filter-bar"),
+      true,
+    );
+  });
+  cashParkingSlot?.addEventListener("keydown", (event) => {
+    const btn = event.target.closest("[data-cash-filter]");
+    if (!btn) return;
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    const btns = [...cashParkingSlot.querySelectorAll("[data-cash-filter]")];
+    const idx = btns.indexOf(btn);
+    if (idx === -1) return;
+    event.preventDefault();
+    let nextIdx = idx;
+    if (event.key === "ArrowRight") nextIdx = (idx + 1) % btns.length;
+    else if (event.key === "ArrowLeft")
+      nextIdx = (idx - 1 + btns.length) % btns.length;
+    else if (event.key === "Home") nextIdx = 0;
+    else if (event.key === "End") nextIdx = btns.length - 1;
+    btns[nextIdx]?.focus();
+    btns[nextIdx]?.click();
+  });
+
   const scheduleRender = () => {
     if (rafHandle != null) return;
     rafHandle = requestAnimationFrame(() => {
@@ -3299,10 +4224,30 @@ function setupSimplePlan() {
     if (el) {
       el.addEventListener("input", () => {
         if (id === "person-dob" && el.validity.badInput) return;
+        if (id === "known-spend") {
+          const trimmed = el.value.trim();
+          if (trimmed === "") {
+            clearCustomBudgetState();
+          } else {
+            customBudgetActive = true;
+            useItemizedExpenses = false;
+          }
+        } else if (id === "known-lifestyle") {
+          clearCustomBudgetState();
+        }
         if (bucketIds.includes(id)) {
           syncBucketsToTotal();
         } else if (id === "known-savings") {
           clearBucketsOnDirectTotalEdit();
+        } else if (id === "known-cpf-extra") {
+          const clamped = clampSavingToTakeHome(el, $("#known-invest"));
+          const help = $("#cpf-extra-help");
+          if (help) {
+            help.textContent =
+              clamped !== false
+                ? `Capped at ${money(clamped)}/mo (within your ${money(currentAfterCpfCap)}/mo take-home pay).`
+                : "On top of salary CPF. Stops by 55 or retirement. Leave blank for the suggested amount.";
+          }
         }
         render();
       });
@@ -3355,8 +4300,8 @@ function setupSimplePlan() {
     targetEquityPct: 80,
     sgSleevePct: 10,
     plan: "standard",
-    returnRate: 0.04,
-    inflationRate: 0.03,
+    returnRate: 0.05,
+    inflationRate: 0.025,
     post55Work: false,
     housingMode: "all-oa",
     housingBalance: "",
@@ -3367,6 +4312,8 @@ function setupSimplePlan() {
 
   const resetSgDefaults = () => {
     lastCustomSpend = "";
+    lastCustomLifestyle = "";
+    clearCustomBudgetState();
     applyPlanObject(SG_DEFAULT_PLAN);
     selected = "salary";
     learningTarget = "frs";
@@ -3416,6 +4363,239 @@ function setupSimplePlan() {
       render();
       return;
     }
+    const cashFilterBtn = event.target.closest("[data-cash-filter]");
+    if (cashFilterBtn) {
+      const nextFilter = cashFilterBtn.dataset.cashFilter || "all";
+      if (nextFilter === cashParkingFilter) return;
+      cashParkingFilter = nextFilter;
+      if (cashParkingSlot && currentCashPlan) {
+        const bar = cashParkingSlot.querySelector(".cash-filter-bar");
+        const wrap = cashParkingSlot.querySelector(".cash-cards-wrap");
+        if (!bar || !wrap) {
+          cashParkingSlot.innerHTML = buildCashParkingSection(
+            currentCashPlan,
+            cashParkingFilter,
+          );
+          syncCashFilterGlider(
+            cashParkingSlot.querySelector(".cash-filter-bar"),
+            true,
+          );
+          return;
+        }
+        bar.querySelectorAll("[data-cash-filter]").forEach((btn) => {
+          const isMatch =
+            (btn.dataset.cashFilter || "all") === cashParkingFilter;
+          btn.classList.toggle("is-active", isMatch);
+          btn.setAttribute("aria-pressed", String(isMatch));
+        });
+        syncCashFilterGlider(bar, false);
+
+        if (cashAnimFrame) {
+          cancelAnimationFrame(cashAnimFrame);
+          cashAnimFrame = 0;
+          wrap.style.height = "";
+          wrap.style.overflow = "";
+        }
+
+        const reducedMotion = window.matchMedia?.(
+          "(prefers-reduced-motion: reduce)",
+        )?.matches;
+        const startHeight = wrap.getBoundingClientRect().height;
+        const startScrollY = window.scrollY;
+        const docHeightBefore = document.documentElement.scrollHeight;
+
+        if (!reducedMotion && startHeight > 0) {
+          wrap.style.height = `${startHeight.toFixed(1)}px`;
+          wrap.style.overflow = "hidden";
+        }
+
+        wrap.innerHTML = buildCashCardsMarkup(
+          currentCashPlan,
+          cashParkingFilter,
+          !reducedMotion,
+        );
+        const endGrid = wrap.querySelector(".cash-cards-grid");
+        const endHeight = endGrid ? endGrid.getBoundingClientRect().height : 0;
+        const heightDelta = endHeight - startHeight;
+
+        if (reducedMotion || Math.abs(heightDelta) < 2) {
+          wrap.style.height = "";
+          wrap.style.overflow = "";
+          return;
+        }
+
+        const newMaxScroll = Math.max(
+          0,
+          docHeightBefore + heightDelta - window.innerHeight,
+        );
+        const targetScrollY =
+          heightDelta < 0 && startScrollY > newMaxScroll
+            ? newMaxScroll
+            : startScrollY;
+
+        const duration = 340;
+        const t0 = performance.now();
+
+        const step = (now) => {
+          const p = Math.min(1, (now - t0) / duration);
+          const ease = 1 - Math.pow(1 - p, 3);
+          const h = startHeight + heightDelta * ease;
+          wrap.style.height = `${Math.max(0, h).toFixed(1)}px`;
+          if (targetScrollY !== startScrollY) {
+            window.scrollTo({
+              top: startScrollY + (targetScrollY - startScrollY) * ease,
+              behavior: "instant",
+            });
+          }
+          if (p < 1) {
+            cashAnimFrame = requestAnimationFrame(step);
+          } else {
+            wrap.style.height = "";
+            wrap.style.overflow = "";
+            cashAnimFrame = 0;
+          }
+        };
+        cashAnimFrame = requestAnimationFrame(step);
+      }
+      return;
+    }
+    const cashSyncBtn = event.target.closest("[data-cash-sync]");
+    if (cashSyncBtn) {
+      loadMasRates(true, cashSyncBtn);
+      return;
+    }
+    const openExpModalBtn = event.target.closest("[data-open-expense-modal]");
+    if (openExpModalBtn) {
+      event.preventDefault();
+      const invoker = event.target.closest("#header-lifestyle-menu")
+        ? $("#header-lifestyle-pill") || openExpModalBtn
+        : openExpModalBtn;
+      openExpenseModal(
+        openExpModalBtn.dataset.openExpenseModal || "auto",
+        invoker,
+      );
+      return;
+    }
+    const expEnterCustomBtn = event.target.closest("[data-exp-enter-custom]");
+    if (expEnterCustomBtn) {
+      const insideModal = Boolean(expDialog?.contains(expEnterCustomBtn));
+      enterCustomExpenseMode(insideModal ? lastExpInvoker : expEnterCustomBtn);
+      return;
+    }
+    const expModeBtn = event.target.closest("[data-exp-custom-mode]");
+    if (expModeBtn) {
+      const nextMode = expModeBtn.dataset.expCustomMode;
+      const life = $("#known-lifestyle")?.value || "cca";
+      const curSpend = getCustomSpendState(life).spend;
+      customBudgetActive = true;
+      if (nextMode === "itemized") {
+        customExpenseItems = customExpenseItems.length
+          ? RetirementModel.scaleExpenseItems(
+              customExpenseItems,
+              curSpend,
+              life,
+            )
+          : RetirementModel.defaultExpenseItems(life, curSpend);
+        useItemizedExpenses = true;
+        const tot = sumCustomExpenseItems();
+        if ($("#known-spend")) $("#known-spend").value = String(tot);
+        render();
+        requestAnimationFrame(() => {
+          expModalBody
+            ?.querySelector('[data-exp-custom-mode="itemized"]')
+            ?.focus({ preventScroll: true });
+        });
+      } else {
+        const curTotal =
+          useItemizedExpenses && customExpenseItems.length
+            ? sumCustomExpenseItems()
+            : curSpend;
+        useItemizedExpenses = false;
+        if ($("#known-spend")) $("#known-spend").value = String(curTotal);
+        render();
+        requestAnimationFrame(() => {
+          const totalInput = $("#exp-total-input");
+          totalInput?.focus({ preventScroll: true });
+          totalInput?.select();
+        });
+      }
+      return;
+    }
+    const expAddBtn = event.target.closest("[data-exp-add]");
+    if (expAddBtn) {
+      if (!customExpenseItems.length) {
+        const life = $("#known-lifestyle")?.value || "cca";
+        customExpenseItems = RetirementModel.defaultExpenseItems(
+          life,
+          getCustomSpendState(life).spend,
+        );
+      }
+      customExpenseItems.push({
+        id: "exp-" + Date.now(),
+        name: "New expense",
+        category: "food",
+        amount: 0,
+      });
+      customBudgetActive = true;
+      useItemizedExpenses = true;
+      const tot = sumCustomExpenseItems();
+      if ($("#known-spend")) $("#known-spend").value = String(tot);
+      render();
+      requestAnimationFrame(() => {
+        const inputs =
+          expModalBody?.querySelectorAll('[data-exp-field="name"]') || [];
+        const last = inputs[inputs.length - 1];
+        last?.focus();
+        last?.select();
+      });
+      return;
+    }
+    const expRemBtn = event.target.closest("[data-exp-remove]");
+    if (expRemBtn) {
+      const idx = Number(expRemBtn.dataset.expRemove);
+      if (
+        Number.isInteger(idx) &&
+        idx >= 0 &&
+        idx < customExpenseItems.length
+      ) {
+        customExpenseItems.splice(idx, 1);
+        customBudgetActive = true;
+        useItemizedExpenses = customExpenseItems.length > 0;
+        const tot = customExpenseItems.length ? sumCustomExpenseItems() : 0;
+        if ($("#known-spend")) $("#known-spend").value = String(tot);
+        render();
+      }
+      return;
+    }
+    const expLoadBtn = event.target.closest("[data-exp-load]");
+    if (expLoadBtn) {
+      const curCustom = getCustomSpendState();
+      if (curCustom.isCustom) {
+        lastCustomSpend = String(Math.round(curCustom.spend * 100) / 100);
+        lastCustomLifestyle = $("#known-lifestyle")?.value || "cca";
+      }
+      const targetLife =
+        expLoadBtn.dataset.expLoad === "home-helper" ? "home-helper" : "cca";
+      if ($("#known-lifestyle")) $("#known-lifestyle").value = targetLife;
+      if (
+        targetLife === "cca" &&
+        Number($("#known-retire")?.value || 65) < 55
+      ) {
+        if ($("#known-retire")) $("#known-retire").value = "55";
+        if ($("#qe-retire")) $("#qe-retire").value = "55";
+      }
+      clearCustomBudgetState();
+      if ($("#known-spend")) $("#known-spend").value = "";
+      render();
+      if (expDialog?.open) {
+        requestAnimationFrame(() => {
+          expModalBody
+            ?.querySelector(`[data-exp-load="${targetLife}"]`)
+            ?.focus({ preventScroll: true });
+        });
+      }
+      return;
+    }
     const activityTabBtn = event.target.closest("[data-fin-activity]");
     if (activityTabBtn) {
       finActivityTab = activityTabBtn.dataset.finActivity || "coverage";
@@ -3432,27 +4612,7 @@ function setupSimplePlan() {
     }
     const selectCustomBtn = event.target.closest("[data-select-custom]");
     if (selectCustomBtn) {
-      if (lifeMenu) lifeMenu.hidden = true;
-      $("#header-lifestyle-pill")?.setAttribute("aria-expanded", "false");
-      const currentState = getCustomSpendState();
-      if (!currentState.isCustom && lastCustomSpend) {
-        $("#known-spend").value = lastCustomSpend;
-        if ($("#qe-spend")) $("#qe-spend").value = lastCustomSpend;
-        render();
-        return;
-      }
-      lastQeInvoker = $("#header-lifestyle-pill") || selectCustomBtn;
-      if ($("#qe-lifestyle")) $("#qe-lifestyle").dataset.pendingCustom = "true";
-      syncQuickEditState(null, currentFirePlan, null);
-      setQuickEditPanel("budget", false);
-      const scroller = qeDialog?.querySelector(".settings-scroll-body");
-      if (scroller) scroller.scrollTop = 0;
-      if (qeDialog && !qeDialog.open) qeDialog.showModal();
-      requestAnimationFrame(() => {
-        $("#qe-spend")?.focus();
-        $("#qe-spend")?.select();
-      });
-      render();
+      enterCustomExpenseMode($("#header-lifestyle-pill") || selectCustomBtn);
       return;
     }
     const switchLifeBtn = event.target.closest("[data-switch-lifestyle]");
@@ -3462,12 +4622,11 @@ function setupSimplePlan() {
         const curCustom = getCustomSpendState();
         if (curCustom.isCustom) {
           lastCustomSpend = String(Math.round(curCustom.spend * 100) / 100);
+          lastCustomLifestyle = $("#known-lifestyle")?.value || "cca";
         }
-        delete $("#qe-lifestyle")?.dataset.pendingCustom;
+        clearCustomBudgetState();
         $("#known-lifestyle").value = nextVal;
         $("#known-spend").value = "";
-        if ($("#qe-spend")) $("#qe-spend").value = "";
-        if ($("#qe-lifestyle")) $("#qe-lifestyle").value = nextVal;
         if (nextVal === "cca" && Number($("#known-retire")?.value || 65) < 55) {
           $("#known-retire").value = "55";
           if ($("#qe-retire")) $("#qe-retire").value = "55";
@@ -3500,6 +4659,228 @@ function setupSimplePlan() {
     }
   });
 
+  function openExpenseModal(mode = "auto", invoker = null) {
+    if (!expDialog) return;
+    const lifeMenu = $("#header-lifestyle-menu");
+    if (lifeMenu && !lifeMenu.hidden) {
+      lifeMenu.hidden = true;
+      $("#header-lifestyle-pill")?.setAttribute("aria-expanded", "false");
+    }
+    if (invoker) lastExpInvoker = invoker;
+    else if (!expDialog.open) lastExpInvoker = document.activeElement;
+    if (!expDialog.open) {
+      const scroller = expDialog.querySelector(".settings-scroll-body");
+      if (scroller) scroller.scrollTop = 0;
+      expDialog.showModal();
+    }
+    render();
+    if (expModalBody && !expModalBody.innerHTML.trim()) {
+      const life = $("#known-lifestyle")?.value || "cca";
+      const customSt = getCustomSpendState(life);
+      const fallbackPlan = RetirementModel.expensePlan({
+        lifestyle: life,
+        spend: customSt.spend,
+        itemizedActive: useItemizedExpenses,
+        customExpenses: customExpenseItems,
+        afterCpf: Number($("#person-salary")?.value || 5500) * 0.8,
+        customActive: customSt.isCustom,
+      });
+      expModalBody.innerHTML = buildExpenseModalBodyHTML(fallbackPlan, {
+        plan: $("#known-plan")?.value || "standard",
+      });
+    }
+    requestAnimationFrame(() => {
+      if (mode === "custom") {
+        if (!useItemizedExpenses) {
+          const totalInput = $("#exp-total-input");
+          totalInput?.focus({ preventScroll: true });
+          totalInput?.select();
+        } else {
+          expModalBody
+            ?.querySelector('[data-exp-custom-mode="itemized"]')
+            ?.focus({ preventScroll: true });
+        }
+      } else if (!expDialog.contains(document.activeElement)) {
+        expModalBody
+          ?.querySelector(".exp-modal-source-btn.is-active, [data-exp-load]")
+          ?.focus({ preventScroll: true });
+      }
+    });
+  }
+
+  function enterCustomExpenseMode(invoker = null) {
+    const life = $("#known-lifestyle")?.value || "cca";
+    const curState = getCustomSpendState(life);
+    if (!curState.isCustom) {
+      customBudgetActive = true;
+      if (
+        lastCustomSpend &&
+        lastCustomLifestyle === life &&
+        Math.round(Number(lastCustomSpend) * 100) !==
+          Math.round(curState.presetBudget * 100)
+      ) {
+        useItemizedExpenses = false;
+        customExpenseItems = RetirementModel.defaultExpenseItems(
+          life,
+          Number(lastCustomSpend),
+        );
+        if ($("#known-spend")) $("#known-spend").value = lastCustomSpend;
+      } else {
+        useItemizedExpenses = true;
+        customExpenseItems = RetirementModel.defaultExpenseItems(
+          life,
+          curState.presetBudget,
+        );
+        if ($("#known-spend"))
+          $("#known-spend").value = String(curState.presetBudget);
+      }
+    }
+    openExpenseModal("custom", invoker);
+  }
+
+  if (expDialog) {
+    bindDialogBackdropDismiss(expDialog);
+    expDialog.addEventListener("click", (event) => {
+      if (event.target.closest("#exp-modal-open-settings")) {
+        expDialog.dataset.flowNavigation = "true";
+        expDialog.close();
+        document.querySelector("[data-open-profile]")?.click();
+        return;
+      }
+      if (event.target.closest("[data-exp-modal-close]")) {
+        expDialog.close();
+      }
+    });
+
+    expDialog.addEventListener("change", (event) => {
+      if (event.target.id === "exp-modal-plan") {
+        if ($("#known-plan")) $("#known-plan").value = event.target.value;
+        render();
+        return;
+      }
+      const expField = event.target.dataset?.expField;
+      if (expField === "category") {
+        const idx = Number(event.target.dataset.expIdx);
+        if (!customExpenseItems.length) {
+          const life = $("#known-lifestyle")?.value || "cca";
+          customExpenseItems = RetirementModel.defaultExpenseItems(
+            life,
+            getCustomSpendState(life).spend,
+          );
+        }
+        if (customExpenseItems[idx]) {
+          customExpenseItems[idx].category = event.target.value;
+          customBudgetActive = true;
+          useItemizedExpenses = true;
+          const tot = sumCustomExpenseItems();
+          if ($("#known-spend")) $("#known-spend").value = String(tot);
+          render();
+        }
+      }
+    });
+
+    expDialog.addEventListener("input", (event) => {
+      if (event.target.id === "exp-total-input") {
+        const raw = event.target.value.trim();
+        const syncVal = raw === "" ? "0" : raw;
+        customBudgetActive = true;
+        useItemizedExpenses = false;
+        if ($("#known-spend")) $("#known-spend").value = syncVal;
+        scheduleRender();
+        return;
+      }
+      const expField = event.target.dataset?.expField;
+      if (expField === "name" || expField === "amount") {
+        const idx = Number(event.target.dataset.expIdx);
+        if (!customExpenseItems.length) {
+          const life = $("#known-lifestyle")?.value || "cca";
+          customExpenseItems = RetirementModel.defaultExpenseItems(
+            life,
+            getCustomSpendState(life).spend,
+          );
+        }
+        if (customExpenseItems[idx]) {
+          if (expField === "name") {
+            customExpenseItems[idx].name = event.target.value;
+          } else {
+            const raw = event.target.value.trim();
+            const num = raw === "" ? 0 : Math.max(0, Number(raw) || 0);
+            customExpenseItems[idx].amount = Math.round(num * 100) / 100;
+          }
+          customBudgetActive = true;
+          useItemizedExpenses = true;
+          const tot = sumCustomExpenseItems();
+          if ($("#known-spend")) $("#known-spend").value = String(tot);
+          scheduleRender();
+        }
+      }
+    });
+
+    expDialog.addEventListener("close", () => {
+      const spendEl = $("#known-spend");
+      if (spendEl) {
+        const raw = spendEl.value.trim();
+        if (spendEl.validity.badInput) {
+          spendEl.value = lastValidFieldValues["known-spend"] ?? "";
+          render();
+        } else if (raw !== "" && !spendEl.validity.valid) {
+          const minV = Number(spendEl.min || 0);
+          const maxV = spendEl.max !== "" ? Number(spendEl.max) : Infinity;
+          spendEl.value = String(Math.min(maxV, Math.max(minV, Number(raw))));
+          render();
+        }
+      }
+      if (expDialog.dataset.flowNavigation) {
+        delete expDialog.dataset.flowNavigation;
+        return;
+      }
+      if (lastExpInvoker?.isConnected) {
+        lastExpInvoker.focus({ preventScroll: true });
+      }
+    });
+  }
+
+  planRoot.addEventListener("mouseover", (event) => {
+    const target = event.target.closest(
+      "#expense-breakdown-card [data-exp-cat]",
+    );
+    const card = $("#expense-breakdown-card");
+    if (!card) return;
+    card
+      .querySelectorAll("[data-exp-cat]")
+      .forEach((el) => el.classList.remove("is-hl"));
+    const pill = card.querySelector("#exp-pie-hover-pill");
+    if (!target) {
+      if (pill) pill.hidden = true;
+      return;
+    }
+    const catKey = target.dataset.expCat;
+    card
+      .querySelectorAll(`[data-exp-cat="${catKey}"]`)
+      .forEach((el) => el.classList.add("is-hl"));
+    const row = card.querySelector(`.exp-cat-row[data-exp-cat="${catKey}"]`);
+    if (pill && row) {
+      const name =
+        row
+          .querySelector(".exp-cat-name")
+          ?.textContent?.replace(/\(\d+\)/, "")
+          .trim() || "";
+      const val = row.querySelector(".exp-cat-val")?.textContent?.trim() || "";
+      pill.textContent = `${name}: ${val}`;
+      pill.hidden = false;
+    }
+  });
+  planRoot.addEventListener("mouseout", (event) => {
+    const card = $("#expense-breakdown-card");
+    if (!card || (event.relatedTarget && card.contains(event.relatedTarget)))
+      return;
+    card
+      .querySelectorAll("[data-exp-cat].is-hl")
+      .forEach((el) => el.classList.remove("is-hl"));
+    const pill = card.querySelector("#exp-pie-hover-pill");
+    if (pill) pill.hidden = true;
+  });
+
   planRoot.addEventListener("input", (event) => {
     if (event.target.id === "bogle-target-slider") {
       const val = Number(event.target.value);
@@ -3512,26 +4893,65 @@ function setupSimplePlan() {
     }
   });
 
+  const clampSavingToTakeHome = (input, otherInput) => {
+    const raw = input.value.trim();
+    if (raw === "") return false;
+    const val = Number(raw);
+    if (!Number.isFinite(val) || val < 0) return false;
+    const otherManual = Math.max(
+      0,
+      otherInput && otherInput.value.trim() !== ""
+        ? Number(otherInput.value) || 0
+        : 0,
+    );
+    const maxAllowed = Math.max(0, currentAfterCpfCap - otherManual);
+    if (val > maxAllowed) {
+      input.value = String(maxAllowed);
+      return maxAllowed;
+    }
+    return false;
+  };
+
   $("#sim-invest").addEventListener("input", () => {
-    if (!$("#sim-invest").validity.valid) {
+    const clamped = clampSavingToTakeHome(
+      $("#sim-invest"),
+      $("#known-cpf-extra"),
+    );
+    if (clamped === false && !$("#sim-invest").validity.valid) {
       setError(
-        "Enter a non-negative monthly investment amount, without commas or dollar signs.",
+        "Enter a monthly investment amount within your take-home pay, without commas or dollar signs.",
       );
       return;
     }
     $("#known-invest").value = $("#sim-invest").value;
     render();
+    if (clamped !== false) {
+      const help = $("#sim-invest-help");
+      if (help) {
+        help.textContent = `Capped at ${money(clamped)}/mo (within your ${money(currentAfterCpfCap)}/mo take-home pay).`;
+      }
+    }
   });
   $("#savings-simulator").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-adjust]");
     if (!button) return;
     const input = $("#" + button.dataset.adjust);
+    const other =
+      input.id === "sim-invest" ? $("#known-cpf-extra") : $("#sim-invest");
+    const otherManual =
+      other && other.value.trim() !== ""
+        ? Math.max(0, Number(other.value) || 0)
+        : 0;
+    const maxAllowed = Math.max(0, currentAfterCpfCap - otherManual);
     const current =
       input.value === "" ? Number(input.placeholder) : Number(input.value);
     input.value = String(
-      Math.max(
-        0,
-        Math.round((current + Number(button.dataset.delta)) * 100) / 100,
+      Math.min(
+        maxAllowed,
+        Math.max(
+          0,
+          Math.round((current + Number(button.dataset.delta)) * 100) / 100,
+        ),
       ),
     );
     if (input.id === "sim-invest") $("#known-invest").value = input.value;
@@ -3633,9 +5053,6 @@ function setupSimplePlan() {
   const qeBindings = [
     ["qe-dob", "person-dob"],
     ["qe-retire", "known-retire"],
-    ["qe-lifestyle", "known-lifestyle"],
-    ["qe-spend", "known-spend"],
-    ["qe-plan", "known-plan"],
     ["qe-salary", "person-salary"],
     ["qe-housing-mode", "known-housing-mode"],
     ["qe-housing-balance", "known-housing-balance"],
@@ -3671,35 +5088,12 @@ function setupSimplePlan() {
     const qeRetire = $("#qe-retire");
     if (qeRetire) qeRetire.min = String(minRetire);
 
-    const customState = getCustomSpendState(r?.lifestyle);
     for (const [qeId, srcId] of qeBindings) {
-      if (qeId === "qe-lifestyle") continue;
       const qeEl = $("#" + qeId);
       const srcEl = $("#" + srcId);
       if (!qeEl || !srcEl) continue;
       if (document.activeElement !== qeEl) {
         qeEl.value = srcEl.value;
-      }
-    }
-
-    const qeLifestyleEl = $("#qe-lifestyle");
-    if (qeLifestyleEl) {
-      const customOpt = qeLifestyleEl.querySelector('option[value="custom"]');
-      if (customOpt) {
-        customOpt.textContent = customState.isCustom
-          ? `Custom (${money(customState.spend)}/mo)`
-          : lastCustomSpend
-            ? `Custom (${money(Number(lastCustomSpend))}/mo saved)`
-            : "Custom";
-      }
-      if (document.activeElement !== qeLifestyleEl) {
-        if (customState.isCustom) {
-          qeLifestyleEl.value = "custom";
-        } else if (qeLifestyleEl.dataset.pendingCustom === "true") {
-          qeLifestyleEl.value = "custom";
-        } else {
-          qeLifestyleEl.value = customState.lifestyleKey;
-        }
       }
     }
 
@@ -3710,29 +5104,15 @@ function setupSimplePlan() {
         (delta < 0 && curRetire <= minRetire) || (delta > 0 && curRetire >= 80);
     });
 
-    const lifestyleVal = customState.lifestyleKey;
-    const defaultBudget = customState.presetBudget;
-    const qeSpend = $("#qe-spend");
-    if (qeSpend) qeSpend.placeholder = String(defaultBudget);
-    const qeResetSpend = $("#qe-reset-spend");
-    if (qeResetSpend) {
-      qeResetSpend.hidden = !customState.isCustom;
-    }
-    const qeLifestyleHint = $("#qe-lifestyle-hint");
-    if (qeLifestyleHint) {
-      qeLifestyleHint.textContent = customState.isCustom
-        ? `Using custom budget (${money(customState.spend)}/mo · ${lifestyleVal === "cca" ? "CCA care rules, from age 55" : "Home + Helper care rules, from age 40"}).`
-        : lifestyleVal === "cca"
-          ? "CCA assumes moving in at retirement, from age 55."
-          : "Assumes a paid-up flat with live-in helper, from age 40.";
-    }
-
     if (r && simulation) {
+      const capStr = String(Math.max(0, Math.floor(r.afterCpf)));
       if ($("#qe-cpf-extra")) {
+        $("#qe-cpf-extra").max = capStr;
         $("#qe-cpf-extra").placeholder = String(Math.ceil(simulation.cpfExtra));
         $("#qe-cpf-extra").disabled = r.retiringNow;
       }
       if ($("#qe-invest")) {
+        $("#qe-invest").max = capStr;
         $("#qe-invest").placeholder = String(Math.ceil(simulation.invest));
         $("#qe-invest").disabled = r.retiringNow;
       }
@@ -3753,6 +5133,23 @@ function setupSimplePlan() {
           readyBtn.textContent = `Use ready age ${fn.projectedFireAge}`;
         }
       }
+      const salaryTakeHomeEl = $("#qe-salary-takehome");
+      if (salaryTakeHomeEl) {
+        const netPct =
+          r.salary > 0
+            ? Math.min(100, Math.round((r.afterCpf / r.salary) * 100))
+            : 80;
+        const cpfPct = Math.max(0, 100 - netPct);
+        salaryTakeHomeEl.innerHTML = `
+          <div class="qe-split-bar" aria-hidden="true">
+            <span class="qe-split-net" style="width:${netPct}%"></span>
+            <span class="qe-split-cpf" style="width:${cpfPct}%"></span>
+          </div>
+          <div class="qe-split-legend">
+            <span><i style="background:var(--primary);"></i>Take-home <strong>${m(r.afterCpf, "/mo")}</strong> (${netPct}%)</span>
+            <span><i style="background:var(--sem-cpf);"></i>Employee CPF <strong>−${m(r.employeeCpf, "/mo")}</strong> (${cpfPct}%)</span>
+          </div>`;
+      }
       const breakdownEl = $("#qe-balances-breakdown");
       if (breakdownEl) {
         const startPt = fire.points[0];
@@ -3772,7 +5169,7 @@ function setupSimplePlan() {
             : `Direct total ${m(outTot)}`;
         breakdownEl.innerHTML = `
           <div class="qe-bd-top">
-            <span>Total Current Assets</span>
+            <span>Total Assets</span>
             <strong>${m(cpfTot + outTot)}</strong>
           </div>
           <div class="qe-bd-rows">
@@ -3789,7 +5186,7 @@ function setupSimplePlan() {
         const horizon = fn.fullyFundedTo95
           ? "Sustained to 95+"
           : `Funded to ${Math.floor(fn.depletionAge ?? 90)}`;
-        qeSummary.textContent = `Age ${r.age} → ${r.retire} · ${funded} · ${horizon}`;
+        qeSummary.textContent = `${funded} · ${horizon}`;
       }
     }
   }
@@ -3797,12 +5194,16 @@ function setupSimplePlan() {
   const qePanelMeta = {
     age: { title: "Date of Birth & Age", focus: "#qe-dob" },
     goal: { title: "Target Retirement Age", focus: "#qe-retire" },
-    budget: { title: "Living Budget & CPF LIFE", focus: "#qe-lifestyle" },
-    income: { title: "Monthly Savings & Salary", focus: "#qe-salary" },
+    salary: { title: "Monthly Salary & Take-Home", focus: "#qe-salary" },
+    income: { title: "Monthly Savings & Housing", focus: "#qe-invest" },
     balances: { title: "CPF & Investment Balances", focus: "#qe-oa" },
   };
 
-  function setQuickEditPanel(panelKey, focusInput = false) {
+  function setQuickEditPanel(
+    panelKey,
+    focusInput = false,
+    focusOverride = null,
+  ) {
     const validPanels = Object.keys(qePanelMeta);
     activeQeTab = validPanels.includes(panelKey) ? panelKey : "goal";
     qeDialog.dataset.qePanel = activeQeTab;
@@ -3813,7 +5214,8 @@ function setupSimplePlan() {
       if (panel) panel.hidden = key !== activeQeTab;
     });
     if (focusInput) {
-      requestAnimationFrame(() => $(qePanelMeta[activeQeTab].focus)?.focus());
+      const focusSel = focusOverride || qePanelMeta[activeQeTab].focus;
+      requestAnimationFrame(() => $(focusSel)?.focus());
     }
   }
 
@@ -3822,6 +5224,10 @@ function setupSimplePlan() {
       const trigger = event.target.closest("[data-quick-edit]");
       if (!trigger) return;
       event.preventDefault();
+      if (trigger.dataset.quickEdit === "budget") {
+        openExpenseModal("auto", trigger);
+        return;
+      }
       const lifeMenu = $("#header-lifestyle-menu");
       if (lifeMenu && !lifeMenu.hidden) {
         lifeMenu.hidden = true;
@@ -3831,24 +5237,18 @@ function setupSimplePlan() {
         ? $("#header-lifestyle-pill") || trigger
         : trigger;
       syncQuickEditState(null, currentFirePlan, null);
-      setQuickEditPanel(trigger.dataset.quickEdit || "goal", true);
+      setQuickEditPanel(
+        trigger.dataset.quickEdit || "goal",
+        true,
+        trigger.dataset.qeFocus || null,
+      );
       const scroller = qeDialog.querySelector(".settings-scroll-body");
       if (scroller) scroller.scrollTop = 0;
       if (!qeDialog.open) qeDialog.showModal();
       render();
     });
 
-    let qeBackdropPointerDown = false;
-    qeDialog.addEventListener("pointerdown", (event) => {
-      const rect = qeDialog.getBoundingClientRect();
-      qeBackdropPointerDown =
-        event.target === qeDialog &&
-        (event.clientX < rect.left ||
-          event.clientX > rect.right ||
-          event.clientY < rect.top ||
-          event.clientY > rect.bottom);
-    });
-
+    bindDialogBackdropDismiss(qeDialog);
     qeDialog.addEventListener("click", (event) => {
       const deltaBtn = event.target.closest("[data-qe-retire-delta]");
       if (deltaBtn) {
@@ -3875,16 +5275,7 @@ function setupSimplePlan() {
         }
         return;
       }
-      if (event.target.closest("#qe-reset-spend")) {
-        const curCustom = getCustomSpendState();
-        if (curCustom.isCustom) {
-          lastCustomSpend = String(Math.round(curCustom.spend * 100) / 100);
-        }
-        $("#known-spend").value = "";
-        if ($("#qe-spend")) $("#qe-spend").value = "";
-        render();
-        return;
-      }
+
       if (event.target.closest("#qe-open-full-settings")) {
         qeDialog.dataset.flowNavigation = "true";
         qeDialog.close();
@@ -3892,20 +5283,6 @@ function setupSimplePlan() {
         return;
       }
       if (event.target.closest("[data-qe-close]")) {
-        qeDialog.close();
-        return;
-      }
-      const shouldCloseBackdrop = qeBackdropPointerDown;
-      qeBackdropPointerDown = false;
-      const rect = qeDialog.getBoundingClientRect();
-      if (
-        shouldCloseBackdrop &&
-        event.target === qeDialog &&
-        (event.clientX < rect.left ||
-          event.clientX > rect.right ||
-          event.clientY < rect.top ||
-          event.clientY > rect.bottom)
-      ) {
         qeDialog.close();
       }
     });
@@ -3915,46 +5292,25 @@ function setupSimplePlan() {
       const srcEl = $("#" + srcId);
       if (!qeEl || !srcEl) return;
       const syncBack = () => {
-        if (qeId === "qe-lifestyle") {
-          if (qeEl.value === "custom") {
-            if (lastCustomSpend && $("#known-spend").value.trim() === "") {
-              $("#known-spend").value = lastCustomSpend;
-              if ($("#qe-spend")) $("#qe-spend").value = lastCustomSpend;
-              delete qeEl.dataset.pendingCustom;
-              render();
-            } else {
-              qeEl.dataset.pendingCustom = "true";
-              syncQuickEditState(null, currentFirePlan, null);
-            }
-            requestAnimationFrame(() => {
-              $("#qe-spend")?.focus();
-              $("#qe-spend")?.select();
-            });
-            return;
-          }
-          const curCustom = getCustomSpendState();
-          if (curCustom.isCustom) {
-            lastCustomSpend = String(Math.round(curCustom.spend * 100) / 100);
-          }
-          delete qeEl.dataset.pendingCustom;
-          srcEl.value = qeEl.value;
-          $("#known-spend").value = "";
-          if ($("#qe-spend")) $("#qe-spend").value = "";
-          if (
-            qeEl.value === "cca" &&
-            Number($("#known-retire")?.value || 65) < 55
-          ) {
-            $("#known-retire").value = "55";
-            if ($("#qe-retire")) $("#qe-retire").value = "55";
-          }
-          render();
-          return;
-        }
         if (qeId === "qe-dob" && qeEl.validity.badInput) {
           return;
         }
-        if (qeId === "qe-spend" && qeEl.value.trim() !== "") {
-          delete $("#qe-lifestyle")?.dataset.pendingCustom;
+        if (qeId === "qe-invest" || qeId === "qe-cpf-extra") {
+          const otherQe =
+            qeId === "qe-invest" ? $("#qe-cpf-extra") : $("#qe-invest");
+          const capped = clampSavingToTakeHome(qeEl, otherQe);
+          const hintEl = $(
+            qeId === "qe-invest" ? "#qe-invest-hint" : "#qe-cpf-extra-hint",
+          );
+          if (hintEl) {
+            hintEl.textContent =
+              capped !== false
+                ? `Capped at ${money(capped)}/mo (within your ${money(currentAfterCpfCap)}/mo take-home pay).`
+                : qeId === "qe-invest"
+                  ? "Leave blank for suggested saving target."
+                  : "Leave blank for target path suggestion.";
+            hintEl.classList.toggle("is-capped", capped !== false);
+          }
         }
         srcEl.value = qeEl.value;
         if (qeId === "qe-housing-mode") {
@@ -3988,16 +5344,10 @@ function setupSimplePlan() {
     });
 
     qeDialog.addEventListener("close", () => {
-      delete $("#qe-lifestyle")?.dataset.pendingCustom;
       let corrected = false;
       const minRetire = getMinRetireAge();
       for (const [qeId, srcId] of qeBindings) {
-        if (
-          qeId === "qe-lifestyle" ||
-          qeId === "qe-plan" ||
-          qeId === "qe-housing-mode" ||
-          qeId === "qe-housing-parties"
-        )
+        if (qeId === "qe-housing-mode" || qeId === "qe-housing-parties")
           continue;
         const qeEl = $("#" + qeId);
         const srcEl = $("#" + srcId);
@@ -4083,30 +5433,7 @@ function setupSettings() {
     if (lastInvoker?.isConnected) lastInvoker.focus({ preventScroll: true });
     else $(".settings-header-button").focus({ preventScroll: true });
   });
-  let psBackdropPointerDown = false;
-  dialog.addEventListener("pointerdown", (event) => {
-    const r = dialog.getBoundingClientRect();
-    psBackdropPointerDown =
-      event.target === dialog &&
-      (event.clientX < r.left ||
-        event.clientX > r.right ||
-        event.clientY < r.top ||
-        event.clientY > r.bottom);
-  });
-  dialog.addEventListener("click", (event) => {
-    const shouldCloseBackdrop = psBackdropPointerDown;
-    psBackdropPointerDown = false;
-    const r = dialog.getBoundingClientRect();
-    if (
-      shouldCloseBackdrop &&
-      event.target === dialog &&
-      (event.clientX < r.left ||
-        event.clientX > r.right ||
-        event.clientY < r.top ||
-        event.clientY > r.bottom)
-    )
-      dialog.close();
-  });
+  bindDialogBackdropDismiss(dialog);
   $$('button[command="show-modal"]').forEach((button) => {
     button.setAttribute("aria-haspopup", "dialog");
   });
@@ -4136,7 +5463,14 @@ function setupDeepLinks() {
 }
 
 function setupGuidedFlow() {
-  const TABS = ["overview", "trajectory", "allocator", "tax", "cpf-rules"];
+  const TABS = [
+    "overview",
+    "trajectory",
+    "allocator",
+    "cash-parking",
+    "tax",
+    "cpf-rules",
+  ];
   let activeTab = "overview";
   let profileOpen = false;
   const form = $("#quick-form");
@@ -4155,15 +5489,12 @@ function setupGuidedFlow() {
   );
   $("#use-preset-budget")?.addEventListener("click", () => {
     $("#known-spend").value = "";
-    if ($("#qe-spend")) $("#qe-spend").value = "";
     $("#known-spend").dispatchEvent(new Event("input", { bubbles: true }));
     $("#known-spend").focus({ preventScroll: true });
   });
   lifestyle?.addEventListener("change", (event) => {
     if (!event.isTrusted) return;
-    delete $("#qe-lifestyle")?.dataset.pendingCustom;
     $("#known-spend").value = "";
-    if ($("#qe-spend")) $("#qe-spend").value = "";
     if (
       lifestyle.value === "cca" &&
       Number($("#known-retire")?.value || 65) < 55
@@ -4202,6 +5533,12 @@ function setupGuidedFlow() {
       sidebarSettingsBtn.setAttribute("aria-expanded", String(profileOpen));
     }
 
+    window.dispatchEvent(
+      new CustomEvent("rs:tabchange", {
+        detail: { tab: activeTab, profileOpen },
+      }),
+    );
+
     if (push) {
       history.pushState(
         { ...history.state, plannerTab: activeTab, profileOpen },
@@ -4230,6 +5567,10 @@ function setupGuidedFlow() {
     if ($("#quick-edit-modal")?.open) {
       $("#quick-edit-modal").dataset.flowNavigation = "true";
       $("#quick-edit-modal").close();
+    }
+    if ($("#expense-modal")?.open) {
+      $("#expense-modal").dataset.flowNavigation = "true";
+      $("#expense-modal").close();
     }
     activeTab = TABS.includes(tab) ? tab : "overview";
     profileOpen = profile;
@@ -4261,22 +5602,6 @@ function setupGuidedFlow() {
     if (event.target.closest("[data-close-profile]")) {
       event.preventDefault();
       navigateTo({ tab: activeTab, profile: false });
-      return;
-    }
-
-    const stepBtn = event.target.closest("button[data-step]");
-    if (!stepBtn) return;
-    event.preventDefault();
-    const stepNum = Number(stepBtn.dataset.step);
-    if (stepNum === 1) {
-      navigateTo({ profile: true });
-      if (stepBtn.dataset.reveal === "cpf") {
-        $("#known-oa")?.focus({ preventScroll: true });
-      }
-    } else if (stepNum === 3) {
-      navigateTo({ tab: "trajectory", profile: false });
-    } else {
-      navigateTo({ tab: "overview", profile: false });
     }
   });
 
@@ -4348,7 +5673,6 @@ function setupGuidedFlow() {
     if (
       [
         "savings-simulator",
-        "funding-steps",
         "trajectory-section",
         "tab-panel-trajectory",
       ].includes(id)
@@ -4356,9 +5680,7 @@ function setupGuidedFlow() {
       profileOpen = false;
       activeTab = "trajectory";
       applyViewState(false, false);
-      const targetEl = $(
-        "#" + (id === "funding-steps" ? "savings-simulator" : id),
-      );
+      const targetEl = $("#" + id);
       requestAnimationFrame(() => targetEl?.scrollIntoView());
       return;
     }
@@ -4465,75 +5787,11 @@ function setupFieldHelp() {
   });
   if (nativePopover) {
     document.addEventListener("click", (event) => {
-      if (event.target.closest("button[data-step], .brand")) closeHelp();
+      if (event.target.closest(".brand")) closeHelp();
     });
     $("#plan-settings").addEventListener("close", closeHelp);
     window.addEventListener("popstate", closeHelp);
   }
-}
-
-function setupEmberRingsInteractivity() {
-  let lockedIdx = null;
-  const applyRingState = (card, activeIdx) => {
-    if (!card) return;
-    const wrap = card.querySelector(".ember-rings-wrap");
-    const centerStrong = card.querySelector(".ember-rings-center strong");
-    const centerSpan = card.querySelector(".ember-rings-center span");
-    if (!wrap || !centerStrong || !centerSpan) return;
-    const hasActive = activeIdx != null && activeIdx !== "";
-    card.classList.toggle("has-focused-ring", hasActive);
-    card.querySelectorAll(".ember-ring-arc").forEach((arc) => {
-      arc.classList.toggle(
-        "is-active",
-        arc.dataset.ringIdx === String(activeIdx),
-      );
-    });
-    card.querySelectorAll(".ember-ring-btn").forEach((btn) => {
-      const isFocused = btn.dataset.ringIdx === String(activeIdx);
-      btn.classList.toggle("is-active", isFocused);
-      btn.setAttribute(
-        "aria-pressed",
-        String(lockedIdx === btn.dataset.ringIdx),
-      );
-    });
-    if (hasActive) {
-      const src =
-        card.querySelector(`.ember-ring-btn[data-ring-idx="${activeIdx}"]`) ||
-        card.querySelector(`.ember-ring-arc[data-ring-idx="${activeIdx}"]`);
-      if (src) {
-        centerStrong.textContent =
-          src.dataset.ringPct || wrap.dataset.defaultPct;
-        centerSpan.textContent = src.dataset.ringSub || wrap.dataset.defaultSub;
-      }
-    } else {
-      centerStrong.textContent = wrap.dataset.defaultPct || "";
-      centerSpan.textContent = wrap.dataset.defaultSub || "";
-    }
-  };
-  document.addEventListener("plan-rendered", () => {
-    lockedIdx = null;
-  });
-  document.addEventListener("mouseover", (e) => {
-    const target = e.target.closest?.(".ember-ring-btn, .ember-ring-arc");
-    if (!target) return;
-    applyRingState(target.closest(".ember-rings-card"), target.dataset.ringIdx);
-  });
-  document.addEventListener("mouseout", (e) => {
-    const card = e.target.closest?.(".ember-rings-card");
-    if (!card) return;
-    const next = e.relatedTarget?.closest?.(".ember-ring-btn, .ember-ring-arc");
-    if (!next || next.closest(".ember-rings-card") !== card) {
-      applyRingState(card, lockedIdx);
-    }
-  });
-  document.addEventListener("click", (e) => {
-    const target = e.target.closest?.(".ember-ring-btn, .ember-ring-arc");
-    if (!target) return;
-    const card = target.closest(".ember-rings-card");
-    const idx = target.dataset.ringIdx;
-    lockedIdx = lockedIdx === idx ? null : idx;
-    applyRingState(card, lockedIdx);
-  });
 }
 
 function setupServiceWorkerUpdates() {
@@ -4615,7 +5873,6 @@ function setupServiceWorkerUpdates() {
     .catch(() => {});
 }
 
-setupEmberRingsInteractivity();
 setupServiceWorkerUpdates();
 
 setupSimplePlan();

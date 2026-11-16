@@ -183,8 +183,8 @@
   ];
 
   const lifestyles = {
-    cca: { label: "Community Care Apartments", budget: 2500 },
-    "home-helper": { label: "Home + Helper", budget: 3500 },
+    cca: { label: "Community Care Apartments", budget: 2800 },
+    "home-helper": { label: "Home + Helper", budget: 3900 },
   };
 
   function budgetBreakdown(
@@ -216,9 +216,10 @@
             })),
             { name: "Planning cushion", amount: 410, group: "buffer" },
           ];
+    const sourceTotal = source.reduce((sum, row) => sum + row.amount, 0);
     const rows = source.map((row) => ({
       ...row,
-      amount: (row.amount * total) / lifestyles[lifestyle].budget,
+      amount: sourceTotal > 0 ? (row.amount * total) / sourceTotal : 0,
     }));
     const groups = [
       { key: "living", label: "Daily living" },
@@ -233,6 +234,358 @@
     return { total, rows, groups };
   }
 
+  const EXPENSE_CATEGORIES = [
+    { key: "housing", label: "Home & Utilities", color: "#0891B2" },
+    { key: "food", label: "Food & Dining", color: "#2563EB" },
+    { key: "digital", label: "Telco, WiFi & Subscriptions", color: "#7C3AED" },
+    { key: "transport", label: "Transport & Rides", color: "#0284C7" },
+    { key: "care", label: "Healthcare, Insurance & Care", color: "#059669" },
+    { key: "lifestyle", label: "Lifestyle, Travel & Buffer", color: "#D97706" },
+  ];
+
+  function defaultExpenseItems(lifestyle = "cca", targetTotal = null) {
+    const key = lifestyle === "home-helper" ? "home-helper" : "cca";
+    const baseBudget = lifestyles[key].budget;
+    const rawItems =
+      key === "cca"
+        ? [
+            {
+              id: "cca-housing",
+              name: "Utilities (SP electricity, water) & S&CC",
+              category: "housing",
+              amount: 140,
+            },
+            {
+              id: "cca-hdb-ins",
+              name: "HDB fire & home contents insurance",
+              category: "housing",
+              amount: 10,
+            },
+            {
+              id: "cca-groceries",
+              name: "Groceries & household essentials",
+              category: "food",
+              amount: 420,
+            },
+            {
+              id: "cca-dining",
+              name: "Hawker meals, cafés & dining out",
+              category: "food",
+              amount: 380,
+            },
+            {
+              id: "cca-wifi",
+              name: "Fibre WiFi & SIM-only mobile plan",
+              category: "digital",
+              amount: 40,
+            },
+            {
+              id: "cca-streaming",
+              name: "Streaming & digital (Netflix, Spotify, cloud)",
+              category: "digital",
+              amount: 32,
+            },
+            {
+              id: "cca-transport",
+              name: "MRT / bus & occasional Grab rides",
+              category: "transport",
+              amount: 115,
+            },
+            {
+              id: "cca-health",
+              name: "AIA HealthShield Max + HSG Max Rider",
+              category: "care",
+              amount: 153,
+            },
+            {
+              id: "cca-life-ins",
+              name: "GE Supreme Multiplier Life (whole life + CI)",
+              category: "care",
+              amount: 260,
+            },
+            {
+              id: "cca-pa-term",
+              name: "Accident & Term policy (PA + term life)",
+              category: "care",
+              amount: 45,
+            },
+            {
+              id: "cca-supplements",
+              name: "Daily supplement stack (Omega-3, D3+K2, Magnesium, Multi)",
+              category: "care",
+              amount: 35,
+            },
+            {
+              id: "cca-bsp",
+              name: "CCA Basic Service Package",
+              category: "care",
+              amount: 175,
+            },
+            {
+              id: "cca-help",
+              name: "Extra care & ad-hoc home help",
+              category: "care",
+              amount: 285,
+            },
+            {
+              id: "cca-social",
+              name: "Personal care, haircuts, fitness & social",
+              category: "lifestyle",
+              amount: 180,
+            },
+            {
+              id: "cca-repairs",
+              name: "Aircon servicing, home repairs & appliances",
+              category: "lifestyle",
+              amount: 120,
+            },
+            {
+              id: "cca-buffer",
+              name: "Annual travel fund & contingency buffer",
+              category: "lifestyle",
+              amount: 410,
+            },
+          ]
+        : [
+            {
+              id: "hh-housing",
+              name: "Utilities (SP electricity, water, gas) & S&CC",
+              category: "housing",
+              amount: 200,
+            },
+            {
+              id: "hh-hdb-ins",
+              name: "HDB insurance (HPS, fire & contents)",
+              category: "housing",
+              amount: 20,
+            },
+            {
+              id: "hh-groceries",
+              name: "Groceries & wet market (for two)",
+              category: "food",
+              amount: 480,
+            },
+            {
+              id: "hh-dining",
+              name: "Hawker meals, dining out & GrabFood",
+              category: "food",
+              amount: 320,
+            },
+            {
+              id: "hh-wifi",
+              name: "Home fibre WiFi & two mobile plans",
+              category: "digital",
+              amount: 55,
+            },
+            {
+              id: "hh-streaming",
+              name: "Streaming, news & cloud (Netflix, YouTube, apps)",
+              category: "digital",
+              amount: 45,
+            },
+            {
+              id: "hh-transport",
+              name: "MRT / bus & point-to-point Grab rides",
+              category: "transport",
+              amount: 130,
+            },
+            {
+              id: "hh-health",
+              name: "AIA HealthShield Max + HSG Max Rider",
+              category: "care",
+              amount: 153,
+            },
+            {
+              id: "hh-life-ins",
+              name: "GE Supreme Multiplier Life (whole life + CI)",
+              category: "care",
+              amount: 300,
+            },
+            {
+              id: "hh-pa-term",
+              name: "Accident & Term policy (PA + term life)",
+              category: "care",
+              amount: 50,
+            },
+            {
+              id: "hh-supplements",
+              name: "Daily supplement stack (Omega-3, D3+K2, Magnesium, Multi)",
+              category: "care",
+              amount: 35,
+            },
+            {
+              id: "hh-helper",
+              name: "Helper: salary, FDW levy & insurance",
+              category: "care",
+              amount: 1230,
+            },
+            {
+              id: "hh-social",
+              name: "Personal care, haircuts, social & hobbies",
+              category: "lifestyle",
+              amount: 192,
+            },
+            {
+              id: "hh-repairs",
+              name: "Aircon servicing, home repairs & appliances",
+              category: "lifestyle",
+              amount: 150,
+            },
+            {
+              id: "hh-buffer",
+              name: "Annual travel fund & contingency buffer",
+              category: "lifestyle",
+              amount: 540,
+            },
+          ];
+    const desired =
+      targetTotal != null && Number.isFinite(Number(targetTotal))
+        ? Math.max(0, Number(targetTotal))
+        : baseBudget;
+    if (Math.abs(desired - baseBudget) < 0.01) {
+      return rawItems.map((it) => ({ ...it }));
+    }
+    return scaleExpenseItems(rawItems, desired, key);
+  }
+
+  function scaleExpenseItems(items, targetTotal, lifestyle = "cca") {
+    const desired = Math.max(
+      0,
+      Math.round((Number(targetTotal) || 0) * 100) / 100,
+    );
+    const baseSum = (items || []).reduce(
+      (s, it) => s + Math.max(0, Number(it?.amount) || 0),
+      0,
+    );
+    if (!items?.length || (baseSum <= 0 && desired > 0)) {
+      return defaultExpenseItems(lifestyle, desired);
+    }
+    if (desired === 0) {
+      return items.map((it) => ({ ...it, amount: 0 }));
+    }
+    const factor = desired / baseSum;
+    const scaled = items.map((it) => ({
+      ...it,
+      amount:
+        Math.round(Math.max(0, Number(it?.amount) || 0) * factor * 100) / 100,
+    }));
+    const currentSum = scaled.reduce((s, it) => s + it.amount, 0);
+    const diff = Math.round((desired - currentSum) * 100) / 100;
+    if (Math.abs(diff) > 0 && scaled.length) {
+      let maxIdx = 0;
+      for (let i = 1; i < scaled.length; i++) {
+        if (scaled[i].amount > scaled[maxIdx].amount) maxIdx = i;
+      }
+      scaled[maxIdx].amount = Math.max(
+        0,
+        Math.round((scaled[maxIdx].amount + diff) * 100) / 100,
+      );
+    }
+    return scaled;
+  }
+
+  function expensePlan({
+    lifestyle = "cca",
+    spend = null,
+    itemizedActive = false,
+    customExpenses = null,
+    afterCpf = 0,
+    customActive = false,
+  } = {}) {
+    const key = lifestyle === "home-helper" ? "home-helper" : "cca";
+    const baseBudget = lifestyles[key].budget;
+    const validCatKeys = new Set(EXPENSE_CATEGORIES.map((c) => c.key));
+    const catAliases = { living: "food", buffer: "lifestyle" };
+    const sanitizeCustom = (list) =>
+      list.map((row, idx) => {
+        const mappedCat = catAliases[row?.category] || row?.category;
+        return {
+          id: String(row?.id || "item-" + (idx + 1)),
+          name:
+            String(row?.name || "Expense " + (idx + 1)).trim() ||
+            "Expense " + (idx + 1),
+          category: validCatKeys.has(mappedCat) ? mappedCat : "food",
+          amount: Math.max(
+            0,
+            Math.round((Number(row?.amount) || 0) * 100) / 100,
+          ),
+        };
+      });
+
+    const hasCustomList =
+      Boolean(itemizedActive) &&
+      Array.isArray(customExpenses) &&
+      customExpenses.length > 0;
+
+    let rawRows;
+    let sourceMode;
+    let isCustom = false;
+    if (hasCustomList) {
+      sourceMode = "itemized";
+      isCustom = true;
+      rawRows = sanitizeCustom(customExpenses);
+    } else {
+      const numericSpend =
+        spend != null && Number.isFinite(Number(spend))
+          ? Math.max(0, Number(spend))
+          : baseBudget;
+      isCustom =
+        Boolean(customActive) || Math.abs(numericSpend - baseBudget) >= 0.01;
+      sourceMode = isCustom ? "scaled" : "preset";
+      if (
+        isCustom &&
+        Array.isArray(customExpenses) &&
+        customExpenses.length > 0
+      ) {
+        rawRows = scaleExpenseItems(
+          sanitizeCustom(customExpenses),
+          numericSpend,
+          key,
+        );
+      } else {
+        rawRows = defaultExpenseItems(key, numericSpend);
+      }
+    }
+
+    const total =
+      Math.round(rawRows.reduce((sum, it) => sum + it.amount, 0) * 100) / 100;
+    const denom = total > 0 ? total : 1;
+    const items = rawRows.map((it) => ({
+      ...it,
+      pct: total > 0 ? Math.round((it.amount / denom) * 1000) / 10 : 0,
+    }));
+
+    const categories = EXPENSE_CATEGORIES.map((cat) => {
+      const catItems = items.filter((it) => it.category === cat.key);
+      const amount =
+        Math.round(catItems.reduce((s, it) => s + it.amount, 0) * 100) / 100;
+      const pct = total > 0 ? Math.round((amount / denom) * 1000) / 10 : 0;
+      return {
+        ...cat,
+        amount,
+        pct,
+        items: catItems,
+      };
+    });
+
+    const netPay = Math.max(0, Number(afterCpf) || 0);
+    const takeHomePct = netPay > 0 ? Math.round((total / netPay) * 100) : 0;
+
+    return {
+      lifestyle: key,
+      lifestyleLabel: lifestyles[key].label,
+      sourceMode,
+      isCustom,
+      itemizedActive: hasCustomList,
+      total,
+      categories,
+      items,
+      afterCpf: netPay,
+      takeHomePct,
+      remainingAfterSpend: netPay - total,
+    };
+  }
+
   function careTotals(key = "now") {
     return careRows.reduce(
       (s, row) => [s[0] + row[key][0], s[1] + row[key][1]],
@@ -245,14 +598,88 @@
   const careAgeFactor = (age) =>
     ((4260 - 300) / (3090 - 300) / 1.03 ** 10) ** (Math.max(0, age - 65) / 10);
 
+  // AIA HealthShield Gold Max A + Max VitalHealth Pro A (Oct 2026 SC/SPR schedule, incl. 9% GST)
+  const AIA_HEALTHSHIELD_BANDS = [
+    [20, 105],
+    [25, 113],
+    [30, 121],
+    [35, 153],
+    [40, 158],
+    [45, 248],
+    [50, 268],
+    [55, 381],
+    [60, 466],
+    [65, 621],
+    [70, 861],
+    [73, 1092],
+    [75, 1216],
+    [78, 1425],
+    [80, 1568],
+    [83, 1663],
+    [85, 1730],
+    [88, 1786],
+    [90, 1821],
+    [93, 1841],
+    [120, 1862],
+  ];
+
+  function healthShieldMonthlyAtAge(age) {
+    const a = Number(age) || 0;
+    for (const [maxAge, amt] of AIA_HEALTHSHIELD_BANDS) {
+      if (a <= maxAge) return amt;
+    }
+    return AIA_HEALTHSHIELD_BANDS[AIA_HEALTHSHIELD_BANDS.length - 1][1];
+  }
+
+  // Age-adjusted spending curve in today dollars (excluding Home + Helper fixed $300 levy):
+  // Smoothly absorbs HealthShield climbs against limited-pay GE Life & PA/Term finishing by 65,
+  // then steps through the exact AIA HealthShield brackets from 65 to 95 alongside non-insurance care growth.
+  function insuranceCurveLevelAtAge(age, lifestyle = "home-helper") {
+    const isCca = lifestyle === "cca";
+    const base35 = isCca
+      ? lifestyles.cca.budget
+      : lifestyles["home-helper"].budget;
+    const levy = isCca ? 0 : 300;
+    const ins35 = isCca ? 458 : 503; // $153 HS + $260/$300 GE Life + $45/$50 PA/Term
+    const ins65 = healthShieldMonthlyAtAge(65); // $621 HS; GE Life & PA/Term finished by 65
+    let ins;
+    if (age <= 35) {
+      ins = ins35;
+    } else if (age < 65) {
+      ins = ins35 + ((ins65 - ins35) * (age - 35)) / 30;
+    } else {
+      ins = healthShieldMonthlyAtAge(age);
+    }
+    const nonIns35 = base35 - levy - ins35;
+    const careAfter65 = isCca
+      ? (3000 / 2500) ** (Math.max(0, age - 65) / 10)
+      : careAgeFactor(age);
+    return nonIns35 * careAfter65 + ins;
+  }
+
   function expenseAt(
     spend,
     startAge,
     elapsed,
     inflation = C.inflation,
     lifestyle = "home-helper",
+    opts = {},
   ) {
     const inf = typeof inflation === "number" ? inflation : C.inflation;
+    const useInsCurve = Boolean(
+      opts && typeof opts === "object" && opts.insuranceCurve,
+    );
+    if (useInsCurve) {
+      const curAge = startAge + elapsed;
+      const ratio =
+        insuranceCurveLevelAtAge(curAge, lifestyle) /
+        insuranceCurveLevelAtAge(startAge, lifestyle);
+      if (lifestyle === "cca") {
+        return spend * (1 + inf) ** elapsed * ratio;
+      }
+      const levy = Math.min(300, spend);
+      return (spend - levy) * (1 + inf) ** elapsed * ratio + levy;
+    }
     if (lifestyle === "cca") {
       const care = (age) => (3340 / 2500) ** (Math.max(0, age - 65) / 10);
       return (
@@ -290,6 +717,10 @@
       typeof opts === "object" && opts.lifestyle === "cca"
         ? "cca"
         : "home-helper";
+    const insuranceCurve = Boolean(
+      typeof opts === "object" && opts.insuranceCurve,
+    );
+    const expOpts = { insuranceCurve };
     const rate = monthlyRate(investmentReturn);
     let target = 0;
     const totalMonths = Math.round((endAge - retirementAge) * 12);
@@ -307,7 +738,8 @@
       target +=
         Math.max(
           0,
-          expenseAt(spend, retirementAge, t, inflation, lifestyle) - cpf,
+          expenseAt(spend, retirementAge, t, inflation, lifestyle, expOpts) -
+            cpf,
         ) /
         (1 + rate) ** m;
     }
@@ -393,9 +825,6 @@
       post55RAContributions = 0,
       post55RAContributionsToday = 0,
       extraPost55CPF = 0;
-    let scheduledTopup = 0,
-      scheduledRoom = 0,
-      scheduledLimit = 0;
     let snapshot55,
       goalAge = null,
       reserveDeposits = 0;
@@ -414,29 +843,6 @@
         : creditRA(amount, limit);
       if (before55) b.sa += accepted;
       b.oa += amount - accepted;
-    };
-    const applyTopup = (m, before55, currentFRS) => {
-      if (!options.topup || m !== Math.round((options.topup.age - age) * 12))
-        return;
-      const limit = before55
-        ? currentFRS
-        : options.topup.target === "frs"
-          ? frs
-          : 2 * currentFRS;
-      const room = Math.max(
-        0,
-        limit - (before55 ? b.sa + saInvested : principal),
-      );
-      scheduledTopup = Math.min(options.topup.amount ?? room, room);
-      if (before55) b.sa += scheduledTopup;
-      else {
-        b.ra += scheduledTopup;
-        principal += scheduledTopup;
-      }
-      scheduledRoom = room;
-      scheduledLimit = limit;
-      totalExtra += scheduledTopup;
-      totalTopups += scheduledTopup;
     };
 
     for (let m = 0; m <= months65; m++) {
@@ -482,7 +888,6 @@
         snapshot55.fundedRA = b.ra;
         snapshot55.remainingReserve = reserve;
       }
-      if (m === months65) applyTopup(m, false, currentFRS);
       const target = goal === "ers" ? 2 * frs : frs;
       if (
         goalAge === null &&
@@ -585,7 +990,6 @@
         before55,
       );
       // New cash earns from the following month.
-      applyTopup(m, before55, currentFRS);
       reserve *= 1 + reserveRate;
       if (before55 && m < monthsRetire) {
         totalExtra += monthlyExtra;
@@ -625,9 +1029,6 @@
       oaTransfer,
       ra65: b.ra,
       pendingRA65: pending.ra,
-      scheduledTopup,
-      scheduledRoom,
-      scheduledLimit,
       ma65: b.ma,
       post55OA: b.oa,
       reserve65: reserve,
@@ -729,10 +1130,37 @@
     const factor = annuityFactor(rate, months),
       savings = Number(p.savings || 0),
       futureAssets = savings * (1 + rate) ** months;
-    const futureSpend = expenseAt(todaySpend, age, years, inflation, lifestyle);
-    const spend65 = expenseAt(todaySpend, age, 65 - age, inflation, lifestyle),
-      spend75 = expenseAt(todaySpend, age, 75 - age, inflation, lifestyle);
-    const calcOpts = { investmentReturn, inflation, plan, lifestyle };
+    const calcOpts = {
+      investmentReturn,
+      inflation,
+      plan,
+      lifestyle,
+      insuranceCurve: true,
+    };
+    const futureSpend = expenseAt(
+      todaySpend,
+      age,
+      years,
+      inflation,
+      lifestyle,
+      calcOpts,
+    );
+    const spend65 = expenseAt(
+        todaySpend,
+        age,
+        65 - age,
+        inflation,
+        lifestyle,
+        calcOpts,
+      ),
+      spend75 = expenseAt(
+        todaySpend,
+        age,
+        75 - age,
+        inflation,
+        lifestyle,
+        calcOpts,
+      );
 
     function makeScenario(key, balance) {
       const funded = key === "salary" ? base : projectCPF(p, 0, key, balance);
@@ -778,7 +1206,7 @@
         const income =
           payout * (plan === "escalating" ? 1.02 ** Math.floor(m / 12) : 1);
         if (
-          expenseAt(spend65, 65, m / 12, inflation, lifestyle) >
+          expenseAt(spend65, 65, m / 12, inflation, lifestyle, calcOpts) >
           income + 0.005
         ) {
           firstShortfallAge = a;
@@ -915,6 +1343,7 @@
         inflation: r.inflation,
         plan: r.plan,
         lifestyle: r.lifestyle,
+        insuranceCurve: true,
       },
     );
     const rate = monthlyRate(r.investmentReturn);
@@ -954,6 +1383,7 @@
         m / 12,
         r.inflation,
         r.lifestyle,
+        { insuranceCurve: true },
       );
       const monthlyGap = retired ? Math.max(0, monthlySpend - monthlyCPF) : 0;
       if (
@@ -1016,77 +1446,6 @@
       payoutCapped: cpfResult.ra65 > 650100 * scale,
       cpfGoalAge: cpfResult.goalAge,
       fullyFunded: portfolioAtRetire + 0.005 >= actual.privateTarget,
-    };
-  }
-
-  // Isolated timing comparison: salary CPF and entered balances are identical.
-  // Additional cash is supplied at the chosen age; it is not taken from investments.
-  function compareTopupTiming(
-    p,
-    earlierAge = 55,
-    laterAge = 60,
-    amount = null,
-    target = "ers",
-    mode = "target",
-  ) {
-    validate(p);
-    if (
-      ![earlierAge, laterAge].every(
-        (x) => Number.isInteger(x) && x >= p.age && x <= 65,
-      )
-    )
-      throw new Error("Choose top-up ages from your current age to 65.");
-    if (
-      amount != null &&
-      (!Number.isFinite(amount) || amount < 0 || amount > 1e9)
-    )
-      throw new Error(
-        "Enter a top-up from $0 to $1 billion, or leave blank for the maximum.",
-      );
-    if (!["frs", "ers"].includes(target)) throw new Error("Choose FRS or ERS.");
-    if (target === "ers" && (earlierAge < 55 || laterAge < 55))
-      throw new Error(
-        "ERS top-ups start at 55. Choose FRS for a top-up before 55.",
-      );
-    if (earlierAge > laterAge) [earlierAge, laterAge] = [laterAge, earlierAge];
-    if (!["same", "target"].includes(mode))
-      throw new Error("Choose a comparison mode.");
-    const maximumAt = (age) =>
-      projectCPF(p, 0, "salary", null, { topup: { age, target } })
-        .scheduledTopup;
-    const commonCash =
-      mode === "same"
-        ? Math.min(
-            amount ?? Infinity,
-            maximumAt(earlierAge),
-            maximumAt(laterAge),
-          )
-        : amount;
-    const baseline = projectCPF(p);
-    const scale = retirementSum(C.year + 55 - Number(p.age)) / C.frs;
-    const scenario = (age) => {
-      const result = projectCPF(p, 0, "salary", null, {
-        topup: { age, amount: commonCash, target },
-      });
-      return {
-        age,
-        cash: result.scheduledTopup,
-        room: result.scheduledRoom,
-        limit: result.scheduledLimit,
-        ra65: result.ra65,
-        oa65: result.post55OA,
-        interest: result.totalInterest - baseline.totalInterest,
-        payout:
-          payoutFrom65(result.ra65, scale) *
-          (p.plan === "escalating" ? C.escalatingRatio : 1),
-        payoutCapped: result.ra65 > 650100 * scale,
-      };
-    };
-    return {
-      retire: p.retire ?? 65,
-      target,
-      earlier: scenario(earlierAge),
-      later: scenario(laterAge),
     };
   }
 
@@ -1165,9 +1524,14 @@
           retire - age,
           inflation,
           lifestyle,
+          { insuranceCurve: true },
         ),
-        spend65: expenseAt(todaySpend, age, 65 - age, inflation, lifestyle),
-        spend75: expenseAt(todaySpend, age, 75 - age, inflation, lifestyle),
+        spend65: expenseAt(todaySpend, age, 65 - age, inflation, lifestyle, {
+          insuranceCurve: true,
+        }),
+        spend75: expenseAt(todaySpend, age, 75 - age, inflation, lifestyle, {
+          insuranceCurve: true,
+        }),
         scenarios: [
           {
             key: selectedKey,
@@ -1340,6 +1704,7 @@
         ? Math.round(netTakeHome * 0.25)
         : Math.round(outsideMonthly);
 
+    const emergencySpendBase = Math.max(0, Number(summary.todaySpend) || 0);
     const horizon = Math.max(0, summary.retire - summary.age);
     const rstuEligible = Math.min(C.rstuReliefCap, summary.currentTopupRoom);
     const rstuTaxSaved = Math.max(
@@ -1388,8 +1753,8 @@
       usingBenchmark,
       allocPool,
       horizon,
-      emergencyMin: Math.round(summary.todaySpend * 6),
-      emergencyMax: Math.round(summary.todaySpend * 12),
+      emergencyMin: Math.round(emergencySpendBase * 6),
+      emergencyMax: Math.round(emergencySpendBase * 12),
       rstuEligible,
       rstuTaxSaved,
       srsTaxSaved,
@@ -1408,7 +1773,7 @@
     salary: 8500,
     annualBonus: 17000,
     retire: 55,
-    spend: 3500,
+    spend: 3900,
     oa: 75000,
     sa: 55000,
     ma: 45000,
@@ -1754,6 +2119,7 @@
           retire - age + t,
           inflation,
           lifestyle,
+          { insuranceCurve: true },
         );
         bridgeCorpusAtRetire += spendM / (1 + rate) ** m;
       }
@@ -1777,6 +2143,7 @@
         curAge - age,
         inflation,
         lifestyle,
+        { insuranceCurve: true },
       );
       const cpfElapsed = Math.floor(curAge - 65 + 1e-9);
       const cpfM =
@@ -1853,6 +2220,7 @@
         m / 12,
         inflation,
         lifestyle,
+        { insuranceCurve: true },
       );
 
       let monthlySrsDraw = 0;
@@ -2018,6 +2386,7 @@
             cand - age + (m - 1) / 12,
             inflation,
             lifestyle,
+            { insuranceCurve: true },
           );
           reqBridge += sp / (1 + rate) ** m;
         }
@@ -2026,7 +2395,16 @@
       let reqP2 = 0;
       for (let m = 1; m <= (endAge - p2Start) * 12; m++) {
         const curA = p2Start + (m - 1) / 12;
-        const sp = expenseAt(todaySpend, age, curA - age, inflation, lifestyle);
+        const sp = expenseAt(
+          todaySpend,
+          age,
+          curA - age,
+          inflation,
+          lifestyle,
+          {
+            insuranceCurve: true,
+          },
+        );
         const cEl = Math.floor(curA - 65 + 1e-9);
         const cP =
           plan === "escalating"
@@ -2577,6 +2955,1020 @@
     };
   }
 
+  const MONTHS_SHORT_LIST = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+
+  function formatSgShortDate(iso) {
+    if (typeof iso !== "string") return "";
+    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return iso;
+    const mon = MONTHS_SHORT_LIST[Number(m[2]) - 1] || m[2];
+    return Number(m[3]) + " " + mon;
+  }
+
+  function formatSgFullDate(iso) {
+    if (typeof iso !== "string") return "";
+    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return iso;
+    const mon = MONTHS_SHORT_LIST[Number(m[2]) - 1] || m[2];
+    return Number(m[3]) + " " + mon + " " + m[1];
+  }
+
+  function fmtPctRate(val) {
+    const n = Number(val);
+    if (!Number.isFinite(n)) return "—";
+    return (Math.round(n * 100) / 100).toFixed(2) + "%";
+  }
+
+  const DEFAULT_MAS_LIVE_RATES = {
+    source: "Monetary Authority of Singapore (eservices.mas.gov.sg)",
+    fetchedAt: "2026-11-16T04:58:09.602Z",
+    asOfDate: "2026-11-16",
+    ssb: {
+      issueCode: "GX26120A",
+      trancheCode: "SBDEC26",
+      annDate: "2026-11-02",
+      lastDayToApply: "2026-11-25",
+      issueDate: "2026-12-01",
+      maturityDate: "2036-12-01",
+      issueSizeM: 500,
+      year1Coupon: 1.83,
+      year1Return: 1.83,
+      year5Return: 2.16,
+      year10Coupon: 2.83,
+      year10Return: 2.39,
+      prevTrancheCode: "SBNOV26",
+      prevYear10Return: 2.45,
+      history: {
+        yr1: {
+          count: 12,
+          min: 1.99,
+          max: 2.45,
+          avg: 2.18,
+          percentile: 92,
+        },
+        yr5: {
+          count: 60,
+          min: 1.64,
+          max: 3.47,
+          avg: 2.63,
+          percentile: 35,
+        },
+        allTime: {
+          count: 135,
+          min: 0.8,
+          max: 3.47,
+          avg: 2.23,
+          percentile: 60,
+          sinceYear: 2015,
+        },
+        deltaPrev: -0.06,
+        recent6: [
+          {
+            code: "SBJUL26",
+            label: "Jul '26",
+            rate: 2.11,
+          },
+          {
+            code: "SBAUG26",
+            label: "Aug '26",
+            rate: 2.06,
+          },
+          {
+            code: "SBSEP26",
+            label: "Sep '26",
+            rate: 2.25,
+          },
+          {
+            code: "SBOCT26",
+            label: "Oct '26",
+            rate: 2.32,
+          },
+          {
+            code: "SBNOV26",
+            label: "Nov '26",
+            rate: 2.45,
+          },
+          {
+            code: "SBDEC26",
+            label: "Dec '26",
+            rate: 2.39,
+          },
+        ],
+      },
+    },
+    tbills: {
+      sixMonth: {
+        issueCode: "BS26122V",
+        auctionDate: "2026-11-04",
+        issueDate: "2026-11-10",
+        maturityDate: "2027-05-11",
+        cutoffYield: 1.86,
+        medianYield: 1.8,
+        avgYield: 1.63,
+        bidToCover: 2.45,
+        nextIssueCode: "BS26123A",
+        nextAuctionDate: "2026-11-19",
+        nextIssueSizeM: 8600,
+        history: {
+          yr1: {
+            count: 26,
+            min: 1.36,
+            max: 1.95,
+            avg: 1.54,
+            percentile: 88,
+          },
+          multiYear: {
+            count: 172,
+            min: 0.2,
+            max: 4.4,
+            avg: 2.07,
+            percentile: 52,
+            sinceYear: 2020,
+          },
+          deltaPrev: -0.09,
+          recent6: [
+            {
+              code: "BS26117A",
+              label: "27 Aug",
+              rate: 1.6,
+            },
+            {
+              code: "BS26118E",
+              label: "10 Sep",
+              rate: 1.7,
+            },
+            {
+              code: "BS26119F",
+              label: "24 Sep",
+              rate: 1.92,
+            },
+            {
+              code: "BS26120W",
+              label: "8 Oct",
+              rate: 1.9,
+            },
+            {
+              code: "BS26121N",
+              label: "22 Oct",
+              rate: 1.95,
+            },
+            {
+              code: "BS26122V",
+              label: "4 Nov",
+              rate: 1.86,
+            },
+          ],
+        },
+      },
+      oneYear: {
+        issueCode: "BY26103X",
+        auctionDate: "2026-10-15",
+        issueDate: "2026-10-20",
+        maturityDate: "2027-10-19",
+        cutoffYield: 1.92,
+        medianYield: 1.87,
+        avgYield: 1.72,
+        bidToCover: 2.15,
+        nextIssueCode: null,
+        nextAuctionDate: null,
+        history: {
+          yr1: {
+            count: 4,
+            min: 1.44,
+            max: 1.92,
+            avg: 1.63,
+            percentile: 100,
+          },
+          deltaPrev: 0.24,
+        },
+      },
+    },
+  };
+
+  function normalizeMasRates(input) {
+    if (
+      !input ||
+      !input.ssb ||
+      !input.tbills?.sixMonth ||
+      !input.tbills?.oneYear
+    ) {
+      return { data: DEFAULT_MAS_LIVE_RATES, isLive: false };
+    }
+    return {
+      data: {
+        source: input.source || DEFAULT_MAS_LIVE_RATES.source,
+        asOfDate: input.asOfDate || DEFAULT_MAS_LIVE_RATES.asOfDate,
+        fetchedAt: input.fetchedAt || null,
+        ssb: {
+          ...DEFAULT_MAS_LIVE_RATES.ssb,
+          ...input.ssb,
+          history: input.ssb.history || DEFAULT_MAS_LIVE_RATES.ssb.history,
+        },
+        tbills: {
+          sixMonth: {
+            ...DEFAULT_MAS_LIVE_RATES.tbills.sixMonth,
+            ...input.tbills.sixMonth,
+            history:
+              input.tbills.sixMonth.history ||
+              DEFAULT_MAS_LIVE_RATES.tbills.sixMonth.history,
+          },
+          oneYear: {
+            ...DEFAULT_MAS_LIVE_RATES.tbills.oneYear,
+            ...input.tbills.oneYear,
+            history:
+              input.tbills.oneYear.history ||
+              DEFAULT_MAS_LIVE_RATES.tbills.oneYear.history,
+          },
+        },
+      },
+      isLive: true,
+    };
+  }
+
+  function buildRateContext(kind, currentRate, history, meta = {}) {
+    if (!history?.yr1 || !Number.isFinite(Number(currentRate))) return null;
+    const cur = Number(currentRate);
+    const yr1 = history.yr1;
+    const longStats = history.allTime || history.multiYear || history.yr5;
+    const span = Math.max(0.01, (yr1.max || cur) - (yr1.min || cur));
+    const posPct = Math.max(
+      4,
+      Math.min(96, Math.round(((cur - yr1.min) / span) * 100)),
+    );
+    const formatOrd = (num) => {
+      const n = Math.round(Number(num) || 0);
+      const mod100 = n % 100;
+      if (mod100 >= 11 && mod100 <= 13) return n + "th";
+      const mod10 = n % 10;
+      return (
+        n +
+        (mod10 === 1 ? "st" : mod10 === 2 ? "nd" : mod10 === 3 ? "rd" : "th")
+      );
+    };
+    const pct12m = Math.max(0, Math.min(100, Math.round(yr1.percentile || 0)));
+    const pct12mOrd = formatOrd(pct12m);
+    const delta = Number(history.deltaPrev || 0);
+    const deltaText =
+      (delta > 0 ? "+" : "") + (Math.round(delta * 100) / 100).toFixed(2) + "%";
+
+    if (kind === "ssb") {
+      let tone = "info";
+      let verdict = "Mid 12M range (" + pct12mOrd + " pct) · Swap anytime";
+      let action =
+        "Zero early-exit penalty ($2 CDP fee): apply now if holding excess cash, then redeem & swap if a future tranche jumps.";
+      if (pct12m >= 75) {
+        tone = "good";
+        verdict = "Strong vs 12M (" + pct12mOrd + " pct) · Apply now";
+        action =
+          "At " +
+          fmtPctRate(cur) +
+          " 10Y avg vs " +
+          fmtPctRate(yr1.avg) +
+          " 12M avg (and above " +
+          fmtPctRate(longStats?.avg || cur) +
+          " since " +
+          (longStats?.sinceYear || 2015) +
+          "). No lock-in penalty: apply now and swap if rates climb later.";
+      } else if (pct12m < 40) {
+        tone = "warn";
+        verdict = "Low vs 12M (" + pct12mOrd + " pct) · Compare HYSA";
+        action =
+          "Trailing 12M average (" +
+          fmtPctRate(yr1.avg) +
+          "). Consider splitting tranches or keeping instant cash in a higher-yielding HYSA while waiting.";
+      }
+      return {
+        tone,
+        verdict,
+        action,
+        yr1: { ...yr1, posPct },
+        longTerm: longStats
+          ? {
+              ...longStats,
+              pctText: formatOrd(longStats.percentile) + " pct",
+              label:
+                "Since " +
+                (longStats.sinceYear || 2015) +
+                " (" +
+                longStats.count +
+                " tranches)",
+            }
+          : null,
+        deltaPrev: delta,
+        deltaText,
+        prevLabel: meta.prevLabel || "",
+        recent6: Array.isArray(history.recent6) ? history.recent6 : [],
+      };
+    }
+
+    let tone = "info";
+    let verdict = "Mid 12M range (" + pct12mOrd + " pct) · Ladder";
+    let action =
+      "Capital locks 6m to maturity — stagger across 2–4 fortnightly auctions or place a competitive floor bid.";
+    if (pct12m >= 75) {
+      tone = "info";
+      verdict = "Near 12M high (" + pct12mOrd + " pct) · Ladder / floor bid";
+      action =
+        "At " +
+        fmtPctRate(cur) +
+        " vs " +
+        fmtPctRate(yr1.avg) +
+        " 12M avg (near " +
+        fmtPctRate(yr1.max) +
+        " 1Y high). Locked 6m to maturity: compare vs SSB Yr 1 (" +
+        fmtPctRate(meta.ssbYr1) +
+        ") & bid competitively if you want a min yield.";
+    } else if (pct12m < 40) {
+      tone = "warn";
+      verdict = "Below 12M avg (" + pct12mOrd + " pct) · Wait or HYSA";
+      action =
+        "Locked 6m below 12M avg (" +
+        fmtPctRate(yr1.avg) +
+        "). Check HYSA/MMF liquidity or set a competitive min bid before committing.";
+    }
+    return {
+      tone,
+      verdict,
+      action,
+      yr1: { ...yr1, posPct },
+      longTerm: longStats
+        ? {
+            ...longStats,
+            pctText: formatOrd(longStats.percentile) + " pct",
+            label:
+              "Since " +
+              (longStats.sinceYear || 2020) +
+              " (" +
+              longStats.count +
+              " auctions)",
+          }
+        : null,
+      deltaPrev: delta,
+      deltaText,
+      prevLabel: meta.prevLabel || "",
+      recent6: Array.isArray(history.recent6) ? history.recent6 : [],
+    };
+  }
+
+  function buildSsbItem(masRates, isLive) {
+    const ssb = masRates.ssb;
+    const syncText =
+      (isLive ? "Live · " : "Ref · ") + formatSgShortDate(masRates.asOfDate);
+    const rateTiers = [
+      { label: "Year 1 Coupon", value: fmtPctRate(ssb.year1Return) },
+      {
+        label: "Year 5 Avg",
+        value: fmtPctRate(ssb.year5Return || ssb.year1Return),
+      },
+      {
+        label: "10-Year Avg",
+        value: fmtPctRate(ssb.year10Return),
+        tone: "accent",
+      },
+      { label: "Year 10 Step-Up", value: fmtPctRate(ssb.year10Coupon) },
+    ];
+    const rateContext = buildRateContext("ssb", ssb.year10Return, ssb.history, {
+      prevLabel:
+        ssb.prevTrancheCode && ssb.prevYear10Return != null
+          ? "vs " +
+            ssb.prevTrancheCode +
+            " (" +
+            fmtPctRate(ssb.prevYear10Return) +
+            ")"
+          : "",
+    });
+    return {
+      id: "ssb",
+      category: "gov",
+      categoryLabel: "Gov-Backed",
+      name: "Singapore Savings Bonds (SSB)",
+      provider: "Monetary Authority of Singapore",
+      protection: "100% SG Gov",
+      protectionTone: "gov",
+      metaBadge:
+        "Open: " +
+        ssb.trancheCode +
+        " · Closes " +
+        formatSgShortDate(ssb.lastDayToApply),
+      syncBadge: syncText,
+      rateHeadline:
+        fmtPctRate(ssb.year1Return) +
+        " Yr 1 · " +
+        fmtPctRate(ssb.year10Return) +
+        " 10Y avg",
+      rateTiers,
+      rateContext,
+      rateDetail: "Min $500 · Issued " + formatSgFullDate(ssb.issueDate),
+      capLabel: "$200,000 total cap",
+      capAmount: C.ssbCap,
+      liquidity: "Monthly exit, no penalty",
+      requirements:
+        "CDP account (cash) or SRS; max $200k holding across all SSB issues",
+      url: "https://www.mas.gov.sg/bonds-and-bills/singapore-savings-bonds",
+      urlDomain: "mas.gov.sg",
+    };
+  }
+
+  function buildTbillsItem(masRates, isLive) {
+    const s6 = masRates.tbills.sixMonth;
+    const y1 = masRates.tbills.oneYear;
+    const syncText =
+      (isLive ? "Live · " : "Ref · ") + formatSgShortDate(masRates.asOfDate);
+    const rateTiers = [
+      {
+        label: "6M Cut-Off (" + s6.issueCode + ")",
+        value: fmtPctRate(s6.cutoffYield),
+        tone: "accent",
+      },
+      { label: "6M Median Yield", value: fmtPctRate(s6.medianYield) },
+      {
+        label: "1Y Cut-Off (" + y1.issueCode + ")",
+        value: fmtPctRate(y1.cutoffYield),
+      },
+    ];
+    if (s6.nextIssueCode && s6.nextAuctionDate) {
+      rateTiers.push({
+        label: "Next 6M (" + s6.nextIssueCode + ")",
+        value: formatSgShortDate(s6.nextAuctionDate),
+      });
+    }
+    const prevRecent =
+      Array.isArray(s6.history?.recent6) && s6.history.recent6.length >= 2
+        ? s6.history.recent6[s6.history.recent6.length - 2]
+        : null;
+    const rateContext = buildRateContext("tbills", s6.cutoffYield, s6.history, {
+      ssbYr1: masRates.ssb?.year1Return,
+      prevLabel: prevRecent
+        ? "vs " + prevRecent.code + " (" + fmtPctRate(prevRecent.rate) + ")"
+        : "",
+    });
+    return {
+      id: "tbills",
+      category: "gov",
+      categoryLabel: "Gov-Backed",
+      name: "MAS 6-Month / 1-Year T-Bills",
+      provider: "Monetary Authority of Singapore",
+      protection: "100% SG Gov",
+      protectionTone: "gov",
+      metaBadge:
+        "Last 6M: " + s6.issueCode + " · " + formatSgShortDate(s6.auctionDate),
+      syncBadge: syncText,
+      rateHeadline: fmtPctRate(s6.cutoffYield) + " 6M cut-off",
+      rateTiers,
+      rateContext,
+      rateDetail:
+        "Min $1,000 · " +
+        (s6.bidToCover
+          ? s6.bidToCover.toFixed(2) + "× bid-to-cover"
+          : "Auction allotment"),
+      capLabel: "No ind. holding cap",
+      capAmount: null,
+      liquidity: "Locked to maturity (6m/1y)",
+      requirements: "Eligible for Cash, SRS & CPFIS-OA; issued at discount",
+      url: "https://www.mas.gov.sg/bonds-and-bills/singapore-government-t-bills-information-for-individuals",
+      urlDomain: "mas.gov.sg",
+    };
+  }
+
+  const STATIC_CASH_PARKING_ITEMS = [
+    {
+      id: "ocbc-360",
+      category: "hysa",
+      categoryLabel: "HYSA",
+      name: "OCBC 360 Account",
+      provider: "OCBC Bank",
+      protection: "SDIC $100k",
+      protectionTone: "sdic",
+      metaBadge: "Salary + Save + Spend tiers",
+      rateHeadline: "1.95% EIR ($100k)",
+      rateTiers: [
+        { label: "Salary + Save + Spend", value: "1.95%", tone: "accent" },
+        { label: "Base (No Hoops)", value: "0.05%" },
+        { label: "With Insure / Invest", value: "up to 4.45%+" },
+      ],
+      rateDetail: "Realistic Salary+Save+Spend EIR; bonus applies up to $100k",
+      capLabel: "$100,000 bonus cap",
+      capAmount: 100000,
+      liquidity: "Instant access",
+      requirements: "0.05% base without hoops; SDIC covers up to $100k/bank",
+      url: "https://www.ocbc.com/personal-banking/deposits/360-savings-account",
+      urlDomain: "ocbc.com",
+    },
+    {
+      id: "uob-one",
+      category: "hysa",
+      categoryLabel: "HYSA",
+      name: "UOB One Account",
+      provider: "UOB",
+      protection: "SDIC $100k",
+      protectionTone: "sdic",
+      metaBadge: "Salary + $500 card spend",
+      rateHeadline: "1.90% EIR at $150k",
+      rateTiers: [
+        { label: "First $50k Tier", value: "1.00%" },
+        { label: "$100k Balance EIR", value: "1.38%" },
+        { label: "$150k Balance EIR", value: "1.90%", tone: "accent" },
+      ],
+      rateDetail:
+        "Requires GIRO salary/3 GIRO debits + min $500/mo eligible card spend",
+      capLabel: "$150,000 bonus cap",
+      capAmount: 150000,
+      liquidity: "Instant access",
+      requirements: "Top $50k ($100k–$150k tier) sits above $100k SDIC limit",
+      url: "https://www.uob.com.sg/personal/save/everyday-accounts/one-account.page",
+      urlDomain: "uob.com.sg",
+    },
+    {
+      id: "dbs-multiplier",
+      category: "hysa",
+      categoryLabel: "HYSA",
+      name: "DBS Multiplier Account",
+      provider: "DBS / POSB",
+      protection: "SDIC $100k shared",
+      protectionTone: "sdic",
+      metaBadge: "Income + category tiers",
+      rateHeadline: "1.80%–2.20% realistic",
+      rateTiers: [
+        { label: "Income + 1 Cat ($50k)", value: "1.80%", tone: "accent" },
+        { label: "Income + 2 Cats ($100k)", value: "2.20%" },
+        { label: "Max Bracket", value: "up to 4.10%" },
+      ],
+      rateDetail:
+        "No minimum card spend amount; dividends or PayLah count toward income",
+      capLabel: "$50k–$100k cap",
+      capAmount: 100000,
+      liquidity: "Instant access",
+      requirements: "DBS & POSB deposits share one combined $100k SDIC limit",
+      url: "https://www.dbs.com.sg/personal/deposits/bank-earn/multiplier",
+      urlDomain: "dbs.com.sg",
+    },
+    {
+      id: "gxs",
+      category: "digital",
+      categoryLabel: "Digital Bank",
+      name: "GXS Savings Account",
+      provider: "GXS Bank",
+      protection: "SDIC $100k",
+      protectionTone: "sdic",
+      metaBadge: "Daily interest · No hoops",
+      rateHeadline: "0.88%–1.08% p.a.",
+      rateTiers: [
+        { label: "Saving Pockets", value: "1.08%", tone: "accent" },
+        { label: "Main Account", value: "0.88%" },
+        { label: "Boost Pockets (18m)", value: "up to 2.00%" },
+      ],
+      rateDetail: "Zero salary credit or card spend required; daily payout",
+      capLabel: "$95,000 total cap",
+      capAmount: 95000,
+      liquidity: "Instant (Main/Pockets)",
+      requirements: "Boost Pockets lock principal for promo tenure",
+      url: "https://www.gxs.com.sg/savings-account",
+      urlDomain: "gxs.com.sg",
+    },
+    {
+      id: "maribank",
+      category: "digital",
+      categoryLabel: "Digital Bank",
+      name: "Mari Savings Account",
+      provider: "MariBank",
+      protection: "SDIC $100k",
+      protectionTone: "sdic",
+      metaBadge: "Daily credit · Zero min balance",
+      rateHeadline: "0.88% base · 1.48% bonus",
+      rateTiers: [
+        { label: "Base (No Hoops)", value: "0.88%" },
+        { label: "Salary + ShopeeVIP Bonus", value: "1.48%", tone: "accent" },
+      ],
+      rateDetail:
+        "0.88% flat with zero hoops; bonus rate applies to first $100k",
+      capLabel: "$100,000 cap",
+      capAmount: 100000,
+      liquidity: "Instant access",
+      requirements: "No minimum balance or lock-in; daily interest credit",
+      url: "https://www.maribank.sg/product/mari-savings-account",
+      urlDomain: "maribank.sg",
+    },
+    {
+      id: "trust-bank",
+      category: "digital",
+      categoryLabel: "Digital Bank",
+      name: "Trust Savings Account",
+      provider: "Trust Bank",
+      protection: "SDIC $100k",
+      protectionTone: "sdic",
+      metaBadge: "Multi-tier ($1.2M bank cap)",
+      rateHeadline: "0.40% base · up to 2.40%",
+      rateTiers: [
+        { label: "Base (No Cond.)", value: "0.40%" },
+        {
+          label: "Flex / Signature Tiers",
+          value: "1.00%–2.40%",
+          tone: "accent",
+        },
+      ],
+      rateDetail:
+        "NTUC Union / FairPrice spend & salary tiers unlock higher bonus",
+      capLabel: "$1.2M bank ($100k SDIC)",
+      capAmount: 100000,
+      liquidity: "Instant access",
+      requirements:
+        "Only first $100k is SDIC-insured; check active promo terms",
+      url: "https://trustbank.sg/savings-account/",
+      urlDomain: "trustbank.sg",
+    },
+    {
+      id: "fd-cimb",
+      category: "fd-mmf",
+      categoryLabel: "Fixed Deposit",
+      name: "CIMB SGD Fixed Deposit",
+      provider: "CIMB Singapore",
+      protection: "SDIC $100k",
+      protectionTone: "sdic",
+      metaBadge: "Online promo ($10k min)",
+      rateHeadline: "2.20%–2.35% p.a.",
+      rateTiers: [
+        { label: "6-Month Online Promo", value: "2.20%" },
+        { label: "12-Month Online Promo", value: "2.30%", tone: "accent" },
+        { label: "Preferred Banking (12m)", value: "2.35%" },
+      ],
+      rateDetail:
+        "Guaranteed fixed rate on $10k+ online placement; board rate 0.10%",
+      capLabel: "$100k SDIC / bank",
+      capAmount: 100000,
+      liquidity: "3–12m lock-in",
+      requirements: "Early uplift forfeits promotional interest",
+      url: "https://www.cimb.com.sg/en/personal/help-support/rates-charges/rates/sgd-fixed-deposit-rates.html",
+      urlDomain: "cimb.com.sg",
+    },
+    {
+      id: "fd-ocbc",
+      category: "fd-mmf",
+      categoryLabel: "Fixed Deposit",
+      name: "OCBC SGD Time Deposit",
+      provider: "OCBC Bank",
+      protection: "SDIC $100k",
+      protectionTone: "sdic",
+      metaBadge: "Online & SeniorCare ($5k min)",
+      rateHeadline: "Up to 1.85% p.a.",
+      rateTiers: [
+        { label: "Promo (12-Month)", value: "up to 1.85%", tone: "accent" },
+        { label: "Minimum Placement", value: "$5,000" },
+      ],
+      rateDetail:
+        "Applies via OCBC Digital / Internet Banking (fresh funds for some promos)",
+      capLabel: "$100k SDIC / bank",
+      capAmount: 100000,
+      liquidity: "6–12m lock-in",
+      requirements: "Early withdrawal incurs fee / interest forfeiture",
+      url: "https://www.ocbc.com/personal-banking/deposits/fixed-deposit-account",
+      urlDomain: "ocbc.com",
+    },
+    {
+      id: "fd-uob",
+      category: "fd-mmf",
+      categoryLabel: "Fixed Deposit",
+      name: "UOB SGD Fixed Deposit",
+      provider: "UOB",
+      protection: "SDIC $100k",
+      protectionTone: "sdic",
+      metaBadge: "Online promo ($10k min)",
+      rateHeadline: "Up to 1.70% p.a.",
+      rateTiers: [
+        { label: "Promotional Tenor", value: "up to 1.70%", tone: "accent" },
+        { label: "Minimum Placement", value: "$10,000" },
+      ],
+      rateDetail: "Eligible for Cash or SRS online placement via UOB TMRW",
+      capLabel: "$100k SDIC / bank",
+      capAmount: 100000,
+      liquidity: "6–10m lock-in",
+      requirements:
+        "Early uplift forfeits interest; check tranche fresh-funds rules",
+      url: "https://www.uob.com.sg/personal/save/fixed-deposits/singapore-dollar-fixed-deposit.page",
+      urlDomain: "uob.com.sg",
+    },
+    {
+      id: "fullerton-sgd",
+      category: "fd-mmf",
+      categoryLabel: "MMF",
+      name: "Fullerton SGD Cash Fund (Class A)",
+      provider: "Fullerton Fund Management",
+      protection: "Non-SDIC (MMF)",
+      protectionTone: "mmf",
+      metaBadge: "0.21% p.a. total expense",
+      rateHeadline: "~1.60% gross · ~1.28% 1Y net",
+      rateTiers: [
+        { label: "5-Day Gross Yield", value: "~1.60%", tone: "accent" },
+        { label: "1-Year Net Return", value: "~1.28%" },
+      ],
+      rateDetail:
+        "Invests in MAS bills & top-tier SG/global bank fixed deposits",
+      capLabel: "No cap",
+      capAmount: null,
+      liquidity: "T+1 to T+3 business days",
+      requirements:
+        "Investment fund (not SDIC-insured); available on Webull/Moomoo/Endowus",
+      url: "https://www.fullertonfund.com/fund/fullerton-sgd-cash-fund-a/",
+      urlDomain: "fullertonfund.com",
+    },
+    {
+      id: "lionglobal-mmf",
+      category: "fd-mmf",
+      categoryLabel: "MMF",
+      name: "LionGlobal SGD Money Market Fund",
+      provider: "LionGlobal Investors",
+      protection: "Non-SDIC (MMF)",
+      protectionTone: "mmf",
+      metaBadge: "0.30% p.a. mgmt fee",
+      rateHeadline: "~1.80% YTM · ~1.41% 1Y net",
+      rateTiers: [
+        { label: "Weighted Portfolio YTM", value: "~1.80%", tone: "accent" },
+        { label: "1-Year Net Return", value: "~1.41%" },
+      ],
+      rateDetail:
+        "Short-duration SGD bank deposits & high-grade corporate/gov bills",
+      capLabel: "No cap",
+      capAmount: null,
+      liquidity: "T+1 to T+3 business days",
+      requirements: "Cash & SRS eligible via banks/brokers; not SDIC-insured",
+      url: "https://www.lionglobalinvestors.com/en/fund.html?officialNav=SGA1",
+      urlDomain: "lionglobalinvestors.com",
+    },
+    {
+      id: "mari-invest",
+      category: "fd-mmf",
+      categoryLabel: "MMF",
+      name: "Mari Invest SavePlus",
+      provider: "MariBank",
+      protection: "Non-SDIC (MMF)",
+      protectionTone: "mmf",
+      metaBadge: "0.25% mgmt fee · Instant $10k/d",
+      rateHeadline: "~1.90% YTM · ~1.50% 1Y net",
+      rateTiers: [
+        { label: "Projected Portfolio YTM", value: "~1.90%", tone: "accent" },
+        { label: "1-Year Net Return", value: "~1.50%" },
+      ],
+      rateDetail:
+        "Lion-MariBank SavePlus MAS-bill/deposit fund with daily NAV update",
+      capLabel: "No cap (instant $10k/d)",
+      capAmount: null,
+      liquidity: "Instant up to $10k/day",
+      requirements: "Withdrawals >$10k/day settle T+1–T+3; not SDIC-insured",
+      url: "https://www.maribank.sg/product/mari-invest",
+      urlDomain: "maribank.sg",
+    },
+    {
+      id: "chocolate-finance",
+      category: "fd-mmf",
+      categoryLabel: "Cash Mgmt",
+      name: "Chocolate Finance",
+      provider: "Chocolate Finance",
+      protection: "Non-SDIC (Managed)",
+      protectionTone: "mmf",
+      metaBadge: "Top-Up Programme until 30 Jun 2027",
+      rateHeadline: "2.20% ($20k) · 1.90% ($130k)",
+      rateTiers: [
+        { label: "First $20,000", value: "2.20%", tone: "accent" },
+        { label: "Next $130,000", value: "1.90%" },
+        { label: "Balances >$150k", value: "Market rate" },
+      ],
+      rateDetail: "Target return backed by Top-Up Programme (up to $150k)",
+      capLabel: "$150,000 Top-Up cap",
+      capAmount: 150000,
+      liquidity: "Same-day up to $30k",
+      requirements: "Invested in short-duration bond funds; not SDIC-insured",
+      url: "https://www.chocolatefinance.com",
+      urlDomain: "chocolatefinance.com",
+    },
+    {
+      id: "syfe-cash",
+      category: "fd-mmf",
+      categoryLabel: "Cash Mgmt",
+      name: "Syfe Cash+ (Flexi / Guaranteed)",
+      provider: "Syfe",
+      protection: "Non-SDIC (MMF/FD)",
+      protectionTone: "mmf",
+      metaBadge: "Flexi or locked Guaranteed tenors",
+      rateHeadline: "~1.70% Flexi · 1.40–1.65% Guar.",
+      rateTiers: [
+        { label: "Cash+ Flexi (SGD, T+1)", value: "~1.70%", tone: "accent" },
+        { label: "Guaranteed (3–12m FD)", value: "1.40%–1.65%" },
+      ],
+      rateDetail:
+        "Choose flexible T+1 MMF sleeve or fixed bank-placed Guaranteed tranches",
+      capLabel: "No cap",
+      capAmount: null,
+      liquidity: "T+1 Flexi / 3–12m locked",
+      requirements:
+        "Held via platform custodian structure; not directly SDIC-insured",
+      url: "https://www.syfe.com/cash-management",
+      urlDomain: "syfe.com",
+    },
+    {
+      id: "endowus-cash",
+      category: "fd-mmf",
+      categoryLabel: "Cash Mgmt",
+      name: "Endowus Cash Smart",
+      provider: "Endowus",
+      protection: "Non-SDIC (Fund)",
+      protectionTone: "mmf",
+      metaBadge: "Net after 0.15% access + fund fee",
+      rateHeadline: "1.30%–2.80% net",
+      rateTiers: [
+        { label: "Secure (Low Risk)", value: "~1.30%" },
+        { label: "Enhanced (Short Bond)", value: "~2.40%", tone: "accent" },
+        { label: "Ultra (Higher Volatility)", value: "~2.80%" },
+      ],
+      rateDetail: "Supports Cash & SRS ($1,000 min); rebate of trailer fees",
+      capLabel: "No cap ($1,000 min)",
+      capAmount: null,
+      liquidity: "2–4 working days",
+      requirements: "Higher tiers carry duration/credit NAV fluctuation",
+      url: "https://endowus.com/cash-smart",
+      urlDomain: "endowus.com",
+    },
+    {
+      id: "phillip-mms",
+      category: "fd-mmf",
+      categoryLabel: "MMF ETF",
+      name: "Phillip SGD Money Market ETF (MMS)",
+      provider: "PhillipFunds (SGX)",
+      protection: "Non-SDIC (ETF)",
+      protectionTone: "mmf",
+      metaBadge: "SGX Ticker: MMS · T+2 settlement",
+      rateHeadline: "~1.27% 7-day ann.",
+      rateTiers: [
+        { label: "7-Day Annualised Yield", value: "~1.27%", tone: "accent" },
+        { label: "Trading Venue", value: "SGX (SGD)" },
+      ],
+      rateDetail:
+        "Exchange-traded SGD money market fund bought via stock broker",
+      capLabel: "No cap",
+      capAmount: null,
+      liquidity: "Market hours + T+2",
+      requirements:
+        "Requires CDP/custodian broker; watch bid-ask spread & commissions",
+      url: "https://www.phillipfunds.com/phillip-sgd-money-market-etf/",
+      urlDomain: "phillipfunds.com",
+    },
+  ];
+
+  function resolveCashParkingCatalog(masRatesInput) {
+    const { data, isLive } = normalizeMasRates(masRatesInput);
+    return {
+      asOf: "Nov 2026",
+      masAsOfDate: data.asOfDate,
+      masIsLive: isLive,
+      masFetchedAt: data.fetchedAt || null,
+      categories: [
+        { key: "all", label: "All Mediums" },
+        { key: "gov", label: "Gov-Backed" },
+        { key: "hysa", label: "HYSA" },
+        { key: "digital", label: "Digital Banks" },
+        { key: "fd-mmf", label: "FD & MMF" },
+      ],
+      items: [
+        buildSsbItem(data, isLive),
+        buildTbillsItem(data, isLive),
+        ...STATIC_CASH_PARKING_ITEMS,
+      ],
+    };
+  }
+
+  const CASH_PARKING_CATALOG = resolveCashParkingCatalog();
+
+  function cashParkingPlan({
+    summary,
+    guide,
+    params = {},
+    bogle,
+    masRates,
+  } = {}) {
+    const catalog = resolveCashParkingCatalog(masRates);
+    const emergencyMonthlyBase = Math.max(
+      0,
+      Number(summary?.todaySpend || 2800),
+    );
+    const emergencyMin = Math.round(
+      guide?.emergencyMin ?? emergencyMonthlyBase * 6,
+    );
+    const emergencyMax = Math.round(
+      guide?.emergencyMax ?? emergencyMonthlyBase * 12,
+    );
+    const buckets = resolvePortfolioBuckets(params);
+    const currentCash = Math.round(Math.max(0, buckets.ssbCash || 0));
+    const monthlyCashSlice = summary?.retiringNow
+      ? 0
+      : Math.round(
+          Math.max(0, Number(bogle?.monthlyRebalance?.buyBondMonthly || 0)),
+        );
+    const hasSrs =
+      Number(params?.srs || 0) > 0 || Number(params?.srsAnnual || 0) > 0;
+
+    let positionTone = "good";
+    let positionHeadline = "Fits inside 1 HYSA ($100k SDIC)";
+    let positionNote =
+      "Your current cash fits comfortably within one bank’s $100k SDIC insurance limit.";
+
+    if (currentCash <= 0) {
+      positionTone = "warn";
+      positionHeadline = "Build Tier 1 buffer first";
+      positionNote =
+        "Target 6–12 months of spending in an instant HYSA or digital bank before locking cash.";
+    } else if (currentCash < emergencyMin) {
+      positionTone = "warn";
+      positionHeadline = "Below 6-month emergency target";
+      positionNote =
+        "Keep 100% instant in an SDIC-insured HYSA or digital bank until your 6-month buffer is filled.";
+    } else if (currentCash <= C.sdicCap) {
+      positionTone = "good";
+      positionHeadline = "Fits inside 1 HYSA ($100k SDIC)";
+      positionNote =
+        currentCash > emergencyMax
+          ? "Emergency buffer covered; any surplus above 12 months can shift into SSB ($200k cap) or T-Bills."
+          : "Emergency buffer covered inside a single $100k SDIC-insured bank.";
+    } else if (currentCash <= C.sdicCap + C.ssbCap) {
+      positionTone = "info";
+      positionHeadline = "Split across HYSA + SSB ($200k cap)";
+      positionNote =
+        "Cash exceeds one $100k SDIC bank cap. Keep emergency cash in HYSA/digital ($100k/bank) and park surplus in SSB (up to $200k) or T-Bills.";
+    } else {
+      positionTone = "info";
+      positionHeadline = "Layer Multi-Bank + SSB + T-Bills/MMF";
+      positionNote =
+        "Cash exceeds 1 bank ($100k SDIC) + full SSB ($200k). Split across multiple SDIC banks, MAS T-Bills, or SGD MMFs.";
+    }
+
+    const tier1Alloc = Math.min(currentCash, C.sdicCap);
+    const afterTier1 = Math.max(0, currentCash - tier1Alloc);
+    const tier2Alloc = Math.min(afterTier1, C.ssbCap);
+    const tier3Alloc = Math.max(0, afterTier1 - tier2Alloc);
+
+    return {
+      asOf: catalog.asOf,
+      masAsOfDate: catalog.masAsOfDate,
+      masIsLive: catalog.masIsLive,
+      masFetchedAt: catalog.masFetchedAt,
+      masSyncLabel:
+        (catalog.masIsLive ? "MAS synced · " : "MAS snapshot · ") +
+        formatSgFullDate(catalog.masAsOfDate),
+      sdicCap: C.sdicCap,
+      ssbCap: C.ssbCap,
+      emergencyMonthlyBase,
+      emergencyMin,
+      emergencyMax,
+      currentCash,
+      monthlyCashSlice,
+      hasSrs,
+      positionTone,
+      positionHeadline,
+      positionNote,
+      tiers: [
+        {
+          step: "Tier 1 · Instant Buffer",
+          limit: "$100k SDIC / bank",
+          targetText:
+            "$" +
+            emergencyMin.toLocaleString("en-SG") +
+            "–$" +
+            emergencyMax.toLocaleString("en-SG"),
+          allocated: tier1Alloc,
+          vehicles:
+            "HYSA (OCBC 360 / UOB One / DBS) or Digital Bank (GXS / MariBank)",
+        },
+        {
+          step: "Tier 2 · Sovereign Yield",
+          limit: "$200k SSB cap · Uncapped T-Bills",
+          targetText: "Surplus above 12m buffer",
+          allocated: tier2Alloc,
+          vehicles:
+            "MAS Singapore Savings Bonds (monthly exit) & 6m/1y T-Bills",
+        },
+        {
+          step: "Tier 3 · Overflow & SRS",
+          limit: "Non-SDIC · Check liquidity",
+          targetText: hasSrs ? "Idle SRS & excess cash" : "Overflow > $300k",
+          allocated: tier3Alloc,
+          vehicles:
+            "SGD MMFs (Fullerton / LionGlobal / Mari Invest) & Cash Mgmt",
+        },
+      ],
+      catalog,
+    };
+  }
+
   function generateTrajectory(p, selectedKey = "salary") {
     return simulate(p, selectedKey);
   }
@@ -2600,7 +3992,6 @@
     projectCPF,
     simulate,
     earliestRetirement,
-    compareTopupTiming,
     milestonePlan,
     todayValue,
     todayPlan,
@@ -2611,12 +4002,22 @@
     ccaRows,
     lifestyles,
     budgetBreakdown,
+    EXPENSE_CATEGORIES,
+    defaultExpenseItems,
+    scaleExpenseItems,
+    expensePlan,
     careTotals,
+    healthShieldMonthlyAtAge,
+    insuranceCurveLevelAtAge,
     expenseAt,
     referencePayout,
     portfolioTarget,
     calculate,
     paycheckAllocation,
+    DEFAULT_MAS_LIVE_RATES,
+    CASH_PARKING_CATALOG,
+    resolveCashParkingCatalog,
+    cashParkingPlan,
     buildPrintReportModel,
     generateTrajectory,
   };

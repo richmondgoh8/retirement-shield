@@ -76,12 +76,31 @@ async function pageResponse(request) {
   }
 }
 
+async function networkFirstJson(request) {
+  const cache = await caches.open(CACHE_NAME);
+  try {
+    const response = await fetch(request, { cache: "no-cache" });
+    if (response.ok && !response.redirected) {
+      await cache.put(request, response.clone());
+      return response;
+    }
+  } catch {
+    // Offline or transient network error falls back to precached snapshot.
+  }
+  const cached = await cache.match(request);
+  return cached || fetch(request);
+}
+
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
   if (event.request.mode === "navigate" && isAppPage(url)) {
     event.respondWith(pageResponse(event.request));
+    return;
+  }
+  if (url.pathname.endsWith("/assets/mas-rates.json")) {
+    event.respondWith(networkFirstJson(event.request));
     return;
   }
   // Requests outside this build's asset list pass through untouched.

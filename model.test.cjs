@@ -77,7 +77,7 @@ test("helper ranges add correctly without duplicate food; age-75 normal and conc
 });
 test("explicit Home + Helper fixture stays adjustable", () => {
   const p = { age: 35, salary: 6000 };
-  assert.equal(calculate(p).todaySpend, 3500);
+  assert.equal(calculate(p).todaySpend, 3900);
   assert.ok(calculate({ ...p, spend: 4000 }).saving > calculate(p).saving);
   assert.ok(calculate(p).at75 > calculate(p).todaySpend);
 });
@@ -338,7 +338,7 @@ test("default today-dollar example and fixed-levy effect are explicit", () => {
   const { todayPlan, todayValue } = require("./model");
   const r = calculate({ age: 35, salary: 6000 }),
     d = todayPlan(r);
-  assert.equal(Math.round(d.spend65), 3324);
+  assert.equal(Math.round(d.spend65), 3842);
   assert.ok(d.scenarios[0].payout > 0);
   assert.ok(
     Math.abs(d.scenarios[0].gap65 - (d.spend65 - d.scenarios[0].payout)) < 1e-8,
@@ -416,7 +416,7 @@ test("CCA is the new default with the approved spending provisions", () => {
   const M = require("./model.js");
   const r = M.calculate({ age: 35, salary: 6000 });
   assert.equal(r.lifestyle, "cca");
-  assert.equal(r.todaySpend, 2500);
+  assert.equal(r.todaySpend, 2800);
   assert.equal(
     M.ccaRows.reduce((sum, row) => sum + row.now, 0),
     2500,
@@ -426,8 +426,20 @@ test("CCA is the new default with the approved spending provisions", () => {
     3340,
   );
   const d = M.todayPlan(r);
-  assert.ok(Math.abs(d.spend65 - 2500) < 1e-8);
-  assert.ok(Math.abs(d.spend75 - 3340) < 1e-8);
+  assert.ok(
+    Math.abs(
+      d.spend65 -
+        (2800 * M.insuranceCurveLevelAtAge(65, "cca")) /
+          M.insuranceCurveLevelAtAge(35, "cca"),
+    ) < 1e-8,
+  );
+  assert.ok(
+    Math.abs(
+      d.spend75 -
+        (2800 * M.insuranceCurveLevelAtAge(75, "cca")) /
+          M.insuranceCurveLevelAtAge(35, "cca"),
+    ) < 1e-8,
+  );
   assert.equal(M.expenseAt(2500, 65, 10, 0, "cca"), 3340);
   assert.throws(() =>
     M.calculate({ age: 35, salary: 6000, lifestyle: "unknown" }),
@@ -443,7 +455,7 @@ test("CCA custom budgets scale care provisions, without a fixed levy", () => {
   const M = require("./model.js");
   const p = { age: 35, salary: 6000 };
   const full = M.todayPlan(M.calculate(p)),
-    half = M.todayPlan(M.calculate({ ...p, spend: 1250 }));
+    half = M.todayPlan(M.calculate({ ...p, spend: 1400 }));
   assert.ok(Math.abs(half.spend65 / full.spend65 - 0.5) < 1e-8);
   assert.ok(Math.abs(half.spend75 / full.spend75 - 0.5) < 1e-8);
   assert.equal(M.calculate({ ...p, spend: 0 }).target, 0);
@@ -498,7 +510,7 @@ test("both presets reconcile answer, monthly trajectory and portfolio funding", 
 test("budget previews reconcile categories, groups and custom totals for both presets", () => {
   const M = require("./model.js");
   for (const lifestyle of ["cca", "home-helper"])
-    for (const total of [0, 1000, 2500, 3500, 4321.5]) {
+    for (const total of [0, 1000, 2500, 2800, 3500, 3900, 4321.5]) {
       const b = M.budgetBreakdown(lifestyle, total);
       assert.ok(
         Math.abs(b.rows.reduce((sum, row) => sum + row.amount, 0) - total) <
@@ -514,15 +526,17 @@ test("budget previews reconcile categories, groups and custom totals for both pr
         assert.ok(Number.isFinite(row.amount) && row.amount >= 0);
     }
   const cca = M.budgetBreakdown();
-  assert.equal(cca.total, 2500);
+  assert.equal(cca.total, 2800);
+  const ccaLegacy = M.budgetBreakdown("cca", 2500);
   assert.deepEqual(
-    cca.groups.map((g) => g.amount),
+    ccaLegacy.groups.map((g) => g.amount),
     [1180, 1120, 200],
   );
   const helper = M.budgetBreakdown("home-helper");
-  assert.equal(helper.total, 3500);
+  assert.equal(helper.total, 3900);
+  const helperLegacy = M.budgetBreakdown("home-helper", 3500);
   assert.equal(
-    helper.rows.find((row) => row.name === "Planning cushion").amount,
+    helperLegacy.rows.find((row) => row.name === "Planning cushion").amount,
     410,
   );
   assert.throws(() => M.budgetBreakdown("unknown", 2500));
@@ -648,8 +662,8 @@ test("outsideAllocationGuide reconciles take-home pay, affordability states and 
   assert.ok(guideCritical.netTakeHome < guideCritical.afterCpf);
   assert.equal(guideCritical.state.key, "critical");
   assert.equal(guideCritical.usingBenchmark, true);
-  assert.equal(guideCritical.emergencyMin, 15000);
-  assert.equal(guideCritical.emergencyMax, 30000);
+  assert.equal(guideCritical.emergencyMin, 16800);
+  assert.equal(guideCritical.emergencyMax, 33600);
   assert.equal(
     guideCritical.split.safeMonthly +
       guideCritical.split.srsMonthly +
@@ -659,8 +673,8 @@ test("outsideAllocationGuide reconciles take-home pay, affordability states and 
   assert.ok(guideCritical.split.srsMonthly <= C.srsCap / 12);
 
   // Stretched case (51-85% of take-home)
-  const rStretched = M.calculate({ age: 45, salary: 6500 });
-  const simStretched = M.simulate({ age: 45, salary: 6500 }, "salary", {
+  const rStretched = M.calculate({ age: 45, salary: 8500 });
+  const simStretched = M.simulate({ age: 45, salary: 8500 }, "salary", {
     summary: rStretched,
   });
   const guideStretched = M.outsideAllocationGuide(rStretched, simStretched);
@@ -669,13 +683,13 @@ test("outsideAllocationGuide reconciles take-home pay, affordability states and 
   // Higher earner with existing balances reaches comfortable state and positive SRS/RSTU tax savings
   const comfortableSummary = M.calculate({
     age: 35,
-    salary: 9000,
+    salary: 12000,
     oa: 80000,
     sa: 60000,
     savings: 100000,
   });
   const simComfort = M.simulate(
-    { age: 35, salary: 9000, oa: 80000, sa: 60000, savings: 100000 },
+    { age: 35, salary: 12000, oa: 80000, sa: 60000, savings: 100000 },
     "salary",
     { summary: comfortableSummary },
   );
@@ -1033,4 +1047,410 @@ test("buildPrintReportModel aligns retire age, readiness fallback, waterfall-to-
   assert.equal(pm2.earliestSafeAgeText, "After 80");
   assert.equal(pm2.hasCustomSaving, true);
   assert.ok(pm2.customSavingNote.includes("Custom input active"));
+});
+
+test("CASH_PARKING_CATALOG and cashParkingPlan cover limits, links, and tiered cash stacking", () => {
+  const M = require("./model.js");
+  const cat = M.CASH_PARKING_CATALOG;
+  assert.ok(cat.asOf);
+  assert.ok(cat.items.length >= 12);
+
+  for (const item of cat.items) {
+    assert.ok(item.id && item.name && item.provider);
+    assert.ok(item.rateHeadline && item.capLabel && item.liquidity);
+    assert.match(item.url, /^https:\/\//, "expected https URL for " + item.id);
+    assert.ok(item.urlDomain);
+  }
+
+  const ssb = cat.items.find((x) => x.id === "ssb");
+  assert.equal(ssb.capAmount, 200000);
+  const ocbc = cat.items.find((x) => x.id === "ocbc-360");
+  assert.equal(ocbc.capAmount, 100000);
+  const uob = cat.items.find((x) => x.id === "uob-one");
+  assert.equal(uob.capAmount, 150000);
+  const mmfs = cat.items.filter((x) => x.protectionTone === "mmf");
+  assert.ok(mmfs.length >= 5);
+  assert.ok(mmfs.every((x) => x.protection.includes("Non-SDIC")));
+
+  const cpZero = M.cashParkingPlan({
+    summary: { todaySpend: 2500 },
+    guide: { emergencyMin: 15000, emergencyMax: 30000 },
+    params: { ssbCash: 0 },
+  });
+  assert.equal(cpZero.positionTone, "warn");
+  assert.equal(cpZero.tiers[0].allocated, 0);
+
+  const cpMid = M.cashParkingPlan({
+    summary: { todaySpend: 2500 },
+    guide: { emergencyMin: 15000, emergencyMax: 30000 },
+    params: { ssbCash: 150000, srsAnnual: 5000 },
+    bogle: { monthlyRebalance: { buyBondMonthly: 350 } },
+  });
+  assert.equal(cpMid.positionTone, "info");
+  assert.equal(cpMid.hasSrs, true);
+  assert.equal(cpMid.monthlyCashSlice, 350);
+  assert.equal(cpMid.tiers[0].allocated, 100000);
+  assert.equal(cpMid.tiers[1].allocated, 50000);
+  assert.equal(cpMid.tiers[2].allocated, 0);
+
+  const cpLarge = M.cashParkingPlan({
+    summary: { todaySpend: 3500 },
+    guide: { emergencyMin: 21000, emergencyMax: 42000 },
+    params: { ssbCash: 360000 },
+  });
+  assert.equal(cpLarge.tiers[0].allocated, 100000);
+  assert.equal(cpLarge.tiers[1].allocated, 200000);
+  assert.equal(cpLarge.tiers[2].allocated, 60000);
+
+  // Every item exposes structured un-lumped rateTiers and Fixed Deposits are separated by bank
+  for (const item of cat.items) {
+    assert.ok(
+      Array.isArray(item.rateTiers) && item.rateTiers.length >= 2,
+      "expected structured rateTiers for " + item.id,
+    );
+    for (const tier of item.rateTiers) {
+      assert.ok(tier.label && tier.value);
+      assert.equal(String(tier.value).includes("·"), false);
+    }
+  }
+  assert.ok(cat.items.find((x) => x.id === "fd-cimb"));
+  assert.ok(cat.items.find((x) => x.id === "fd-ocbc"));
+  assert.ok(cat.items.find((x) => x.id === "fd-uob"));
+  assert.equal(
+    cat.items.find((x) => x.id === "sgd-fd"),
+    undefined,
+  );
+
+  // Live MAS rates override populates fresh SSB tranche and T-Bill cut-offs cleanly
+  const fs = require("node:fs");
+  const diskRates = JSON.parse(
+    fs.readFileSync("assets/mas-rates.json", "utf8"),
+  );
+  assert.ok(
+    diskRates.ssb?.trancheCode && diskRates.tbills?.sixMonth?.issueCode,
+  );
+
+  const cpLive = M.cashParkingPlan({
+    summary: { todaySpend: 2500 },
+    guide: { emergencyMin: 15000, emergencyMax: 30000 },
+    params: { ssbCash: 50000 },
+    masRates: {
+      asOfDate: "2027-01-04",
+      ssb: {
+        issueCode: "GX27010X",
+        trancheCode: "SBJAN27",
+        lastDayToApply: "2027-01-26",
+        issueDate: "2027-02-01",
+        year1Return: 2.1,
+        year5Return: 2.4,
+        year10Coupon: 3.05,
+        year10Return: 2.65,
+        prevTrancheCode: "SBDEC26",
+        prevYear10Return: 2.39,
+      },
+      tbills: {
+        sixMonth: {
+          issueCode: "BS27100A",
+          auctionDate: "2027-01-02",
+          cutoffYield: 1.94,
+          medianYield: 1.88,
+          bidToCover: 2.31,
+          nextIssueCode: "BS27101E",
+          nextAuctionDate: "2027-01-14",
+        },
+        oneYear: {
+          issueCode: "BY26103X",
+          cutoffYield: 1.92,
+        },
+      },
+    },
+  });
+  assert.equal(cpLive.masIsLive, true);
+  assert.ok(cpLive.masSyncLabel.includes("4 Jan 2027"));
+  const liveSsb = cpLive.catalog.items.find((x) => x.id === "ssb");
+  assert.ok(liveSsb.metaBadge.includes("SBJAN27"));
+  assert.equal(liveSsb.rateTiers[0].value, "2.10%");
+  assert.equal(liveSsb.rateTiers[2].value, "2.65%");
+  const liveTb = cpLive.catalog.items.find((x) => x.id === "tbills");
+  assert.ok(liveTb.metaBadge.includes("BS27100A"));
+  assert.equal(liveTb.rateTiers[0].value, "1.94%");
+});
+
+test("defaultExpenseItems and expensePlan break down presets, scaled targets, and itemized lists", () => {
+  const M = require("./model.js");
+
+  const ccaItems = M.defaultExpenseItems("cca");
+  assert.equal(
+    ccaItems.reduce((s, it) => s + it.amount, 0),
+    2800,
+  );
+  const hhItems = M.defaultExpenseItems("home-helper");
+  assert.equal(
+    hhItems.reduce((s, it) => s + it.amount, 0),
+    3900,
+  );
+
+  // Modern preset items include ~$800/mo food, ISP+rider, term/whole life, HDB insurance, WiFi & streaming
+  assert.equal(
+    ccaItems
+      .filter((it) => it.category === "food")
+      .reduce((s, it) => s + it.amount, 0),
+    800,
+  );
+  assert.equal(
+    hhItems
+      .filter((it) => it.category === "food")
+      .reduce((s, it) => s + it.amount, 0),
+    800,
+  );
+  for (const items of [ccaItems, hhItems]) {
+    assert.ok(
+      items.some(
+        (it) =>
+          it.category === "housing" && /hdb (?:fire|insurance)/i.test(it.name),
+      ),
+    );
+    assert.ok(
+      items.some(
+        (it) =>
+          it.category === "care" &&
+          /aia healthshield max \+ hsg max rider/i.test(it.name),
+      ),
+    );
+    assert.ok(
+      items.some(
+        (it) =>
+          it.category === "care" && /ge supreme multiplier life/i.test(it.name),
+      ),
+    );
+    assert.ok(
+      items.some(
+        (it) =>
+          it.category === "care" && /accident & term policy/i.test(it.name),
+      ),
+    );
+    assert.ok(
+      items.some(
+        (it) =>
+          it.category === "care" &&
+          /supplement stack/i.test(it.name) &&
+          it.amount === 35,
+      ),
+    );
+    assert.ok(
+      items.some(
+        (it) =>
+          it.category === "lifestyle" &&
+          /aircon servicing, home repairs & appliances/i.test(it.name) &&
+          it.amount >= 120,
+      ),
+    );
+    assert.ok(
+      items.some(
+        (it) =>
+          it.category === "lifestyle" &&
+          /annual travel fund & contingency buffer/i.test(it.name) &&
+          it.amount >= 410,
+      ),
+    );
+  }
+  assert.ok(
+    ccaItems.some(
+      (it) => it.category === "digital" && /wifi|mobile/i.test(it.name),
+    ),
+  );
+  assert.ok(
+    hhItems.some(
+      (it) => it.category === "digital" && /netflix|streaming/i.test(it.name),
+    ),
+  );
+
+  // Preset mode
+  const presetPlan = M.expensePlan({ lifestyle: "cca", afterCpf: 4400 });
+  assert.equal(presetPlan.sourceMode, "preset");
+  assert.equal(presetPlan.isCustom, false);
+  assert.equal(presetPlan.itemizedActive, false);
+  assert.equal(presetPlan.total, 2800);
+  assert.equal(presetPlan.categories.length, 6);
+  assert.equal(
+    presetPlan.categories.reduce((s, c) => s + c.amount, 0),
+    2800,
+  );
+  assert.equal(presetPlan.takeHomePct, Math.round((2800 / 4400) * 100));
+
+  // Explicit custom mode keeps isCustom true even if spend temporarily equals preset base
+  const customSameAmount = M.expensePlan({
+    lifestyle: "cca",
+    spend: 2800,
+    customActive: true,
+    afterCpf: 4400,
+  });
+  assert.equal(customSameAmount.isCustom, true);
+  assert.equal(customSameAmount.sourceMode, "scaled");
+
+  // Single figure mode preserves custom item weights when scaling customExpenses
+  const scaledCustomItems = M.expensePlan({
+    lifestyle: "cca",
+    spend: 4000,
+    customActive: true,
+    itemizedActive: false,
+    customExpenses: [
+      { id: "1", name: "Parents allowance", category: "care", amount: 500 },
+      { id: "2", name: "Living & Bills", category: "food", amount: 1500 },
+    ],
+    afterCpf: 5000,
+  });
+  assert.equal(scaledCustomItems.isCustom, true);
+  assert.equal(scaledCustomItems.itemizedActive, false);
+  assert.equal(scaledCustomItems.total, 4000);
+  assert.equal(scaledCustomItems.items[0].name, "Parents allowance");
+  assert.equal(scaledCustomItems.items[0].amount, 1000);
+  assert.equal(scaledCustomItems.items[1].amount, 3000);
+
+  // Scaled custom spend mode ($3,000)
+  const scaledPlan = M.expensePlan({
+    lifestyle: "cca",
+    spend: 3000,
+    afterCpf: 5000,
+  });
+  assert.equal(scaledPlan.sourceMode, "scaled");
+  assert.equal(scaledPlan.isCustom, true);
+  assert.equal(scaledPlan.total, 3000);
+  assert.equal(
+    Math.round(scaledPlan.categories.reduce((s, c) => s + c.amount, 0) * 100) /
+      100,
+    3000,
+  );
+  assert.equal(scaledPlan.takeHomePct, 60);
+
+  // Itemized custom list mode (also verifies legacy living/buffer category mapping)
+  const itemizedPlan = M.expensePlan({
+    lifestyle: "home-helper",
+    itemizedActive: true,
+    customExpenses: [
+      {
+        id: "1",
+        name: "Utilities & Conservancy",
+        category: "housing",
+        amount: 300,
+      },
+      { id: "2", name: "Groceries & Dining", category: "living", amount: 900 },
+      { id: "3", name: "Helper + Insurance", category: "care", amount: 1500 },
+      { id: "4", name: "Travel Fund", category: "buffer", amount: 300 },
+    ],
+    afterCpf: 6000,
+  });
+  assert.equal(itemizedPlan.sourceMode, "itemized");
+  assert.equal(itemizedPlan.isCustom, true);
+  assert.equal(itemizedPlan.itemizedActive, true);
+  assert.equal(itemizedPlan.total, 3000);
+  assert.equal(itemizedPlan.takeHomePct, 50);
+  const byCat = Object.fromEntries(
+    itemizedPlan.categories.map((c) => [c.key, c]),
+  );
+  assert.equal(byCat.housing.amount, 300);
+  assert.equal(byCat.housing.pct, 10);
+  assert.equal(byCat.food.pct, 30);
+  assert.equal(byCat.care.pct, 50);
+  assert.equal(byCat.lifestyle.pct, 10);
+
+  // Zero-total itemized edge case should not divide by zero
+  const zeroPlan = M.expensePlan({
+    lifestyle: "cca",
+    itemizedActive: true,
+    customExpenses: [{ name: "Empty", category: "food", amount: 0 }],
+    afterCpf: 0,
+  });
+  assert.equal(zeroPlan.total, 0);
+  assert.equal(zeroPlan.takeHomePct, 0);
+  assert.equal(zeroPlan.items[0].pct, 0);
+  assert.ok(zeroPlan.categories.every((c) => c.pct === 0));
+});
+
+test("resolveCashParkingCatalog builds historical rateContext for SSB and T-Bills", () => {
+  const M = require("./model.js");
+  const fs = require("node:fs");
+  const diskRates = JSON.parse(
+    fs.readFileSync("assets/mas-rates.json", "utf8"),
+  );
+  const cat = M.resolveCashParkingCatalog(diskRates);
+
+  for (const id of ["ssb", "tbills"]) {
+    const item = cat.items.find((x) => x.id === id);
+    assert.ok(item && item.rateContext, "expected rateContext on " + id);
+    assert.ok(["good", "info", "warn"].includes(item.rateContext.tone));
+    assert.ok(item.rateContext.verdict.length > 5);
+    assert.ok(item.rateContext.action.length > 10);
+    assert.ok(item.rateContext.yr1.min <= item.rateContext.yr1.avg);
+    assert.ok(item.rateContext.yr1.avg <= item.rateContext.yr1.max);
+    assert.ok(
+      item.rateContext.yr1.posPct >= 4 && item.rateContext.yr1.posPct <= 96,
+    );
+    assert.ok(
+      item.rateContext.longTerm && item.rateContext.longTerm.sinceYear <= 2020,
+    );
+    assert.equal(item.rateContext.recent6.length, 6);
+  }
+});
+
+test("HealthShield age-band step-up and limited-pay GE Life curve fund old-age care without changing today cashflow", () => {
+  const M = require("./model.js");
+  assert.equal(M.healthShieldMonthlyAtAge(35), 153);
+  assert.equal(M.healthShieldMonthlyAtAge(45), 248);
+  assert.equal(M.healthShieldMonthlyAtAge(55), 381);
+  assert.equal(M.healthShieldMonthlyAtAge(65), 621);
+  assert.equal(M.healthShieldMonthlyAtAge(75), 1216);
+  assert.equal(M.healthShieldMonthlyAtAge(85), 1730);
+  assert.equal(M.healthShieldMonthlyAtAge(90), 1821);
+
+  for (const [lifestyle, expectedToday, exp65, exp75] of [
+    ["cca", 2800, 2963, 4026],
+    ["home-helper", 3900, 3842, 4579],
+  ]) {
+    const r = M.calculate({ age: 35, salary: 6000, lifestyle });
+    const d = M.todayPlan(r);
+    assert.equal(r.todaySpend, expectedToday);
+    assert.equal(Math.round(d.spend65), exp65);
+    assert.equal(Math.round(d.spend75), exp75);
+
+    const s0 = r.scenarios[0];
+    const futureSpendAt65 = M.expenseAt(
+      r.todaySpend,
+      r.age,
+      r.retire - r.age,
+      r.inflation,
+      lifestyle,
+      { insuranceCurve: true },
+    );
+    const flatCurveTarget = M.portfolioTarget(
+      futureSpendAt65,
+      s0.payout,
+      r.retire,
+      90,
+      {
+        investmentReturn: r.investmentReturn,
+        inflation: r.inflation,
+        plan: r.plan,
+        lifestyle,
+        insuranceCurve: false,
+      },
+    );
+    assert.ok(s0.privateTarget > flatCurveTarget);
+
+    const sim = M.simulate({ age: 35, salary: 6000, lifestyle }, "salary", {
+      summary: r,
+    });
+    assert.ok(Math.abs(sim.points.at(-1).portfolioBalance) < 1e-4);
+    const fire = M.firePlan({
+      age: 35,
+      salary: 6000,
+      lifestyle,
+      retire: 65,
+    });
+    const f65 = fire.points.find((pt) => pt.age === 65);
+    const f75 = fire.points.find((pt) => pt.age === 75);
+    assert.equal(Math.round(f65.today.monthlySpend), exp65);
+    assert.equal(Math.round(f75.today.monthlySpend), exp75);
+    assert.equal(fire.points.at(-1).age, 95);
+  }
 });
