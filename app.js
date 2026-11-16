@@ -3,8 +3,13 @@ const $$ = (selector) => [...document.querySelectorAll(selector)];
 const fmtInt = (value) =>
   Math.round(Math.max(0, value) || 0).toLocaleString("en-SG");
 const money = (value) => `$${fmtInt(value)}`;
-const m = (value, suffix = "") =>
-  `<span class="curr-wrap"><span class="curr-prefix">$</span><span class="curr-num">${fmtInt(value)}</span>${suffix ? `<span class="curr-suffix">${suffix}</span>` : ""}</span>`;
+const m = (value, suffix = "", animKey = "") => {
+  const numVal = Math.round(Math.max(0, value) || 0);
+  const animAttr = animKey
+    ? ` data-anim-key="${animKey}" data-anim-val="${numVal}"`
+    : "";
+  return `<span class="curr-wrap"${animAttr}><span class="curr-prefix">$</span><span class="curr-num">${numVal.toLocaleString("en-SG")}</span>${suffix ? `<span class="curr-suffix">${suffix}</span>` : ""}</span>`;
+};
 const centsHtml = (value) => {
   const parts = Math.max(0, Number(value) || 0)
     .toLocaleString("en-SG", {
@@ -1665,7 +1670,7 @@ function buildExpensePieSVG(ep) {
     </svg>
     <div class="exp-pie-center" aria-hidden="true">
       <small>Retire Need</small>
-      <strong>${m(total)}</strong>
+      <strong>${m(total, "", "exp-pie-total")}</strong>
       <span>per month</span>
     </div>
     <div class="exp-pie-hover-pill" id="exp-pie-hover-pill" hidden></div>
@@ -1704,7 +1709,7 @@ function renderReadOnlyExpenseTable(items, catLabelMap, ariaLabel) {
     </div>`;
 }
 
-function buildExpenseModalBodyHTML(ep, r) {
+function buildExpenseModalBodyHTML(ep, r, newlyAddedId = null) {
   const isCustom = Boolean(ep.isCustom);
   const catList = RetirementModel.EXPENSE_CATEGORIES || [];
   const catLabelMap = Object.fromEntries(catList.map((c) => [c.key, c.label]));
@@ -1742,7 +1747,7 @@ function buildExpenseModalBodyHTML(ep, r) {
       </div>`
     : `<div class="exp-modal-section">
         <div class="exp-editor-toolbar">
-          <div class="fin-segmented-tabs exp-mode-tabs" role="group" aria-label="Custom budget entry mode">
+          <div class="fin-segmented-tabs exp-mode-tabs" data-seg-idx="${ep.itemizedActive ? 1 : 0}" style="--seg-idx:${ep.itemizedActive ? 1 : 0};--seg-count:2" role="group" aria-label="Custom budget entry mode">
             <button type="button" class="fin-seg-tab${!ep.itemizedActive ? " is-active" : ""}" data-exp-custom-mode="figure" aria-pressed="${!ep.itemizedActive}">Single figure</button>
             <button type="button" class="fin-seg-tab${ep.itemizedActive ? " is-active" : ""}" data-exp-custom-mode="itemized" aria-pressed="${ep.itemizedActive}">Break down &amp; add items</button>
           </div>
@@ -1780,7 +1785,7 @@ function buildExpenseModalBodyHTML(ep, r) {
                       (
                         it,
                         idx,
-                      ) => `<div class="exp-item-row" data-exp-row="${idx}">
+                      ) => `<div class="exp-item-row${newlyAddedId && it.id === newlyAddedId ? " is-new-row" : ""}" data-exp-row="${idx}">
                         <div class="input-wrap select-wrap exp-cat-select-wrap">
                           <select name="exp-cat-${idx}" data-exp-field="category" data-exp-idx="${idx}" aria-label="Category for item ${idx + 1}">
                             ${catOptions(it.category)}
@@ -2004,6 +2009,7 @@ function buildFinOverviewGrid(
   const activeCoverage = finActivityTab === "coverage";
   const activePaycheck = finActivityTab === "paycheck";
   const activeMilestones = finActivityTab === "milestones";
+  const activeSegIdx = activePaycheck ? 1 : activeMilestones ? 2 : 0;
   const takeHomePctOfGross =
     r.salary > 0 ? Math.round((r.afterCpf / r.salary) * 100) : 0;
 
@@ -2029,7 +2035,7 @@ function buildFinOverviewGrid(
         <span class="fin-kpi-label">Take-Home Pay</span>
         <span class="fin-kpi-tag">${takeHomePctOfGross}% net</span>
       </div>
-      <strong class="fin-kpi-val">${m(r.afterCpf, "/mo")}</strong>
+      <strong class="fin-kpi-val">${m(r.afterCpf, "/mo", "kpi-takehome")}</strong>
       <span class="fin-kpi-sub">Gross ${m(r.salary)}/mo</span>
     </button>
     <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="balances" aria-label="Edit total assets ${money(startingTotalAssets)}">
@@ -2037,7 +2043,7 @@ function buildFinOverviewGrid(
         <span class="fin-kpi-label">Total Assets</span>
         <span class="fin-kpi-tag">Breakdown ↗</span>
       </div>
-      <strong class="fin-kpi-val">${m(startingTotalAssets)}</strong>
+      <strong class="fin-kpi-val">${m(startingTotalAssets, "", "kpi-assets")}</strong>
       <span class="fin-kpi-sub">${m(startingCpf)} CPF · ${m(startingOutside)} outside</span>
     </button>
     <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="budget" aria-label="Edit retirement budget ${lifestyleCardAria}">
@@ -2045,7 +2051,7 @@ function buildFinOverviewGrid(
         <span class="fin-kpi-label">Retire Budget</span>
         <span class="fin-kpi-tag">${selectedPathName}</span>
       </div>
-      <strong class="fin-kpi-val">${m(r.todaySpend, "/mo")}</strong>
+      <strong class="fin-kpi-val">${m(r.todaySpend, "/mo", "kpi-budget")}</strong>
       <span class="fin-kpi-sub">${isItemizedTarget ? `${expenseData.items.length} custom items` : lifestyleCardLabel} · CPF LIFE ${r.plan === "escalating" ? "Esc" : "Std"}</span>
     </button>
   </div>
@@ -2057,11 +2063,11 @@ function buildFinOverviewGrid(
           <div class="fin-hero-metric">
             <span class="fin-card-eyebrow" id="ember-traj-title">Projected Net Worth at ${fire.retire}</span>
             <div class="fin-big-figure-row">
-              <strong class="fin-big-figure">${m(retireNw)}</strong>
+              <strong class="fin-big-figure">${m(retireNw, "", "hero-nw")}</strong>
               <span class="fin-curr">SGD</span>
             </div>
             <p class="fin-delta-line">
-              <span>${m(ptAtRetire?.today?.totalOutside ?? 0)} outside + ${m(ptAtRetire?.today?.cpfTotal ?? 0)} CPF at ${fire.retire}</span>
+              <span>${m(ptAtRetire?.today?.totalOutside ?? 0, "", "hero-out")} outside + ${m(ptAtRetire?.today?.cpfTotal ?? 0, "", "hero-cpf")} CPF at ${fire.retire}</span>
               <span class="fin-delta-badge ${onTrack ? "is-good" : "is-warn"}">${fn.pctFunded}% of age-95 goal</span>
             </p>
           </div>
@@ -2114,10 +2120,10 @@ function buildFinOverviewGrid(
                         </div>
                       </div>
                     </td>
-                    <td class="num-cell" data-label="Age-55 CPF">${m(path.balance)}</td>
-                    <td class="num-cell" data-label="Extra CPF">${m(path.cpfFunding, r.retiringNow ? " now" : "/mo")}</td>
-                    <td class="num-cell" data-label="Outside Save">${m(path.privateSaving, r.retiringNow ? " now" : "/mo")}</td>
-                    <td class="num-cell" data-label="CPF LIFE (65+)"><strong>${m(path.payout, "/mo")}</strong></td>
+                    <td class="num-cell" data-label="Age-55 CPF">${m(path.balance, "", `path-${path.key}-bal`)}</td>
+                    <td class="num-cell" data-label="Extra CPF">${m(path.cpfFunding, r.retiringNow ? " now" : "/mo", `path-${path.key}-cpf`)}</td>
+                    <td class="num-cell" data-label="Outside Save">${m(path.privateSaving, r.retiringNow ? " now" : "/mo", `path-${path.key}-out`)}</td>
+                    <td class="num-cell" data-label="CPF LIFE (65+)"><strong>${m(path.payout, "/mo", `path-${path.key}-life`)}</strong></td>
                     <td class="col-action">
                       <button type="button" class="${isSelected ? "ledger-btn-active" : "ledger-btn"}" data-path="${path.key}" aria-pressed="${isSelected}">${isSelected ? "Selected" : "Select"}</button>
                     </td>
@@ -2131,7 +2137,13 @@ function buildFinOverviewGrid(
           <summary class="ember-disclaimer-summary">
             <span class="disclaimer-chip">2026 CPF &amp; IRAS</span>
             <span class="disclaimer-preview">Today’s dollars · ${Number((r.inflation * 100).toFixed(1))}% inflation · ${Math.round(r.investmentReturn * 100)}% outside return</span>
-            <span class="disclaimer-toggle" aria-hidden="true">Details …</span>
+            <span class="disclaimer-toggle" aria-hidden="true">
+              <span class="disclaimer-toggle-label">Details</span>
+              <svg class="disclaimer-toggle-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                <path class="line-h" d="M3.5 8h9" />
+                <path class="line-v" d="M8 3.5v9" />
+              </svg>
+            </span>
           </summary>
           <div class="ember-disclaimer-body">
             <ul>
@@ -2154,7 +2166,7 @@ function buildFinOverviewGrid(
                 <span class="status-pill is-${pillTone}">Lump sum</span>
               </div>
               <div class="fin-saving-val-row">
-                <strong>${m(s.privateSaving)}</strong>
+                <strong>${m(s.privateSaving, "", "saving-lump")}</strong>
                 <span class="fin-curr">SGD now</span>
                 <button type="button" class="fin-link-pill fin-saving-edit" data-quick-edit="income">Review</button>
               </div>
@@ -2211,16 +2223,16 @@ function buildFinOverviewGrid(
             <div class="fin-band-track-wrap" role="img" aria-label="Monthly saving takes ${pctOfPay}% of take-home pay. Thresholds: up to 50% healthy, 51 to 85% stretched, over 85% critical.">
               <div class="fin-band-track">
                 <div class="fin-band-zone is-healthy">
-                  <span class="fin-band-fill" style="width:${healthyFill}%;"></span>
+                  <span class="fin-band-fill" data-meter-key="band-healthy" data-meter-w="${healthyFill}" style="width:${healthyFill}%;"></span>
                 </div>
                 <div class="fin-band-zone is-stretched">
-                  <span class="fin-band-fill" style="width:${stretchedFill}%;"></span>
+                  <span class="fin-band-fill" data-meter-key="band-stretched" data-meter-w="${stretchedFill}" style="width:${stretchedFill}%;"></span>
                 </div>
                 <div class="fin-band-zone is-critical">
-                  <span class="fin-band-fill" style="width:${criticalFill}%;"></span>
+                  <span class="fin-band-fill" data-meter-key="band-critical" data-meter-w="${criticalFill}" style="width:${criticalFill}%;"></span>
                 </div>
               </div>
-              <span class="fin-band-marker is-${pillTone}" style="left:clamp(6px, ${markerPos}%, calc(100% - 6px));"></span>
+              <span class="fin-band-marker is-${pillTone}" data-meter-key="band-marker" data-meter-left="${markerPos}" style="left:clamp(6px, ${markerPos}%, calc(100% - 6px));"></span>
             </div>
             <div class="fin-band-scale" aria-hidden="true">
               <span data-tick="0">0%</span>
@@ -2288,13 +2300,13 @@ function buildFinOverviewGrid(
               <span class="status-pill is-${pillTone}">${pillText}</span>
             </div>
             <div class="fin-saving-val-row">
-              <strong>${m(contribution)}</strong>
+              <strong>${m(contribution, "", "saving-monthly")}</strong>
               <span class="fin-curr">SGD/mo</span>
               ${exceedsPay ? "" : `<button type="button" class="fin-link-pill fin-saving-edit" data-quick-edit="income">Adjust</button>`}
             </div>
             <div class="fin-saving-meta">
-              <span>${m(simulation.cpfExtra)} extra CPF · ${m(s.privateSaving)} outside</span>
-              <small>${exceedsPay ? `Exceeds ${m(r.afterCpf)} take-home by ${m(-leftAfterSave, "/mo")}` : `Leaves ${m(leftAfterSave, "/mo")} of ${m(r.afterCpf)} take-home`}</small>
+              <span>${m(simulation.cpfExtra, "", "saving-cpf-extra")} extra CPF · ${m(s.privateSaving, "", "saving-outside")} outside</span>
+              <small>${exceedsPay ? `Exceeds ${m(r.afterCpf)} take-home by ${m(-leftAfterSave, "/mo", "saving-left")}` : `Leaves ${m(leftAfterSave, "/mo", "saving-left")} of ${m(r.afterCpf)} take-home`}</small>
             </div>
             ${meterHtml}
             ${statusHtml}`;
@@ -2306,7 +2318,7 @@ function buildFinOverviewGrid(
           <h2>Income &amp; Cashflow</h2>
           <button type="button" class="fin-link-pill" data-quick-edit="budget">Edit budget</button>
         </div>
-        <div class="fin-segmented-tabs" id="fin-activity-tabs" role="tablist" aria-label="Cashflow views">
+        <div class="fin-segmented-tabs" id="fin-activity-tabs" data-seg-idx="${activeSegIdx}" style="--seg-idx:${activeSegIdx};--seg-count:3" role="tablist" aria-label="Cashflow views">
           <button type="button" role="tab" class="fin-seg-tab${activeCoverage ? " is-active" : ""}" data-fin-activity="coverage" aria-selected="${activeCoverage}">Coverage</button>
           <button type="button" role="tab" class="fin-seg-tab${activePaycheck ? " is-active" : ""}" data-fin-activity="paycheck" aria-selected="${activePaycheck}">Paycheck</button>
           <button type="button" role="tab" class="fin-seg-tab${activeMilestones ? " is-active" : ""}" data-fin-activity="milestones" aria-selected="${activeMilestones}">Milestones</button>
@@ -2319,8 +2331,8 @@ function buildFinOverviewGrid(
               <strong>${money(r.spend65)}/mo need</strong>
             </div>
             <div class="fin-cov-track" aria-hidden="true">
-              <span class="fin-cov-cpf" style="width:${cpfCov65Pct}%"></span>
-              <span class="fin-cov-out" style="width:${Math.max(0, 100 - cpfCov65Pct)}%"></span>
+              <span class="fin-cov-cpf" data-meter-key="cov-cpf" data-meter-w="${cpfCov65Pct}" style="width:${cpfCov65Pct}%"></span>
+              <span class="fin-cov-out" data-meter-key="cov-out" data-meter-w="${Math.max(0, 100 - cpfCov65Pct)}" style="width:${Math.max(0, 100 - cpfCov65Pct)}%"></span>
             </div>
             <div class="fin-cov-legend">
               <span><i style="background:#10B981;"></i><b>${money(s.payout)}/mo</b> CPF LIFE (${cpfCov65Pct}%)</span>
@@ -2335,12 +2347,12 @@ function buildFinOverviewGrid(
         <div class="fin-activity-pane" ${activePaycheck ? "" : "hidden"}>
           <div class="ember-bars-list">
             ${paycheckBars
-              .map((row) => {
+              .map((row, idx) => {
                 const w = Math.min(
                   100,
                   Math.round((row.amt / grossPlusEmployer) * 100),
                 );
-                return `<div class="ember-bar-row">
+                return `<div class="ember-bar-row" style="--item-idx:${idx}">
                   <div class="ember-bar-meta">
                     <span><i style="background:${row.color};"></i>${row.label}</span>
                     <b>${money(row.amt)} <small>(${w}%)</small></b>
@@ -2362,7 +2374,10 @@ function buildFinOverviewGrid(
           <ul class="ember-feed-list">
             ${milestones
               .map(
-                (n) => `<li class="ember-feed-item">
+                (
+                  n,
+                  idx,
+                ) => `<li class="ember-feed-item" style="--item-idx:${idx}">
                   <span class="ember-feed-avatar" style="background:${n.softBg};color:${n.color};">${n.badge}</span>
                   <div class="ember-feed-info">
                     <strong>${n.title}</strong>
@@ -2498,21 +2513,21 @@ function buildBogleheadSection(bogle) {
       <div class="donut-panel">
         <div class="donut-panel-head">
           <h3>Current Liquid Portfolio</h3>
-          <span class="donut-tag">${m(liq.total)} today</span>
+          <span class="donut-tag">${m(liq.total, "", "bogle-liq-tot")} today</span>
         </div>
         <div class="donut-row">
           ${liqDonut}
           <ul class="donut-legend">
-            <li><i style="background:#2563EB;"></i><span>Global UCITS</span><b>${m(liq.globalEquities)}</b></li>
-            <li><i style="background:#60A5FA;"></i><span>SG Dividends</span><b>${m(liq.sgDividends)}</b></li>
-            <li><i style="background:#D97706;"></i><span>SSB / Cash</span><b>${m(liq.bondsCash)}</b></li>
+            <li><i style="background:#2563EB;"></i><span>Global UCITS</span><b>${m(liq.globalEquities, "", "bogle-liq-eq")}</b></li>
+            <li><i style="background:#60A5FA;"></i><span>SG Dividends</span><b>${m(liq.sgDividends, "", "bogle-liq-sg")}</b></li>
+            <li><i style="background:#D97706;"></i><span>SSB / Cash</span><b>${m(liq.bondsCash, "", "bogle-liq-cash")}</b></li>
           </ul>
         </div>
       </div>
       <div class="donut-panel donut-panel-holistic">
         <div class="donut-panel-head">
           <h3>Current Total Net Worth</h3>
-          <span class="donut-tag is-holistic">${m(hol.totalNetWorth)} total</span>
+          <span class="donut-tag is-holistic">${m(hol.totalNetWorth, "", "bogle-hol-tot")} total</span>
         </div>
         <div class="donut-row">
           ${holDonut}
@@ -2575,13 +2590,13 @@ function buildBogleheadSection(bogle) {
 
       <div class="rebalance-directive">
         <div>
-          <strong>Monthly Paycheck Action · ${m(reb.investPool, "/mo")} investable</strong>
+          <strong>Monthly Paycheck Action · ${m(reb.investPool, "/mo", "bogle-reb-pool")} investable</strong>
           <p>${reb.note}</p>
         </div>
         <div class="rebalance-pills">
-          <span class="pill-eq"><i class="sem-dot" style="background:#2563EB;"></i><b>${m(reb.buyGlobalMonthly, "/mo")}</b> Global UCITS</span>
-          <span class="pill-sg"><i class="sem-dot" style="background:#60A5FA;"></i><b>${m(reb.buySgMonthly, "/mo")}</b> SG Dividends</span>
-          <span class="pill-cash"><i class="sem-dot" style="background:#D97706;"></i><b>${m(reb.buyBondMonthly, "/mo")}</b> SSB / T-Bills</span>
+          <span class="pill-eq"><i class="sem-dot" style="background:#2563EB;"></i><b>${m(reb.buyGlobalMonthly, "/mo", "bogle-reb-eq")}</b> Global UCITS</span>
+          <span class="pill-sg"><i class="sem-dot" style="background:#60A5FA;"></i><b>${m(reb.buySgMonthly, "/mo", "bogle-reb-sg")}</b> SG Dividends</span>
+          <span class="pill-cash"><i class="sem-dot" style="background:#D97706;"></i><b>${m(reb.buyBondMonthly, "/mo", "bogle-reb-bond")}</b> SSB / T-Bills</span>
           <button type="button" class="fin-link-pill cash-crosslink-btn" data-go-tab="cash-parking">Compare SSB, HYSA &amp; MMFs →</button>
         </div>
       </div>
@@ -2609,22 +2624,22 @@ function buildTaxSweetSpotSection(tax) {
     <dl class="tax-metrics-grid">
       <div class="tax-metric-box">
         <dt>Chargeable Income (est.)</dt>
-        <dd>${m(tax.chargeableIncome, "/yr")}</dd>
+        <dd>${m(tax.chargeableIncome, "/yr", "tax-chargeable")}</dd>
         <small>${marginalPct} marginal bracket · ${money(tax.taxBefore.annualTax)}/yr tax</small>
       </div>
       <div class="tax-metric-box">
         <dt>CPF RSTU ($8k cap to FRS)</dt>
-        <dd>${m(tax.rstuTaxSaved, "/yr saved")}</dd>
+        <dd>${m(tax.rstuTaxSaved, "/yr saved", "tax-rstu-saved")}</dd>
         <small>Eligible room: ${money(tax.maxRstu)}/yr (SA room ${money(tax.saRoom)})</small>
       </div>
       <div class="tax-metric-box">
         <dt>SRS ($15.3k Citizen/PR cap)</dt>
-        <dd>${m(tax.srsTaxSavedAfterRstu, "/yr saved")}</dd>
+        <dd>${m(tax.srsTaxSavedAfterRstu, "/yr saved", "tax-srs-saved")}</dd>
         <small>After RSTU (${money(tax.srsStandaloneTaxSaved)}/yr standalone) · Lock-in age ${tax.srsLockInAge}</small>
       </div>
       <div class="tax-metric-box">
         <dt>$80k Relief Cap Used</dt>
-        <dd>${m(tax.reliefCapUsed)} <span class="curr-muted">/ $80,000</span></dd>
+        <dd>${m(tax.reliefCapUsed, "", "tax-cap-used")} <span class="curr-muted">/ $80,000</span></dd>
         <small>${capPct}% used by CPF + reliefs (${money(tax.reliefCapRemaining)} left)</small>
       </div>
     </dl>
@@ -2782,17 +2797,17 @@ function buildCashPlanCardHTML(cp) {
     <dl class="tax-metrics-grid cash-kpi-grid">
       <div class="tax-metric-box">
         <dt>6–12m Emergency Target</dt>
-        <dd>${m(cp.emergencyMin)}–${m(cp.emergencyMax)}</dd>
+        <dd>${m(cp.emergencyMin, "", "cash-em-min")}–${m(cp.emergencyMax, "", "cash-em-max")}</dd>
         <small>6–12m × ${money(cp.emergencyMonthlyBase)}/mo retire budget</small>
       </div>
       <div class="tax-metric-box">
         <dt>Entered SSB / Cash Bucket</dt>
-        <dd>${m(cp.currentCash)}</dd>
+        <dd>${m(cp.currentCash, "", "cash-entered")}</dd>
         <small>vs ${money(cp.sdicCap)} SDIC/bank · ${money(cp.ssbCap)} SSB cap</small>
       </div>
       <div class="tax-metric-box">
         <dt>Monthly Cash / Bond Slice</dt>
-        <dd>${cp.monthlyCashSlice > 0 ? m(cp.monthlyCashSlice, "/mo") : m(0, "/mo")}</dd>
+        <dd>${m(cp.monthlyCashSlice > 0 ? cp.monthlyCashSlice : 0, "/mo", "cash-monthly-slice")}</dd>
         <small>${cp.hasSrs ? "Idle SRS earns 0.05% — park in T-Bills/MMFs" : "From Allocator SSB / T-Bills target"}</small>
       </div>
     </dl>
@@ -2998,6 +3013,14 @@ function setupSimplePlan() {
   const sumCustomExpenseItems = () =>
     Math.round(customExpenseItems.reduce((s, it) => s + it.amount, 0) * 100) /
     100;
+  let newlyAddedExpId = null;
+  let hasCompletedInitialRender = false;
+  let prevActivitySegIdx = 0;
+  let prevExpSegIdx = null;
+  const prevAnimNums = new Map();
+  const curAnimNums = new Map();
+  const prevMeters = new Map();
+  let numAnimFrame = 0;
   let rafHandle = null;
 
   let savingEnabled = true;
@@ -3466,6 +3489,124 @@ function setupSimplePlan() {
       $("#qe-housing-preview").innerHTML = previewHtml;
   };
 
+  const animateOverviewTransitions = (slot) => {
+    if (!slot) return;
+    if (numAnimFrame) {
+      cancelAnimationFrame(numAnimFrame);
+      numAnimFrame = 0;
+    }
+    const reducedMotion = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)",
+    )?.matches;
+    const tabsEl = slot.querySelector("#fin-activity-tabs");
+    const nextSegIdx = tabsEl ? Number(tabsEl.dataset.segIdx || 0) : 0;
+
+    if (!hasCompletedInitialRender) {
+      document.querySelectorAll("[data-anim-key]").forEach((el) => {
+        const val = Number(el.dataset.animVal || 0);
+        prevAnimNums.set(el.dataset.animKey, val);
+        curAnimNums.set(el.dataset.animKey, val);
+      });
+      document.querySelectorAll("[data-meter-key]").forEach((el) => {
+        const val =
+          el.dataset.meterW != null ? el.dataset.meterW : el.dataset.meterLeft;
+        prevMeters.set(el.dataset.meterKey, val);
+      });
+      prevActivitySegIdx = nextSegIdx;
+      if (!reducedMotion) {
+        slot.classList.add("is-initial-stagger");
+        setTimeout(() => slot.classList.remove("is-initial-stagger"), 600);
+      }
+      hasCompletedInitialRender = true;
+      return;
+    }
+
+    if (tabsEl) {
+      if (!reducedMotion && nextSegIdx !== prevActivitySegIdx) {
+        tabsEl.style.setProperty("--seg-idx", String(prevActivitySegIdx));
+        void tabsEl.offsetWidth;
+        tabsEl.style.setProperty("--seg-idx", String(nextSegIdx));
+        const activePane = slot.querySelector(
+          ".fin-activity-pane:not([hidden])",
+        );
+        activePane?.classList.add("is-pane-entering");
+      }
+      prevActivitySegIdx = nextSegIdx;
+    }
+
+    const meterDiffs = [];
+    document.querySelectorAll("[data-meter-key]").forEach((el) => {
+      const key = el.dataset.meterKey;
+      const isLeft = el.dataset.meterLeft != null;
+      const nextVal = isLeft ? el.dataset.meterLeft : el.dataset.meterW;
+      const prevVal = prevMeters.get(key);
+      prevMeters.set(key, nextVal);
+      if (prevVal != null && prevVal !== nextVal) {
+        meterDiffs.push({ el, isLeft, prevVal, nextVal });
+      }
+    });
+    if (!reducedMotion && meterDiffs.length > 0) {
+      for (const mItem of meterDiffs) {
+        mItem.el.style.transition = "none";
+        if (mItem.isLeft) {
+          mItem.el.style.left = `clamp(6px, ${mItem.prevVal}%, calc(100% - 6px))`;
+        } else {
+          mItem.el.style.width = `${mItem.prevVal}%`;
+        }
+      }
+      void slot.offsetWidth;
+      for (const mItem of meterDiffs) {
+        mItem.el.style.transition = "";
+        if (mItem.isLeft) {
+          mItem.el.style.left = `clamp(6px, ${mItem.nextVal}%, calc(100% - 6px))`;
+        } else {
+          mItem.el.style.width = `${mItem.nextVal}%`;
+        }
+      }
+    }
+
+    const numDiffs = [];
+    document.querySelectorAll("[data-anim-key]").forEach((el) => {
+      const key = el.dataset.animKey;
+      const toVal = Number(el.dataset.animVal || 0);
+      const fromVal = curAnimNums.has(key)
+        ? curAnimNums.get(key)
+        : prevAnimNums.get(key);
+      prevAnimNums.set(key, toVal);
+      if (fromVal != null && Math.round(fromVal) !== Math.round(toVal)) {
+        const numNode = el.querySelector(".curr-num");
+        if (numNode) {
+          numDiffs.push({ key, el, numNode, fromVal, toVal });
+          return;
+        }
+      }
+      curAnimNums.set(key, toVal);
+    });
+
+    if (!reducedMotion && numDiffs.length > 0) {
+      for (const item of numDiffs) item.el.classList.add("is-morphing");
+      const t0 = performance.now();
+      const duration = 320;
+      const step = (now) => {
+        const prog = Math.min(1, (now - t0) / duration);
+        const ease = 1 - Math.pow(1 - prog, 3);
+        for (const item of numDiffs) {
+          if (!item.numNode.isConnected) continue;
+          const cur = item.fromVal + (item.toVal - item.fromVal) * ease;
+          curAnimNums.set(item.key, prog >= 1 ? item.toVal : cur);
+          item.numNode.textContent = fmtInt(prog >= 1 ? item.toVal : cur);
+          if (prog >= 1) item.el.classList.remove("is-morphing");
+        }
+        if (prog < 1) {
+          numAnimFrame = requestAnimationFrame(step);
+        } else {
+          numAnimFrame = 0;
+        }
+      };
+      numAnimFrame = requestAnimationFrame(step);
+    }
+  };
+
   const render = () => {
     if (errorBanner) {
       errorBanner.hidden = true;
@@ -3714,8 +3855,12 @@ function setupSimplePlan() {
       ...simulation.summary,
       scenarios: [simulation.selectedScenario],
     }).scenarios[0];
-    const simMoneyHtml = (value, age, suffix = "") =>
-      m(RetirementModel.todayValue(value, age, r.age, r.inflation), suffix);
+    const simMoneyHtml = (value, age, suffix = "", animKey = "") =>
+      m(
+        RetirementModel.todayValue(value, age, r.age, r.inflation),
+        suffix,
+        animKey,
+      );
     const rangeNote = simulation.payoutCapped
       ? `<div class="payout-range-note"><p><strong>Payout reference boundary reached (${m(s.payout, "/mo")} today’s value).</strong> Published CPF LIFE anchors stop at ERS; extra CPF reserve (${m(simulation.cpfResult.reserve65)} future cash at 65) stays separate. <a href="https://www.cpf.gov.sg/member/retirement-income/about-cpf-planner-retirement-income" target="_blank" rel="noopener">Check CPF’s official planner ↗</a></p></div>`
       : "";
@@ -3747,19 +3892,19 @@ function setupSimplePlan() {
       <p class="fixed-retirement">Target retirement age: <strong>${r.retire}</strong>. Adjust amounts above or edit My Settings to test readiness and portfolio longevity.</p>
       <div class="affordability-card">
         <div class="affordability-head">
-          <span>${r.retiringNow ? "Retirement set to now — future monthly saving is paused" : `Total monthly saving: <strong>${m(combined, "/mo")}</strong> (${takeHomePct}% of ${m(r.afterCpf)} pay after CPF)`}</span>
+          <span>${r.retiringNow ? "Retirement set to now — future monthly saving is paused" : `Total monthly saving: <strong>${m(combined, "/mo", "sim-total-save")}</strong> (${takeHomePct}% of ${m(r.afterCpf)} pay after CPF)`}</span>
           <span class="affordability-right">
             <span class="status-pill is-${simGuide.state.tone}">${simStateIcon}<span>${simGuide.state.label}</span></span>
             <span>${r.retiringNow ? `Gap: ${m(s.remainingPortfolioGap)}` : left < 0 ? `Exceeds take-home by ${m(-left)}` : `${m(left, "/mo")} left before ~${m(simGuide.tax.monthlyTax)} tax`}</span>
           </span>
         </div>
-        ${r.retiringNow ? "" : `<div class="affordability-track" role="progressbar" aria-valuenow="${Math.min(100, takeHomePct)}" aria-valuemin="0" aria-valuemax="100" aria-label="Share of take-home pay saved"><span class="affordability-fill ${barTone}" style="width:${Math.min(100, takeHomePct)}%"></span></div>`}
+        ${r.retiringNow ? "" : `<div class="affordability-track" role="progressbar" aria-valuenow="${Math.min(100, takeHomePct)}" aria-valuemin="0" aria-valuemax="100" aria-label="Share of take-home pay saved"><span class="affordability-fill ${barTone}" data-meter-key="sim-afford" data-meter-w="${Math.min(100, takeHomePct)}" style="width:${Math.min(100, takeHomePct)}%"></span></div>`}
       </div>
       ${simulation.cpfResult.ra65 > 0 && simulation.cpfResult.ra65 < 60000 ? '<p class="estimate-note">Projected RA at 65 is below the $60,000 automatic CPF LIFE threshold; assumes voluntary CPF LIFE enrolment at 65.</p>' : ""}
       <dl class="simulation-metrics simulation-metrics-4">
-        <div><dt>${simulation.payoutCapped ? "CPF boundary from 65" : "CPF LIFE from 65"}</dt><dd>${m(s.payout, "/mo")}<small>Today’s dollars · ${selected === "salary" ? "salary CPF path" : selected.toUpperCase() + " target"}</small></dd></div>
-        <div><dt>Outside portfolio at ${r.retire}</dt><dd>${simMoneyHtml(simulation.portfolioAtRetire, r.retire)}<small>At retirement age ${r.retire}</small></dd></div>
-        <div><dt>Funding status through 90</dt><dd>${simulation.fullyFunded ? `${m(0)} gap` : `${m(s.remainingPortfolioGap)} gap`}<small>${simulation.fullyFunded ? "Funded through age 90." : `Depletes around ${simulation.depletionAge == null ? r.retire : ageLabel(simulation.depletionAge)}.`}</small></dd></div>
+        <div><dt>${simulation.payoutCapped ? "CPF boundary from 65" : "CPF LIFE from 65"}</dt><dd>${m(s.payout, "/mo", "sim-cpf-life")}<small>Today’s dollars · ${selected === "salary" ? "salary CPF path" : selected.toUpperCase() + " target"}</small></dd></div>
+        <div><dt>Outside portfolio at ${r.retire}</dt><dd>${simMoneyHtml(simulation.portfolioAtRetire, r.retire, "", "sim-port-retire")}<small>At retirement age ${r.retire}</small></dd></div>
+        <div><dt>Funding status through 90</dt><dd>${simulation.fullyFunded ? `${m(0, "", "sim-gap")} gap` : `${m(s.remainingPortfolioGap, "", "sim-gap")} gap`}<small>${simulation.fullyFunded ? "Funded through age 90." : `Depletes around ${simulation.depletionAge == null ? r.retire : ageLabel(simulation.depletionAge)}.`}</small></dd></div>
         <div><dt>Earliest modelled retirement</dt><dd id="readiness-result">Calculating…</dd></div>
       </dl>
       <details class="result-details">
@@ -3841,10 +3986,10 @@ function setupSimplePlan() {
         )
         .join("")}</div>
       <dl class="tax-metrics-grid">
-        <div class="tax-metric-box"><dt>Projected ${learningTarget.toUpperCase()} at your age 55</dt><dd>${m(lesson.target)}</dd></div>
-        <div class="tax-metric-box"><dt>OA + SA at 55 before extra saving</dt><dd>${m(lesson.available)}</dd></div>
-        <div class="tax-metric-box"><dt>Gap to ${learningTarget.toUpperCase()} at 55</dt><dd>${m(lesson.gap)}</dd></div>
-        <div class="tax-metric-box"><dt>Extra CPF saving to hit milestone</dt><dd>${lesson.monthly === null ? "Lump sum only" : m(lesson.monthly, "/mo")}</dd></div>
+        <div class="tax-metric-box"><dt>Projected ${learningTarget.toUpperCase()} at your age 55</dt><dd>${m(lesson.target, "", "lesson-target")}</dd></div>
+        <div class="tax-metric-box"><dt>OA + SA at 55 before extra saving</dt><dd>${m(lesson.available, "", "lesson-avail")}</dd></div>
+        <div class="tax-metric-box"><dt>Gap to ${learningTarget.toUpperCase()} at 55</dt><dd>${m(lesson.gap, "", "lesson-gap")}</dd></div>
+        <div class="tax-metric-box"><dt>Extra CPF saving to hit milestone</dt><dd>${lesson.monthly === null ? "Lump sum only" : m(lesson.monthly, "/mo", "lesson-monthly")}</dd></div>
       </dl>
       <ul class="compact-list">
         <li><strong>Before 55:</strong> Cash RSTU and OA-to-SA transfers share SA room up to current FRS (${centsHtml(lesson.currentRoom)} today) and are irreversible.</li>
@@ -3942,7 +4087,31 @@ function setupSimplePlan() {
         )
           ? activeEl.dataset.expIdx
           : null;
-        expModalBody.innerHTML = buildExpenseModalBodyHTML(expenseData, r);
+        expModalBody.innerHTML = buildExpenseModalBodyHTML(
+          expenseData,
+          r,
+          newlyAddedExpId,
+        );
+        newlyAddedExpId = null;
+        const expTabsEl = expModalBody.querySelector(".exp-mode-tabs");
+        if (expTabsEl) {
+          const nextExpSeg = Number(expTabsEl.dataset.segIdx || 0);
+          const reducedMotion = window.matchMedia?.(
+            "(prefers-reduced-motion: reduce)",
+          )?.matches;
+          if (
+            !reducedMotion &&
+            prevExpSegIdx != null &&
+            nextExpSeg !== prevExpSegIdx
+          ) {
+            expTabsEl.style.setProperty("--seg-idx", String(prevExpSegIdx));
+            void expTabsEl.offsetWidth;
+            expTabsEl.style.setProperty("--seg-idx", String(nextExpSeg));
+          }
+          prevExpSegIdx = nextExpSeg;
+        } else {
+          prevExpSegIdx = null;
+        }
         if (activePlanSelect) {
           $("#exp-modal-plan")?.focus({ preventScroll: true });
         } else if (activeCatIdx != null) {
@@ -4084,6 +4253,7 @@ function setupSimplePlan() {
         ${lessonHTML}
         ${cpfDetailsHTML}`;
     }
+    animateOverviewTransitions(overviewSlot);
 
     renderStackedNetWorthSVG(
       $("#dash-networth-chart"),
@@ -4310,7 +4480,23 @@ function setupSimplePlan() {
     housingParties: 1,
   };
 
-  const resetSgDefaults = () => {
+  const flashConfirmButton = (btn, label = "✓ Done", ms = 1400) => {
+    if (!btn || btn.dataset.confirmTimer) return;
+    const origText = btn.textContent;
+    btn.classList.add("is-confirmed");
+    btn.textContent = label;
+    btn.dataset.confirmTimer = String(
+      setTimeout(() => {
+        delete btn.dataset.confirmTimer;
+        if (btn.isConnected) {
+          btn.classList.remove("is-confirmed");
+          btn.textContent = origText;
+        }
+      }, ms),
+    );
+  };
+
+  const resetSgDefaults = (triggerBtn = null) => {
     lastCustomSpend = "";
     lastCustomLifestyle = "";
     clearCustomBudgetState();
@@ -4322,11 +4508,13 @@ function setupSimplePlan() {
       $("#plan-status").textContent =
         "Reset to typical Singapore age-35 defaults.";
     }
+    flashConfirmButton(triggerBtn, "✓ Defaults restored");
   };
 
   document.addEventListener("click", (event) => {
-    if (event.target.closest("[data-sg-reset]")) {
-      resetSgDefaults();
+    const resetTrigger = event.target.closest("[data-sg-reset]");
+    if (resetTrigger) {
+      resetSgDefaults(resetTrigger);
       return;
     }
     const clampBtn = event.target.closest("[data-clamp-field]");
@@ -4530,8 +4718,10 @@ function setupSimplePlan() {
           getCustomSpendState(life).spend,
         );
       }
+      const newExpId = "exp-" + Date.now();
+      newlyAddedExpId = newExpId;
       customExpenseItems.push({
-        id: "exp-" + Date.now(),
+        id: newExpId,
         name: "New expense",
         category: "food",
         amount: 0,
@@ -4957,10 +5147,11 @@ function setupSimplePlan() {
     if (input.id === "sim-invest") $("#known-invest").value = input.value;
     render();
   });
-  $("#sim-use-target").addEventListener("click", () => {
+  $("#sim-use-target").addEventListener("click", (event) => {
     $("#known-cpf-extra").value = "";
     $("#known-invest").value = "";
     render();
+    flashConfirmButton(event.currentTarget, "✓ Reset to suggested");
   });
   const handleHousingModeSwitch = (modeVal) => {
     if (modeVal === "bank") {
@@ -5014,13 +5205,23 @@ function setupSimplePlan() {
         other.setAttribute("aria-pressed", String(active));
         other.classList.toggle("is-active", active);
       });
-      if (currentTrajectory)
+      if (currentTrajectory) {
         renderTrajectoryChart(
           currentTrajectory,
           chartMode,
           currentFirePlan,
           dashChartBasis,
         );
+        const chartEl = $("#trajectory-chart");
+        if (
+          chartEl &&
+          !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
+        ) {
+          chartEl.classList.remove("is-chart-entering");
+          void chartEl.offsetWidth;
+          chartEl.classList.add("is-chart-entering");
+        }
+      }
     }),
   );
 
@@ -5045,8 +5246,8 @@ function setupSimplePlan() {
     syncScrollTop();
   }
 
-  $("#reset-settings")?.addEventListener("click", () => {
-    resetSgDefaults();
+  $("#reset-settings")?.addEventListener("click", (event) => {
+    resetSgDefaults(event.currentTarget);
   });
 
   const qeDialog = $("#quick-edit-modal");
@@ -5142,12 +5343,12 @@ function setupSimplePlan() {
         const cpfPct = Math.max(0, 100 - netPct);
         salaryTakeHomeEl.innerHTML = `
           <div class="qe-split-bar" aria-hidden="true">
-            <span class="qe-split-net" style="width:${netPct}%"></span>
-            <span class="qe-split-cpf" style="width:${cpfPct}%"></span>
+            <span class="qe-split-net" data-meter-key="qe-net-bar" data-meter-w="${netPct}" style="width:${netPct}%"></span>
+            <span class="qe-split-cpf" data-meter-key="qe-cpf-bar" data-meter-w="${cpfPct}" style="width:${cpfPct}%"></span>
           </div>
           <div class="qe-split-legend">
-            <span><i style="background:var(--primary);"></i>Take-home <strong>${m(r.afterCpf, "/mo")}</strong> (${netPct}%)</span>
-            <span><i style="background:var(--sem-cpf);"></i>Employee CPF <strong>−${m(r.employeeCpf, "/mo")}</strong> (${cpfPct}%)</span>
+            <span><i style="background:var(--primary);"></i>Take-home <strong>${m(r.afterCpf, "/mo", "qe-net-pay")}</strong> (${netPct}%)</span>
+            <span><i style="background:var(--sem-cpf);"></i>Employee CPF <strong>−${m(r.employeeCpf, "/mo", "qe-emp-cpf")}</strong> (${cpfPct}%)</span>
           </div>`;
       }
       const breakdownEl = $("#qe-balances-breakdown");
@@ -5170,7 +5371,7 @@ function setupSimplePlan() {
         breakdownEl.innerHTML = `
           <div class="qe-bd-top">
             <span>Total Assets</span>
-            <strong>${m(cpfTot + outTot)}</strong>
+            <strong>${m(cpfTot + outTot, "", "qe-bd-total")}</strong>
           </div>
           <div class="qe-bd-rows">
             <div><span>CPF (${m(cpfTot)})</span><small>OA ${m(oaV)} · SA ${m(saV)} · MA ${m(maV)}</small></div>
@@ -5572,9 +5773,25 @@ function setupGuidedFlow() {
       $("#expense-modal").dataset.flowNavigation = "true";
       $("#expense-modal").close();
     }
-    activeTab = TABS.includes(tab) ? tab : "overview";
+    const nextTab = TABS.includes(tab) ? tab : "overview";
+    const viewChanged =
+      nextTab !== activeTab || Boolean(profile) !== profileOpen;
+    activeTab = nextTab;
     profileOpen = profile;
     applyViewState(focus, true);
+    if (
+      viewChanged &&
+      !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
+    ) {
+      const targetPanel = profileOpen
+        ? $("#top")
+        : $(`#tab-panel-${activeTab}`);
+      if (targetPanel) {
+        targetPanel.classList.remove("is-tab-entering");
+        void targetPanel.offsetWidth;
+        targetPanel.classList.add("is-tab-entering");
+      }
+    }
   };
 
   // Unified click handlers for tabs, deep links inside cards, and Profile Editor

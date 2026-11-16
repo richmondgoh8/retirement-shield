@@ -16,7 +16,13 @@ for (const [file, loader] of [
   ["model.js", "js"],
   ["app.js", "js"],
 ]) {
-  const source = await readFile(file, "utf8");
+  let source = await readFile(file, "utf8");
+  if (file === "styles.css") {
+    source = source.replaceAll(
+      "url(./assets/inter-latin.woff2)",
+      "url(./inter-latin.woff2)",
+    );
+  }
   const { code } = await transform(source, {
     loader,
     minify: true,
