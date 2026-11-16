@@ -21,7 +21,8 @@ const centsHtml = (value) => {
 };
 const compactMoney = (value) => {
   const v = Math.round(Math.max(0, value) || 0);
-  if (v >= 1000000) return `$${(v / 1000000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (v >= 1000000)
+    return `$${(v / 1000000).toFixed(2).replace(/\.?0+$/, "")}M`;
   if (v >= 1000) return `$${Math.round(v / 1000)}k`;
   return `$${v}`;
 };
@@ -29,7 +30,7 @@ const svgCompactMoney = (value) => {
   const v = Math.round(Math.max(0, value) || 0);
   const body =
     v >= 1000000
-      ? `${(v / 1000000).toFixed(1).replace(/\.0$/, "")}M`
+      ? `${(v / 1000000).toFixed(2).replace(/\.?0+$/, "")}M`
       : v >= 1000
         ? `${Math.round(v / 1000)}k`
         : `${v}`;
@@ -89,110 +90,23 @@ function resetControl(el, clearTextInputs = false) {
         : el.defaultValue;
 }
 
-function populateAgeSelect(select, minimum, defaultAge) {
-  if (!select || select.dataset.minimum === String(minimum)) return;
-  const previous = Number(select.value);
-  select.replaceChildren(
-    ...Array.from({ length: 66 - minimum }, (_, i) => {
-      const age = minimum + i;
-      return new Option(String(age), String(age), age === defaultAge);
-    }),
-  );
-  select.value = String(
-    Math.min(65, Math.max(minimum, previous || defaultAge)),
-  );
-  select.dataset.minimum = String(minimum);
-}
-
-function setupCareBreakdown() {
-  const range = (values) =>
-    `$${Math.round(values[0]).toLocaleString("en-SG")}–${Math.round(values[1]).toLocaleString("en-SG")}`;
-  const laterToday = (values) =>
-    values.map((value) => RetirementModel.todayValue(value, 75, 65));
-  const laterRange = range(laterToday(RetirementModel.careTotals("later")));
-  $("#care-later-range").textContent = laterRange;
-  $("#care-later-total").textContent = laterRange;
-  $("#care-concession-range").textContent = range(
-    laterToday(RetirementModel.careTotals("later").map((value) => value - 240)),
-  );
-  $("#care-health-midpoint").textContent =
-    `Healthcare midpoint: $325 → ${money(RetirementModel.todayValue(675, 75, 65))} in today’s dollars.`;
-  $("#care-cost-rows").innerHTML = RetirementModel.careRows
-    .map(
-      (row) =>
-        `<li class="care-cost-row"><h4>${row.name}</h4><div><small>Age 65 · today</small><strong>${range(row.now)}</strong></div><div><small>Age 75 · today’s value</small><strong>${range(laterToday(row.later))}</strong></div><p>${row.note}</p></li>`,
-    )
-    .join("");
-}
-
-function syncPresetChoice() {
-  const selected = $("#known-lifestyle").value;
-  $$("input[name='lifestyle-choice']").forEach(
-    (input) => (input.checked = input.value === selected),
-  );
-  const amount = RetirementModel.lifestyles[selected].budget;
+function syncCustomBudgetReset() {
+  const selected = $("#known-lifestyle")?.value || "cca";
+  const amount = RetirementModel.lifestyles[selected]?.budget || 2500;
   const custom = $("#known-spend");
-  const hasCustom = custom.value !== "" && custom.validity.valid;
-  const effectiveSpend = hasCustom ? Math.max(0, Number(custom.value)) : amount;
-  $("#preset-context").textContent =
-    selected === "cca"
-      ? "CCA assumes moving in at retirement, from age 55."
-      : "Assumes a paid-up flat. Rent and mortgage need separate funding.";
-  $("#budget-choice-status").hidden = !hasCustom;
-  $("#budget-choice-status").textContent = hasCustom
-    ? `Using your custom budget: ${money(effectiveSpend)}/month.`
-    : "";
+  if (!custom) return;
+  custom.placeholder = String(amount);
+  const rawCustom = (custom.value || "").trim();
+  const hasCustom =
+    rawCustom !== "" &&
+    custom.validity.valid &&
+    Number.isFinite(Number(rawCustom)) &&
+    Math.round(Number(rawCustom) * 100) !== Math.round(amount * 100);
   const reset = $("#use-preset-budget");
-  reset.hidden = !hasCustom || effectiveSpend === amount;
-  reset.textContent = `Reset to ${money(amount)} preset budget`;
-
-  const barNode = $("#preset-budget-bar");
-  if (barNode) {
-    const breakdown = RetirementModel.budgetBreakdown(selected, effectiveSpend);
-    barNode.innerHTML = `<div class="budget-stack" aria-hidden="true">${breakdown.groups
-      .map(
-        (group) =>
-          `<span class="budget-segment budget-${group.key}" style="width:${breakdown.total ? (group.amount / breakdown.total) * 100 : 0}%"></span>`,
-      )
-      .join("")}</div><div class="preset-bar-labels">${breakdown.groups
-      .map(
-        (group) =>
-          `<span><i class="budget-dot budget-${group.key}" aria-hidden="true"></i>${group.label} <b>${money(group.amount)}</b></span>`,
-      )
-      .join("")}</div>`;
+  if (reset) {
+    reset.hidden = !hasCustom;
+    reset.textContent = `Reset to ${selected === "cca" ? "CCA ($2,500)" : "Home + Helper ($3,500)"} preset`;
   }
-}
-
-function renderLifestyle(r) {
-  const cca = r.lifestyle === "cca";
-  const defaultBudget = RetirementModel.lifestyles[r.lifestyle].budget;
-  $("#budget-title").textContent = cca
-    ? "Your CCA living budget"
-    : "Your Home + Helper budget";
-  $("#budget-summary-title").textContent =
-    `How your ${cca ? "CCA" : "Home + Helper"} budget breaks down (${money(r.spend65)} → ${money(r.spend75)}/mo)`;
-  $("#budget-intro").textContent = cca
-    ? "A planning allowance for one person, including basic services and extra help. Apartment purchase and move-in costs need separate funding."
-    : "One person, a paid-up 2-room flat and one live-in helper. Your custom budget scales the personalised calculation.";
-  $("#cca-budget").hidden = !cca;
-  $("#helper-budget").hidden = cca;
-  $("#known-spend").placeholder = String(defaultBudget);
-  $("#budget-default-note").textContent =
-    `Blank uses ${money(defaultBudget)}, including healthcare and ${cca ? "extra help" : "a live-in helper"}.`;
-  if ($("#lifestyle-assumptions")) {
-    $("#lifestyle-assumptions").textContent = cca
-      ? "CCA starts at $2,500/mo ($3,340 at 75 in today’s prices as care provisions grow). Apartment lease, service deposit and move-in setup stay excluded; no subsidies assumed."
-      : "Home + Helper starts at $3,500/mo (above the $3,090 midpoint), keeping the $300 nominal levy fixed while scaling late-life care after 65. Flat purchase/mortgage excluded.";
-  }
-  const scale = r.todaySpend / 2500;
-  $("#cca-now-total").textContent = money(r.todaySpend);
-  $("#cca-later-total").textContent = money(3340 * scale);
-  $("#cca-cost-rows").innerHTML = RetirementModel.ccaRows
-    .map(
-      (row) =>
-        `<li class="care-cost-row"><h4>${row.name}</h4><div><small>Age 65 · today’s value</small><strong>${money(row.now * scale)}</strong></div><div><small>Age 75 · today’s value</small><strong>${money(row.later * scale)}</strong></div></li>`,
-    )
-    .join("");
 }
 
 function renderTrajectoryChart(
@@ -429,60 +343,6 @@ function renderTrajectoryChart(
   chartWrapper.ontouchend = handleLeave;
 }
 
-function renderDrawdownSummary(r, drawdown) {
-  const container = $("#dynamic-drawdown-summary");
-  if (!container) return;
-  const { gap, cashReserve, ssbLadder, equityCore } = drawdown;
-  const totalPot = cashReserve + ssbLadder + equityCore;
-  const pct = (val) => (totalPot > 0 ? (val / totalPot) * 100 : 0);
-  container.innerHTML = `
-    ${
-      totalPot > 0
-        ? `<figure class="drawdown-bar-figure">
-            <div class="drawdown-bar-track" aria-hidden="true">
-              <span class="drawdown-seg seg-cash" style="width:${pct(cashReserve)}%"></span>
-              <span class="drawdown-seg seg-ssb" style="width:${pct(ssbLadder)}%"></span>
-              <span class="drawdown-seg seg-core" style="width:${pct(equityCore)}%"></span>
-            </div>
-            <figcaption class="drawdown-bar-legend">
-              <span><i class="swatch seg-cash"></i>Years 1–2 Cash (${Math.round(pct(cashReserve))}%)</span>
-              <span><i class="swatch seg-ssb"></i>Years 3–7 SSB/Bonds (${Math.round(pct(ssbLadder))}%)</span>
-              <span><i class="swatch seg-core"></i>Years 8+ Growth Core (${Math.round(pct(equityCore))}%)</span>
-            </figcaption>
-          </figure>`
-        : ""
-    }
-    <div class="drawdown-metrics-grid">
-      <div class="drawdown-metric">
-        <span>Bucket 1 · Liquid cash (Yrs 1–2)</span>
-        <strong>${m(cashReserve)}</strong>
-        <small>24 months of the retirement-start gap (${m(gap, "/mo")}) in instant-access HYSA deposits.</small>
-      </div>
-      <div class="drawdown-metric">
-        <span>Bucket 2 · SSB / T-Bill ladder (Yrs 3–7)</span>
-        <strong>${m(ssbLadder)}</strong>
-        <small>Five-year sovereign reserve in today’s dollars, respecting the $200,000 SSB cap.</small>
-      </div>
-      <div class="drawdown-metric">
-        <span>Bucket 3 · Long-term core (Yrs 8+)</span>
-        <strong>${m(equityCore)}</strong>
-        <small>Diversified global portfolio kept invested for later decades and care inflation.</small>
-      </div>
-    </div>
-    <p class="result-footnote">Illustrative bucket split of your funded portfolio at age ${r.retire} (today’s dollars), not personal financial advice.</p>`;
-
-  const stepCopy = {
-    "#drawdown-step1-desc": `Your modelled post-CPF gap at age ${r.retire} is ${money(gap)}/mo in today’s dollars. Let CPF LIFE cover predictable baseline bills while protecting liquid cash for emergencies and healthcare.`,
-    "#drawdown-step2-desc": `Keep ~${money(cashReserve)} (up to 24 months of withdrawals) in one SDIC-insured bank account ($100k cap per bank) with automated monthly transfers to your spending account.`,
-    "#drawdown-step3-desc": `Hold ~${money(ssbLadder)} in Singapore Savings Bonds and T-Bills matched to upcoming years. Submit SSB redemptions a month ahead (paid 2nd business day of next month).`,
-    "#drawdown-step4-desc": `Consolidate scattered brokerage/SRS accounts before later life. Rebalance once a year and refill your cash bucket after positive equity years rather than selling during market drawdowns.`,
-  };
-  for (const [selector, text] of Object.entries(stepCopy)) {
-    const el = $(selector);
-    if (el) el.textContent = text;
-  }
-}
-
 function getMilestoneNodes(fire, r, s, simulation) {
   const pts = fire?.points || [];
   const ptAt = (age) =>
@@ -508,8 +368,8 @@ function getMilestoneNodes(fire, r, s, simulation) {
       sub: r.retiringNow
         ? "Immediate retirement transition"
         : `Saving ${money((simulation?.cpfExtra || 0) + s.privateSaving)}/mo`,
-      color: "#E0533C",
-      softBg: "#FCEEEB",
+      color: "#F97316",
+      softBg: "#FFF7ED",
     },
     {
       badge: fire.age < 55 ? "55" : String(fire.age),
@@ -533,13 +393,13 @@ function getMilestoneNodes(fire, r, s, simulation) {
     },
     {
       badge: String(pt95?.age ?? 95),
-      tag: `Ages 75 → ${pt95?.age ?? 95}`,
+      tag: `Age 75→${pt95?.age ?? 95}`,
       title: fire.fireNumber.fullyFundedTo95
         ? "Age 95+ Runway"
-        : `Funded to ${fire.depletionAge ?? 90}`,
+        : `Funded to ${Math.floor(fire.fireNumber.depletionAge ?? 90)}`,
       metric: m(pt95?.today?.totalNetWorth ?? 0),
       pill: fire.fireNumber.fullyFundedTo95 ? "Sustained" : "Watch Gap",
-      sub: `Age-75 spend ${money(pt75?.today?.monthlySpend ?? r.spend75)}/mo · CPF ${money(s.payout)}/mo`,
+      sub: `Spend ${money(pt75?.today?.monthlySpend ?? r.spend75)}/mo · CPF ${money(s.payout)}/mo`,
       color: fire.fireNumber.fullyFundedTo95 ? "#7C3AED" : "#DC2626",
       softBg: fire.fireNumber.fullyFundedTo95 ? "#F5F3FF" : "#FEF2F2",
     },
@@ -556,11 +416,11 @@ function buildConcentricRingsSVG(
   const cx = size / 2;
   const cy = size / 2;
   const radii = [
-    Math.round(size * 0.415),
-    Math.round(size * 0.305),
-    Math.round(size * 0.195),
+    Math.round(size * 0.425),
+    Math.round(size * 0.328),
+    Math.round(size * 0.232),
   ];
-  const strokeW = size >= 160 ? 11 : 9;
+  const strokeW = size >= 160 ? 11 : 8.5;
   const arcs = rings
     .slice(0, 3)
     .map((ring, idx) => {
@@ -590,110 +450,82 @@ function buildConcentricRingsSVG(
   </div>`;
 }
 
-let cachedPrintExtras = null;
-
-function renderPrintSheet(
+function renderPrintSheet({
   r,
   s,
-  drawdown,
-  simulationForPrint,
-  readinessPending,
-  readinessAge,
-  extras = null,
-) {
+  simulation,
+  fire,
+  bogle,
+  tax,
+  guide,
+  p,
+  basis = "today",
+}) {
   const printContainer = $("#print-sheet");
-  if (!printContainer) return;
-  if (extras) cachedPrintExtras = extras;
-  const ctx = extras || cachedPrintExtras || {};
-  const fire = ctx.fire;
-  const bogle = ctx.bogle;
-  const tax = ctx.tax;
-  const guide = ctx.guide;
-  const { cashReserve, ssbLadder, equityCore } = drawdown;
+  if (!printContainer || !r || !s || !fire) return;
 
-  const fn = fire?.fireNumber;
-  const pctFunded = fn ? Math.min(150, Math.max(0, fn.pctFunded)) : 100;
-  const onTrack = fn ? pctFunded >= 100 && fn.fullyFundedTo95 : true;
-  const nearTrack = fn ? pctFunded >= 80 && !onTrack : false;
-  const statusText = onTrack
-    ? "On Track"
-    : nearTrack
-      ? "Within Reach"
-      : "Shortfall";
-  const projFireText =
-    fn?.projectedFireAge != null
-      ? `Age ${fn.projectedFireAge}`
-      : readinessPending
-        ? "Calculating"
-        : ageLabel(readinessAge);
-
-  const outsideNeed = fn?.totalRequiredToday ?? s.privateTarget;
-  const cpfAt65 = fire?.phase2?.projectedCpfAt65Today ?? s.balance;
-  const totalAt65 =
-    fire?.points?.find((pt) => pt.age === 65)?.today?.totalNetWorth ??
-    outsideNeed + cpfAt65;
-  const cpfCovPct = Math.min(
-    100,
-    Math.round(
-      ((fire?.phase2?.cpfLife65Today ?? s.payout) / Math.max(1, r.spend65)) *
-        100,
-    ),
-  );
-  const builtTodayPct = Math.min(100, Math.max(0, fn?.currentFirePct ?? 0));
+  const pm = RetirementModel.buildPrintReportModel({
+    summary: r,
+    selectedScenario: s,
+    simulation,
+    fire,
+    bogle,
+    tax,
+    guide,
+    params: p,
+    basis,
+  });
 
   const ringItems = [
     {
-      label: `Plan Funded (${r.retire})`,
-      pct: Math.min(100, pctFunded),
-      val: `${pctFunded}%`,
-      color: onTrack ? "#059669" : "#E0533C",
+      label: `Plan Funded (${pm.retireAge})`,
+      pct: Math.min(100, pm.pctFunded),
+      val: `${pm.pctFunded}%`,
+      color: pm.onTrack ? "#059669" : "#2563EB",
     },
     {
       label: "CPF LIFE vs Spend",
-      pct: cpfCovPct,
-      val: `${cpfCovPct}%`,
+      pct: pm.cpfCovPct,
+      val: `${pm.cpfCovPct}%`,
       color: "#0D9488",
     },
     {
       label: "Built Today",
-      pct: builtTodayPct,
-      val: `${builtTodayPct}%`,
+      pct: pm.builtTodayPct,
+      val: `${pm.builtTodayPct}%`,
       color: "#7C3AED",
     },
   ];
 
-  const grossPlusEmp = Math.max(1, r.salary + r.employerCpf);
-  const totalCpfMo = r.employeeCpf + r.employerCpf;
-  const investPool = Math.round(bogle?.monthlyRebalance?.investPool || 0);
-  const ssbMo = Math.round(bogle?.monthlyRebalance?.buyBondMonthly || 0);
-  const eqMo = Math.round(
-    (bogle?.monthlyRebalance?.buyGlobalMonthly || 0) +
-      (bogle?.monthlyRebalance?.buySgMonthly || 0),
-  );
-  const extraTaxMo = Math.round(
-    (guide?.cpfExtra || 0) + Math.max(0, Number(ctx.p?.srsAnnual || 0)) / 12,
-  );
-  const livingMo = Math.max(
-    0,
-    r.afterCpf - investPool - (guide?.cpfExtra || 0),
-  );
+  const pipeRows = pm.paycheck.rows;
+  const grossPlusEmp = pm.paycheck.grossPlusEmployer;
+  const milestones = getMilestoneNodes(fire, r, s, simulation);
+  const pt95 = fire?.points?.[fire.points.length - 1];
+  const pt55 =
+    fire?.points?.find((pt) => pt.age === (fire.age < 55 ? 55 : fire.age)) ||
+    fire?.points?.[0];
 
-  const pipeRows = [
-    { label: "Living & IRAS Tax", amt: livingMo, color: "#64748B" },
-    { label: "Mandatory CPF", amt: totalCpfMo, color: "#059669" },
-    { label: "Global Equities", amt: eqMo, color: "#2563EB" },
-    { label: "SSB / T-Bills", amt: ssbMo, color: "#D97706" },
-    { label: "RSTU / SRS", amt: extraTaxMo, color: "#7C3AED" },
-  ];
+  const presetBaseline =
+    RetirementModel.lifestyles[r.lifestyle]?.budget || 2500;
+  const isCustomBudget =
+    Math.round(Number(r.todaySpend || 0) * 100) !==
+    Math.round(presetBaseline * 100);
+  const srsAnnualVal = Math.max(0, Number(p?.srsAnnual || 0));
 
-  const milestones = fire
-    ? getMilestoneNodes(fire, r, s, simulationForPrint)
-    : [];
-
-  const monthlySave =
-    (simulationForPrint?.cpfExtra || 0) + (simulationForPrint?.invest || 0);
-  const pctOfPay =
-    r.afterCpf > 0 ? Math.round((monthlySave / r.afterCpf) * 100) : 0;
+  const formatCheckpointSub = (mn, idx) => {
+    if (idx === 1 && fire.age < 55) {
+      return `Age 55 · Total NW ${money(pt55?.today?.totalNetWorth ?? 0)}`;
+    }
+    if (idx === 3 && !pm.fullyFundedTo95) {
+      const liq95 =
+        (pt95?.today?.liquidEquities ?? 0) + (pt95?.today?.ssbCash ?? 0);
+      const cpf95 = pt95?.today?.cpfTotal ?? 0;
+      return liq95 <= 1
+        ? `Age 75→${pt95?.age ?? 95} · Liquid $0 · ${money(cpf95)} CPF`
+        : `${mn.tag} · ${mn.sub}`;
+    }
+    return `${mn.tag} · ${mn.sub}`;
+  };
 
   printContainer.innerHTML = `
     <div class="poster-sheet">
@@ -704,46 +536,48 @@ function renderPrintSheet(
             <h1>Retirement Readiness &amp; CPF Overview</h1>
             <div class="poster-chips">
               <span>Age ${r.age} → ${r.retire}</span>
-              <span>Gross ${money(r.salary)}/mo</span>
-              <span>${r.lifestyleLabel}</span>
+              <span>Gross ${money(r.salary)} · Take-home ${money(r.afterCpf)}/mo</span>
+              <span>${isCustomBudget ? `Custom (${money(r.todaySpend)}/mo)` : r.lifestyleLabel}</span>
               <span>CPF LIFE ${r.plan === "escalating" ? "Escalating" : "Standard"}</span>
+              ${Number(p?.housing || 0) > 0 ? `<span>Housing OA ${money(p.housing)}/mo</span>` : ""}
+              ${srsAnnualVal > 0 ? `<span>SRS ${money(srsAnnualVal)}/yr</span>` : ""}
             </div>
           </div>
-          <div class="poster-verdict-badge is-${onTrack ? "good" : nearTrack ? "warn" : "danger"}">
+          <div class="poster-verdict-badge is-${pm.statusTone}">
             <small>PLAN STATUS</small>
-            <strong>${pctFunded}% · ${statusText}</strong>
-            <span>Ready ${projFireText}</span>
+            <strong>${pm.pctFunded}% · ${pm.statusText}</strong>
+            <span>${pm.verdictSub}</span>
           </div>
         </div>
       </header>
 
       <section class="poster-kpi-strips">
-        <div class="poster-stat-strip" style="--strip-accent:#E0533C;">
-          <small>Earliest Readiness</small>
-          <div><strong>${projFireText}</strong><span class="poster-pill">${fn?.fullyFundedTo95 ? "Age 95+" : `To ${fire?.depletionAge ?? 90}`}</span></div>
+        <div class="poster-stat-strip" style="--strip-accent:#2563EB;">
+          <small>Earliest Safe Age</small>
+          <div><strong>${pm.earliestSafeAgeText}</strong><span class="poster-pill">${pm.runwayPill}</span></div>
         </div>
         <div class="poster-stat-strip" style="--strip-accent:#0D9488;">
           <small>Age-65 CPF Floor</small>
-          <div><strong>${money(s.payout)}/mo</strong><span class="poster-pill">${cpfCovPct}% bills</span></div>
+          <div><strong>${money(pm.cpfFloor65)}/mo</strong><span class="poster-pill">${pm.cpfCovPct}% bills</span></div>
         </div>
         <div class="poster-stat-strip" style="--strip-accent:#059669;">
-          <small>Monthly Saving Target</small>
-          <div><strong>${money(monthlySave)}/mo</strong><span class="poster-pill">${pctOfPay}% pay</span></div>
+          <small>${pm.savingKpiLabel}</small>
+          <div><strong>${money(pm.monthlySave)}${r.retiringNow ? " now" : "/mo"}</strong><span class="poster-pill">${pm.savingKpiPill}</span></div>
         </div>
         <div class="poster-stat-strip" style="--strip-accent:#7C3AED;">
-          <small>Projected at 65</small>
-          <div><strong>${compactMoney(totalAt65)}</strong><span class="poster-pill">${money(r.spend65)}/mo</span></div>
+          <small>Projected at ${pm.retireAge}</small>
+          <div><strong>${money(pm.projectedAtRetire)}</strong><span class="poster-pill">${money(r.futureSpend)}/mo</span></div>
         </div>
       </section>
 
       <section class="poster-charts-row">
         <div class="poster-chart-card">
-          <h3>Net Worth Projection (Age ${fire?.age ?? r.age}–${fire?.endAge ?? 95})</h3>
+          <h3>Net Worth Projection (Age ${fire?.age ?? r.age}–${pm.endAge})</h3>
           <div id="print-nw-chart" class="poster-chart-svg"></div>
           <div id="print-nw-legend" class="poster-chart-legend"></div>
         </div>
         <div class="poster-chart-card">
-          <h3>Monthly Cashflow Waterfall (Ages 50–85)</h3>
+          <h3>Monthly Cashflow Waterfall (Ages ${pm.waterfallStartAge}–${pm.waterfallEndAge})</h3>
           <div id="print-wf-chart" class="poster-chart-svg"></div>
           <div id="print-wf-legend" class="poster-chart-legend"></div>
         </div>
@@ -753,7 +587,7 @@ function renderPrintSheet(
         <div class="poster-panel poster-rings-panel">
           <h3>Readiness Breakdown</h3>
           <div class="poster-rings-inner">
-            ${buildConcentricRingsSVG(ringItems, pctFunded, "FUNDED", 118)}
+            ${buildConcentricRingsSVG(ringItems, pm.pctFunded, "FUNDED", 126)}
             <ul class="poster-ring-legend">
               ${ringItems
                 .map(
@@ -766,7 +600,10 @@ function renderPrintSheet(
         </div>
 
         <div class="poster-panel">
-          <h3>Paycheck Allocation (${money(grossPlusEmp)}/mo)</h3>
+          <div class="poster-panel-head">
+            <h3>Paycheck Split</h3>
+            <small>${money(grossPlusEmp)}/mo incl. Emp CPF</small>
+          </div>
           <div class="poster-pipes">
             ${pipeRows
               .map((pr) => {
@@ -784,6 +621,7 @@ function renderPrintSheet(
               })
               .join("")}
           </div>
+          ${pm.paycheck.overspendMo > 0 ? `<p class="poster-panel-note is-warn">Savings exceed take-home pay by ${money(pm.paycheck.overspendMo)}/mo.</p>` : ""}
         </div>
 
         ${
@@ -793,14 +631,15 @@ function renderPrintSheet(
                 <div class="poster-feed-list">
                   ${milestones
                     .map(
-                      (mn) => `<div class="poster-feed-row">
+                      (mn, idx) => `<div class="poster-feed-row">
                         <span class="poster-feed-avatar" style="background:${mn.softBg};color:${mn.color};">${mn.badge}</span>
                         <div class="poster-feed-copy">
                           <strong>${mn.title}</strong>
-                          <small>${mn.tag}</small>
+                          <small>${formatCheckpointSub(mn, idx)}</small>
                         </div>
                         <div class="poster-feed-right">
                           <b>${mn.metric}</b>
+                          <small>${mn.pill}</small>
                         </div>
                       </div>`,
                     )
@@ -813,333 +652,74 @@ function renderPrintSheet(
 
       <section class="poster-bottom-grid">
         <div class="poster-panel">
-          <h3>5-Tier Allocation Order</h3>
+          <h3>Portfolio &amp; Tax Action Plan</h3>
           <ul class="poster-tiers">
-            <li><span>1 · HYSA Buffer</span><b>${money(guide?.emergencyMin ?? cashReserve)}–${money(guide?.emergencyMax ?? cashReserve)}</b></li>
-            <li><span>2 · SSB / T-Bills</span><b>${money(ssbLadder)} ladder</b></li>
-            <li><span>3 · CPF RSTU &amp; SRS</span><b>${tax?.combinedTaxSaved ? `Saves ${money(tax.combinedTaxSaved)}/yr` : "Check bracket"}</b></li>
-            <li><span>4 · Global UCITS ETF</span><b>${money(equityCore)} core</b></li>
-            <li><span>5 · CPF LIFE ERS Floor</span><b>${money(r.ers)} max sum</b></li>
+            ${pm.actionRows
+              .map(
+                (row) =>
+                  `<li><span>${row.label} <em class="poster-tier-tag">${row.tag}</em></span><b>${row.value}</b></li>`,
+              )
+              .join("")}
           </ul>
         </div>
 
         <div class="poster-panel">
-          <h3>CPF Strategy Comparison Ledger</h3>
+          <div class="poster-panel-head">
+            <h3>CPF Strategy Comparison Ledger</h3>
+            <small>Age-55 CPF in today’s $</small>
+          </div>
           <table class="poster-mini-table">
-            <thead><tr><th>Strategy</th><th>Age-55 CPF</th><th>65+ Payout</th><th>Save Outside</th></tr></thead>
+            <thead><tr><th>Strategy</th><th>Age-55 CPF</th><th>Extra CPF</th><th>Save Outside</th><th>65+ Payout</th></tr></thead>
             <tbody>
               ${r.scenarios
                 .map(
                   (sc) => `<tr class="${sc.key === s.key ? "is-active" : ""}">
                     <td>${sc.key === "salary" ? "Salary CPF" : sc.key.toUpperCase()}${sc.key === s.key ? " · Active" : ""}</td>
                     <td>${money(sc.balance)}</td>
+                    <td>${money(sc.cpfFunding)}${r.retiringNow ? " now" : "/mo"}</td>
+                    <td>${money(sc.privateSaving)}${r.retiringNow ? " now" : "/mo"}</td>
                     <td>${money(sc.payout)}/mo</td>
-                    <td>${money(sc.privateSaving)}${r.retiringNow ? "" : "/mo"}</td>
                   </tr>`,
                 )
                 .join("")}
             </tbody>
           </table>
+          ${pm.customSavingNote ? `<p class="poster-panel-note">${pm.customSavingNote}</p>` : ""}
         </div>
       </section>
 
       <footer class="poster-colophon">
-        <span><sup>1</sup> Today’s purchasing power (${Number((r.inflation * 100).toFixed(1))}% inflation, ${Math.round(r.investmentReturn * 100)}% net return, ${r.post55Work ? "post-55 CPF included" : "post-55 CPF excluded"}). <sup>2</sup> 2026 SG Rules (FRS $220.4k, ERS $440.8k, BHS $79k, OW cap $8k).</span>
+        <span><sup>1</sup> Today’s purchasing power (${Number((r.inflation * 100).toFixed(1))}% inflation, ${Number((r.investmentReturn * 100).toFixed(1))}% net return, ${r.post55Work ? "post-55 CPF included" : "post-55 CPF excluded"}). <sup>2</sup> 2026 SG Rules (FRS $220.4k, ERS $440.8k, BHS $79k, OW cap $8k). Age-55 cohort sums grow 3.5%/yr.</span>
         <span>100% Local Calculation · Educational planning illustration only</span>
       </footer>
     </div>`;
 
-  if (fire) {
-    renderStackedNetWorthSVG(
-      $("#print-nw-chart", printContainer),
-      null,
-      $("#print-nw-legend", printContainer),
-      fire,
-      ctx.basis || "today",
-      { interactive: false, forcedSeries: "all" },
-    );
-    renderCashflowWaterfallSVG(
-      $("#print-wf-chart", printContainer),
-      null,
-      $("#print-wf-legend", printContainer),
-      fire,
-      ctx.basis || "today",
-    );
-  }
-}
-
-function buildOutsideAvenuesSection(r, s, p, simulation) {
-  const guide = RetirementModel.outsideAllocationGuide(
-    simulation.summary,
-    simulation,
+  renderStackedNetWorthSVG(
+    $("#print-nw-chart", printContainer),
+    null,
+    $("#print-nw-legend", printContainer),
+    fire,
+    basis,
+    {
+      interactive: false,
+      forcedSeries: "all",
+      showSrsMilestone: pm.hasSrs,
+      compactPrint: true,
+    },
   );
-  const totalAfterCpf = Math.max(1, guide.afterCpf);
-  const taxW = Math.min(100, (guide.tax.monthlyTax / totalAfterCpf) * 100);
-  const cpfW = Math.min(100 - taxW, (guide.cpfExtra / totalAfterCpf) * 100);
-  const outW = Math.min(
-    100 - taxW - cpfW,
-    (guide.outsideMonthly / totalAfterCpf) * 100,
+  renderCashflowWaterfallSVG(
+    $("#print-wf-chart", printContainer),
+    null,
+    $("#print-wf-legend", printContainer),
+    fire,
+    basis,
+    {
+      startAge: pm.waterfallStartAge,
+      endAge: pm.waterfallEndAge,
+      hasSrs: pm.hasSrs,
+      compactPrint: true,
+    },
   );
-  const liveW = Math.max(0, 100 - taxW - cpfW - outW);
-
-  const marginalPct = `${(guide.tax.marginalRate * 100).toFixed(1).replace(/\.0$/, "")}%`;
-  const stateIcon =
-    guide.state.tone === "good" ? ICONS.checkTiny : ICONS.warnTiny;
-
-  const stretchCallout =
-    guide.state.key === "stretched" || guide.state.key === "critical"
-      ? `<div class="stretch-callout">
-          <div>
-            <strong>Why is the target ${guide.pctAfterCpf}% of your pay after CPF?</strong>
-            <p>${
-              p.oa == null && p.sa == null && Number(p.savings || 0) === 0
-                ? "Your plan currently assumes $0 CPF balances and $0 existing investments, so it tries to build the entire retirement pot from future salary alone."
-                : "Funding this retirement age and lifestyle from current pay alone leaves tight monthly cashflow."
-            } Most Singapore households sustain <strong>20–30% of net take-home (${m(guide.sustainableMin)}–${m(guide.sustainableMax, "/mo")})</strong>.</p>
-          </div>
-          <div class="stretch-actions">
-            <button type="button" class="text-button" data-go-tab="trajectory">Test a ${m(guide.allocPool, "/mo")} budget in Trajectory →</button>
-          </div>
-        </div>`
-      : "";
-
-  const tiers = [
-    {
-      rank: "Tier 1 · Foundation",
-      semColor: "#D97706",
-      name: "High-Yield Savings Accounts (HYSA)",
-      examples: "UOB One, OCBC 360, DBS Multiplier, MariBank / GXS",
-      state: "Instant · T+0",
-      roi: "~2.0%–3.5% p.a.",
-      taxRule: "SDIC $100k / bank",
-      targetHead: `${m(guide.emergencyMin)}–${m(guide.emergencyMax)}`,
-      targetSub: "6–12 mo cash buffer",
-      gotchas: [
-        "Bonus interest requires salary credit + card-spend hoops; banks cut promo tiers without notice.",
-        "SDIC deposit insurance caps at $100,000 per bank per depositor—holding excess cash above 12 months loses to inflation.",
-      ],
-    },
-    {
-      rank: "Tier 2 · Safe Sovereign",
-      semColor: "#D97706",
-      name: "Singapore Savings Bonds (SSB), 6M/1Y T-Bills & MMFs",
-      examples: "MAS SSB, SGS T-Bills, Fullerton SGD Cash / Mari Invest",
-      state: "T+1 mo / 6M lock",
-      roi: "~2.5%–3.2% p.a.",
-      taxRule: "$200k SSB cap",
-      targetHead: r.retiringNow
-        ? "Up to $200k"
-        : `${m(guide.split.safeMonthly, "/mo")}`,
-      targetSub: r.retiringNow
-        ? "SSB cap (Cash + SRS)"
-        : "Safe reserve allocation",
-      gotchas: [
-        "SSB ($500 multiples, $200k cap across Cash + SRS) locks 10-yr step-up rates but redeems on the 2nd business day of next month—not instant cash.",
-        "T-Bills lock cash to maturity and face reinvestment-rate risk when rates fall; money market funds (T+1/T+2) are NOT SDIC-insured.",
-      ],
-    },
-    {
-      rank: "Tier 3 · Tax Relief",
-      semColor: "#7C3AED",
-      name: "CPF Cash Top-Up (RSTU to FRS) & SRS Wrapper",
-      examples: "CPF SA/RA top-up, SRS → Endowus / SSB / local ETFs",
-      state: "Locked to 63–65",
-      roi: "4.0% CPF + tax save",
-      taxRule: "$80k total relief cap",
-      targetHead: guide.taxWorthIt
-        ? `${m(guide.split.srsMonthly, "/mo")}`
-        : `${marginalPct} bracket`,
-      targetSub: guide.taxWorthIt
-        ? `SRS (saves ${m(guide.srsTaxSaved, "/yr")}) · RSTU ${m(guide.rstuTaxSaved, "/yr")}`
-        : "Low tax — prioritize Tier 2 & 4",
-      gotchas: [
-        "Uninvested SRS cash earns just 0.05% p.a. and cannot directly buy US/UCITS ETFs; early withdrawal triggers a 5% penalty + 100% income tax (50% taxable over 10 yrs from statutory retirement age, up to $40k/yr tax-free if no other income).",
-        "CPF RSTU ($8k/yr self + $8k family relief, within $80k total relief cap) is irreversible and gives $0 tax relief once SA/RA reaches FRS.",
-      ],
-    },
-    {
-      rank: "Tier 4 · Core Growth",
-      semColor: "#2563EB",
-      name: "Broad Low-Cost Global Equity ETFs",
-      examples: "Ireland UCITS global index ETFs (VWRA / FWRA / ISAC)",
-      state: "Liquid T+2 · volatile",
-      roi: "~5.0%–7.0% p.a.",
-      taxRule: "15% div tax · 0% cap gain",
-      targetHead: r.retiringNow
-        ? "Yrs 8+ growth"
-        : `${m(guide.split.coreMonthly, "/mo")}`,
-      targetSub: r.retiringNow
-        ? "Long-horizon sleeve"
-        : `Core DCA (${guide.horizon}-yr horizon)`,
-      gotchas: [
-        "Expect 20–40% temporary market drawdowns—never invest money needed within 5 years (sequence-of-returns risk near retirement).",
-        "US-domiciled ETFs (VOO/VT) charge non-US investors 30% dividend withholding + US estate tax >US$60k; Ireland-domiciled UCITS ETFs halve US dividend tax to 15% with 0% Singapore capital-gains tax.",
-      ],
-    },
-    {
-      rank: "Tier 5 · Lifetime Floor",
-      semColor: "#059669",
-      name: "CPF LIFE ERS & Lifetime Annuities",
-      examples:
-        "CPF LIFE Standard / Escalating · Commercial annuities above ERS",
-      state: "Lifelong payout",
-      roi: "~3.5%–4.2% CPF",
-      taxRule: "Sovereign longevity floor",
-      targetHead: `${m(r.ers)}`,
-      targetSub: "Optional ERS lifetime floor",
-      gotchas: [
-        "CPF LIFE provides sovereign-backed lifetime payouts, true longevity pooling, and zero advisory commissions.",
-        "Consider commercial insurer annuities only after maxing ERS, as private plans often combine lower guaranteed payouts with discretionary bonuses and multi-year surrender charges.",
-      ],
-    },
-  ];
-
-  return `<section class="outside-section card-surface" id="outside-avenues" aria-labelledby="outside-title">
-    <div id="srs-notes" aria-hidden="true"></div>
-    <div class="outside-head">
-      <div>
-        <span class="hero-kicker">5-TIER ALLOCATION PRIORITY</span>
-        <h2 id="outside-title">Where to put money outside CPF</h2>
-        <p>Fund in priority order: lock in liquid safety first, capture worthwhile tax relief, then compound long-term growth.</p>
-      </div>
-      <div class="outside-badges">
-        <span class="tax-pill">Est. IRAS marginal tax: <b>${marginalPct}</b> (~${m(guide.tax.monthlyTax, "/mo")})</span>
-      </div>
-    </div>
-
-    <div class="takehome-panel">
-      <div class="takehome-top">
-        <div>
-          <h3>Monthly pay after employee CPF: <strong>${m(guide.afterCpf, "/mo")}</strong></h3>
-          <p class="takehome-sub">${
-            r.retiringNow
-              ? "Retirement is set to now — future monthly salary allocation is paused."
-              : guide.usingBenchmark
-                ? `Showing a sustainable <b>25% after-tax benchmark (${m(guide.allocPool, "/mo")})</b> alongside your ${m(guide.totalSaving, "/mo")} full-funding target.`
-                : `Allocates <b>${m(guide.cpfExtra, "/mo")}</b> extra CPF and <b>${m(guide.outsideMonthly, "/mo")}</b> outside CPF (${guide.pctNet}% of ${m(guide.netTakeHome)} after-tax pay).`
-          }</p>
-        </div>
-        <span class="status-pill is-${guide.state.tone}">${stateIcon}<span>${guide.state.label}</span></span>
-      </div>
-      ${
-        r.retiringNow
-          ? ""
-          : `<div class="takehome-bar" role="img" aria-label="Breakdown of monthly pay after CPF: tax ${money(guide.tax.monthlyTax)}, extra CPF ${money(guide.cpfExtra)}, outside investments ${money(guide.outsideMonthly)}, remaining living cash ${money(Math.max(0, guide.leftForLiving))}">
-              ${taxW > 0.5 ? `<span class="th-seg th-tax" style="width:${taxW}%"></span>` : ""}
-              ${cpfW > 0.5 ? `<span class="th-seg th-cpf" style="width:${cpfW}%"></span>` : ""}
-              ${outW > 0.5 ? `<span class="th-seg th-out" style="width:${outW}%"></span>` : ""}
-              ${liveW > 0.5 ? `<span class="th-seg th-live" style="width:${liveW}%"></span>` : ""}
-            </div>
-            <div class="takehome-legend">
-              <span><i class="swatch th-tax"></i>Est. Tax <b>${m(guide.tax.monthlyTax)}</b></span>
-              <span><i class="swatch th-cpf"></i>Extra CPF <b>${m(guide.cpfExtra)}</b></span>
-              <span><i class="swatch th-out"></i>Outside Invest <b>${m(guide.outsideMonthly)}</b></span>
-              <span><i class="swatch th-live"></i>Living &amp; Bills <b>${guide.leftForLiving < 0 ? `−${m(-guide.leftForLiving)}` : m(guide.leftForLiving)}</b></span>
-            </div>`
-      }
-      ${stretchCallout}
-      ${
-        r.retiringNow
-          ? ""
-          : `<div class="split-strip" role="group" aria-label="Suggested monthly outside-CPF split">
-              <div class="split-strip-label">
-                <strong>${guide.usingBenchmark ? `Suggested ${m(guide.allocPool, "/mo")} sustainable outside split` : `Suggested split for ${m(guide.allocPool, "/mo")} outside savings`}</strong>
-                <small>Once Tier 1 buffer (${m(guide.emergencyMin)}–${m(guide.emergencyMax)}) is full · ${guide.horizon} yrs to retirement</small>
-              </div>
-              <div class="split-pills">
-                <span><i class="sem-dot" style="background:#D97706;"></i><b>${m(guide.split.safeMonthly, "/mo")}</b> SSB / T-Bills</span>
-                <span><i class="sem-dot" style="background:#7C3AED;"></i><b>${m(guide.split.srsMonthly, "/mo")}</b> SRS / Tax</span>
-                <span><i class="sem-dot" style="background:#2563EB;"></i><b>${m(guide.split.coreMonthly, "/mo")}</b> Global UCITS</span>
-              </div>
-            </div>`
-      }
-    </div>
-
-    <ol class="tier-list" aria-label="Outside-CPF investment priority tier list">
-      ${tiers
-        .map(
-          (t) => `<li class="tier-card" style="--tier-color:${t.semColor};">
-            <div class="tier-card-head">
-              <div class="tier-title-group">
-                <div>
-                  <span class="tier-rank">${t.rank}</span>
-                  <h3>${t.name}</h3>
-                  <small class="tier-examples">${t.examples}</small>
-                </div>
-              </div>
-              <div class="tier-target-box">
-                <strong>${t.targetHead}</strong>
-                <span>${t.targetSub}</span>
-              </div>
-            </div>
-            <dl class="tier-facts-grid">
-              <div><dt>Liquidity</dt><dd>${t.state}</dd></div>
-              <div><dt>Est. Return</dt><dd>${t.roi}</dd></div>
-              <div><dt>Rule / Tax</dt><dd>${t.taxRule}</dd></div>
-            </dl>
-            <details class="tier-rules">
-              <summary>Key rules &amp; caveats (${t.gotchas.length})</summary>
-              <ul class="tier-gotchas">
-                ${t.gotchas.map((g) => `<li>${g}</li>`).join("")}
-              </ul>
-            </details>
-          </li>`,
-        )
-        .join("")}
-    </ol>
-  </section>`;
-}
-
-function buildCoverageSection(r, s) {
-  const maxSpend = Math.max(1, r.spend65, r.spend75);
-  const rows = [
-    {
-      label: "Age 65",
-      spend: r.spend65,
-      cpf: s.payout,
-      gap: s.gap65,
-    },
-    {
-      label: "Age 75 (with higher care provision)",
-      spend: r.spend75,
-      cpf: s.payout75,
-      gap: s.gap75,
-    },
-  ];
-  return `<section class="coverage-card card-surface" aria-labelledby="coverage-title">
-    <div class="coverage-head">
-      <div>
-        <span class="hero-kicker">RETIREMENT BILL COVERAGE</span>
-        <h2 id="coverage-title">How monthly bills are covered at 65 vs 75</h2>
-        <p>Today’s purchasing power · CPF LIFE (${r.plan === "escalating" ? "Escalating +2%/yr" : "Standard level cash"}) vs outside portfolio withdrawal.</p>
-      </div>
-      <div class="coverage-legend">
-        <span><i class="swatch cov-cpf"></i>CPF LIFE</span>
-        <span><i class="swatch cov-gap"></i>Outside portfolio needed</span>
-      </div>
-    </div>
-    <div class="coverage-bars">
-      ${rows
-        .map((row) => {
-          const coveredCpf = Math.min(row.spend, row.cpf);
-          const cpfPct = (coveredCpf / maxSpend) * 100;
-          const gapPct = (row.gap / maxSpend) * 100;
-          const share =
-            row.spend > 0 ? Math.round((coveredCpf / row.spend) * 100) : 100;
-          return `<div class="coverage-row">
-            <div class="coverage-row-top">
-              <strong>${row.label}: ${m(row.spend, "/mo")}</strong>
-              <span>CPF covers <b>${m(row.cpf, "/mo")}</b> (${share}%) · Outside gap <b>${m(row.gap, "/mo")}</b></span>
-            </div>
-            <div class="coverage-track" aria-hidden="true">
-              <span class="cov-seg cov-cpf" style="width:${cpfPct}%"></span>
-              <span class="cov-seg cov-gap" style="width:${gapPct}%"></span>
-            </div>
-          </div>`;
-        })
-        .join("")}
-    </div>
-  </section>`;
 }
 
 const NW_SERIES = [
@@ -1147,7 +727,7 @@ const NW_SERIES = [
     key: "cpf",
     name: "CPF (OA + SA/RA + MA)",
     short: "CPF",
-    color: "#059669",
+    color: "#10B981",
     ttClass: "sem-cpf",
   },
   {
@@ -1238,12 +818,13 @@ function renderStackedNetWorthSVG(
       total: src.totalNetWorth,
     };
   });
-  const W = 860,
-    H = 316,
-    padL = 74,
-    padR = 32,
-    padT = 66,
-    padB = 40;
+  const compactPrint = Boolean(opts.compactPrint);
+  const W = compactPrint ? 640 : 860,
+    H = compactPrint ? 256 : 316,
+    padL = compactPrint ? 58 : 74,
+    padR = compactPrint ? 22 : 32,
+    padT = compactPrint ? 56 : 66,
+    padB = compactPrint ? 32 : 40;
   const plotW = W - padL - padR,
     plotH = H - padT - padB;
   const minAge = pts[0].age,
@@ -1348,6 +929,10 @@ function renderStackedNetWorthSVG(
         )
         .join("");
 
+  const showSrs =
+    opts.showSrsMilestone != null
+      ? Boolean(opts.showSrsMilestone)
+      : pts.some((pt) => pt.srs > 0.5);
   const rawMilestones = [
     {
       age: fire.retire,
@@ -1355,11 +940,15 @@ function renderStackedNetWorthSVG(
       color: "#2563EB",
     },
     { age: 55, label: "55 SA Closure", color: "#059669" },
-    {
-      age: fire.srsWithdrawalAge,
-      label: `${fire.srsWithdrawalAge} SRS`,
-      color: "#7C3AED",
-    },
+    ...(showSrs
+      ? [
+          {
+            age: fire.srsWithdrawalAge,
+            label: `${fire.srsWithdrawalAge} SRS`,
+            color: "#7C3AED",
+          },
+        ]
+      : []),
     { age: 65, label: "65 CPF LIFE", color: "#059669" },
   ]
     .filter((mItem) => mItem.age >= minAge && mItem.age <= maxAge)
@@ -1389,12 +978,12 @@ function renderStackedNetWorthSVG(
       const x = dX(mItem.age);
       const anchor =
         x < padL + 48 ? "start" : x > W - padR - 48 ? "end" : "middle";
-      const estW = mItem.label.length * 6.4 + 10;
+      const estW = mItem.label.length * 7.2 + 12;
       const x1 =
         anchor === "start" ? x : anchor === "end" ? x - estW : x - estW / 2;
       const x2 = x1 + estW;
       let chosenRow = rowBoxes.findIndex((boxes) =>
-        boxes.every((b) => x2 + 8 <= b.x1 || x1 - 8 >= b.x2),
+        boxes.every((b) => x2 + 12 <= b.x1 || x1 - 12 >= b.x2),
       );
       if (chosenRow === -1) chosenRow = rowBoxes.length - 1;
       rowBoxes[chosenRow].push({ x1, x2 });
@@ -1488,6 +1077,7 @@ function renderStackedNetWorthSVG(
     } else {
       legendEl.innerHTML = [...NW_SERIES]
         .reverse()
+        .filter((sItem) => showSrs || sItem.key !== "srs")
         .map(
           (sItem) =>
             `<span class="legend-item"><i class="legend-swatch" style="background:${sItem.color};"></i> ${sItem.name}</span>`,
@@ -1639,10 +1229,12 @@ function renderCashflowWaterfallSVG(
   legendEl,
   fire,
   basis = "today",
+  opts = {},
 ) {
   if (!chartArea || !fire?.points?.length) return;
-  const startAge = Math.max(fire.age, Math.min(50, fire.retire));
-  const endAge = Math.min(85, fire.endAge);
+  const startAge =
+    opts.startAge ?? Math.max(fire.age, Math.min(50, fire.retire));
+  const endAge = Math.min(fire.endAge, opts.endAge ?? 85);
   const pts = fire.points
     .filter((pt) => pt.age >= startAge && pt.age <= endAge)
     .map((pt) => {
@@ -1659,12 +1251,13 @@ function renderCashflowWaterfallSVG(
       };
     });
   if (!pts.length) return;
-  const W = 760,
-    H = 304,
-    padL = 74,
-    padR = 26,
-    padT = 32,
-    padB = 40;
+  const compactPrint = Boolean(opts.compactPrint);
+  const W = compactPrint ? 640 : 760,
+    H = compactPrint ? 256 : 304,
+    padL = compactPrint ? 58 : 74,
+    padR = compactPrint ? 22 : 26,
+    padT = compactPrint ? 36 : 32,
+    padB = compactPrint ? 32 : 40;
   const plotW = W - padL - padR,
     plotH = H - padT - padB;
   const rawMax = Math.max(
@@ -1717,8 +1310,12 @@ function renderCashflowWaterfallSVG(
     .map((p, i) => `${i === 0 ? "M" : "L"} ${centerX(i)} ${dY(p.spend)}`)
     .join(" ");
 
+  const showSrs =
+    opts.hasSrs != null ? Boolean(opts.hasSrs) : pts.some((p) => p.srs > 0.5);
   const idx65 = pts.findIndex((p) => p.age === 65);
-  const idxSrs = pts.findIndex((p) => p.age === fire.srsWithdrawalAge);
+  const idxSrs = showSrs
+    ? pts.findIndex((p) => p.age === fire.srsWithdrawalAge)
+    : -1;
   const markers = [
     idxSrs >= 0
       ? {
@@ -1734,12 +1331,13 @@ function renderCashflowWaterfallSVG(
     .filter(Boolean)
     .map((mk, j) => {
       const mx = centerX(mk.idx);
-      const my =
-        j === 1 && idxSrs >= 0 && Math.abs(idx65 - idxSrs) <= 2
-          ? padT + 14
-          : padT - 10;
+      const closeToPrev =
+        j === 1 && idxSrs >= 0 && Math.abs(idx65 - idxSrs) <= 5;
+      const my = closeToPrev ? padT - 18 : padT - 6;
+      const anchor =
+        mx < padL + 44 ? "start" : mx > W - padR - 48 ? "end" : "middle";
       return `<line x1="${mx}" y1="${padT}" x2="${mx}" y2="${H - padB}" stroke="${mk.color}" stroke-width="1.4" stroke-dasharray="3,3" stroke-opacity="0.7" />
-        <text x="${mx}" y="${my}" text-anchor="middle" font-size="11" font-weight="700" fill="${mk.color}">${mk.label}</text>`;
+        <text x="${mx}" y="${my}" text-anchor="${anchor}" font-size="11" font-weight="700" fill="${mk.color}">${mk.label}</text>`;
     })
     .join("");
 
@@ -1756,7 +1354,7 @@ function renderCashflowWaterfallSVG(
     legendEl.innerHTML = `
       <span class="legend-item"><i class="legend-swatch" style="background:var(--ink);"></i> Target Monthly Spending</span>
       <span class="legend-item"><i class="legend-swatch" style="background:#2563EB;"></i> Equity / Dividend / SSB Drawdown</span>
-      <span class="legend-item"><i class="legend-swatch" style="background:#7C3AED;"></i> SRS 10-Yr Drawdown (${fire.srsWithdrawalAge}+)</span>
+      ${showSrs ? `<span class="legend-item"><i class="legend-swatch" style="background:#7C3AED;"></i> SRS 10-Yr Drawdown (${fire.srsWithdrawalAge}+)</span>` : ""}
       <span class="legend-item"><i class="legend-swatch" style="background:#059669;"></i> CPF LIFE Payout (65+)</span>
       ${hasAnyShortfall ? '<span class="legend-item"><i class="legend-swatch" style="background:#DC2626;"></i> Monthly Shortfall (Unfunded)</span>' : ""}`;
   }
@@ -1813,7 +1411,177 @@ function renderCashflowWaterfallSVG(
   wrap.ontouchend = onLeave;
 }
 
-function buildOverviewPageHeader(fire, r, s) {
+let finActivityTab = "coverage";
+
+function buildFinActivityBarsSVG(fire, r, s, fn) {
+  const pts = fire?.points || [];
+  if (!pts.length) return "";
+  const candAges = [55, 60, 65, 70, 75, 80, 85];
+  if (
+    !candAges.includes(fire.retire) &&
+    fire.retire >= 40 &&
+    fire.retire <= 90
+  ) {
+    // Replace nearest non-65 age so Retire age is always explicitly visible
+    let nearestIdx = 0;
+    let bestDiff = Infinity;
+    candAges.forEach((a, i) => {
+      if (a === 65) return;
+      const d = Math.abs(a - fire.retire);
+      if (d < bestDiff) {
+        bestDiff = d;
+        nearestIdx = i;
+      }
+    });
+    candAges[nearestIdx] = fire.retire;
+    candAges.sort((a, b) => a - b);
+  }
+  const bars = candAges.map((ageTarget) => {
+    const pt =
+      pts.find((p) => p.age === ageTarget) ||
+      pts.reduce((best, p) =>
+        Math.abs(p.age - ageTarget) < Math.abs(best.age - ageTarget) ? p : best,
+      );
+    const val = pt?.today?.totalNetWorth ?? 0;
+    return { age: pt.age, val };
+  });
+
+  const ptRet = pts.find((p) => p.age === fire.retire) || pts[pts.length - 1];
+  const retireNw = ptRet?.today?.totalNetWorth ?? 0;
+  const goalTarget = Math.max(
+    10000,
+    (fn?.totalRequiredToday || 0) + (fire?.phase2?.projectedCpfAt65Today || 0),
+  );
+  const maxVal = Math.max(goalTarget * 1.16, ...bars.map((b) => b.val), 10000);
+
+  const W = 340;
+  const H = 152;
+  const padL = 8;
+  const padR = 8;
+  const padT = 28;
+  const padB = 22;
+  const plotH = H - padT - padB;
+  const plotW = W - padL - padR;
+  const goalY = padT + (1 - Math.min(1, goalTarget / maxVal)) * plotH;
+  const stepX = plotW / bars.length;
+
+  const barEls = bars
+    .map((b, i) => {
+      const cx = padL + stepX * i + stepX / 2;
+      const barW = 16;
+      const h = Math.max(8, (Math.max(0, b.val) / maxVal) * plotH);
+      const y = H - padB - h;
+      const isRetire = b.age === fire.retire;
+      const isCpf = b.age === 65 && !isRetire;
+      const isSa = b.age === 55 && !isRetire;
+      const fill = isRetire
+        ? "#2563EB"
+        : isCpf
+          ? "#10B981"
+          : isSa
+            ? "#F97316"
+            : "#E2E8F0";
+      const labelFill = isRetire ? "#111827" : "#64748B";
+      const labelWeight = isRetire ? "700" : "500";
+      let callout = "";
+      if (isRetire) {
+        const pillText = `${compactMoney(b.val)}`;
+        const pillW = Math.max(52, pillText.length * 7 + 14);
+        const pillX = Math.max(
+          padL,
+          Math.min(W - padR - pillW, cx - pillW / 2),
+        );
+        const pillY = Math.max(2, y - 24);
+        callout = `
+          <circle cx="${cx}" cy="${y}" r="3" fill="#2563EB" stroke="#FFFFFF" stroke-width="1.5" />
+          <g transform="translate(${pillX}, ${pillY})">
+            <rect width="${pillW}" height="19" rx="5" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1" />
+            <text x="${pillW / 2}" y="13" text-anchor="middle" font-size="10" font-weight="700" fill="#1D4ED8">${pillText}</text>
+          </g>`;
+      }
+      return `
+        <g>
+          <title>Age ${b.age}: ${money(b.val)} projected net worth (today’s dollars)</title>
+          <rect x="${cx - barW / 2}" y="${y}" width="${barW}" height="${h}" rx="5" fill="${fill}" />
+          <text x="${cx}" y="${H - 5}" text-anchor="middle" font-size="10.5" font-weight="${labelWeight}" fill="${labelFill}">${b.age}</text>
+          ${callout}
+        </g>`;
+    })
+    .join("");
+
+  return `<div class="fin-bars-wrap">
+    <div class="fin-bars-head">
+      <span>Projected net worth by age</span>
+      <span class="fin-goal-note">95-yr goal: ${compactMoney(goalTarget)}</span>
+    </div>
+    <svg class="fin-bars-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-label="Projected net worth across key ages against retirement goal">
+      <line x1="${padL}" y1="${goalY}" x2="${W - padR}" y2="${goalY}" stroke="#94A3B8" stroke-width="1.2" stroke-dasharray="4,4" />
+      ${barEls}
+    </svg>
+    <div class="fin-bars-legend">
+      <span><i style="background:#F97316;"></i>55 (SA→RA)</span>
+      <span><i style="background:#2563EB;"></i>${fire.retire} (Retire)</span>
+      <span><i class="is-dash"></i>Target to 95</span>
+    </div>
+  </div>`;
+}
+
+function buildFinReadinessGaugeSVG(
+  pctFunded,
+  eyebrowText,
+  readyText,
+  deltaLine,
+  deltaColor,
+) {
+  const ratio = Math.max(0, Math.min(1, pctFunded / 130));
+  const cx = 130;
+  const cy = 128;
+  const totalTicks = 40;
+  const ticksSVG = Array.from({ length: totalTicks }, (_, idx) => {
+    const t = idx / (totalTicks - 1);
+    const deg = -180 + t * 180;
+    const rad = (deg * Math.PI) / 180;
+    const r1 = 78;
+    const r2 = 95;
+    const x1 = cx + Math.cos(rad) * r1;
+    const y1 = cy + Math.sin(rad) * r1;
+    const x2 = cx + Math.cos(rad) * r2;
+    const y2 = cy + Math.sin(rad) * r2;
+    const segColor = t < 0.36 ? "#2563EB" : t < 0.72 ? "#10B981" : "#F97316";
+    const active = t <= ratio;
+    return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${active ? segColor : "#E5E7EB"}" stroke-width="3" stroke-linecap="round" />`;
+  }).join("");
+
+  const arcSegment = (startDeg, endDeg, color) => {
+    const r = 104;
+    const sRad = (startDeg * Math.PI) / 180;
+    const eRad = (endDeg * Math.PI) / 180;
+    const sx = cx + Math.cos(sRad) * r;
+    const sy = cy + Math.sin(sRad) * r;
+    const ex = cx + Math.cos(eRad) * r;
+    const ey = cy + Math.sin(eRad) * r;
+    return `<path d="M ${sx.toFixed(1)} ${sy.toFixed(1)} A ${r} ${r} 0 0 1 ${ex.toFixed(1)} ${ey.toFixed(1)}" fill="none" stroke="${color}" stroke-width="5.5" stroke-linecap="round" />`;
+  };
+
+  return `<div class="fin-gauge-wrap">
+    <svg class="fin-gauge-svg" viewBox="0 0 260 142" width="260" height="142" aria-hidden="true">
+      ${arcSegment(-178, -118, "#2563EB")}
+      ${arcSegment(-112, -52, "#10B981")}
+      ${arcSegment(-46, -2, "#F97316")}
+      ${ticksSVG}
+      <text x="15" y="74" font-size="10" font-weight="600" fill="#6B7280" text-anchor="middle" transform="rotate(-55 15 74)">Start</text>
+      <text x="130" y="13" font-size="10" font-weight="600" fill="#6B7280" text-anchor="middle">Target</text>
+      <text x="245" y="74" font-size="10" font-weight="600" fill="#6B7280" text-anchor="middle" transform="rotate(55 245 74)">Surplus</text>
+    </svg>
+    <div class="fin-gauge-center">
+      <span class="fin-gauge-eyebrow">${eyebrowText}</span>
+      <strong>${readyText}</strong>
+      <span class="fin-gauge-delta" style="color:${deltaColor};">${deltaLine}</span>
+    </div>
+  </div>`;
+}
+
+function buildOverviewPageHeader(fire, r, s, isCustomSpend = false) {
   const fn = fire.fireNumber;
   const pct = Math.min(150, Math.max(0, fn.pctFunded));
   const onTrack = pct >= 100 && fn.fullyFundedTo95;
@@ -1825,39 +1593,55 @@ function buildOverviewPageHeader(fire, r, s) {
       : "Shortfall Detected";
   const statusClass = onTrack ? "is-good" : nearTrack ? "is-warn" : "is-danger";
   const statusIcon = onTrack ? ICONS.checkTiny : ICONS.alertTriangle;
-  const pathName =
-    s.key === "salary"
-      ? "Salary CPF"
-      : s.key === "frs"
-        ? "FRS Path"
-        : "ERS Path";
-
-  return `<header class="ember-page-header" aria-labelledby="fire-hero-title">
+  return `<header class="ember-page-header fin-page-header" aria-labelledby="fire-hero-title">
     <div class="ember-header-main">
-      <h1 id="fire-hero-title" tabindex="-1">Retirement Readiness Overview</h1>
-      <p>Age ${fire.age} → ${fire.retire} · ${r.lifestyleLabel} <span style="white-space:nowrap">(${money(r.futureSpend)}/mo target)</span> · ${pathName}, CPF LIFE ${r.plan === "escalating" ? "Escalating" : "Standard"}.</p>
+      <div class="fin-title-row">
+        <h1 id="fire-hero-title" tabindex="-1">Retirement Readiness Overview</h1>
+        <span class="status-pill ${statusClass}">${statusIcon}<span>${statusBadgeText}</span></span>
+      </div>
     </div>
     <div class="ember-header-meta">
-      <span class="status-pill ${statusClass}">${statusIcon}<span>${statusBadgeText}</span></span>
       <button type="button" class="button button-small mobile-balances-btn" data-open-profile>My Settings</button>
     </div>
   </header>`;
 }
 
-function buildEmberKpiStrip(fire, r, s, simulation, pctOfPay) {
+function buildFinOverviewGrid(
+  fire,
+  r,
+  s,
+  p,
+  simulation,
+  bogle,
+  simGuide,
+  tax,
+  pctOfPay,
+  selected,
+  isCustomSpend = false,
+) {
   const fn = fire.fireNumber;
+  const pct = Math.min(150, Math.max(0, fn.pctFunded));
+  const onTrack = pct >= 100 && fn.fullyFundedTo95;
   const contribution = simulation.cpfExtra + s.privateSaving;
   const projFireAge = fn.projectedFireAge;
   const readyText = projFireAge == null ? "After 80" : `Age ${projFireAge}`;
   const diffYears = projFireAge == null ? null : fire.retire - projFireAge;
-  const readyPill =
+  const depletionAgeDisplay =
+    fn.depletionAge != null ? Math.floor(fn.depletionAge) : 90;
+  const survivalAnswer = fn.fullyFundedTo95
+    ? "Lasts past age 95+"
+    : `Savings last to age ${depletionAgeDisplay}`;
+  const safeAgeAnswer =
     diffYears == null
-      ? "Raise saving"
+      ? "After age 80"
       : diffYears > 0
-        ? `+${diffYears} yr${diffYears > 1 ? "s" : ""} early`
+        ? `Age ${projFireAge} (${diffYears} yr${diffYears > 1 ? "s" : ""} early)`
         : diffYears === 0
-          ? `On target ${fire.retire}`
-          : `${-diffYears} yr${-diffYears > 1 ? "s" : ""} past`;
+          ? `Age ${projFireAge} (on target)`
+          : `Age ${projFireAge} (+${-diffYears} yr${-diffYears > 1 ? "s" : ""} later)`;
+  const deltaLine = `${fn.pctFunded}% of age-95 goal`;
+  const deltaColor =
+    diffYears != null && diffYears >= 0 && onTrack ? "#059669" : "#EA580C";
 
   const cpfCov65Pct = Math.min(
     100,
@@ -1868,303 +1652,314 @@ function buildEmberKpiStrip(fire, r, s, simulation, pctOfPay) {
     fire.points[fire.points.length - 1];
   const retireNw = ptAtRetire?.today?.totalNetWorth ?? 0;
 
-  return `<section class="ember-kpi-strip" aria-label="Key retirement metrics">
-    <button type="button" class="ember-stat-card is-interactive" data-quick-edit="goal" style="--stat-accent:#E0533C;" aria-label="Earliest Readiness Age: ${readyText}. Click to adjust target retirement age">
-      <span class="ember-stat-label">Earliest Readiness Age</span>
-      <div class="ember-stat-row">
-        <strong>${readyText}</strong>
-        <span class="ember-stat-pill">${readyPill}</span>
-      </div>
-      <small>Target ${fire.retire} · ${fn.fullyFundedTo95 ? "Sustained to 95+" : `Funded to ${fire.depletionAge ?? 90}`}</small>
-    </button>
-
-    <button type="button" class="ember-stat-card is-interactive" data-quick-edit="budget" style="--stat-accent:#0D9488;" aria-label="Monthly Income Covered: ${money(s.payout)} per month. Click to adjust lifestyle budget or CPF LIFE plan">
-      <span class="ember-stat-label">Monthly Income Covered (65+)</span>
-      <div class="ember-stat-row">
-        <strong>${m(s.payout, "/mo")}</strong>
-        <span class="ember-stat-pill">${cpfCov65Pct}% by CPF</span>
-      </div>
-      <small>Target spend ${m(r.spend65, "/mo")} · ${m(s.gap65, "/mo")} outside</small>
-    </button>
-
-    <button type="button" class="ember-stat-card is-interactive" data-quick-edit="income" style="--stat-accent:#059669;" aria-label="Monthly Saving Needed. Click to adjust salary, housing, or monthly savings">
-      <span class="ember-stat-label">Monthly Saving Needed</span>
-      <div class="ember-stat-row">
-        <strong>${r.retiringNow ? m(s.privateSaving, " now") : m(contribution, "/mo")}</strong>
-        <span class="ember-stat-pill">${r.retiringNow ? "Lump sum" : `${pctOfPay}% of pay`}</span>
-      </div>
-      <small>${r.retiringNow ? "Immediate portfolio requirement" : `${m(simulation.cpfExtra)} extra CPF + ${m(s.privateSaving)} outside`}</small>
-    </button>
-
-    <button type="button" class="ember-stat-card is-interactive" data-quick-edit="balances" style="--stat-accent:#7C3AED;" aria-label="Projected Net Worth at ${fire.retire}: ${compactMoney(retireNw)}. Click to adjust CPF and investment balances">
-      <span class="ember-stat-label">Projected Net Worth at ${fire.retire}</span>
-      <div class="ember-stat-row">
-        <strong>${compactMoney(retireNw)}</strong>
-        <span class="ember-stat-pill">${fn.pctFunded}% goal</span>
-      </div>
-      <small>${m(fn.totalRequiredToday)} outside + ${m(fire.phase2.projectedCpfAt65Today)} CPF at 65</small>
-    </button>
-  </section>`;
-}
-
-function buildEmberHeroTrajectorySection(fire) {
-  return `<section class="ember-hero-chart-card card-surface" aria-labelledby="ember-traj-title">
-    <div class="ember-card-head">
-      <div>
-        <h2 id="ember-traj-title">Net Worth &amp; CPF Projection (Age ${fire.age}–${fire.endAge})</h2>
-        <p>Equities, SSB/Cash, SRS, and CPF balances in today’s purchasing power with SA closure at 55 and CPF LIFE at 65.</p>
-      </div>
-      <button type="button" class="button button-small" data-go-tab="trajectory">Stress Test &amp; Cashflow →</button>
-    </div>
-    <div class="chart-wrapper">
-      <div id="dash-networth-chart" class="chart-area" role="img" aria-label="Stacked net worth trajectory from age ${fire.age} to ${fire.endAge}"></div>
-      <div id="dash-networth-tooltip" class="chart-tooltip" hidden></div>
-    </div>
-    <div class="chart-legend" id="dash-networth-legend"></div>
-  </section>`;
-}
-
-function buildEmberBentoRow(
-  fire,
-  r,
-  s,
-  p,
-  simulation,
-  bogle,
-  simGuide,
-  tax,
-  pctOfPay,
-) {
-  const fn = fire.fireNumber;
-  const pct = Math.min(150, Math.max(0, fn.pctFunded));
-  const onTrack = pct >= 100 && fn.fullyFundedTo95;
-  const cpfCoveragePct = Math.min(
-    100,
-    Math.round((fire.phase2.cpfLife65Today / Math.max(1, r.spend65)) * 100),
-  );
-  const builtTodayPct = Math.min(100, Math.max(0, fn.currentFirePct));
-
-  const ringsData = [
-    {
-      label: `Overall Funding at ${fire.retire}`,
-      shortLabel: "FUNDED",
-      pct: Math.min(100, pct),
-      text: `${pct}%`,
-      color: onTrack ? "#059669" : "#E0533C",
-    },
-    {
-      label: "CPF LIFE Core (65+ Bills)",
-      shortLabel: "CPF LIFE",
-      pct: cpfCoveragePct,
-      text: `${cpfCoveragePct}%`,
-      color: "#0D9488",
-    },
-    {
-      label: "Nest Egg Built Today",
-      shortLabel: "BUILT NOW",
-      pct: builtTodayPct,
-      text: `${builtTodayPct}%`,
-      color: "#7C3AED",
-    },
-  ];
-
-  const altPathKey =
-    s.key === "salary" ? "frs" : s.key === "frs" ? "ers" : "salary";
-  const altPathLabel =
-    altPathKey === "salary"
-      ? "Compare Salary CPF"
-      : altPathKey === "frs"
-        ? "Boost to FRS"
-        : "Max to ERS";
-
-  const grossPlusEmployer = Math.max(1, r.salary + r.employerCpf);
-  const totalCpf = r.employeeCpf + r.employerCpf;
-  const srsMonthly = Math.round(Math.max(0, Number(p?.srsAnnual || 0)) / 12);
-  const rstuSrsPlanned = Math.round((simGuide.cpfExtra || 0) + srsMonthly);
-  const investPool = Math.round(bogle.monthlyRebalance.investPool || 0);
-  const emergencySsb = Math.round(bogle.monthlyRebalance.buyBondMonthly || 0);
-  const globalEtf = Math.round(
-    (bogle.monthlyRebalance.buyGlobalMonthly || 0) +
-      (bogle.monthlyRebalance.buySgMonthly || 0),
-  );
-  const livingAndTax = Math.max(
-    0,
-    r.afterCpf - investPool - (simGuide.cpfExtra || 0),
-  );
-
-  const paycheckBars = [
-    { label: "Living & IRAS Tax", amt: livingAndTax, color: "#64748B" },
-    { label: "Mandatory CPF", amt: totalCpf, color: "#059669" },
-    { label: "Global Equities (+SG)", amt: globalEtf, color: "#2563EB" },
-    { label: "SSB / T-Bills", amt: emergencySsb, color: "#D97706" },
-    { label: "Extra CPF / SRS", amt: rstuSrsPlanned, color: "#7C3AED" },
-  ];
+  const paycheck = RetirementModel.paycheckAllocation(r, simulation, bogle, p);
+  const grossPlusEmployer = paycheck.grossPlusEmployer;
+  const paycheckBars = paycheck.rows;
 
   const milestones = getMilestoneNodes(fire, r, s, simulation);
+  const startPt = fire.points[0];
+  const startingCpf = startPt?.cpfTotal ?? 0;
+  const startingOutside = startPt?.totalOutside ?? 0;
+  const startingTotalAssets = startingCpf + startingOutside;
+  const yearsToRetire = Math.max(0, fire.retire - fire.age);
+  const selectedPathName =
+    s.key === "salary"
+      ? "Salary CPF"
+      : s.key === "frs"
+        ? "FRS Path"
+        : "ERS Path";
+  const lifestyleCardLabel = isCustomSpend
+    ? "Custom"
+    : r.lifestyle === "cca"
+      ? "Community Care"
+      : "Home + Helper";
+  const lifestyleCardValue = `${lifestyleCardLabel} (${m(r.todaySpend)}/mo)`;
+  const lifestyleCardAria = `${lifestyleCardLabel} (${money(r.todaySpend)}/mo)`;
 
-  return `<section class="ember-bento-row" aria-label="Readiness breakdown, paycheck allocation, and life-stage checkpoints">
-    <article class="ember-bento-card ember-rings-card">
-      <div class="ember-card-head">
-        <div>
-          <h2>Readiness Breakdown</h2>
-          <p>Aggregate target coverage &amp; current progress</p>
-        </div>
-      </div>
-      <div class="ember-rings-stage">
-        ${buildConcentricRingsSVG(ringsData, pct, "FUNDED", 172, true)}
-      </div>
-      <ul class="ember-rings-legend">
-        ${ringsData
-          .map(
-            (item, idx) =>
-              `<li><button type="button" class="ember-ring-btn" data-ring-idx="${idx}" data-ring-pct="${item.text}" data-ring-sub="${item.shortLabel}" aria-pressed="false"><span><i style="background:${item.color};"></i>${item.label}</span><strong>${item.text}</strong></button></li>`,
-          )
-          .join("")}
-      </ul>
-      <div class="ember-card-actions">
-        ${!onTrack && fn.projectedFireAge != null && fn.projectedFireAge !== fire.retire ? `<button type="button" class="goal-chip is-primary" data-goal-retire="${fn.projectedFireAge}" data-goal-invest="${Math.ceil(simulation?.invest || 0)}">Set Age ${fn.projectedFireAge}</button>` : ""}
-        <button type="button" class="goal-chip" data-goal-path="${altPathKey}">${altPathLabel}</button>
-        <button type="button" class="goal-chip" data-go-tab="tax">Tax Rules →</button>
-      </div>
-    </article>
-
-    <article class="ember-bento-card ember-paycheck-card">
-      <div class="ember-card-head">
-        <div>
-          <h2>Paycheck Allocation</h2>
-          <p>${money(grossPlusEmployer)}/mo gross + employer CPF</p>
-        </div>
-        <button type="button" class="text-button" data-go-tab="allocator">Edit Split →</button>
-      </div>
-      <div class="ember-bars-list">
-        ${paycheckBars
-          .map((row) => {
-            const w = Math.min(
-              100,
-              Math.round((row.amt / grossPlusEmployer) * 100),
-            );
-            return `<div class="ember-bar-row">
-              <div class="ember-bar-meta">
-                <span><i style="background:${row.color};"></i>${row.label}</span>
-                <b>${money(row.amt)} <small>(${w}%)</small></b>
-              </div>
-              <div class="ember-bar-track" aria-hidden="true">
-                <span style="width:${row.amt > 0 ? Math.max(3, w) : 0}%;background:${row.color};"></span>
-              </div>
-            </div>`;
-          })
-          .join("")}
-      </div>
-      <div class="ember-card-foot">
-        <span>Savings rate: <strong>${pctOfPay}%</strong> of ${m(r.afterCpf)} net pay</span>
-        ${tax.combinedTaxSaved > 0 ? `<span>RSTU/SRS relief: <strong>${m(tax.combinedTaxSaved, "/yr")}</strong></span>` : ""}
-      </div>
-    </article>
-
-    <article class="ember-bento-card ember-feed-card">
-      <div class="ember-card-head">
-        <div>
-          <h2>Road to 95 Checkpoints</h2>
-          <p>Key wealth &amp; CPF milestones</p>
-        </div>
-      </div>
-      <ul class="ember-feed-list">
-        ${milestones
-          .map(
-            (n) => `<li class="ember-feed-item">
-              <span class="ember-feed-avatar" style="background:${n.softBg};color:${n.color};">${n.badge}</span>
-              <div class="ember-feed-info">
-                <strong>${n.title}</strong>
-                <span>${n.tag} · ${n.sub}</span>
-              </div>
-              <div class="ember-feed-right">
-                <b>${n.metric}</b>
-                <span class="ember-feed-pill">${n.pill}</span>
-              </div>
-            </li>`,
-          )
-          .join("")}
-      </ul>
-    </article>
-  </section>`;
-}
-
-function buildEmberStrategyLedger(r, s, selected) {
   const pathMeta = {
     salary: {
       name: "Salary CPF",
       tag: "Baseline",
       accent: "#64748B",
-      note: "Uses mandatory salary contributions only; highest liquid cashflow.",
+      softBg: "#F1F5F9",
+      icon: svgWrap(
+        '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
+        16,
+      ),
+      note: "Uses mandatory salary CPF only; highest liquid monthly cashflow.",
     },
     frs: {
       name: "FRS Target",
       tag: "Standard Sum",
-      accent: "#0D9488",
+      accent: "#2563EB",
+      softBg: "#EFF6FF",
+      icon: svgWrap(
+        '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>',
+        16,
+      ),
       note: "Targets $220.4k cohort FRS by 55 for steady baseline CPF LIFE.",
     },
     ers: {
       name: "ERS Maximum",
       tag: "Max Floor",
-      accent: "#059669",
+      accent: "#10B981",
+      softBg: "#ECFDF5",
+      icon: svgWrap('<path d="M3 3v18h18"/><path d="m7 14 4-4 4 3 5-6"/>', 16),
       note: "Voluntary RA top-ups from 55 toward $440.8k ERS; highest lifelong income.",
     },
   };
 
-  return `<section class="ember-ledger-card card-surface" aria-labelledby="ledger-title">
-    <div class="ember-card-head">
-      <div>
-        <h2 id="ledger-title">CPF Retirement Path Comparison</h2>
-        <p>${r.retiringNow ? "With retirement set to now, FRS and ERS model lump-sum funding today; Salary CPF uses existing balances only." : "Compare relying on mandatory salary CPF versus funding FRS or ERS for higher lifelong CPF LIFE income."}</p>
+  const activeCoverage = finActivityTab === "coverage";
+  const activePaycheck = finActivityTab === "paycheck";
+  const activeMilestones = finActivityTab === "milestones";
+
+  return `<div class="fin-top-kpis" role="region" aria-label="Key plan inputs">
+    <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="age" aria-label="Your current age ${fire.age}${p.dob ? `, born ${formatDobShort(p.dob)}` : ""}. Click to edit">
+      <div class="fin-kpi-head">
+        <span class="fin-kpi-label">Your Age</span>
+        <span class="fin-kpi-tag">Now</span>
       </div>
-      <button type="button" class="button button-small" data-go-tab="trajectory">Open Interactive Simulator →</button>
+      <strong class="fin-kpi-val">Age ${fire.age}</strong>
+      <span class="fin-kpi-sub">${p.dob ? `DOB ${formatDobShort(p.dob)} · Click to edit` : "Click to set date of birth"}</span>
+    </button>
+    <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="goal" aria-label="Target retirement age ${fire.retire}. Click to adjust">
+      <div class="fin-kpi-head">
+        <span class="fin-kpi-label">Target Retire Age</span>
+        <span class="fin-kpi-tag">${r.retiringNow ? "Retiring now" : `${yearsToRetire} yr${yearsToRetire === 1 ? "" : "s"} to go`}</span>
+      </div>
+      <strong class="fin-kpi-val">Age ${fire.retire}</strong>
+      <span class="fin-kpi-sub">Click to adjust target</span>
+    </button>
+    <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="balances" aria-label="Total current assets ${money(startingTotalAssets)}. Click to view breakdown and edit balances">
+      <div class="fin-kpi-head">
+        <span class="fin-kpi-label">Total Current Assets</span>
+        <span class="fin-kpi-tag">Breakdown ↗</span>
+      </div>
+      <strong class="fin-kpi-val">${m(startingTotalAssets)}</strong>
+      <span class="fin-kpi-sub">${m(startingCpf)} CPF · ${m(startingOutside)} outside</span>
+    </button>
+    <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="budget" aria-label="Living budget ${lifestyleCardAria}. Click to adjust lifestyle or CPF LIFE">
+      <div class="fin-kpi-head">
+        <span class="fin-kpi-label">Living Target</span>
+        <span class="fin-kpi-tag">${selectedPathName}</span>
+      </div>
+      <strong class="fin-kpi-val">${m(r.todaySpend, "/mo")}</strong>
+      <span class="fin-kpi-sub">${lifestyleCardLabel} · CPF LIFE ${r.plan === "escalating" ? "Esc" : "Std"}</span>
+    </button>
+  </div>
+  <div class="fin-overview-grid">
+    <div class="fin-col-main">
+      <section class="fin-card fin-hero-card card-surface" aria-labelledby="ember-traj-title">
+        <div class="fin-hero-top">
+          <div class="fin-hero-metric">
+            <span class="fin-card-eyebrow" id="ember-traj-title">Projected Net Worth at ${fire.retire}</span>
+            <div class="fin-big-figure-row">
+              <strong class="fin-big-figure">${m(retireNw)}</strong>
+              <span class="fin-curr">SGD</span>
+            </div>
+            <p class="fin-delta-line">
+              <span>${m(fn.totalRequiredToday)} outside + ${m(fire.phase2.projectedCpfAt65Today)} CPF at 65</span>
+              <span class="fin-delta-badge ${onTrack ? "is-good" : "is-warn"}">${fn.pctFunded}% goal</span>
+            </p>
+          </div>
+          <div class="fin-hero-actions">
+            <button type="button" class="button button-small fin-pill-btn" data-quick-edit="balances">Edit Balances</button>
+          </div>
+        </div>
+        <div class="chart-wrapper">
+          <div id="dash-networth-chart" class="chart-area" role="img" aria-label="Stacked net worth trajectory from age ${fire.age} to ${fire.endAge}"></div>
+          <div id="dash-networth-tooltip" class="chart-tooltip" hidden></div>
+        </div>
+        <div class="chart-legend fin-chart-legend" id="dash-networth-legend"></div>
+      </section>
+
+      <section class="fin-card fin-table-card card-surface" aria-labelledby="ledger-title">
+        <div class="ember-card-head">
+          <div>
+            <h2 id="ledger-title">CPF Retirement Path</h2>
+            <p>${r.retiringNow ? "With retirement set to now, FRS and ERS model lump-sum funding today; Salary CPF uses existing balances only." : "Compare relying on mandatory salary CPF versus funding FRS or ERS for higher lifelong CPF LIFE income."}</p>
+          </div>
+          <button type="button" class="button button-small fin-pill-btn" data-go-tab="trajectory">Open Simulator →</button>
+        </div>
+        <div class="table-scroll">
+          <table class="ember-ledger-table fin-table">
+            <thead>
+              <tr>
+                <th scope="col">Strategy Path</th>
+                <th scope="col">Age-55 CPF</th>
+                <th scope="col">Extra CPF</th>
+                <th scope="col">Outside Save</th>
+                <th scope="col">CPF LIFE (65+)</th>
+                <th scope="col" class="col-action">Selection</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${r.scenarios
+                .map((path) => {
+                  const meta = pathMeta[path.key] || pathMeta.salary;
+                  const isSelected = path.key === selected;
+                  return `<tr class="${isSelected ? "is-selected" : ""}">
+                    <td>
+                      <div class="fin-table-path">
+                        <span class="fin-path-icon" style="background:${meta.softBg};color:${meta.accent};">${meta.icon}</span>
+                        <div>
+                          <div class="ledger-path-cell">
+                            <strong>${meta.name}</strong>
+                            <span class="ledger-tag">${meta.tag}</span>
+                          </div>
+                          <small class="ledger-sub">${meta.note}</small>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="num-cell" data-label="Age-55 CPF">${m(path.balance)}</td>
+                    <td class="num-cell" data-label="Extra CPF">${m(path.cpfFunding, r.retiringNow ? " now" : "/mo")}</td>
+                    <td class="num-cell" data-label="Outside Save">${m(path.privateSaving, r.retiringNow ? " now" : "/mo")}</td>
+                    <td class="num-cell" data-label="CPF LIFE (65+)"><strong>${m(path.payout, "/mo")}</strong></td>
+                    <td class="col-action">
+                      <button type="button" class="${isSelected ? "ledger-btn-active" : "ledger-btn"}" data-path="${path.key}" aria-pressed="${isSelected}">${isSelected ? "Selected" : "Select"}</button>
+                    </td>
+                  </tr>`;
+                })
+                .join("")}
+            </tbody>
+          </table>
+        </div>
+        <details class="ember-disclaimer">
+          <summary class="ember-disclaimer-summary">
+            <span class="disclaimer-chip">2026 CPF &amp; IRAS</span>
+            <span class="disclaimer-preview">Today’s dollars · ${Number((r.inflation * 100).toFixed(1))}% inflation · ${Math.round(r.investmentReturn * 100)}% outside return</span>
+            <span class="disclaimer-toggle" aria-hidden="true">Details …</span>
+          </summary>
+          <div class="ember-disclaimer-body">
+            <ul>
+              <li><strong>Purchasing power &amp; return:</strong> Shows today’s dollars (${Number((r.inflation * 100).toFixed(1))}% inflation, ${Math.round(r.investmentReturn * 100)}% blended net outside return including ETFs/SSB; ${r.post55Work ? "post-55 salary CPF included" : "post-55 work contributions excluded"}).</li>
+              <li><strong>2026 CPF &amp; IRAS rules:</strong> OW ceiling $8,000/mo, Basic Healthcare Sum $79,000, FRS $220,400, ERS $440,800, and $80,000 personal relief cap.</li>
+              <li><strong>Irreversible actions:</strong> Cash RSTU and OA-to-SA transfers before 55 cannot be reversed and receive $0 tax relief once SA/RA hits FRS. <button type="button" class="footnote-link-btn" commandfor="plan-settings" command="show-modal">Review assumptions ↗</button></li>
+            </ul>
+          </div>
+        </details>
+      </section>
     </div>
-    <div class="table-scroll">
-      <table class="ember-ledger-table">
-        <thead>
-          <tr>
-            <th scope="col">Strategy Path</th>
-            <th scope="col">Age-55 CPF Target</th>
-            <th scope="col">Extra CPF Needed</th>
-            <th scope="col">Outside Save Needed</th>
-            <th scope="col">CPF LIFE (65+)</th>
-            <th scope="col" class="col-action">Selection</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${r.scenarios
-            .map((path) => {
-              const meta = pathMeta[path.key] || pathMeta.salary;
-              const isSelected = path.key === selected;
-              return `<tr class="${isSelected ? "is-selected" : ""}" style="--row-accent:${meta.accent};">
-                <td>
-                  <div class="ledger-path-cell">
-                    <strong>${meta.name}</strong>
-                    <span class="ledger-tag">${meta.tag}</span>
+
+    <div class="fin-col-rail">
+      <button type="button" class="fin-card fin-saving-card card-surface is-interactive" data-quick-edit="income" aria-label="Monthly Saving Needed. Click to adjust salary, housing, or monthly savings">
+        <div class="fin-saving-top">
+          <span class="fin-saving-title">Monthly saving needed</span>
+          <span class="fin-outline-pill">${r.retiringNow ? "Lump sum" : `${pctOfPay}% of take-home`}</span>
+        </div>
+        <div class="fin-saving-val-row">
+          <strong>${r.retiringNow ? m(s.privateSaving) : m(contribution)}</strong>
+          <span class="fin-curr">SGD${r.retiringNow ? " now" : "/mo"}</span>
+        </div>
+        <div class="fin-saving-meta">
+          <span>${r.retiringNow ? "Immediate portfolio requirement" : `${m(simulation.cpfExtra)} extra CPF · ${m(s.privateSaving)} outside`}</span>
+          <small>Take-home ${m(r.afterCpf)}/mo (Gross ${m(r.salary)}) · Click to edit</small>
+        </div>
+      </button>
+
+      <section class="fin-card fin-activity-card card-surface" aria-label="Income, paycheck allocation, and milestones">
+        <div class="fin-activity-head">
+          <h2>Income &amp; Cashflow</h2>
+          <button type="button" class="fin-link-pill" data-quick-edit="budget">Edit budget</button>
+        </div>
+        <div class="fin-segmented-tabs" id="fin-activity-tabs" role="tablist" aria-label="Cashflow views">
+          <button type="button" role="tab" class="fin-seg-tab${activeCoverage ? " is-active" : ""}" data-fin-activity="coverage" aria-selected="${activeCoverage}">Coverage</button>
+          <button type="button" role="tab" class="fin-seg-tab${activePaycheck ? " is-active" : ""}" data-fin-activity="paycheck" aria-selected="${activePaycheck}">Paycheck</button>
+          <button type="button" role="tab" class="fin-seg-tab${activeMilestones ? " is-active" : ""}" data-fin-activity="milestones" aria-selected="${activeMilestones}">Milestones</button>
+        </div>
+
+        <div class="fin-activity-pane" ${activeCoverage ? "" : "hidden"}>
+          <div class="fin-coverage-card">
+            <div class="fin-cov-head">
+              <span>Age-65 income split</span>
+              <strong>${money(r.spend65)}/mo need</strong>
+            </div>
+            <div class="fin-cov-track" aria-hidden="true">
+              <span class="fin-cov-cpf" style="width:${cpfCov65Pct}%"></span>
+              <span class="fin-cov-out" style="width:${Math.max(0, 100 - cpfCov65Pct)}%"></span>
+            </div>
+            <div class="fin-cov-legend">
+              <span><i style="background:#10B981;"></i><b>${money(s.payout)}/mo</b> CPF LIFE (${cpfCov65Pct}%)</span>
+              <span><i style="background:#2563EB;"></i><b>${money(s.gap65)}/mo</b> savings (${Math.max(0, 100 - cpfCov65Pct)}%)</span>
+            </div>
+          </div>
+          <div class="fin-bars-stage">
+            ${buildFinActivityBarsSVG(fire, r, s, fn)}
+          </div>
+        </div>
+
+        <div class="fin-activity-pane" ${activePaycheck ? "" : "hidden"}>
+          <div class="ember-bars-list">
+            ${paycheckBars
+              .map((row) => {
+                const w = Math.min(
+                  100,
+                  Math.round((row.amt / grossPlusEmployer) * 100),
+                );
+                return `<div class="ember-bar-row">
+                  <div class="ember-bar-meta">
+                    <span><i style="background:${row.color};"></i>${row.label}</span>
+                    <b>${money(row.amt)} <small>(${w}%)</small></b>
                   </div>
-                  <small class="ledger-sub">${meta.note}</small>
-                </td>
-                <td class="num-cell" data-label="Age-55 CPF">${m(path.balance)}</td>
-                <td class="num-cell" data-label="Extra CPF">${m(path.cpfFunding, r.retiringNow ? " now" : "/mo")}</td>
-                <td class="num-cell" data-label="Outside Save">${m(path.privateSaving, r.retiringNow ? " now" : "/mo")}</td>
-                <td class="num-cell" data-label="CPF LIFE (65+)"><strong>${m(path.payout, "/mo")}</strong></td>
-                <td class="col-action">
-                  <button type="button" class="${isSelected ? "ledger-btn-active" : "ledger-btn"}" data-path="${path.key}" aria-pressed="${isSelected}">${isSelected ? "Selected" : "Select"}</button>
-                </td>
-              </tr>`;
-            })
-            .join("")}
-        </tbody>
-      </table>
+                  <div class="ember-bar-track" aria-hidden="true">
+                    <span style="width:${row.amt > 0 ? Math.max(3, w) : 0}%;background:${row.color};"></span>
+                  </div>
+                </div>`;
+              })
+              .join("")}
+          </div>
+          <div class="ember-card-foot">
+            <span>Savings rate: <strong>${pctOfPay}%</strong> of ${m(r.afterCpf)} take-home</span>
+            <button type="button" class="text-button" data-go-tab="allocator">Allocator →</button>
+          </div>
+        </div>
+
+        <div class="fin-activity-pane" ${activeMilestones ? "" : "hidden"}>
+          <ul class="ember-feed-list">
+            ${milestones
+              .map(
+                (n) => `<li class="ember-feed-item">
+                  <span class="ember-feed-avatar" style="background:${n.softBg};color:${n.color};">${n.badge}</span>
+                  <div class="ember-feed-info">
+                    <strong>${n.title}</strong>
+                    <span>${n.tag} · ${n.sub}</span>
+                  </div>
+                  <div class="ember-feed-right">
+                    <b>${n.metric}</b>
+                    <span class="ember-feed-pill">${n.pill}</span>
+                  </div>
+                </li>`,
+              )
+              .join("")}
+          </ul>
+        </div>
+      </section>
+
+      <button type="button" class="fin-card fin-gauge-card card-surface is-interactive" data-quick-edit="goal" aria-label="Retirement Readiness: Earliest age ${readyText}, ${survivalAnswer}. Click to adjust target retirement age">
+        <div class="fin-gauge-head">
+          <h2>Retirement Readiness</h2>
+          <span class="fin-target-pill">Goal: Age ${fire.retire}</span>
+        </div>
+        ${buildFinReadinessGaugeSVG(
+          pct,
+          "EARLIEST SAFE AGE",
+          readyText,
+          deltaLine,
+          deltaColor,
+        )}
+        <div class="fin-gauge-facts">
+          <div class="fin-gauge-fact-row">
+            <span>If retiring at ${fire.retire}</span>
+            <strong class="${fn.fullyFundedTo95 ? "is-good" : "is-warn"}">${survivalAnswer}</strong>
+          </div>
+          <div class="fin-gauge-fact-row">
+            <span>To last to age 95</span>
+            <strong>${safeAgeAnswer}</strong>
+          </div>
+        </div>
+      </button>
     </div>
-    <footer class="ember-footnotes" aria-label="Model footnotes">
-      <ol>
-        <li>Figures are shown in <strong>today’s purchasing power</strong> (${Number((r.inflation * 100).toFixed(1))}% modelled inflation, ${Math.round(r.investmentReturn * 100)}% net outside return; ${r.post55Work ? "post-55 salary CPF included" : "post-55 work contributions excluded"}).</li>
-        <li>2026 CPF &amp; IRAS parameters: Ordinary Wage ceiling $8,000/mo, Basic Healthcare Sum $79,000, FRS $220,400, ERS $440,800, and $80,000 total personal tax relief cap.</li>
-        <li>Cash RSTU top-ups and OA-to-SA transfers before 55 are irreversible and do not qualify for tax relief once SA/RA reaches FRS. <button type="button" class="footnote-link-btn" commandfor="plan-settings" command="show-modal">Review assumptions ↗</button></li>
-      </ol>
-    </footer>
-  </section>`;
+  </div>`;
 }
 
 function svgDonut(segments, centerTop, centerBottom) {
@@ -2231,6 +2026,15 @@ function buildBogleheadSection(bogle, r) {
 
   const targetGlobalPct = Math.max(0, hol.targetEquityPct - hol.sgSleevePct);
   const targetSgPct = Math.max(0, hol.targetEquityPct - targetGlobalPct);
+  const bondLabel =
+    hol.cpfTotal > 0 && hol.liquidBonds > 0
+      ? "Bond/CPF"
+      : hol.cpfTotal > 0
+        ? "CPF"
+        : "SSB/Cash";
+  const targetBondColor = hol.cpfTotal > 0 ? "#059669" : "#D97706";
+  const targetBondTitle =
+    hol.cpfTotal > 0 ? "Target Bond / CPF Floor" : "Target SSB / Cash Floor";
   const equityGapPct = Math.round(hol.targetEquityPct - hol.effectiveEquityPct);
   const gapBadge =
     Math.abs(equityGapPct) <= 3
@@ -2242,7 +2046,6 @@ function buildBogleheadSection(bogle, r) {
   return `<section class="bogle-card card-surface" id="boglehead-allocator" aria-labelledby="bogle-title">
     <div class="bogle-head">
       <div>
-        <span class="hero-kicker">HOLISTIC ASSET ALLOCATION</span>
         <h2 id="bogle-title">True Effective Stock / Bond Ratio</h2>
         <p>Current balances count CPF OA/SA/MA (${m(hol.cpfTotal)}) and SSB/Cash (${m(hol.liquidBonds)}) together as your defensive bond floor.</p>
       </div>
@@ -2292,7 +2095,7 @@ function buildBogleheadSection(bogle, r) {
           <div class="mix-bar-row">
             <div class="mix-bar-meta">
               <span>Current Mix</span>
-              <strong>${Math.round(hol.effectiveEquityPct)}% Eq · ${Math.round(hol.effectiveBondPct)}% Bond/CPF</strong>
+              <strong>${Math.round(curGlobalPct)}% Global · ${Math.round(curSgPct)}% SG · ${Math.round(hol.effectiveBondPct)}% ${bondLabel}</strong>
             </div>
             <div class="mix-track" aria-hidden="true">
               ${curGlobalPct > 0.4 ? `<span style="width:${curGlobalPct.toFixed(1)}%;background:#2563EB;" title="Global Equities"></span>` : ""}
@@ -2304,12 +2107,12 @@ function buildBogleheadSection(bogle, r) {
           <div class="mix-bar-row">
             <div class="mix-bar-meta">
               <span>Target Mix</span>
-              <strong>${targetGlobalPct}% Global · ${targetSgPct}% SG · ${hol.targetBondPct}% Bond/CPF</strong>
+              <strong>${targetGlobalPct}% Global · ${targetSgPct}% SG · ${hol.targetBondPct}% ${bondLabel}</strong>
             </div>
             <div class="mix-track" aria-hidden="true">
               ${targetGlobalPct > 0.4 ? `<span style="width:${targetGlobalPct}%;background:#2563EB;" title="Target Global UCITS"></span>` : ""}
               ${targetSgPct > 0.4 ? `<span style="width:${targetSgPct}%;background:#60A5FA;" title="Target SG Dividends"></span>` : ""}
-              ${hol.targetBondPct > 0.4 ? `<span style="width:${hol.targetBondPct}%;background:#059669;" title="Target Bond / CPF Floor"></span>` : ""}
+              ${hol.targetBondPct > 0.4 ? `<span style="width:${hol.targetBondPct}%;background:${targetBondColor};" title="${targetBondTitle}"></span>` : ""}
             </div>
           </div>
         </div>
@@ -2354,29 +2157,76 @@ function buildTaxSweetSpotSection(tax) {
 
   return `<section class="tax-sweet-card card-surface" id="tax-sweet-spot" aria-labelledby="tax-sweet-title">
     <div class="tax-sweet-head">
-      <div>
-        <span class="hero-kicker">2026 IRAS RULES · $80,000 RELIEF CAP</span>
-        <h2 id="tax-sweet-title">CPF RSTU vs. SRS Tax Sweet-Spot</h2>
-        <p>${tax.guidance}</p>
-      </div>
-      <div class="tax-badges-stack">
-        <span class="status-pill ${tierTone}">${tax.headline}</span>
-        <span class="srs-warning-badge">${ICONS.warnTiny}<span>${tax.srsIdleWarning}</span></span>
-      </div>
+      <h2 id="tax-sweet-title">CPF RSTU vs. SRS Tax Sweet-Spot</h2>
+      <span class="status-pill ${tierTone}">${tax.headline}</span>
     </div>
-    <dl class="simulation-metrics">
-      <div><dt>Chargeable Income (est.)</dt><dd>${m(tax.chargeableIncome, "/yr")}<small>${marginalPct} marginal bracket · ${m(tax.taxBefore.annualTax, "/yr")} tax</small></dd></div>
-      <div><dt>CPF RSTU ($8k cap to FRS)</dt><dd>${m(tax.rstuTaxSaved, "/yr saved")}<small>Eligible room: ${m(tax.maxRstu, "/yr")} (SA room ${m(tax.saRoom)})</small></dd></div>
-      <div><dt>SRS ($15.3k Citizen/PR cap)</dt><dd>${m(tax.srsTaxSavedAfterRstu, "/yr saved")}<small>After RSTU (${m(tax.srsStandaloneTaxSaved, "/yr")} standalone) · Lock-in age ${tax.srsLockInAge}</small></dd></div>
-      <div><dt>$80k Relief Cap Used</dt><dd>${m(tax.reliefCapUsed)} / <span class="curr-muted">$80,000</span><small>${capPct}% used by CPF + reliefs (${m(tax.reliefCapRemaining)} left)</small></dd></div>
+    <p class="tax-guidance-copy">${tax.guidance}</p>
+    <dl class="tax-metrics-grid">
+      <div class="tax-metric-box">
+        <dt>Chargeable Income (est.)</dt>
+        <dd>${m(tax.chargeableIncome, "/yr")}</dd>
+        <small>${marginalPct} marginal bracket · ${money(tax.taxBefore.annualTax)}/yr tax</small>
+      </div>
+      <div class="tax-metric-box">
+        <dt>CPF RSTU ($8k cap to FRS)</dt>
+        <dd>${m(tax.rstuTaxSaved, "/yr saved")}</dd>
+        <small>Eligible room: ${money(tax.maxRstu)}/yr (SA room ${money(tax.saRoom)})</small>
+      </div>
+      <div class="tax-metric-box">
+        <dt>SRS ($15.3k Citizen/PR cap)</dt>
+        <dd>${m(tax.srsTaxSavedAfterRstu, "/yr saved")}</dd>
+        <small>After RSTU (${money(tax.srsStandaloneTaxSaved)}/yr standalone) · Lock-in age ${tax.srsLockInAge}</small>
+      </div>
+      <div class="tax-metric-box">
+        <dt>$80k Relief Cap Used</dt>
+        <dd>${m(tax.reliefCapUsed)} <span class="curr-muted">/ $80,000</span></dd>
+        <small>${capPct}% used by CPF + reliefs (${money(tax.reliefCapRemaining)} left)</small>
+      </div>
     </dl>
+    <div class="srs-callout-bar" role="note">
+      ${ICONS.warnTiny}
+      <span>${tax.srsIdleWarning}</span>
+    </div>
   </section>`;
 }
 
+function formatDobShort(dobStr) {
+  const info = RetirementModel.computeAgeFromDob(dobStr);
+  if (!info.valid) return "";
+  const [y, mo, d] = info.iso.split("-").map(Number);
+  return new Date(y, mo - 1, d).toLocaleDateString("en-SG", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 function setupSimplePlan() {
+  const DEFAULT_DOB = RetirementModel.defaultDobForAge(35);
+  const dobBounds = (() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const mo = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    return {
+      min: `${String(y - 100).padStart(4, "0")}-01-01`,
+      max: `${y}-${mo}-${d}`,
+    };
+  })();
+  ["#person-dob", "#qe-dob"].forEach((sel) => {
+    const el = $(sel);
+    if (el) {
+      el.min = dobBounds.min;
+      el.max = dobBounds.max;
+    }
+  });
+  if ($("#person-dob") && !$("#person-dob").value) {
+    $("#person-dob").value = DEFAULT_DOB;
+  }
+
   const fields = {
     lifestyle: "known-lifestyle",
-    age: "person-age",
+    dob: "person-dob",
     salary: "person-salary",
     savings: "known-savings",
     spend: "known-spend",
@@ -2398,6 +2248,11 @@ function setupSimplePlan() {
     sgSleevePct: "known-sg-sleeve",
     cpfExtra: "known-cpf-extra",
     reserveReturn: "known-reserve-return",
+    housingMode: "known-housing-mode",
+    housingBalance: "known-housing-balance",
+    housingYears: "known-housing-years",
+    housingRate: "known-housing-rate",
+    housingParties: "known-housing-parties",
     housing: "known-housing",
     retire: "known-retire",
     invest: "known-invest",
@@ -2406,22 +2261,11 @@ function setupSimplePlan() {
     inflationRate: "known-inflation",
     post55Work: "known-post55",
   };
-  const timingFields = [
-    "timing-mode",
-    "timing-target",
-    "timing-early",
-    "timing-late",
-    "timing-amount",
-  ];
-  populateAgeSelect($("#timing-early"), 18, 55);
-  populateAgeSelect($("#timing-late"), 18, 60);
-  const resetTiming = () =>
-    timingFields.forEach((id) => resetControl($("#" + id)));
-
   const planRoot = $("#retirement-plan");
   const overviewSlot = $("#overview-slot");
   const allocatorSlot = $("#allocator-slot");
   const taxSlot = $("#tax-slot");
+  const cpfRulesSlot = $("#cpf-rules-slot");
   const errorBanner = $("#plan-error-banner");
 
   let selected = "salary";
@@ -2431,92 +2275,7 @@ function setupSimplePlan() {
   const dashChartBasis = "today";
   let currentTrajectory = null;
   let currentFirePlan = null;
-  let timingParams = null;
   let rafHandle = null;
-
-  const renderTiming = () => {
-    if (!timingParams) return;
-    const output = $("#timing-results");
-    const target = $("#timing-target").value;
-    const minimum = target === "ers" ? 55 : Number(timingParams.age);
-    $("#timing-amount").placeholder = "50000";
-    populateAgeSelect($("#timing-early"), minimum, 55);
-    populateAgeSelect($("#timing-late"), minimum, 60);
-
-    const numericInputs = [
-      $("#timing-early"),
-      $("#timing-late"),
-      $("#timing-amount"),
-    ];
-    let invalid = false;
-    numericInputs.forEach((input) => {
-      const error = $("#" + input.id + "-error");
-      const message = input.validity.valid
-        ? ""
-        : input.id === "timing-amount"
-          ? "Enter a cash amount from $0 to $1 billion, or leave blank for automatic."
-          : `Enter a whole age from ${minimum} to 65.${target === "ers" ? " ERS starts at 55; choose FRS for an earlier top-up." : ""}`;
-      if (message) invalid = true;
-      input.setAttribute("aria-invalid", String(Boolean(message)));
-      error.textContent = message;
-      error.hidden = !message;
-    });
-    const editing = $("#timing-editing");
-    if (invalid) {
-      editing.textContent = output.children.length
-        ? "Showing your last valid comparison. Update the highlighted entry to recalculate."
-        : "Complete the highlighted entry to see your comparison.";
-      editing.hidden = false;
-      return;
-    }
-    editing.hidden = true;
-    try {
-      const result = RetirementModel.compareTopupTiming(
-        timingParams,
-        Number($("#timing-early").value),
-        Number($("#timing-late").value),
-        $("#timing-amount").value === ""
-          ? null
-          : Number($("#timing-amount").value),
-        target,
-        $("#timing-mode").value,
-      );
-      const { earlier, later } = result;
-      const maxPayout = Math.max(1, earlier.payout, later.payout);
-      output.innerHTML = `<p class="timing-meta">2026 FRS: <strong>${m(220400)}</strong> · ERS: <strong>${m(440800)}</strong> · Retire at <strong>${result.retire}</strong> · Figures below are <strong>future cash at 65</strong>.</p>
-        <div class="timing-comparison">${[earlier, later]
-          .map(
-            (
-              x,
-            ) => `<div class="timing-col"><h3>${target.toUpperCase()} top-up at age ${x.age}</h3>
-          <div class="timing-payout-bar"><span style="width:${(x.payout / maxPayout) * 100}%"></span></div>
-          <dl>
-          <div><dt>Projected target limit</dt><dd>${m(x.limit)}</dd></div>
-          <div><dt>Available top-up room</dt><dd>${m(x.room)}</dd></div>
-          <div><dt>Cash top-up accepted</dt><dd>${m(x.cash)}</dd></div>
-          <div><dt>Extra CPF interest by 65</dt><dd>${m(x.interest)}</dd></div>
-          <div><dt>RA balance at 65</dt><dd>${m(x.ra65)}</dd></div>
-          <div><dt>OA remaining at 65</dt><dd>${m(x.oa65)}</dd></div>
-          <div><dt>Estimated payout from 65</dt><dd>${m(x.payout, "/mo")}${x.payoutCapped ? " (boundary)" : ""}</dd></div>
-        </dl></div>`,
-          )
-          .join("")}</div>
-        <p class="timing-takeaway">${
-          Math.abs(earlier.cash - later.cash) > 0.01
-            ? `Fills the ${target.toUpperCase()} target at different dates using different cash amounts (includes both deposit difference and compounding).`
-            : `Same ${m(earlier.cash)} cash: topping up at age <strong>${earlier.age}</strong> yields <strong>${m(Math.abs(Math.round(earlier.payout) - Math.round(later.payout)), "/mo")}</strong> ${earlier.payout >= later.payout ? "more" : "less"} CPF LIFE payout from 65.`
-        }</p>`;
-    } catch (e) {
-      editing.textContent = `${e.message} ${output.children.length ? "Showing your last valid comparison." : ""}`;
-      editing.hidden = false;
-    }
-  };
-  timingFields.forEach((id) =>
-    $("#" + id).addEventListener("input", () => {
-      renderTiming();
-      if (timingParams) persistState(timingParams);
-    }),
-  );
 
   let savingEnabled = true;
   let readinessTimer;
@@ -2558,23 +2317,42 @@ function setupSimplePlan() {
       for (const [key, id] of Object.entries(fields)) {
         if (params.has(key)) {
           const el = $("#" + id);
-          if (el) el.value = params.get(key);
+          if (el) {
+            if (key === "housingParties") {
+              const n = Math.min(
+                6,
+                Math.max(1, Math.round(Number(params.get(key) || 1))),
+              );
+              el.value = String(n);
+            } else {
+              el.value = params.get(key);
+            }
+          }
+        }
+      }
+      if (!params.has("dob") && params.has("age") && $("#person-dob")) {
+        const legacyAge = Number(params.get("age"));
+        if (Number.isFinite(legacyAge) && legacyAge >= 1 && legacyAge <= 110) {
+          $("#person-dob").value = RetirementModel.defaultDobForAge(legacyAge);
+        }
+      }
+      if (!params.has("housingMode") && $("#known-housing-mode")) {
+        if (!params.has("housing") || params.get("housing") === "") {
+          $("#known-housing-mode").value = "all-oa";
+        } else if (Number(params.get("housing")) === 0) {
+          $("#known-housing-mode").value = "paid-up";
+        } else {
+          $("#known-housing-mode").value = "custom";
         }
       }
       if (["brs", "frs", "ers"].includes(params.get("learningTarget")))
         learningTarget = params.get("learningTarget");
-      timingFields.forEach((id) => {
-        if (params.has(id)) $("#" + id).value = params.get(id);
-      });
       if (["salary", "frs", "ers"].includes(params.get("selected"))) {
         selected = params.get("selected");
       }
     } catch (_) {}
   };
   restoreSavedState();
-  if ($("#known-savings-step1")) {
-    $("#known-savings-step1").value = $("#known-savings").value;
-  }
 
   const persistState = (p) => {
     if (!savingEnabled) return;
@@ -2584,14 +2362,10 @@ function setupSimplePlan() {
         selected,
         learningTarget,
         version: 2,
-        ...Object.fromEntries(
-          timingFields.map((id) => [id, $("#" + id).value]),
-        ),
       };
       const search = new URLSearchParams();
       for (const [k, v] of Object.entries(data)) {
-        if (v != null && (v !== "" || timingFields.includes(k)))
-          search.set(k, String(v));
+        if (v != null && v !== "") search.set(k, String(v));
       }
       localStorage.setItem(
         "rs_plan_state",
@@ -2602,40 +2376,191 @@ function setupSimplePlan() {
     } catch (_) {}
   };
 
-  const setError = (message) => {
-    timingParams = null;
-    learningPlan = null;
-    $("#timing-editing").hidden = true;
-    $("#timing-results").textContent =
-      "Enter valid plan details to compare top-ups.";
-    clearTimeout(readinessTimer);
-    readinessKey = "";
-    readinessPending = true;
-    $("#simulation-results").textContent =
-      "Enter valid details to update your simulation.";
+  const lastValidFieldValues = {};
+  let lastCustomSpend = "";
+  const qePanelForSrc = {
+    "person-dob": { panel: "age", qeId: "qe-dob" },
+    "known-retire": { panel: "goal", qeId: "qe-retire" },
+    "known-lifestyle": { panel: "budget", qeId: "qe-lifestyle" },
+    "known-spend": { panel: "budget", qeId: "qe-spend" },
+    "known-plan": { panel: "budget", qeId: "qe-plan" },
+    "person-salary": { panel: "income", qeId: "qe-salary" },
+    "known-housing": { panel: "income", qeId: "qe-housing" },
+    "known-housing-mode": { panel: "income", qeId: "qe-housing-mode" },
+    "known-housing-balance": { panel: "income", qeId: "qe-housing-balance" },
+    "known-housing-years": { panel: "income", qeId: "qe-housing-years" },
+    "known-housing-rate": { panel: "income", qeId: "qe-housing-rate" },
+    "known-housing-parties": { panel: "income", qeId: "qe-housing-parties" },
+    "known-cpf-extra": { panel: "income", qeId: "qe-cpf-extra" },
+    "known-invest": { panel: "income", qeId: "qe-invest" },
+    "sim-invest": { panel: "income", qeId: "qe-invest" },
+    "known-oa": { panel: "balances", qeId: "qe-oa" },
+    "known-sa": { panel: "balances", qeId: "qe-sa" },
+    "known-ma": { panel: "balances", qeId: "qe-ma" },
+    "known-equities": { panel: "balances", qeId: "qe-equities" },
+    "known-sg-dividends": { panel: "balances", qeId: "qe-sg-dividends" },
+    "known-ssb-cash": { panel: "balances", qeId: "qe-ssb-cash" },
+    "known-srs": { panel: "balances", qeId: "qe-srs" },
+  };
+  const getCustomSpendState = (rLifestyle = null) => {
+    const lifestyleKey = rLifestyle || $("#known-lifestyle")?.value || "cca";
+    const presetBudget =
+      RetirementModel.lifestyles[lifestyleKey]?.budget || 2500;
+    const spendEl = $("#known-spend");
+    const raw = (spendEl?.value || "").trim();
+    const isCustom =
+      raw !== "" &&
+      Boolean(spendEl?.validity?.valid) &&
+      Number.isFinite(Number(raw)) &&
+      Math.round(Number(raw) * 100) !== Math.round(presetBudget * 100);
+    return {
+      lifestyleKey,
+      presetBudget,
+      isCustom,
+      spend: isCustom ? Number(raw) : presetBudget,
+    };
+  };
+  const isCurrencyField = (input) =>
+    input
+      ?.closest?.(".input-wrap")
+      ?.querySelector("span")
+      ?.textContent?.trim() === "$";
+  const formatBoundVal = (input, val) => {
+    const n = Number(val);
+    if (!Number.isFinite(n)) return String(val);
+    return isCurrencyField(input) ? `$${n.toLocaleString("en-SG")}` : String(n);
+  };
+  const formatFieldRangeError = (input, key) => {
+    const label = (
+      input.labels?.[0]?.textContent ||
+      document.querySelector(`label[for="${input.id}"]`)?.textContent ||
+      key
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    const min = input.min;
+    const max = input.max;
+    if (min !== "" && max !== "") {
+      return `${label} must be between ${formatBoundVal(input, min)} and ${formatBoundVal(input, max)}.`;
+    }
+    if (min !== "") {
+      return `${label} must be at least ${formatBoundVal(input, min)}.`;
+    }
+    if (max !== "") {
+      return `${label} must be at most ${formatBoundVal(input, max)}.`;
+    }
+    return `Check the allowed range for ${label}.`;
+  };
+  const setError = (message, invalidEl = null) => {
+    const hasRenderedView = overviewSlot.children.length > 0;
+    $$("[aria-invalid='true']").forEach((el) =>
+      el.removeAttribute("aria-invalid"),
+    );
+    if (invalidEl) {
+      invalidEl.setAttribute("aria-invalid", "true");
+      const qeMap = qePanelForSrc[invalidEl.id];
+      if (qeMap && $("#" + qeMap.qeId)) {
+        $("#" + qeMap.qeId).setAttribute("aria-invalid", "true");
+      }
+    }
+    if (!hasRenderedView) {
+      learningPlan = null;
+      clearTimeout(readinessTimer);
+      readinessKey = "";
+      readinessPending = true;
+      $("#simulation-results").textContent =
+        "Enter valid details to update your simulation.";
+      overviewSlot.innerHTML = "";
+      allocatorSlot.innerHTML = "";
+      taxSlot.innerHTML = "";
+      currentTrajectory = null;
+      $("#trajectory-chart").replaceChildren();
+      $("#trajectory-values").replaceChildren();
+      $("#chart-legend").replaceChildren();
+      $("#chart-tooltip").hidden = true;
+      $("#print-sheet").replaceChildren();
+    }
     if (errorBanner) {
-      errorBanner.textContent = message;
-      errorBanner.hidden = false;
-      if (Number($("#person-age").value) >= 55) {
+      errorBanner.replaceChildren();
+      const copyWrap = document.createElement("div");
+      copyWrap.className = "plan-error-copy";
+      const textSpan = document.createElement("span");
+      textSpan.textContent = hasRenderedView
+        ? `${message} Showing your last valid estimate.`
+        : message;
+      copyWrap.append(textSpan);
+      const dobAgeCheck = RetirementModel.computeAgeFromDob(
+        $("#person-dob")?.value || "",
+      );
+      if (dobAgeCheck.valid && dobAgeCheck.age >= 55) {
         const link = document.createElement("a");
         link.href =
           "https://www.cpf.gov.sg/member/tools-and-services/calculators";
         link.className = "text-link";
+        link.target = "_blank";
+        link.rel = "noopener";
         link.textContent = " Explore CPF’s personalised planning tools ↗";
-        errorBanner.append(link);
+        copyWrap.append(link);
       }
+      const actions = document.createElement("div");
+      actions.className = "plan-error-actions";
+      const qeMap = invalidEl ? qePanelForSrc[invalidEl.id] : null;
+      if (qeMap) {
+        const fixBtn = document.createElement("button");
+        fixBtn.type = "button";
+        fixBtn.className = "button button-small fin-pill-btn";
+        fixBtn.dataset.quickEdit = qeMap.panel;
+        fixBtn.textContent = "Fix value";
+        actions.append(fixBtn);
+      } else {
+        const settingsBtn = document.createElement("button");
+        settingsBtn.type = "button";
+        settingsBtn.className = "button button-small fin-pill-btn";
+        settingsBtn.setAttribute("data-open-profile", "");
+        settingsBtn.textContent = "Open My Settings";
+        actions.append(settingsBtn);
+      }
+      if (invalidEl && invalidEl.id !== "person-dob") {
+        const raw = invalidEl.value.trim();
+        const hasMin = invalidEl.min !== "";
+        const hasMax = invalidEl.max !== "";
+        if (raw !== "" && !invalidEl.validity.badInput && (hasMin || hasMax)) {
+          const minV = hasMin ? Number(invalidEl.min) : -Infinity;
+          const maxV = hasMax ? Number(invalidEl.max) : Infinity;
+          let clamped = Math.min(maxV, Math.max(minV, Number(raw)));
+          if (invalidEl.step === "1") clamped = Math.round(clamped);
+          const clampBtn = document.createElement("button");
+          clampBtn.type = "button";
+          clampBtn.className = "button button-small fin-pill-btn";
+          clampBtn.dataset.clampField = invalidEl.id;
+          clampBtn.dataset.clampVal = String(clamped);
+          clampBtn.textContent = `Use ${formatBoundVal(invalidEl, clamped)}`;
+          actions.append(clampBtn);
+        } else if (
+          lastValidFieldValues[invalidEl.id] != null &&
+          lastValidFieldValues[invalidEl.id] !== ""
+        ) {
+          const restoreBtn = document.createElement("button");
+          restoreBtn.type = "button";
+          restoreBtn.className = "button button-small fin-pill-btn";
+          restoreBtn.dataset.clampField = invalidEl.id;
+          restoreBtn.dataset.clampVal = String(
+            lastValidFieldValues[invalidEl.id],
+          );
+          restoreBtn.textContent = `Restore ${formatBoundVal(invalidEl, lastValidFieldValues[invalidEl.id])}`;
+          actions.append(restoreBtn);
+        }
+      }
+      const resetBtn = document.createElement("button");
+      resetBtn.type = "button";
+      resetBtn.className = "button button-small fin-pill-btn";
+      resetBtn.setAttribute("data-sg-reset", "");
+      resetBtn.textContent = "Reset defaults";
+      actions.append(resetBtn);
+      errorBanner.append(copyWrap, actions);
+      errorBanner.hidden = false;
     }
-    overviewSlot.innerHTML = "";
-    allocatorSlot.innerHTML = "";
-    taxSlot.innerHTML = "";
-    currentTrajectory = null;
     $("#print-plan-btn").disabled = true;
-    $("#trajectory-chart").replaceChildren();
-    $("#trajectory-values").replaceChildren();
-    $("#chart-legend").replaceChildren();
-    $("#chart-tooltip").hidden = true;
-    $("#dynamic-drawdown-summary").replaceChildren();
-    $("#print-sheet").replaceChildren();
     $("#start-plan-error").textContent = message;
     $("#settings-error").textContent = message;
     const qeErr = $("#qe-error");
@@ -2672,38 +2597,6 @@ function setupSimplePlan() {
       render();
       return;
     }
-    const stress = event.target.closest("button[data-stress]");
-    if (stress) {
-      const action = stress.dataset.stress;
-      if (action === "reset") {
-        $("#known-spend").value = "";
-        resetControl($("#known-inflation"));
-        resetControl($("#known-return"));
-        resetControl($("#known-post55"));
-      } else if (action === "budget") {
-        const input = $("#known-spend");
-        const current =
-          input.value === ""
-            ? RetirementModel.lifestyles[$("#known-lifestyle").value].budget
-            : Number(input.value);
-        input.value = String(Math.min(1e9, current + 500));
-      } else {
-        const stressValues = {
-          inflation: ["known-inflation", "0.035"],
-          return: ["known-return", "0.03"],
-          senior: ["known-post55", "true"],
-        };
-        const [id, value] = stressValues[action];
-        $("#" + id).value = value;
-      }
-      render();
-      const replacement = $(`button[data-stress="${action}"]`);
-      (replacement && !replacement.disabled
-        ? replacement
-        : $("#plan-resilience > summary")
-      )?.focus({ preventScroll: true });
-      return;
-    }
     const pathBtn = event.target.closest("button[data-path]");
     if (pathBtn) {
       selected = pathBtn.dataset.path;
@@ -2713,37 +2606,217 @@ function setupSimplePlan() {
     }
   });
 
+  let lastBankLoanRate = "2.5";
+  const syncHousingDisplay = () => {
+    const mode = $("#known-housing-mode")?.value || "all-oa";
+    const isLoan = mode === "hdb" || mode === "bank";
+    const isCustom = mode === "custom";
+    const rateEl = $("#known-housing-rate");
+    const qeRateEl = $("#qe-housing-rate");
+    if (mode === "hdb") {
+      if (rateEl) {
+        rateEl.value = "2.6";
+        rateEl.disabled = true;
+      }
+      if (qeRateEl) {
+        qeRateEl.value = "2.6";
+        qeRateEl.disabled = true;
+      }
+    } else if (mode === "bank") {
+      if (rateEl) {
+        rateEl.disabled = false;
+        if (rateEl.value.trim() === "") rateEl.value = lastBankLoanRate;
+      }
+      if (qeRateEl) {
+        qeRateEl.disabled = false;
+        if (document.activeElement !== qeRateEl && rateEl) {
+          qeRateEl.value = rateEl.value;
+        }
+      }
+    } else {
+      if (rateEl) rateEl.disabled = false;
+      if (qeRateEl) qeRateEl.disabled = false;
+    }
+
+    for (const prefix of ["known", "qe"]) {
+      const loanBox = $("#" + prefix + "-housing-loan-fields");
+      const customBox = $("#" + prefix + "-housing-custom-field");
+      if (loanBox) loanBox.hidden = !isLoan;
+      if (customBox) customBox.hidden = !isCustom;
+    }
+
+    let previewHtml = "";
+    if (mode === "all-oa") {
+      previewHtml =
+        "Assumes all incoming salary OA goes to housing (conservative baseline if loan details are unknown).";
+    } else if (mode === "paid-up") {
+      previewHtml =
+        "<strong>$0/mo</strong> deducted from OA — all new OA builds CPF retirement savings at 2.5%.";
+    } else if (mode === "custom") {
+      const mVal = Math.max(0, Number($("#known-housing")?.value || 0));
+      previewHtml = `Deducting <strong>${money(mVal)}/mo</strong> from OA across projection.`;
+    } else {
+      const bal = Math.max(0, Number($("#known-housing-balance")?.value || 0));
+      const yrs = Math.max(0, Number($("#known-housing-years")?.value || 0));
+      const rate =
+        mode === "hdb"
+          ? 2.6
+          : Math.max(0, Number($("#known-housing-rate")?.value || 0));
+      const parties = Math.max(
+        1,
+        Math.round(Number($("#known-housing-parties")?.value || 1)),
+      );
+      if (bal > 0 && yrs > 0) {
+        const hp = RetirementModel.computeHousingPayment({
+          mode,
+          loanBalance: bal,
+          loanRate: rate,
+          loanYears: yrs,
+          loanParties: parties,
+        });
+        previewHtml =
+          parties > 1
+            ? `Est. total mortgage ${money(hp.totalMonthly)}/mo ÷ ${parties} parties = <strong>${money(hp.monthlyShare)}/mo</strong> from OA for ${yrs} yrs (then $0).`
+            : `Est. monthly mortgage: <strong>${money(hp.monthlyShare)}/mo</strong> from OA for ${yrs} yrs (then $0).`;
+      } else {
+        previewHtml =
+          "Enter remaining loan balance &amp; years left above (currently <strong>$0/mo</strong> from OA).";
+      }
+    }
+    if ($("#known-housing-preview"))
+      $("#known-housing-preview").innerHTML = previewHtml;
+    if ($("#qe-housing-preview"))
+      $("#qe-housing-preview").innerHTML = previewHtml;
+  };
+
   const render = () => {
     if (errorBanner) {
       errorBanner.hidden = true;
-      errorBanner.textContent = "";
+      errorBanner.replaceChildren();
     }
-    syncPresetChoice();
-    $("#known-retire").min =
-      $("#known-lifestyle").value === "cca" ? "55" : "40";
+    $$("[aria-invalid='true']").forEach((el) =>
+      el.removeAttribute("aria-invalid"),
+    );
+    syncCustomBudgetReset();
+    const syncDobAgeUi = (dobValue) => {
+      const info = RetirementModel.computeAgeFromDob(dobValue || "");
+      const badges = ["#person-dob-age-badge", "#qe-dob-age-badge"];
+      const settingsHint = $("#person-dob-hint");
+      const qeHint = $("#qe-dob-hint");
+      badges.forEach((sel) => {
+        const badge = $(sel);
+        if (!badge) return;
+        if (info.valid) {
+          badge.textContent = `Age ${info.age}`;
+          badge.classList.toggle("is-warn", info.age < 18 || info.age > 54);
+        } else {
+          badge.textContent = "Enter DOB";
+          badge.classList.add("is-warn");
+        }
+      });
+      if (settingsHint) {
+        if (!info.valid) {
+          settingsHint.textContent =
+            "Enter a valid date of birth (ages 18–54).";
+        } else if (info.age >= 55) {
+          settingsHint.textContent = `Calculated age ${info.age} · This illustration supports ages 18–54.`;
+        } else if (info.age < 18) {
+          settingsHint.textContent = `Calculated age ${info.age} · Minimum supported age is 18.`;
+        } else {
+          const moText =
+            info.monthsRemainder > 0
+              ? ` (${info.age} yrs ${info.monthsRemainder} mo${info.monthsRemainder === 1 ? "" : "s"})`
+              : info.isBirthdayToday
+                ? " (Happy birthday!)"
+                : "";
+          settingsHint.textContent = `Age ${info.age}${moText} · Salaried Singapore citizens and PRs aged 18–54.`;
+        }
+      }
+      if (qeHint) {
+        if (!info.valid) {
+          qeHint.textContent =
+            "Enter your date of birth (ages 18–54). Target retirement age adjusts automatically if needed.";
+        } else if (info.age >= 55 || info.age < 18) {
+          qeHint.textContent = `Calculated age ${info.age} · Supported range is ages 18–54.`;
+        } else {
+          const moText =
+            info.monthsRemainder > 0
+              ? ` (${info.age} yrs ${info.monthsRemainder} mo${info.monthsRemainder === 1 ? "" : "s"})`
+              : "";
+          qeHint.textContent = `Calculated age ${info.age}${moText} · Supports ages 18–54. Target retirement age adjusts automatically if needed.`;
+        }
+      }
+      return info;
+    };
+
+    const dobAgeInfo = syncDobAgeUi($("#person-dob")?.value || "");
+    const curAgeVal = dobAgeInfo.valid ? dobAgeInfo.age : 35;
+    const lifeMinAge = $("#known-lifestyle").value === "cca" ? 55 : 40;
+    $("#known-retire").min = String(Math.max(lifeMinAge, curAgeVal));
     const cpfPosOpen =
       planRoot.querySelector("#cpf-position-details")?.open || false;
     const salaryCapOpen =
       planRoot.querySelector("#salary-cpf-caps")?.open || false;
     const learningOpen =
       planRoot.querySelector("#cpf-goal-guide")?.open || false;
-    const resilienceOpen =
-      planRoot.querySelector("#plan-resilience")?.open || false;
+    const housingModeVal = $("#known-housing-mode")?.value || "all-oa";
     const p = {};
     for (const [key, id] of Object.entries(fields)) {
+      if (key === "housing" && housingModeVal !== "custom") continue;
+      if (
+        [
+          "housingBalance",
+          "housingYears",
+          "housingRate",
+          "housingParties",
+        ].includes(key) &&
+        housingModeVal !== "hdb" &&
+        housingModeVal !== "bank"
+      ) {
+        continue;
+      }
       const input = $("#" + id);
       if (!input) continue;
       const val = input.value.trim();
+      if (key === "dob") {
+        const ageInfo = dobAgeInfo;
+        if (input.validity.badInput || val === "" || !ageInfo.valid) {
+          setError(
+            "Enter a valid date of birth (ages 18–54) to see the CPF comparison.",
+            input,
+          );
+          return;
+        }
+        if (ageInfo.age >= 55) {
+          setError(
+            `Based on your date of birth, your age is ${ageInfo.age}. This salary illustration supports ages 18–54. From 55, your Retirement Account and actual balances need CPF’s personalised retirement estimator.`,
+            input,
+          );
+          return;
+        }
+        if (ageInfo.age < 18) {
+          setError(
+            `Based on your date of birth, your age is ${ageInfo.age}. Enter a date of birth for ages 18–54.`,
+            input,
+          );
+          return;
+        }
+        p.dob = ageInfo.iso;
+        p.age = ageInfo.age;
+        continue;
+      }
       if (input.validity.badInput) {
         setError(
           "Enter a number without dollar signs or commas. Leave a field blank only if you want to use its starting assumption.",
+          input,
         );
         return;
       }
       if (val === "") {
-        if (key === "age" || key === "salary") {
+        if (key === "salary") {
           setError(
-            "Enter your age and gross salary to see the CPF comparison.",
+            "Enter your gross monthly salary ($751–$1,000,000) to see the CPF comparison.",
+            input,
           );
           return;
         }
@@ -2756,36 +2829,49 @@ function setupSimplePlan() {
           Number(val) < 55
         ) {
           setError(
-            "CCA currently requires age 55 or above. Choose 55 or later, or switch to Home + Helper for an earlier retirement illustration.",
+            "CCA currently requires age 55 or above. Choose 55–80, or switch to Home + Helper for ages 40–80.",
+            input,
           );
           return;
         }
-        if (key === "age" && Number(val) >= 55) {
-          setError(
-            "This salary illustration supports ages 18–54. From 55, your Retirement Account and actual balances need CPF’s personalised retirement estimator.",
-          );
-          return;
-        }
-        setError(
-          "Check the allowed range for " +
-            (input.labels ? input.labels[0].textContent : key) +
-            ".",
-        );
+        setError(formatFieldRangeError(input, key), input);
         return;
       }
       p[key] =
-        key === "plan" || key === "lifestyle" || key === "srsInvestedIn"
+        key === "plan" ||
+        key === "lifestyle" ||
+        key === "srsInvestedIn" ||
+        key === "housingMode"
           ? val
           : key === "post55Work"
             ? val === "true"
             : Number(val);
     }
-    const step1Savings = $("#known-savings-step1");
-    if (step1Savings && step1Savings.validity.badInput) {
-      setError(
-        "Enter a valid non-negative number for outside retirement investments.",
-      );
-      return;
+    syncHousingDisplay();
+    if (housingModeVal === "all-oa") {
+      delete p.housing;
+      delete p.housingYears;
+    } else if (housingModeVal === "paid-up") {
+      p.housing = 0;
+      delete p.housingYears;
+    } else if (housingModeVal === "custom") {
+      p.housing = p.housing == null ? 0 : p.housing;
+      delete p.housingYears;
+    } else {
+      const hp = RetirementModel.computeHousingPayment({
+        mode: housingModeVal,
+        loanBalance: p.housingBalance,
+        loanRate: p.housingRate,
+        loanYears: p.housingYears,
+        loanParties: p.housingParties,
+      });
+      if ((p.housingBalance || 0) > 0 && (p.housingYears || 0) > 0) {
+        p.housing = Math.round(hp.monthlyShare * 100) / 100;
+        p.housingYears = hp.years;
+      } else {
+        p.housing = 0;
+        p.housingYears = 0;
+      }
     }
 
     let r, simulation, fire, bogle, tax;
@@ -2802,8 +2888,6 @@ function setupSimplePlan() {
     }
     currentFirePlan = fire;
 
-    timingParams = p;
-    renderTiming();
     const keepOA = RetirementModel.projectCPF(p);
     const moveOA = RetirementModel.projectCPF(p, 0, "salary", null, {
       transferOA: true,
@@ -2833,19 +2917,24 @@ function setupSimplePlan() {
       .join("")}</div>
       <p class="result-footnote">Transferring adds <b>${m(Math.abs(moveOA.availableAt55 - keepOA.availableAt55))}</b> ${moveOA.availableAt55 >= keepOA.availableAt55 ? "more" : "less"} before 55 (future cash value), is irreversible, gives no tax relief, and reduces OA for mortgage payments.</p>`;
 
-    const cpfDetailsHTML = `<details id="cpf-position-details" class="result-details" ${cpfPosOpen || moveOA.oaTransfer > 0.01 ? "open" : ""}>
-      <summary>CPF today → age 55 &amp; OA-to-SA transfer check <span class="summary-tag">Age-55 cash</span></summary>
-      <dl class="simulation-metrics">
-        <div><dt>OA today</dt><dd>${centsHtml(Number(p.oa || 0))}</dd></div>
-        <div><dt>SA today</dt><dd>${centsHtml(Number(p.sa || 0))}</dd></div>
-        <div><dt>SA top-up room to 2026 FRS</dt><dd>${centsHtml(roomNow)}</dd></div>
-        <div><dt>OA transferable to SA now</dt><dd>${centsHtml(Math.min(Number(p.oa || 0), roomNow))}</dd></div>
+    const cpfDetailsHTML = `<section id="cpf-position-details" class="card-surface rules-card" aria-labelledby="cpf-pos-title">
+      <div class="rules-card-head">
+        <div>
+          <h2 id="cpf-pos-title">CPF today → age 55 &amp; OA-to-SA transfer check</h2>
+          <p>See your current OA/SA balances, 2026 FRS top-up room, and the impact of moving OA into SA before 55.</p>
+        </div>
+        <span class="fin-target-pill">Age-55 cash</span>
+      </div>
+      <dl class="tax-metrics-grid">
+        <div class="tax-metric-box"><dt>OA today</dt><dd>${centsHtml(Number(p.oa || 0))}</dd></div>
+        <div class="tax-metric-box"><dt>SA today</dt><dd>${centsHtml(Number(p.sa || 0))}</dd></div>
+        <div class="tax-metric-box"><dt>SA top-up room to 2026 FRS</dt><dd>${centsHtml(roomNow)}</dd></div>
+        <div class="tax-metric-box"><dt>OA transferable to SA now</dt><dd>${centsHtml(Math.min(Number(p.oa || 0), roomNow))}</dd></div>
       </dl>
       ${oaTransferSummaryTable}
-    </details>`;
+    </section>`;
 
     persistState(p);
-    renderLifestyle(r);
     $("#print-plan-btn").disabled = false;
     $("#start-plan-error").textContent = "";
     $("#settings-error").textContent = "";
@@ -2879,7 +2968,7 @@ function setupSimplePlan() {
     const simStateIcon =
       simGuide.state.tone === "good" ? ICONS.checkTiny : ICONS.alertTriangle;
     $("#simulation-results").innerHTML = `
-      <p class="fixed-retirement">Target retirement age: <strong>${r.retire}</strong>. Adjust amounts above or edit My Balances to test readiness and portfolio longevity.</p>
+      <p class="fixed-retirement">Target retirement age: <strong>${r.retire}</strong>. Adjust amounts above or edit My Settings to test readiness and portfolio longevity.</p>
       <div class="affordability-card">
         <div class="affordability-head">
           <span>${r.retiringNow ? "Retirement set to now — future monthly saving is paused" : `Total monthly saving: <strong>${m(combined, "/mo")}</strong> (${takeHomePct}% of ${m(r.afterCpf)} pay after CPF)`}</span>
@@ -2940,14 +3029,6 @@ function setupSimplePlan() {
         );
         readinessPending = false;
         showReadiness();
-        renderPrintSheet(
-          r,
-          s,
-          drawdown,
-          simulation,
-          readinessPending,
-          readinessAge,
-        );
         $("#simulation-status").textContent =
           `Retirement stays at ${r.retire}. Estimated CPF ${money(s.payout)} monthly from 65.`;
       }, 160);
@@ -2967,8 +3048,14 @@ function setupSimplePlan() {
       frs: [220400, 1780],
       ers: [440800, 3440],
     };
-    const lessonHTML = `<details id="cpf-goal-guide" class="result-details" ${learningOpen ? "open" : ""}><summary>How to reach BRS, FRS or ERS at 55 <span class="summary-tag">Age-55 cash</span></summary>
-      <p>2026 CPF reference anchors (male turning 55 in 2026, Standard Plan from 65):</p>
+    const lessonHTML = `<section id="cpf-goal-guide" class="card-surface rules-card" aria-labelledby="cpf-goal-title">
+      <div class="rules-card-head">
+        <div>
+          <h2 id="cpf-goal-title">How to reach BRS, FRS or ERS at 55</h2>
+          <p>2026 CPF reference anchors (male turning 55 in 2026, Standard Plan from 65).</p>
+        </div>
+        <span class="fin-target-pill">Age-55 cash</span>
+      </div>
       <div class="goal-choices" role="group" aria-label="CPF milestone to learn about">${Object.entries(
         references,
       )
@@ -2977,19 +3064,19 @@ function setupSimplePlan() {
             `<button type="button" data-learn="${key}" aria-pressed="${key === learningTarget}"><strong>${key.toUpperCase()}</strong><span>${m(sum)} at 55</span><span>~${m(payout, "/mo")} from 65</span></button>`,
         )
         .join("")}</div>
-      <dl class="simulation-metrics">
-        <div><dt>Projected ${learningTarget.toUpperCase()} at your age 55</dt><dd>${m(lesson.target)}</dd></div>
-        <div><dt>OA + SA at 55 before extra saving</dt><dd>${m(lesson.available)}</dd></div>
-        <div><dt>Gap to ${learningTarget.toUpperCase()} at 55</dt><dd>${m(lesson.gap)}</dd></div>
-        <div><dt>Extra CPF saving to hit milestone</dt><dd>${lesson.monthly === null ? "Lump sum only" : m(lesson.monthly, "/mo")}</dd></div>
+      <dl class="tax-metrics-grid">
+        <div class="tax-metric-box"><dt>Projected ${learningTarget.toUpperCase()} at your age 55</dt><dd>${m(lesson.target)}</dd></div>
+        <div class="tax-metric-box"><dt>OA + SA at 55 before extra saving</dt><dd>${m(lesson.available)}</dd></div>
+        <div class="tax-metric-box"><dt>Gap to ${learningTarget.toUpperCase()} at 55</dt><dd>${m(lesson.gap)}</dd></div>
+        <div class="tax-metric-box"><dt>Extra CPF saving to hit milestone</dt><dd>${lesson.monthly === null ? "Lump sum only" : m(lesson.monthly, "/mo")}</dd></div>
       </dl>
       <ul class="compact-list">
         <li><strong>Before 55:</strong> Cash RSTU and OA-to-SA transfers share SA room up to current FRS (${centsHtml(lesson.currentRoom)} today) and are irreversible.</li>
         <li><strong>At 55:</strong> SA closes; SA then OA fund RA up to cohort FRS. ERS top-ups open from 55 (no RSTU tax relief above FRS).</li>
         ${learningTarget === "brs" ? "<li><strong>BRS property rule:</strong> Withdrawing RA above BRS requires pledging a property whose lease covers you to age 95+.</li>" : ""}
       </ul>
-      <div class="flow-actions"><button type="button" class="text-button" data-learn-apply data-go-tab="trajectory" ${lesson.monthly === null ? "disabled" : ""}>Simulate ${lesson.monthly ? m(lesson.monthly, "/mo") : "this"} CPF saving →</button><button type="button" class="text-button" data-go-tab="trajectory" data-reveal="timing">Compare earlier vs later lump-sum top-up →</button></div>
-    </details>`;
+      <div class="flow-actions"><button type="button" class="text-button" data-learn-apply data-go-tab="trajectory" ${lesson.monthly === null ? "disabled" : ""}>Simulate ${lesson.monthly ? m(lesson.monthly, "/mo") : "this"} CPF saving →</button></div>
+    </section>`;
 
     const contribution = simulation.cpfExtra + s.privateSaving;
     const pctOfPay =
@@ -3008,24 +3095,30 @@ function setupSimplePlan() {
         : s.privateSaving <= 0.005 && simulation.cpfExtra <= 0.005
           ? "Already funded by your starting assets"
           : contribution > r.afterCpf
-            ? `Critical target: ${m(contribution, "/mo")} (${pctOfPay}% of pay after CPF)`
+            ? `Critical target: ${m(contribution, "/mo")} (${pctOfPay}% of take-home pay)`
             : isTight
-              ? `Stretch target: ${m(contribution, "/mo")} (${pctOfPay}% of pay after CPF)`
-              : `On track saving ${m(contribution, "/mo")} (${pctOfPay}% of pay after CPF)`;
+              ? `Stretch target: ${m(contribution, "/mo")} (${pctOfPay}% of take-home pay)`
+              : `On track saving ${m(contribution, "/mo")} (${pctOfPay}% of take-home pay)`;
 
-    const coverageHTML = buildCoverageSection(r, s);
-    const outsideHTML = buildOutsideAvenuesSection(r, s, p, simulation);
+    Object.values(fields).forEach((id) => {
+      const el = $("#" + id);
+      if (el) lastValidFieldValues[id] = el.value;
+    });
+    if ($("#sim-invest"))
+      lastValidFieldValues["sim-invest"] = $("#sim-invest").value;
 
-    const isStressed =
-      $("#known-spend").value !== "" ||
-      r.inflation !== RetirementModel.C.inflation ||
-      r.investmentReturn !== RetirementModel.C.investmentReturn ||
-      r.post55Work;
-
-    const overviewHeaderHTML = buildOverviewPageHeader(fire, r, s);
-    const kpiStripHTML = buildEmberKpiStrip(fire, r, s, simulation, pctOfPay);
-    const heroTrajectoryHTML = buildEmberHeroTrajectorySection(fire);
-    const bentoRowHTML = buildEmberBentoRow(
+    const { isCustom: isCustomSpend, spend: customSpendVal } =
+      getCustomSpendState(r.lifestyle);
+    if (isCustomSpend) {
+      lastCustomSpend = String(Math.round(customSpendVal * 100) / 100);
+    }
+    const overviewHeaderHTML = buildOverviewPageHeader(
+      fire,
+      r,
+      s,
+      isCustomSpend,
+    );
+    const finGridHTML = buildFinOverviewGrid(
       fire,
       r,
       s,
@@ -3035,19 +3128,41 @@ function setupSimplePlan() {
       simGuide,
       tax,
       pctOfPay,
+      selected,
+      isCustomSpend,
     );
-    const strategyLedgerHTML = buildEmberStrategyLedger(r, s, selected);
 
     const bogleHTML = buildBogleheadSection(bogle, r);
     const taxSweetHTML = buildTaxSweetSpotSection(tax);
 
     overviewSlot.innerHTML = `
       ${overviewHeaderHTML}
-      ${kpiStripHTML}
       ${rangeNote}
-      ${heroTrajectoryHTML}
-      ${bentoRowHTML}
-      ${strategyLedgerHTML}`;
+      ${finGridHTML}`;
+
+    if ($("#header-lifestyle-label")) {
+      $("#header-lifestyle-label").textContent =
+        `${isCustomSpend ? "Custom" : r.lifestyle === "cca" ? "Community Care" : "Home + Helper"} (${money(r.todaySpend)}/mo)`;
+    }
+    $$("[data-switch-lifestyle]").forEach((item) => {
+      const active =
+        !isCustomSpend && item.dataset.switchLifestyle === r.lifestyle;
+      item.classList.toggle("is-active", active);
+      item.setAttribute("aria-checked", String(active));
+    });
+    const customMenuItem = $("#header-custom-item");
+    if (customMenuItem) {
+      customMenuItem.hidden = false;
+      customMenuItem.classList.toggle("is-active", isCustomSpend);
+      customMenuItem.setAttribute("aria-checked", String(isCustomSpend));
+    }
+    if ($("#header-custom-sub")) {
+      $("#header-custom-sub").textContent = isCustomSpend
+        ? `${money(r.todaySpend)}/mo · ${r.lifestyle === "cca" ? "CCA care rules" : "Home + Helper care rules"}`
+        : lastCustomSpend
+          ? `${money(Number(lastCustomSpend))}/mo saved · click to restore`
+          : "Set custom monthly budget…";
+    }
 
     const qeErrClear = $("#qe-error");
     if (qeErrClear) {
@@ -3079,62 +3194,42 @@ function setupSimplePlan() {
         tRead.textContent = `${bogle.holistic.targetEquityPct}% Eq / ${bogle.holistic.targetBondPct}% Bond`;
       const sRead = $("#bogle-sg-readout");
       if (sRead) sRead.textContent = `${bogle.holistic.sgSleevePct}%`;
-      const existingOut = allocatorSlot.querySelector("#outside-avenues");
-      const tmpOut = document.createElement("div");
-      tmpOut.innerHTML = outsideHTML;
-      if (existingOut && tmpOut.firstElementChild)
-        existingOut.replaceWith(tmpOut.firstElementChild);
     } else {
-      allocatorSlot.innerHTML = `${bogleHTML}${outsideHTML}`;
+      allocatorSlot.innerHTML = bogleHTML;
     }
 
+    const marginalTaxPct = `${(tax.taxBefore.marginalRate * 100).toFixed(1).replace(/\.0$/, "")}%`;
     taxSlot.innerHTML = `
+      <header class="ember-page-header">
+        <h1>Tax Relief Optimization</h1>
+        <span class="status-pill is-info">${marginalTaxPct} IRAS Bracket</span>
+      </header>
       ${taxSweetHTML}
-      ${coverageHTML}
-      <section class="reference-disclosures" aria-labelledby="ref-title">
-        <h2 id="ref-title">CPF details, future-cash check &amp; stress tests</h2>
-        ${cpfDetailsHTML}
-        ${lessonHTML}
-        <details id="salary-cpf-caps" class="result-details" ${salaryCapOpen ? "open" : ""}>
-          <summary>Age-65 budget breakdown &amp; future-value reference</summary>
-          <dl class="simulation-metrics">
-            <div><dt>Employee CPF (20%)</dt><dd>${m(r.employeeCpf, "/mo")}</dd></div>
-            <div><dt>Employer CPF (17%)</dt><dd>${m(r.employerCpf, "/mo")}</dd></div>
-            <div><dt>Total salary CPF</dt><dd>${m(r.employeeCpf + r.employerCpf, "/mo")}</dd></div>
-            <div><dt>Pay after employee CPF</dt><dd>${m(r.afterCpf, "/mo")}</dd></div>
-          </dl>
-          <p class="result-footnote">2026 Ordinary Wage ceiling: $8,000/mo ($102,000 annual salary ceiling; $37,740 mandatory CPF cap). Below is your age-65 monthly plan in today’s dollars and inflation-adjusted future dollars (${(r.inflation * 100).toFixed(1)}%/yr over ${65 - r.age} yrs):</p>
-          <div class="table-scroll"><table class="trajectory-table"><caption>Age-65 monthly figures in today’s purchasing power vs future dollars</caption><thead><tr><th scope="col">Item</th><th scope="col">Today’s dollars</th><th scope="col">Future cash at 65</th></tr></thead><tbody>${[
-            ["Living budget", r.spend65, simulation.summary.spend65],
-            [
-              "Estimated CPF LIFE",
-              s.payout,
-              simulation.selectedScenario.payout,
-            ],
-            [
-              "Outside portfolio gap",
-              s.gap65,
-              simulation.selectedScenario.gap65,
-            ],
-          ]
-            .map(
-              ([label, today, cash]) =>
-                `<tr><th scope="row">${label}</th><td>${m(today, "/mo")}</td><td>${m(cash, "/mo")}</td></tr>`,
-            )
-            .join("")}</tbody></table></div>
-        </details>
-        <details id="plan-resilience" class="result-details" ${resilienceOpen ? "open" : ""}>
-          <summary>One-click stress tests (inflation, lower returns, +$500 spend)</summary>
-          <p>Test how sensitive your roadmap is to tougher assumptions without opening settings:</p>
-          <div class="stress-actions">
-            <button type="button" class="text-button" data-stress="budget">+$500/mo higher budget</button>
-            <button type="button" class="text-button" data-stress="inflation" ${r.inflation >= 0.035 ? "disabled" : ""}>${r.inflation >= 0.035 ? "Inflation at 3.5%" : "Test 3.5% inflation"}</button>
-            <button type="button" class="text-button" data-stress="return" ${r.investmentReturn <= 0.03 ? "disabled" : ""}>${r.investmentReturn <= 0.03 ? "Net return at 3%" : "Test 3.0% net return"}</button>
-            ${!r.post55Work && r.retire > 55 ? '<button type="button" class="text-button" data-stress="senior">Include post-55 salary CPF</button>' : ""}
-            ${isStressed ? '<button type="button" class="text-button" data-stress="reset">Reset stress tests</button>' : ""}
+      <section class="card-surface rules-card" id="salary-cpf-caps" aria-labelledby="salary-caps-title">
+        <div class="rules-card-head">
+          <div>
+            <h2 id="salary-caps-title">Salary CPF Contributions &amp; Wage Ceilings</h2>
+            <p>2026 Ordinary Wage ceiling: $8,000/mo ($102,000 annual salary ceiling; $37,740 mandatory CPF cap).</p>
           </div>
-        </details>
+          <span class="fin-target-pill">Under 55 rates</span>
+        </div>
+        <dl class="tax-metrics-grid">
+          <div class="tax-metric-box"><dt>Employee CPF (20%)</dt><dd>${m(r.employeeCpf, "/mo")}</dd></div>
+          <div class="tax-metric-box"><dt>Employer CPF (17%)</dt><dd>${m(r.employerCpf, "/mo")}</dd></div>
+          <div class="tax-metric-box"><dt>Total Salary CPF</dt><dd>${m(r.employeeCpf + r.employerCpf, "/mo")}</dd></div>
+          <div class="tax-metric-box"><dt>Take-home after Employee CPF</dt><dd>${m(r.afterCpf, "/mo")}</dd></div>
+        </dl>
       </section>`;
+
+    if (cpfRulesSlot) {
+      cpfRulesSlot.innerHTML = `
+        <header class="ember-page-header">
+          <h1>CPF Milestones &amp; Age-55 Rules</h1>
+          <span class="fin-target-pill">Age 55 → 65</span>
+        </header>
+        ${lessonHTML}
+        ${cpfDetailsHTML}`;
+    }
 
     renderStackedNetWorthSVG(
       $("#dash-networth-chart"),
@@ -3155,16 +3250,17 @@ function setupSimplePlan() {
       currentFirePlan,
       dashChartBasis,
     );
-    renderDrawdownSummary(r, drawdown);
-    renderPrintSheet(
+    renderPrintSheet({
       r,
       s,
-      drawdown,
       simulation,
-      readinessPending,
-      readinessAge,
-      { fire, bogle, tax, guide: simGuide, p, basis: dashChartBasis },
-    );
+      fire,
+      bogle,
+      tax,
+      guide: simGuide,
+      p,
+      basis: dashChartBasis,
+    });
   };
 
   const scheduleRender = () => {
@@ -3191,7 +3287,6 @@ function setupSimplePlan() {
     );
     const val = anyBucketSet ? String(Math.round(sum * 100) / 100) : "";
     if ($("#known-savings")) $("#known-savings").value = val;
-    if ($("#known-savings-step1")) $("#known-savings-step1").value = val;
   };
   const clearBucketsOnDirectTotalEdit = () => {
     bucketIds.forEach((id) => {
@@ -3203,13 +3298,11 @@ function setupSimplePlan() {
     const el = $("#" + id);
     if (el) {
       el.addEventListener("input", () => {
+        if (id === "person-dob" && el.validity.badInput) return;
         if (bucketIds.includes(id)) {
           syncBucketsToTotal();
         } else if (id === "known-savings") {
           clearBucketsOnDirectTotalEdit();
-          if ($("#known-savings-step1")) {
-            $("#known-savings-step1").value = el.value;
-          }
         }
         render();
       });
@@ -3218,20 +3311,6 @@ function setupSimplePlan() {
       });
     }
   });
-  if ($("#known-savings-step1")) {
-    const syncStep1Savings = () => {
-      clearBucketsOnDirectTotalEdit();
-      $("#known-savings").value = $("#known-savings-step1").value;
-      render();
-    };
-    $("#known-savings-step1").addEventListener("input", syncStep1Savings);
-    $("#known-savings-step1").addEventListener("change", syncStep1Savings);
-  }
-
-  const setIoStatus = (msg) => {
-    if ($("#data-io-status")) $("#data-io-status").textContent = msg;
-    if ($("#plan-status")) $("#plan-status").textContent = msg;
-  };
 
   const applyPlanObject = (planObj) => {
     if (!planObj || typeof planObj !== "object")
@@ -3242,22 +3321,25 @@ function setupSimplePlan() {
       if (!el || planObj[key] == null) continue;
       el.value = String(planObj[key]);
     }
+    if (planObj.dob == null && planObj.age != null && $("#person-dob")) {
+      const legacyAge = Number(planObj.age);
+      if (Number.isFinite(legacyAge)) {
+        $("#person-dob").value = RetirementModel.defaultDobForAge(legacyAge);
+      }
+    }
     if (
       planObj.savings == null &&
       bucketIds.some((id) => ($("#" + id)?.value || "").trim() !== "")
     ) {
       syncBucketsToTotal();
-    } else if ($("#known-savings-step1")) {
-      $("#known-savings-step1").value = $("#known-savings")?.value || "";
     }
   };
 
   const SG_DEFAULT_PLAN = {
     lifestyle: "cca",
-    age: 35,
+    dob: DEFAULT_DOB,
     salary: 5500,
     retire: 65,
-    spend: 2500,
     oa: 0,
     sa: 0,
     ma: 0,
@@ -3276,20 +3358,44 @@ function setupSimplePlan() {
     returnRate: 0.04,
     inflationRate: 0.03,
     post55Work: false,
+    housingMode: "all-oa",
+    housingBalance: "",
+    housingYears: 20,
+    housingRate: 2.6,
+    housingParties: 1,
   };
 
   const resetSgDefaults = () => {
+    lastCustomSpend = "";
     applyPlanObject(SG_DEFAULT_PLAN);
     selected = "salary";
     learningTarget = "frs";
-    resetTiming();
     render();
-    setIoStatus("Reset to typical Singapore age-35 defaults.");
+    if ($("#plan-status")) {
+      $("#plan-status").textContent =
+        "Reset to typical Singapore age-35 defaults.";
+    }
   };
 
   document.addEventListener("click", (event) => {
     if (event.target.closest("[data-sg-reset]")) {
       resetSgDefaults();
+      return;
+    }
+    const clampBtn = event.target.closest("[data-clamp-field]");
+    if (clampBtn) {
+      const fieldId = clampBtn.dataset.clampField;
+      const clampVal = clampBtn.dataset.clampVal;
+      const target = $("#" + fieldId);
+      if (target && clampVal != null) {
+        target.value = clampVal;
+        if (fieldId === "known-savings") {
+          clearBucketsOnDirectTotalEdit();
+        } else if (bucketIds.includes(fieldId)) {
+          syncBucketsToTotal();
+        }
+        render();
+      }
       return;
     }
     const goalRetireBtn = event.target.closest("[data-goal-retire]");
@@ -3308,6 +3414,89 @@ function setupSimplePlan() {
     if (goalPathBtn) {
       selected = goalPathBtn.dataset.goalPath;
       render();
+      return;
+    }
+    const activityTabBtn = event.target.closest("[data-fin-activity]");
+    if (activityTabBtn) {
+      finActivityTab = activityTabBtn.dataset.finActivity || "coverage";
+      render();
+      return;
+    }
+    const lifePill = event.target.closest("#header-lifestyle-pill");
+    const lifeMenu = $("#header-lifestyle-menu");
+    if (lifePill && lifeMenu) {
+      const nextOpen = lifeMenu.hidden;
+      lifeMenu.hidden = !nextOpen;
+      lifePill.setAttribute("aria-expanded", String(nextOpen));
+      return;
+    }
+    const selectCustomBtn = event.target.closest("[data-select-custom]");
+    if (selectCustomBtn) {
+      if (lifeMenu) lifeMenu.hidden = true;
+      $("#header-lifestyle-pill")?.setAttribute("aria-expanded", "false");
+      const currentState = getCustomSpendState();
+      if (!currentState.isCustom && lastCustomSpend) {
+        $("#known-spend").value = lastCustomSpend;
+        if ($("#qe-spend")) $("#qe-spend").value = lastCustomSpend;
+        render();
+        return;
+      }
+      lastQeInvoker = $("#header-lifestyle-pill") || selectCustomBtn;
+      if ($("#qe-lifestyle")) $("#qe-lifestyle").dataset.pendingCustom = "true";
+      syncQuickEditState(null, currentFirePlan, null);
+      setQuickEditPanel("budget", false);
+      const scroller = qeDialog?.querySelector(".settings-scroll-body");
+      if (scroller) scroller.scrollTop = 0;
+      if (qeDialog && !qeDialog.open) qeDialog.showModal();
+      requestAnimationFrame(() => {
+        $("#qe-spend")?.focus();
+        $("#qe-spend")?.select();
+      });
+      render();
+      return;
+    }
+    const switchLifeBtn = event.target.closest("[data-switch-lifestyle]");
+    if (switchLifeBtn) {
+      const nextVal = switchLifeBtn.dataset.switchLifestyle;
+      if ($("#known-lifestyle") && nextVal) {
+        const curCustom = getCustomSpendState();
+        if (curCustom.isCustom) {
+          lastCustomSpend = String(Math.round(curCustom.spend * 100) / 100);
+        }
+        delete $("#qe-lifestyle")?.dataset.pendingCustom;
+        $("#known-lifestyle").value = nextVal;
+        $("#known-spend").value = "";
+        if ($("#qe-spend")) $("#qe-spend").value = "";
+        if ($("#qe-lifestyle")) $("#qe-lifestyle").value = nextVal;
+        if (nextVal === "cca" && Number($("#known-retire")?.value || 65) < 55) {
+          $("#known-retire").value = "55";
+          if ($("#qe-retire")) $("#qe-retire").value = "55";
+        }
+      }
+      if (lifeMenu) lifeMenu.hidden = true;
+      $("#header-lifestyle-pill")?.setAttribute("aria-expanded", "false");
+      render();
+      return;
+    }
+    if (
+      lifeMenu &&
+      !lifeMenu.hidden &&
+      !event.target.closest("#header-lifestyle-wrap")
+    ) {
+      lifeMenu.hidden = true;
+      $("#header-lifestyle-pill")?.setAttribute("aria-expanded", "false");
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    const lifeMenu = $("#header-lifestyle-menu");
+    const lifePill = $("#header-lifestyle-pill");
+    if (lifeMenu && !lifeMenu.hidden) {
+      const wasInside = lifeMenu.contains(document.activeElement);
+      lifeMenu.hidden = true;
+      lifePill?.setAttribute("aria-expanded", "false");
+      if (wasInside) lifePill?.focus({ preventScroll: true });
     }
   });
 
@@ -3353,9 +3542,48 @@ function setupSimplePlan() {
     $("#known-invest").value = "";
     render();
   });
-  $("#btn-zero-housing").addEventListener("click", () => {
-    $("#known-housing").value = "0";
+  const handleHousingModeSwitch = (modeVal) => {
+    if (modeVal === "bank") {
+      if (
+        $("#known-housing-rate") &&
+        ($("#known-housing-rate").value === "2.6" ||
+          $("#known-housing-rate").value.trim() === "")
+      ) {
+        $("#known-housing-rate").value = lastBankLoanRate;
+      }
+      if ($("#qe-housing-rate") && $("#known-housing-rate")) {
+        $("#qe-housing-rate").value = $("#known-housing-rate").value;
+      }
+    } else if (modeVal === "hdb") {
+      if ($("#known-housing-rate")) $("#known-housing-rate").value = "2.6";
+      if ($("#qe-housing-rate")) $("#qe-housing-rate").value = "2.6";
+    }
+    if (modeVal === "hdb" || modeVal === "bank") {
+      if (
+        $("#known-housing-years") &&
+        $("#known-housing-years").value.trim() === ""
+      ) {
+        $("#known-housing-years").value = "20";
+      }
+      if (
+        $("#known-housing-parties") &&
+        $("#known-housing-parties").value.trim() === ""
+      ) {
+        $("#known-housing-parties").value = "1";
+      }
+    }
+  };
+  $("#known-housing-mode")?.addEventListener("change", (event) => {
+    handleHousingModeSwitch(event.target.value);
     render();
+  });
+  $("#known-housing-rate")?.addEventListener("input", (event) => {
+    if (
+      $("#known-housing-mode")?.value === "bank" &&
+      event.target.value.trim() !== ""
+    ) {
+      lastBankLoanRate = event.target.value.trim();
+    }
   });
 
   $$("[data-chart-mode]").forEach((btn) =>
@@ -3377,6 +3605,25 @@ function setupSimplePlan() {
   );
 
   $("#print-plan-btn")?.addEventListener("click", () => window.print());
+  document.addEventListener("click", (event) => {
+    if (event.target.closest("[data-print-trigger]")) {
+      window.print();
+    }
+  });
+  const scrollTopBtn = $("#scroll-top-btn");
+  if (scrollTopBtn) {
+    const syncScrollTop = () => {
+      scrollTopBtn.hidden = window.scrollY < 100;
+    };
+    window.addEventListener("scroll", syncScrollTop, { passive: true });
+    scrollTopBtn.addEventListener("click", () => {
+      const reduced = window.matchMedia?.(
+        "(prefers-reduced-motion: reduce)",
+      )?.matches;
+      window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" });
+    });
+    syncScrollTop();
+  }
 
   $("#reset-settings")?.addEventListener("click", () => {
     resetSgDefaults();
@@ -3384,11 +3631,17 @@ function setupSimplePlan() {
 
   const qeDialog = $("#quick-edit-modal");
   const qeBindings = [
+    ["qe-dob", "person-dob"],
     ["qe-retire", "known-retire"],
     ["qe-lifestyle", "known-lifestyle"],
     ["qe-spend", "known-spend"],
     ["qe-plan", "known-plan"],
     ["qe-salary", "person-salary"],
+    ["qe-housing-mode", "known-housing-mode"],
+    ["qe-housing-balance", "known-housing-balance"],
+    ["qe-housing-years", "known-housing-years"],
+    ["qe-housing-rate", "known-housing-rate"],
+    ["qe-housing-parties", "known-housing-parties"],
     ["qe-housing", "known-housing"],
     ["qe-cpf-extra", "known-cpf-extra"],
     ["qe-invest", "known-invest"],
@@ -3404,9 +3657,12 @@ function setupSimplePlan() {
   let activeQeTab = "goal";
 
   function getMinRetireAge() {
-    const curAge = Number($("#person-age")?.value || 35);
+    const dobInfo = RetirementModel.computeAgeFromDob(
+      $("#person-dob")?.value || "",
+    );
+    const curAge = dobInfo.valid ? dobInfo.age : 35;
     const lifeMin = $("#known-lifestyle")?.value === "cca" ? 55 : 40;
-    return Math.max(lifeMin, Number.isFinite(curAge) ? curAge : 35);
+    return Math.max(lifeMin, curAge);
   }
 
   function syncQuickEditState(r = null, fire = null, simulation = null) {
@@ -3415,12 +3671,35 @@ function setupSimplePlan() {
     const qeRetire = $("#qe-retire");
     if (qeRetire) qeRetire.min = String(minRetire);
 
+    const customState = getCustomSpendState(r?.lifestyle);
     for (const [qeId, srcId] of qeBindings) {
+      if (qeId === "qe-lifestyle") continue;
       const qeEl = $("#" + qeId);
       const srcEl = $("#" + srcId);
       if (!qeEl || !srcEl) continue;
       if (document.activeElement !== qeEl) {
         qeEl.value = srcEl.value;
+      }
+    }
+
+    const qeLifestyleEl = $("#qe-lifestyle");
+    if (qeLifestyleEl) {
+      const customOpt = qeLifestyleEl.querySelector('option[value="custom"]');
+      if (customOpt) {
+        customOpt.textContent = customState.isCustom
+          ? `Custom (${money(customState.spend)}/mo)`
+          : lastCustomSpend
+            ? `Custom (${money(Number(lastCustomSpend))}/mo saved)`
+            : "Custom";
+      }
+      if (document.activeElement !== qeLifestyleEl) {
+        if (customState.isCustom) {
+          qeLifestyleEl.value = "custom";
+        } else if (qeLifestyleEl.dataset.pendingCustom === "true") {
+          qeLifestyleEl.value = "custom";
+        } else {
+          qeLifestyleEl.value = customState.lifestyleKey;
+        }
       }
     }
 
@@ -3431,19 +3710,19 @@ function setupSimplePlan() {
         (delta < 0 && curRetire <= minRetire) || (delta > 0 && curRetire >= 80);
     });
 
-    const lifestyleVal = $("#known-lifestyle")?.value || "cca";
-    const defaultBudget =
-      RetirementModel.lifestyles[lifestyleVal]?.budget || 2500;
+    const lifestyleVal = customState.lifestyleKey;
+    const defaultBudget = customState.presetBudget;
     const qeSpend = $("#qe-spend");
     if (qeSpend) qeSpend.placeholder = String(defaultBudget);
     const qeResetSpend = $("#qe-reset-spend");
     if (qeResetSpend) {
-      qeResetSpend.hidden = ($("#known-spend")?.value || "").trim() === "";
+      qeResetSpend.hidden = !customState.isCustom;
     }
     const qeLifestyleHint = $("#qe-lifestyle-hint");
     if (qeLifestyleHint) {
-      qeLifestyleHint.textContent =
-        lifestyleVal === "cca"
+      qeLifestyleHint.textContent = customState.isCustom
+        ? `Using custom budget (${money(customState.spend)}/mo · ${lifestyleVal === "cca" ? "CCA care rules, from age 55" : "Home + Helper care rules, from age 40"}).`
+        : lifestyleVal === "cca"
           ? "CCA assumes moving in at retirement, from age 55."
           : "Assumes a paid-up flat with live-in helper, from age 40.";
     }
@@ -3474,6 +3753,33 @@ function setupSimplePlan() {
           readyBtn.textContent = `Use ready age ${fn.projectedFireAge}`;
         }
       }
+      const breakdownEl = $("#qe-balances-breakdown");
+      if (breakdownEl) {
+        const startPt = fire.points[0];
+        const cpfTot = startPt?.cpfTotal ?? 0;
+        const outTot = startPt?.totalOutside ?? 0;
+        const oaV = Math.max(0, Number($("#known-oa")?.value || 0));
+        const saV = Math.max(0, Number($("#known-sa")?.value || 0));
+        const maV = Math.max(0, Number($("#known-ma")?.value || 0));
+        const eqV = Math.max(0, Number($("#known-equities")?.value || 0));
+        const sgV = Math.max(0, Number($("#known-sg-dividends")?.value || 0));
+        const ssbV = Math.max(0, Number($("#known-ssb-cash")?.value || 0));
+        const srsV = Math.max(0, Number($("#known-srs")?.value || 0));
+        const bucketSum = eqV + sgV + ssbV + srsV;
+        const outDetail =
+          bucketSum > 0
+            ? `Eq ${m(eqV)} · SG ${m(sgV)} · Cash ${m(ssbV)}${srsV > 0 ? ` · SRS ${m(srsV)}` : ""}`
+            : `Direct total ${m(outTot)}`;
+        breakdownEl.innerHTML = `
+          <div class="qe-bd-top">
+            <span>Total Current Assets</span>
+            <strong>${m(cpfTot + outTot)}</strong>
+          </div>
+          <div class="qe-bd-rows">
+            <div><span>CPF (${m(cpfTot)})</span><small>OA ${m(oaV)} · SA ${m(saV)} · MA ${m(maV)}</small></div>
+            <div><span>Outside (${m(outTot)})</span><small>${outDetail}</small></div>
+          </div>`;
+      }
       const qeSummary = $("#qe-live-summary");
       if (qeSummary) {
         const funded =
@@ -3482,13 +3788,14 @@ function setupSimplePlan() {
             : `${fn.pctFunded}% Funded`;
         const horizon = fn.fullyFundedTo95
           ? "Sustained to 95+"
-          : `Funded to ${fire.depletionAge ?? 90}`;
+          : `Funded to ${Math.floor(fn.depletionAge ?? 90)}`;
         qeSummary.textContent = `Age ${r.age} → ${r.retire} · ${funded} · ${horizon}`;
       }
     }
   }
 
   const qePanelMeta = {
+    age: { title: "Date of Birth & Age", focus: "#qe-dob" },
     goal: { title: "Target Retirement Age", focus: "#qe-retire" },
     budget: { title: "Living Budget & CPF LIFE", focus: "#qe-lifestyle" },
     income: { title: "Monthly Savings & Salary", focus: "#qe-salary" },
@@ -3515,7 +3822,14 @@ function setupSimplePlan() {
       const trigger = event.target.closest("[data-quick-edit]");
       if (!trigger) return;
       event.preventDefault();
-      lastQeInvoker = trigger;
+      const lifeMenu = $("#header-lifestyle-menu");
+      if (lifeMenu && !lifeMenu.hidden) {
+        lifeMenu.hidden = true;
+        $("#header-lifestyle-pill")?.setAttribute("aria-expanded", "false");
+      }
+      lastQeInvoker = lifeMenu?.contains(trigger)
+        ? $("#header-lifestyle-pill") || trigger
+        : trigger;
       syncQuickEditState(null, currentFirePlan, null);
       setQuickEditPanel(trigger.dataset.quickEdit || "goal", true);
       const scroller = qeDialog.querySelector(".settings-scroll-body");
@@ -3562,14 +3876,12 @@ function setupSimplePlan() {
         return;
       }
       if (event.target.closest("#qe-reset-spend")) {
+        const curCustom = getCustomSpendState();
+        if (curCustom.isCustom) {
+          lastCustomSpend = String(Math.round(curCustom.spend * 100) / 100);
+        }
         $("#known-spend").value = "";
         if ($("#qe-spend")) $("#qe-spend").value = "";
-        render();
-        return;
-      }
-      if (event.target.closest("#qe-zero-housing")) {
-        $("#known-housing").value = "0";
-        if ($("#qe-housing")) $("#qe-housing").value = "0";
         render();
         return;
       }
@@ -3603,11 +3915,68 @@ function setupSimplePlan() {
       const srcEl = $("#" + srcId);
       if (!qeEl || !srcEl) return;
       const syncBack = () => {
-        const prevVal = srcEl.value;
-        srcEl.value = qeEl.value;
-        if (srcId === "known-lifestyle" && prevVal !== qeEl.value) {
+        if (qeId === "qe-lifestyle") {
+          if (qeEl.value === "custom") {
+            if (lastCustomSpend && $("#known-spend").value.trim() === "") {
+              $("#known-spend").value = lastCustomSpend;
+              if ($("#qe-spend")) $("#qe-spend").value = lastCustomSpend;
+              delete qeEl.dataset.pendingCustom;
+              render();
+            } else {
+              qeEl.dataset.pendingCustom = "true";
+              syncQuickEditState(null, currentFirePlan, null);
+            }
+            requestAnimationFrame(() => {
+              $("#qe-spend")?.focus();
+              $("#qe-spend")?.select();
+            });
+            return;
+          }
+          const curCustom = getCustomSpendState();
+          if (curCustom.isCustom) {
+            lastCustomSpend = String(Math.round(curCustom.spend * 100) / 100);
+          }
+          delete qeEl.dataset.pendingCustom;
+          srcEl.value = qeEl.value;
           $("#known-spend").value = "";
           if ($("#qe-spend")) $("#qe-spend").value = "";
+          if (
+            qeEl.value === "cca" &&
+            Number($("#known-retire")?.value || 65) < 55
+          ) {
+            $("#known-retire").value = "55";
+            if ($("#qe-retire")) $("#qe-retire").value = "55";
+          }
+          render();
+          return;
+        }
+        if (qeId === "qe-dob" && qeEl.validity.badInput) {
+          return;
+        }
+        if (qeId === "qe-spend" && qeEl.value.trim() !== "") {
+          delete $("#qe-lifestyle")?.dataset.pendingCustom;
+        }
+        srcEl.value = qeEl.value;
+        if (qeId === "qe-housing-mode") {
+          handleHousingModeSwitch(qeEl.value);
+        }
+        if (
+          qeId === "qe-housing-rate" &&
+          $("#known-housing-mode")?.value === "bank" &&
+          qeEl.value.trim() !== ""
+        ) {
+          lastBankLoanRate = qeEl.value.trim();
+        }
+        if (qeId === "qe-dob") {
+          const dobInfo = RetirementModel.computeAgeFromDob(qeEl.value);
+          if (
+            dobInfo.valid &&
+            Number($("#known-retire")?.value || 65) < getMinRetireAge()
+          ) {
+            const minR = String(getMinRetireAge());
+            $("#known-retire").value = minR;
+            if ($("#qe-retire")) $("#qe-retire").value = minR;
+          }
         }
         if (bucketIds.includes(srcId)) {
           syncBucketsToTotal();
@@ -3619,6 +3988,53 @@ function setupSimplePlan() {
     });
 
     qeDialog.addEventListener("close", () => {
+      delete $("#qe-lifestyle")?.dataset.pendingCustom;
+      let corrected = false;
+      const minRetire = getMinRetireAge();
+      for (const [qeId, srcId] of qeBindings) {
+        if (
+          qeId === "qe-lifestyle" ||
+          qeId === "qe-plan" ||
+          qeId === "qe-housing-mode" ||
+          qeId === "qe-housing-parties"
+        )
+          continue;
+        const qeEl = $("#" + qeId);
+        const srcEl = $("#" + srcId);
+        if (!qeEl || !srcEl) continue;
+        const raw = srcEl.value.trim();
+        if (srcId === "person-dob") {
+          const dobInfo = RetirementModel.computeAgeFromDob(raw);
+          if (srcEl.validity.badInput || !dobInfo.valid) {
+            srcEl.value = lastValidFieldValues[srcId] || DEFAULT_DOB;
+            qeEl.value = srcEl.value;
+            corrected = true;
+          }
+          continue;
+        }
+        if (srcEl.validity.badInput) {
+          srcEl.value = lastValidFieldValues[srcId] ?? srcEl.defaultValue ?? "";
+          qeEl.value = srcEl.value;
+          corrected = true;
+        } else if (srcId === "person-salary" && raw === "") {
+          srcEl.value = lastValidFieldValues[srcId] || "5500";
+          qeEl.value = srcEl.value;
+          corrected = true;
+        } else if (raw !== "" && !srcEl.validity.valid) {
+          const minV =
+            srcId === "known-retire" ? minRetire : Number(srcEl.min || 0);
+          const maxV = srcEl.max !== "" ? Number(srcEl.max) : Infinity;
+          let clamped = Math.min(maxV, Math.max(minV, Number(raw)));
+          if (srcEl.step === "1") clamped = Math.round(clamped);
+          srcEl.value = String(clamped);
+          qeEl.value = srcEl.value;
+          corrected = true;
+        }
+      }
+      if (corrected) {
+        syncBucketsToTotal();
+        render();
+      }
       if (qeDialog.dataset.flowNavigation) {
         delete qeDialog.dataset.flowNavigation;
         return;
@@ -3703,7 +4119,7 @@ function setupDeepLinks() {
     if (!target) return;
     const details = target.matches("details")
       ? target
-      : target.querySelector(".module-disclosure");
+      : target.querySelector("details");
     if (details) details.open = true;
     let ancestor = target.closest("details");
     while (ancestor) {
@@ -3720,12 +4136,11 @@ function setupDeepLinks() {
 }
 
 function setupGuidedFlow() {
-  const TABS = ["overview", "trajectory", "allocator", "tax"];
+  const TABS = ["overview", "trajectory", "allocator", "tax", "cpf-rules"];
   let activeTab = "overview";
   let profileOpen = false;
   const form = $("#quick-form");
   const lifestyle = $("#known-lifestyle");
-  const balances = $("#start-cpf-details");
 
   form.addEventListener(
     "invalid",
@@ -3738,18 +4153,24 @@ function setupGuidedFlow() {
     },
     true,
   );
-  $("#use-preset-budget").addEventListener("click", () => {
+  $("#use-preset-budget")?.addEventListener("click", () => {
     $("#known-spend").value = "";
+    if ($("#qe-spend")) $("#qe-spend").value = "";
     $("#known-spend").dispatchEvent(new Event("input", { bubbles: true }));
     $("#known-spend").focus({ preventScroll: true });
   });
-  $(".preset-picker").addEventListener("change", (event) => {
-    if (event.target.name !== "lifestyle-choice") return;
-    if (lifestyle.value !== event.target.value) {
-      $("#known-spend").value = "";
-      if ($("#qe-spend")) $("#qe-spend").value = "";
+  lifestyle?.addEventListener("change", (event) => {
+    if (!event.isTrusted) return;
+    delete $("#qe-lifestyle")?.dataset.pendingCustom;
+    $("#known-spend").value = "";
+    if ($("#qe-spend")) $("#qe-spend").value = "";
+    if (
+      lifestyle.value === "cca" &&
+      Number($("#known-retire")?.value || 65) < 55
+    ) {
+      $("#known-retire").value = "55";
+      if ($("#qe-retire")) $("#qe-retire").value = "55";
     }
-    lifestyle.value = event.target.value;
     lifestyle.dispatchEvent(new Event("input", { bubbles: true }));
   });
 
@@ -3764,7 +4185,11 @@ function setupGuidedFlow() {
     });
 
     $$("[data-tab]").forEach((btn) => {
-      const isSelected = !profileOpen && btn.dataset.tab === activeTab;
+      const inTaxGroup =
+        btn.dataset.tabGroup === "tax" &&
+        ["tax", "cpf-rules"].includes(activeTab);
+      const isSelected =
+        !profileOpen && (btn.dataset.tab === activeTab || inTaxGroup);
       btn.classList.toggle("is-active", isSelected);
       btn.setAttribute("aria-selected", String(isSelected));
       if (isSelected) btn.setAttribute("aria-current", "page");
@@ -3799,12 +4224,6 @@ function setupGuidedFlow() {
     { tab = activeTab, profile = false } = {},
     focus = true,
   ) => {
-    if (
-      !profile &&
-      (!form.reportValidity() ||
-        ($("#settings-error").textContent && $("#print-plan-btn").disabled))
-    )
-      return;
     if ($("#plan-settings").open)
       $("#plan-settings").dataset.flowNavigation = "true";
     $("#plan-settings").close();
@@ -3829,16 +4248,7 @@ function setupGuidedFlow() {
     const goTabBtn = event.target.closest("[data-go-tab]");
     if (goTabBtn) {
       event.preventDefault();
-      const targetTab = goTabBtn.dataset.goTab;
-      navigateTo({ tab: targetTab, profile: false });
-      if (goTabBtn.dataset.reveal === "timing") {
-        const timingSection = $("#timing-section");
-        if (timingSection) timingSection.open = true;
-        $("#timing-section")?.scrollIntoView({
-          block: "start",
-          behavior: "instant",
-        });
-      }
+      navigateTo({ tab: goTabBtn.dataset.goTab, profile: false });
       return;
     }
 
@@ -3861,29 +4271,12 @@ function setupGuidedFlow() {
     if (stepNum === 1) {
       navigateTo({ profile: true });
       if (stepBtn.dataset.reveal === "cpf") {
-        balances.open = true;
-        $("#known-savings-step1")?.focus({ preventScroll: true });
-        balances.scrollIntoView({ block: "start", behavior: "instant" });
+        $("#known-oa")?.focus({ preventScroll: true });
       }
     } else if (stepNum === 3) {
       navigateTo({ tab: "trajectory", profile: false });
-      if (stepBtn.dataset.reveal === "timing") {
-        const timingSection = $("#timing-section");
-        if (timingSection) timingSection.open = true;
-        $("#timing-section")?.scrollIntoView({
-          block: "start",
-          behavior: "instant",
-        });
-      }
     } else {
       navigateTo({ tab: "overview", profile: false });
-      if (stepBtn.dataset.reveal === "outside") {
-        navigateTo({ tab: "allocator", profile: false });
-        $("#outside-avenues")?.scrollIntoView({
-          block: "start",
-          behavior: "instant",
-        });
-      }
     }
   });
 
@@ -3915,6 +4308,7 @@ function setupGuidedFlow() {
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
+    if (!form.reportValidity()) return;
     navigateTo({ tab: "overview", profile: false });
   });
 
@@ -3956,7 +4350,6 @@ function setupGuidedFlow() {
         "savings-simulator",
         "funding-steps",
         "trajectory-section",
-        "timing-section",
         "tab-panel-trajectory",
       ].includes(id)
     ) {
@@ -3966,43 +4359,37 @@ function setupGuidedFlow() {
       const targetEl = $(
         "#" + (id === "funding-steps" ? "savings-simulator" : id),
       );
-      const disc = targetEl?.matches("details")
-        ? targetEl
-        : targetEl?.querySelector("details.module-disclosure");
-      if (disc) disc.open = true;
+      requestAnimationFrame(() => targetEl?.scrollIntoView());
+      return;
+    }
+    if (["boglehead-allocator", "tab-panel-allocator"].includes(id)) {
+      profileOpen = false;
+      activeTab = "allocator";
+      applyViewState(false, false);
+      const targetEl = $("#" + id);
       requestAnimationFrame(() => targetEl?.scrollIntoView());
       return;
     }
     if (
       [
-        "boglehead-allocator",
-        "outside-avenues",
-        "srs-notes",
-        "retirement-budget",
-        "later-life",
-        "tab-panel-allocator",
+        "tax-sweet-spot",
+        "salary-cpf-caps",
+        "tab-panel-tax",
+        "cpf-goal-guide",
+        "cpf-position-details",
+        "tab-panel-cpf-rules",
       ].includes(id)
     ) {
       profileOpen = false;
-      activeTab = "allocator";
+      activeTab = [
+        "cpf-goal-guide",
+        "cpf-position-details",
+        "tab-panel-cpf-rules",
+      ].includes(id)
+        ? "cpf-rules"
+        : "tax";
       applyViewState(false, false);
       const targetEl = $("#" + id);
-      const disc = targetEl?.matches("details")
-        ? targetEl
-        : targetEl?.querySelector("details.module-disclosure");
-      if (disc) disc.open = true;
-      requestAnimationFrame(() => targetEl?.scrollIntoView());
-      return;
-    }
-    if (["tax-sweet-spot", "model-assumptions", "tab-panel-tax"].includes(id)) {
-      profileOpen = false;
-      activeTab = "tax";
-      applyViewState(false, false);
-      const targetEl = $("#" + id);
-      const disc = targetEl?.matches("details")
-        ? targetEl
-        : targetEl?.querySelector("details.module-disclosure");
-      if (disc) disc.open = true;
       requestAnimationFrame(() => targetEl?.scrollIntoView());
     }
   };
@@ -4015,7 +4402,6 @@ function setupGuidedFlow() {
 function setupFieldHelp() {
   const nativePopover = "popover" in HTMLElement.prototype;
   const essential = {
-    "known-housing": "Blank assumes future OA pays housing.",
     "known-cpf-extra": "Extra saving above salary CPF.",
     "sim-invest": "Separate from CPF savings.",
   };
@@ -4025,7 +4411,7 @@ function setupFieldHelp() {
     );
   $$(".field").forEach((field) => {
     const label = field.querySelector(":scope > label");
-    const help = field.querySelector(":scope > small:not(.timing-error)");
+    const help = field.querySelector(":scope > small");
     const input = label && document.getElementById(label.htmlFor);
     if (!input || !help) return;
     const panel = document.createElement("div");
@@ -4232,7 +4618,6 @@ function setupServiceWorkerUpdates() {
 setupEmberRingsInteractivity();
 setupServiceWorkerUpdates();
 
-setupCareBreakdown();
 setupSimplePlan();
 setupSettings();
 setupDeepLinks();

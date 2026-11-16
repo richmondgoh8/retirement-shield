@@ -764,6 +764,28 @@ test("bogleheadAllocation computes liquid vs holistic net worth split and smart 
       alloc.monthlyRebalance.buySgMonthly,
     2000,
   );
+
+  // Overweight SG Dividends sleeve + $0 CPF routes 100% into Global UCITS and avoids false "CPF holds" copy
+  const overweightSg = M.bogleheadAllocation(
+    {
+      age: 35,
+      oa: 0,
+      sa: 0,
+      ma: 0,
+      equities: 35000,
+      sgDividends: 5000,
+      ssbCash: 20000,
+      srs: 0,
+      targetEquityPct: 95,
+      sgSleevePct: 3,
+    },
+    1000,
+  );
+  assert.equal(overweightSg.monthlyRebalance.buySgMonthly, 0);
+  assert.equal(overweightSg.monthlyRebalance.buyGlobalMonthly, 1000);
+  assert.equal(overweightSg.monthlyRebalance.buyBondMonthly, 0);
+  assert.match(overweightSg.monthlyRebalance.note, /SSB \/ Cash holds 33%/);
+  assert.match(overweightSg.monthlyRebalance.note, /100% goes to Global UCITS/);
 });
 
 test("firePlan models two-phase FIRE bridge, 1M65 trajectory to 95, and SRS 63/64 rule", () => {
@@ -793,4 +815,222 @@ test("firePlan models two-phase FIRE bridge, 1M65 trajectory to 95, and SRS 63/6
     idleSrs.points.find((x) => x.age === 62).srs <
       fp63.points.find((x) => x.age === 62).srs,
   );
+});
+
+test("computeHousingPayment models HDB/bank mortgage share and stops OA deduction after housingYears", () => {
+  const M = require("./model.js");
+  // HDB loan @ 2.6%, $300k over 20 years, split across 2 parties
+  const hdb2 = M.computeHousingPayment({
+    mode: "hdb",
+    loanBalance: 300000,
+    loanRate: 99, // ignored for HDB (fixed 2.6%)
+    loanYears: 20,
+    loanParties: 2,
+  });
+  assert.equal(hdb2.ratePct, 2.6);
+  assert.ok(Math.abs(hdb2.totalMonthly - 1604.35) < 0.2);
+  assert.ok(Math.abs(hdb2.monthlyShare - 802.18) < 0.2);
+
+  // Bank loan @ 2.0%, $300k over 20 years, 1 party
+  const bank1 = M.computeHousingPayment({
+    mode: "bank",
+    loanBalance: 300000,
+    loanRate: 2.0,
+    loanYears: 20,
+    loanParties: 1,
+  });
+  assert.equal(bank1.ratePct, 2.0);
+  assert.ok(bank1.totalMonthly < hdb2.totalMonthly);
+  assert.equal(bank1.monthlyShare, bank1.totalMonthly);
+
+  // Paid up vs finite housingYears vs perpetual housing
+  const paidUp = M.projectCPF({ age: 35, salary: 6000, housing: 0 });
+  const finite10 = M.projectCPF({
+    age: 35,
+    salary: 6000,
+    housing: 800,
+    housingYears: 10,
+  });
+  const perpetual = M.projectCPF({
+    age: 35,
+    salary: 6000,
+    housing: 800,
+  });
+  assert.ok(finite10.cpfAt55 > perpetual.cpfAt55);
+  assert.ok(finite10.cpfAt55 < paidUp.cpfAt55);
+});
+
+test("computeAgeFromDob calculates completed years accurately across birthdays and leap days", () => {
+  const M = require("./model.js");
+  const ref = new Date(2026, 10, 16); // 16 Nov 2026
+
+  // Birthday already passed this year
+  const passed = M.computeAgeFromDob("1991-01-01", ref);
+  assert.equal(passed.valid, true);
+  assert.equal(passed.age, 35);
+  assert.equal(passed.monthsRemainder, 10);
+
+  // Birthday is today
+  const todayBday = M.computeAgeFromDob("1991-11-16", ref);
+  assert.equal(todayBday.valid, true);
+  assert.equal(todayBday.age, 35);
+  assert.equal(todayBday.isBirthdayToday, true);
+
+  // Birthday later this year (turns 35 next month)
+  const upcoming = M.computeAgeFromDob("1991-12-01", ref);
+  assert.equal(upcoming.valid, true);
+  assert.equal(upcoming.age, 34);
+  assert.equal(upcoming.monthsRemainder, 11);
+
+  // Leap day birthday in non-leap year
+  const leapBefore = M.computeAgeFromDob("2000-02-29", new Date(2026, 1, 28));
+  const leapAfter = M.computeAgeFromDob("2000-02-29", new Date(2026, 2, 1));
+  assert.equal(leapBefore.age, 25);
+  assert.equal(leapAfter.age, 26);
+
+  // Invalid / future dates
+  assert.equal(M.computeAgeFromDob("2030-01-01", ref).valid, false);
+  assert.equal(M.computeAgeFromDob("1991-02-30", ref).valid, false);
+  assert.equal(M.computeAgeFromDob("", ref).valid, false);
+
+  // defaultDobForAge yields exact target age
+  const def35 = M.defaultDobForAge(35, ref);
+  assert.equal(M.computeAgeFromDob(def35, ref).age, 35);
+});
+
+test("paycheckAllocation does not double-count SRS and balances to gross + employer CPF", () => {
+  const M = require("./model.js");
+  const p = {
+    age: 35,
+    retire: 55,
+    salary: 8500,
+    annualBonus: 0,
+    lifestyle: "home-helper",
+    oa: 75000,
+    sa: 55000,
+    ma: 45000,
+    equities: 120000,
+    sgDividends: 20000,
+    ssbCash: 35000,
+    srs: 25000,
+    srsAnnual: 12000, // $1,000/mo inside outside invest
+    targetEquityPct: 80,
+    sgSleevePct: 10,
+  };
+  const summary = M.calculate(p);
+  const sim = M.simulate(p, "salary", { summary });
+  const r = M.todayPlan(summary);
+  const bogle = M.bogleheadAllocation(p, sim.invest);
+  const pc = M.paycheckAllocation(r, sim, bogle, p);
+
+  assert.equal(pc.srsMo, 1000);
+  assert.equal(pc.liquidPool, Math.round(sim.invest - 1000));
+  const rowSum = pc.rows.reduce((acc, row) => acc + row.amt, 0);
+  assert.ok(
+    Math.abs(rowSum - pc.grossPlusEmployer) <= 3,
+    `Expected rows sum (${rowSum}) to equal gross+employer (${pc.grossPlusEmployer})`,
+  );
+
+  // Overspending > take-home reports overspendMo cleanly
+  const stretchedSim = { ...sim, cpfExtra: 500, invest: r.afterCpf };
+  const stretchedBogle = M.bogleheadAllocation(p, stretchedSim.invest);
+  const pcOver = M.paycheckAllocation(r, stretchedSim, stretchedBogle, p);
+  assert.equal(pcOver.livingAndTax, 0);
+  assert.ok(pcOver.overspendMo >= 499);
+});
+
+test("buildPrintReportModel aligns retire age, readiness fallback, waterfall-to-95, and tax tier", () => {
+  const M = require("./model.js");
+  // Scenario 1: Early retirement at 55 with 7% bracket (rstu-first)
+  const pEarly = {
+    age: 35,
+    retire: 55,
+    salary: 5500,
+    annualBonus: 0,
+    lifestyle: "home-helper",
+    oa: 40000,
+    sa: 20000,
+    ma: 20000,
+    equities: 50000,
+    sgDividends: 0,
+    ssbCash: 10000,
+    srs: 0,
+    srsAnnual: 0,
+  };
+  const sum1 = M.calculate(pEarly);
+  const sim1 = M.simulate(pEarly, "salary", { summary: sum1 });
+  const r1 = M.todayPlan(sum1);
+  const s1 = M.todayPlan({ ...sum1, scenarios: [sim1.selectedScenario] })
+    .scenarios[0];
+  const fire1 = M.firePlan(pEarly, "salary", {
+    summary: sum1,
+    simulation: sim1,
+  });
+  const bogle1 = M.bogleheadAllocation(pEarly, sim1.invest);
+  const tax1 = M.taxSweetSpot(pEarly);
+  const guide1 = M.outsideAllocationGuide(r1, sim1);
+
+  const pm1 = M.buildPrintReportModel({
+    summary: r1,
+    selectedScenario: s1,
+    simulation: sim1,
+    fire: fire1,
+    bogle: bogle1,
+    tax: tax1,
+    guide: guide1,
+    params: pEarly,
+  });
+
+  assert.equal(pm1.retireAge, 55);
+  assert.equal(pm1.waterfallEndAge, 95);
+  assert.equal(pm1.waterfallStartAge, 52);
+  assert.equal(pm1.hasSrs, false);
+  const pt55 = fire1.points.find((pt) => pt.age === 55);
+  assert.equal(
+    Math.round(pm1.projectedAtRetire),
+    Math.round(pt55.today.totalNetWorth),
+  );
+  const taxRow = pm1.actionRows.find((row) =>
+    row.label.startsWith("4 · Tax Relief"),
+  );
+  assert.ok(taxRow.value.includes("RSTU saves"));
+  assert.ok(!taxRow.value.includes("RSTU+SRS"));
+
+  // Scenario 2: Very high target budget -> projectedFireAge === null => "After 80"
+  const pGap = {
+    age: 50,
+    retire: 65,
+    salary: 3000,
+    annualBonus: 0,
+    lifestyle: "home-helper",
+    spend: 6000,
+    oa: 10000,
+    sa: 10000,
+    ma: 10000,
+    savings: 5000,
+    invest: 200,
+  };
+  const sum2 = M.calculate(pGap);
+  const sim2 = M.simulate(pGap, "salary", { summary: sum2 });
+  const r2 = M.todayPlan(sum2);
+  const s2 = M.todayPlan({ ...sum2, scenarios: [sim2.selectedScenario] })
+    .scenarios[0];
+  const fire2 = M.firePlan(pGap, "salary", { summary: sum2, simulation: sim2 });
+  const bogle2 = M.bogleheadAllocation(pGap, sim2.invest);
+  const tax2 = M.taxSweetSpot(pGap);
+  const guide2 = M.outsideAllocationGuide(r2, sim2);
+  const pm2 = M.buildPrintReportModel({
+    summary: r2,
+    selectedScenario: s2,
+    simulation: sim2,
+    fire: fire2,
+    bogle: bogle2,
+    tax: tax2,
+    guide: guide2,
+    params: pGap,
+  });
+
+  assert.equal(pm2.earliestSafeAgeText, "After 80");
+  assert.equal(pm2.hasCustomSaving, true);
+  assert.ok(pm2.customSavingNote.includes("Custom input active"));
 });
