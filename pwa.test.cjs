@@ -90,3 +90,65 @@ test("service worker has a concrete build revision and bounded app cache", () =>
     "sw.js cache version should match dist/index.html app-revision",
   );
 });
+test("Porcelain-Slate design system alignment: theme colors, unified icons, font hygiene, and DESIGN.md", () => {
+  const html = fs.readFileSync("dist/index.html", "utf8");
+  const themeMatch = html.match(
+    /<meta name="theme-color" content="([^"]+)" id="meta-theme-color"/,
+  );
+  assert.ok(themeMatch, "Expected #meta-theme-color in dist/index.html");
+  assert.equal(themeMatch[1], "#f4f6fa");
+  assert.equal(manifest.theme_color, "#f4f6fa");
+  assert.equal(manifest.background_color, "#f4f6fa");
+
+  for (const docFile of ["DESIGN.md", "PRODUCT.md"]) {
+    assert.ok(fs.existsSync(docFile), `Expected ${docFile} at repo root`);
+    assert.ok(
+      fs.statSync(docFile).size > 500,
+      `${docFile} should be non-empty`,
+    );
+  }
+
+  assert.equal(fs.existsSync("assets/ibm-plex-sans-latin.woff2"), false);
+  assert.equal(fs.existsSync("dist/assets/ibm-plex-sans-latin.woff2"), false);
+
+  const files = [...html.matchAll(/(?:src|href)="([^"#]+)"/g)]
+    .map((match) => match[1])
+    .filter((file) => file.endsWith(".css"));
+  const css = fs.readFileSync(path.join("dist", files[0]), "utf8");
+  assert.equal(
+    css.toLowerCase().includes("#0a1829"),
+    false,
+    "Production CSS must not contain legacy #0a1829 dark-navy values",
+  );
+
+  const iconSvg = fs.readFileSync("assets/icon.svg", "utf8").toLowerCase();
+  const faviconSvg = fs.readFileSync("dist/favicon.svg", "utf8").toLowerCase();
+  assert.ok(iconSvg.includes("#ec4899") && iconSvg.includes("#e83e8c"));
+  assert.ok(faviconSvg.includes("#ec4899") && faviconSvg.includes("#e83e8c"));
+});
+
+test("4-Tap semantic asset colors, spinbutton reset, and clean page headers follow DESIGN.md", () => {
+  const srcCss = fs.readFileSync("styles.css", "utf8");
+  const srcApp = fs.readFileSync("app.js", "utf8");
+  const srcHtml = fs.readFileSync("index.html", "utf8");
+
+  assert.match(
+    srcCss,
+    /\.tap-progress-fill\.is-tap1\s*\{\s*background:\s*var\(--sem-cpf\)/,
+  );
+  assert.match(
+    srcCss,
+    /\.tap-progress-fill\.is-tap2\s*\{\s*background:\s*var\(--sem-srs\)/,
+  );
+  assert.match(
+    srcCss,
+    /\.tap-progress-fill\.is-tap3\s*\{\s*background:\s*var\(--primary\)/,
+  );
+  assert.match(
+    srcCss,
+    /\.tap-progress-fill\.is-tap4\s*\{\s*background:\s*var\(--sem-cash\)/,
+  );
+  assert.match(srcCss, /::-webkit-inner-spin-button/);
+  assert.equal(srcApp.includes("swell-kicker"), false);
+  assert.equal(srcHtml.includes("swell-kicker"), false);
+});

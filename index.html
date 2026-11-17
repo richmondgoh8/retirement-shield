@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#F4F6FA" id="meta-theme-color" />
+    <meta name="theme-color" content="#f4f6fa" id="meta-theme-color" />
     <meta name="app-revision" content="dev" id="meta-app-revision" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -117,7 +117,13 @@
                   <rect x="14" y="14" width="7" height="7" rx="1.5" />
                   <rect x="3" y="14" width="7" height="7" rx="1.5" />
                 </svg>
-                <span class="sidebar-tab-label">Overview</span>
+                <span class="sidebar-tab-label">Overview</span
+                ><span
+                  class="sidebar-badge"
+                  id="nav-badge-overview"
+                  aria-hidden="true"
+                  >83%</span
+                >
               </button>
               <button
                 type="button"
@@ -141,7 +147,13 @@
                   <path d="M3 3v18h18" />
                   <path d="m7 14 4-4 4 3 5-6" />
                 </svg>
-                <span class="sidebar-tab-label">Trajectory</span>
+                <span class="sidebar-tab-label">Trajectory</span
+                ><span
+                  class="sidebar-badge"
+                  id="nav-badge-trajectory"
+                  aria-hidden="true"
+                  >Age 65</span
+                >
               </button>
               <button
                 type="button"
@@ -165,7 +177,13 @@
                   <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
                   <path d="M22 12A10 10 0 0 0 12 2v10z" />
                 </svg>
-                <span class="sidebar-tab-label">Allocator</span>
+                <span class="sidebar-tab-label">Allocator</span
+                ><span
+                  class="sidebar-badge"
+                  id="nav-badge-allocator"
+                  aria-hidden="true"
+                  >67/33</span
+                >
               </button>
               <button
                 type="button"
@@ -191,7 +209,13 @@
                   />
                   <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4" />
                 </svg>
-                <span class="sidebar-tab-label">Cash Parking</span>
+                <span class="sidebar-tab-label">Cash Parking</span
+                ><span
+                  class="sidebar-badge"
+                  id="nav-badge-cash"
+                  aria-hidden="true"
+                  >7</span
+                >
               </button>
               <div class="sidebar-subgroup">
                 <span class="sidebar-group-heading">Tax &amp; Rules</span>
@@ -218,7 +242,13 @@
                       d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"
                     />
                   </svg>
-                  <span class="sidebar-tab-label">Tax Relief</span>
+                  <span class="sidebar-tab-label">Tax Relief</span
+                  ><span
+                    class="sidebar-badge"
+                    id="nav-badge-tax"
+                    aria-hidden="true"
+                    >7%</span
+                  >
                 </button>
                 <button
                   type="button"
@@ -242,7 +272,13 @@
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                     <path d="m9 12 2 2 4-4" />
                   </svg>
-                  <span class="sidebar-tab-label">CPF Milestones</span>
+                  <span class="sidebar-tab-label">CPF Milestones</span
+                  ><span
+                    class="sidebar-badge"
+                    id="nav-badge-cpf"
+                    aria-hidden="true"
+                    >Sal</span
+                  >
                 </button>
               </div>
             </div>
@@ -433,6 +469,7 @@
                 type="button"
                 commandfor="plan-settings"
                 command="show-modal"
+                aria-haspopup="dialog"
                 aria-label="Assumptions"
                 title="Assumptions"
               >
@@ -458,9 +495,10 @@
                 <span>Assumptions</span>
               </button>
               <button
-                class="button button-small button-ember-primary print-header-button"
+                class="button button-small button-rose-soft print-header-button"
                 type="button"
                 id="print-plan-btn"
+                aria-label="Print Poster"
                 title="Print or save 1-page A4 infographic poster"
               >
                 <svg
@@ -495,21 +533,49 @@
             hidden
           >
             <div class="shell settings-shell">
-              <header class="ember-page-header settings-page-header">
-                <div>
-                  <h1 id="hero-title">My Settings</h1>
-                  <p class="settings-page-sub">
+              <nav class="ui-breadcrumb" aria-label="Breadcrumb">
+                <button
+                  type="button"
+                  class="ui-breadcrumb-link"
+                  id="settings-breadcrumb-back"
+                  data-close-profile
+                >
+                  Overview
+                </button>
+                <span class="ui-breadcrumb-sep" aria-hidden="true">/</span>
+                <span class="ui-breadcrumb-cur" aria-current="page"
+                  >My Settings</span
+                >
+              </nav>
+              <header
+                class="ember-page-header fin-page-header settings-page-header"
+              >
+                <div class="ember-header-main">
+                  <div class="fin-title-row">
+                    <h1 id="hero-title">My Settings</h1>
+                  </div>
+                  <p class="fin-page-sub settings-page-sub">
                     Changes save locally in your browser and update your plan
                     live.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  class="button button-small"
-                  data-close-profile
-                >
-                  ← Back to Overview
-                </button>
+                <div class="ember-header-actions">
+                  <button
+                    type="button"
+                    class="button button-small button-rose-soft"
+                    data-print-trigger
+                  >
+                    Print A4 Poster
+                  </button>
+                  <button
+                    type="button"
+                    class="button button-small"
+                    id="settings-header-back"
+                    data-close-profile
+                  >
+                    ← Back to Overview
+                  </button>
+                </div>
               </header>
 
               <form class="settings-form" id="quick-form">
@@ -518,6 +584,11 @@
                   class="start-plan-error"
                   role="status"
                 ></p>
+                <div
+                  id="settings-error-actions"
+                  class="settings-error-actions"
+                  hidden
+                ></div>
 
                 <section
                   class="card-surface settings-card"
@@ -603,6 +674,7 @@
                           min="0"
                           max="1000000000"
                           step="any"
+                          value="0"
                           placeholder="0"
                           inputmode="decimal"
                         />
@@ -649,6 +721,11 @@
                         What you need per month in retirement (today’s $). Blank
                         uses your selected preset baseline.
                       </small>
+                      <div
+                        id="settings-itemized-note"
+                        class="settings-itemized-note"
+                        hidden
+                      ></div>
                       <button
                         type="button"
                         id="use-preset-budget"
@@ -901,8 +978,8 @@
                           min="0"
                           max="1000000000"
                           step="any"
-                          value="35000"
-                          placeholder="35000"
+                          value="34000"
+                          placeholder="34000"
                           inputmode="decimal"
                         />
                       </div>
@@ -922,8 +999,8 @@
                           min="0"
                           max="1000000000"
                           step="any"
-                          value="5000"
-                          placeholder="5000"
+                          value="6000"
+                          placeholder="6000"
                           inputmode="decimal"
                         />
                       </div>
@@ -964,6 +1041,7 @@
                           min="0"
                           max="1000000000"
                           step="any"
+                          value="0"
                           placeholder="0"
                           inputmode="decimal"
                         />
@@ -983,6 +1061,7 @@
                           min="0"
                           max="15300"
                           step="any"
+                          value="0"
                           placeholder="0"
                           inputmode="decimal"
                         />
@@ -1044,6 +1123,7 @@
                           min="0"
                           max="80000"
                           step="any"
+                          value="1000"
                           placeholder="1000"
                           inputmode="decimal"
                         />
@@ -1059,7 +1139,11 @@
                 <input id="known-target-equity" type="hidden" value="80" />
                 <input id="known-sg-sleeve" type="hidden" value="15" />
                 <div class="settings-page-footer">
-                  <button type="submit" class="button button-accent">
+                  <button
+                    type="submit"
+                    id="settings-footer-done"
+                    class="button button-primary"
+                  >
                     Done · Back to Overview →
                   </button>
                 </div>
@@ -1107,20 +1191,35 @@
                   class="savings-simulator"
                   aria-labelledby="simulator-title"
                 >
-                  <div class="simulator-header">
-                    <div class="simulator-title-row">
-                      <div>
-                        <h2 id="simulator-title">
+                  <nav class="ui-breadcrumb" aria-label="Breadcrumb">
+                    <button
+                      type="button"
+                      class="ui-breadcrumb-link"
+                      data-go-tab="overview"
+                    >
+                      Overview
+                    </button>
+                    <span class="ui-breadcrumb-sep" aria-hidden="true">/</span>
+                    <span class="ui-breadcrumb-group">Planning</span>
+                    <span class="ui-breadcrumb-sep" aria-hidden="true">/</span>
+                    <span class="ui-breadcrumb-cur" aria-current="page"
+                      >Trajectory &amp; Simulator</span
+                    >
+                  </nav>
+                  <header class="ember-page-header fin-page-header">
+                    <div class="ember-header-main">
+                      <div class="fin-title-row">
+                        <h1 id="simulator-title">
                           Monthly Savings &amp; Withdrawal Explorer
-                        </h2>
-                        <p>
-                          Override suggested monthly CPF top-ups or outside
-                          investments to test depletion age and earliest
-                          readiness.
-                        </p>
+                        </h1>
                       </div>
+                      <p class="fin-page-sub">
+                        Override suggested monthly CPF top-ups or outside
+                        investments to test depletion age and earliest
+                        readiness.
+                      </p>
                     </div>
-                  </div>
+                  </header>
 
                   <div class="sim-controls-card card-surface">
                     <div class="field-grid">
@@ -1360,6 +1459,21 @@
                 aria-label="Tax Relief"
                 hidden
               >
+                <nav class="ui-breadcrumb" aria-label="Breadcrumb">
+                  <button
+                    type="button"
+                    class="ui-breadcrumb-link"
+                    data-go-tab="overview"
+                  >
+                    Overview
+                  </button>
+                  <span class="ui-breadcrumb-sep" aria-hidden="true">/</span>
+                  <span class="ui-breadcrumb-group">Tax &amp; Rules</span>
+                  <span class="ui-breadcrumb-sep" aria-hidden="true">/</span>
+                  <span class="ui-breadcrumb-cur" aria-current="page"
+                    >Tax Relief</span
+                  >
+                </nav>
                 <div
                   class="rules-subtabs"
                   role="tablist"
@@ -1394,6 +1508,21 @@
                 aria-label="CPF Milestones"
                 hidden
               >
+                <nav class="ui-breadcrumb" aria-label="Breadcrumb">
+                  <button
+                    type="button"
+                    class="ui-breadcrumb-link"
+                    data-go-tab="overview"
+                  >
+                    Overview
+                  </button>
+                  <span class="ui-breadcrumb-sep" aria-hidden="true">/</span>
+                  <span class="ui-breadcrumb-group">Tax &amp; Rules</span>
+                  <span class="ui-breadcrumb-sep" aria-hidden="true">/</span>
+                  <span class="ui-breadcrumb-cur" aria-current="page"
+                    >CPF Milestones</span
+                  >
+                </nav>
                 <div
                   class="rules-subtabs"
                   role="tablist"
@@ -1632,9 +1761,26 @@
               >
             </div>
             <div class="field">
-              <label for="known-post55">Senior salary CPF (ages 55–65)</label>
-              <div class="input-wrap select-wrap">
-                <select id="known-post55">
+              <div class="toggle-label-row">
+                <label for="known-post55" id="post55-toggle-label"
+                  >Senior salary CPF (ages 55–65)</label
+                >
+                <button
+                  type="button"
+                  role="switch"
+                  id="post55-toggle-switch"
+                  class="ui-toggle-switch"
+                  aria-checked="false"
+                  aria-labelledby="post55-toggle-label"
+                >
+                  <span class="ui-toggle-state">Excluded</span>
+                  <span class="ui-toggle-track" aria-hidden="true"
+                    ><span class="ui-toggle-thumb"></span
+                  ></span>
+                </button>
+              </div>
+              <div class="sr-only-select" aria-hidden="true">
+                <select id="known-post55" tabindex="-1">
                   <option value="false" selected>
                     Exclude post-55 salary CPF
                   </option>
@@ -1695,10 +1841,10 @@
           aria-atomic="true"
         ></p>
         <button type="button" class="text-button" id="reset-settings">
-          Reset defaults</button
+          Reset assumptions</button
         ><button
           type="button"
-          class="button button-dark"
+          class="button button-primary"
           commandfor="plan-settings"
           command="close"
         >
@@ -1787,6 +1933,47 @@
                   hidden
                 ></button>
               </div>
+              <div
+                class="qe-picker-chips"
+                role="group"
+                aria-label="Quick retirement age presets"
+              >
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-age="55"
+                >
+                  55 · SA→RA
+                </button>
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-age="60"
+                >
+                  60 · Early
+                </button>
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-age="63"
+                >
+                  63 · SRS
+                </button>
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-age="65"
+                >
+                  65 · CPF LIFE
+                </button>
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-age="70"
+                >
+                  70 · Defer
+                </button>
+              </div>
               <p class="qe-hint" id="qe-retire-hint">
                 Age 55–80 for CCA, or 40–80 for Home + Helper. Earlier ages fund
                 years before CPF LIFE starts at 65.
@@ -1796,25 +1983,96 @@
         </div>
 
         <div id="qe-panel-salary" class="qe-panel" hidden>
-          <div class="qe-field">
-            <label for="qe-salary">Gross monthly salary</label>
-            <div class="input-wrap">
-              <span>$</span>
-              <input
-                id="qe-salary"
-                type="number"
-                min="751"
-                max="1000000"
-                step="any"
-                inputmode="decimal"
-              />
+          <div class="qe-stack">
+            <div class="qe-field">
+              <label for="qe-salary">Gross monthly salary</label>
+              <div class="saving-stepper qe-salary-stepper">
+                <button
+                  type="button"
+                  data-qe-salary-delta="-250"
+                  aria-label="Decrease monthly salary by 250 dollars"
+                >
+                  −
+                </button>
+                <div class="input-wrap">
+                  <span>$</span>
+                  <input
+                    id="qe-salary"
+                    type="number"
+                    min="751"
+                    max="1000000"
+                    step="any"
+                    inputmode="decimal"
+                  />
+                </div>
+                <button
+                  type="button"
+                  data-qe-salary-delta="250"
+                  aria-label="Increase monthly salary by 250 dollars"
+                >
+                  +
+                </button>
+              </div>
+              <div
+                class="qe-picker-chips"
+                role="group"
+                aria-label="Quick monthly salary presets"
+              >
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-salary="4500"
+                >
+                  $4,500
+                </button>
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-salary="5500"
+                >
+                  $5,500
+                </button>
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-salary="8000"
+                >
+                  $8,000 · CPF Cap
+                </button>
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-salary="12000"
+                >
+                  $12,000
+                </button>
+              </div>
+              <p class="qe-hint">Before employee CPF ($8,000 OW ceiling).</p>
+              <div
+                class="qe-salary-split"
+                id="qe-salary-takehome"
+                aria-live="polite"
+              ></div>
             </div>
-            <p class="qe-hint">Excludes bonuses; before employee CPF.</p>
-            <div
-              class="qe-salary-split"
-              id="qe-salary-takehome"
-              aria-live="polite"
-            ></div>
+            <div class="qe-field">
+              <label for="qe-annual-bonus">Annual bonus / AWS ($/yr)</label>
+              <div class="input-wrap">
+                <span>$</span>
+                <input
+                  id="qe-annual-bonus"
+                  type="number"
+                  min="0"
+                  max="1000000000"
+                  step="any"
+                  placeholder="0"
+                  inputmode="decimal"
+                />
+              </div>
+              <p class="qe-hint">
+                Used for IRAS tax bracket &amp; $102,000 annual CPF salary
+                ceiling check.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -1822,17 +2080,35 @@
           <div class="field-grid">
             <div class="qe-field">
               <label for="qe-cpf-extra">Extra CPF saving / month</label>
-              <div class="input-wrap">
-                <span>$</span>
-                <input
-                  id="qe-cpf-extra"
-                  type="number"
-                  min="0"
-                  max="1000000"
-                  step="any"
-                  placeholder="Suggested"
-                  inputmode="decimal"
-                />
+              <div class="saving-stepper">
+                <button
+                  type="button"
+                  data-qe-step="qe-cpf-extra"
+                  data-delta="-50"
+                  aria-label="Decrease extra CPF saving by 50 dollars"
+                >
+                  −
+                </button>
+                <div class="input-wrap">
+                  <span>$</span>
+                  <input
+                    id="qe-cpf-extra"
+                    type="number"
+                    min="0"
+                    max="1000000"
+                    step="any"
+                    placeholder="Suggested"
+                    inputmode="decimal"
+                  />
+                </div>
+                <button
+                  type="button"
+                  data-qe-step="qe-cpf-extra"
+                  data-delta="50"
+                  aria-label="Increase extra CPF saving by 50 dollars"
+                >
+                  +
+                </button>
               </div>
               <p class="qe-hint" id="qe-cpf-extra-hint">
                 Leave blank for target path suggestion.
@@ -1840,21 +2116,44 @@
             </div>
             <div class="qe-field">
               <label for="qe-invest">Outside investments / month</label>
-              <div class="input-wrap">
-                <span>$</span>
-                <input
-                  id="qe-invest"
-                  type="number"
-                  min="0"
-                  max="1000000"
-                  step="any"
-                  placeholder="Suggested"
-                  inputmode="decimal"
-                />
+              <div class="saving-stepper">
+                <button
+                  type="button"
+                  data-qe-step="qe-invest"
+                  data-delta="-50"
+                  aria-label="Decrease outside investments by 50 dollars"
+                >
+                  −
+                </button>
+                <div class="input-wrap">
+                  <span>$</span>
+                  <input
+                    id="qe-invest"
+                    type="number"
+                    min="0"
+                    max="1000000"
+                    step="any"
+                    placeholder="Suggested"
+                    inputmode="decimal"
+                  />
+                </div>
+                <button
+                  type="button"
+                  data-qe-step="qe-invest"
+                  data-delta="50"
+                  aria-label="Increase outside investments by 50 dollars"
+                >
+                  +
+                </button>
               </div>
               <p class="qe-hint" id="qe-invest-hint">
                 Leave blank for suggested saving target.
               </p>
+            </div>
+            <div class="qe-income-actions qe-span-full">
+              <button type="button" id="qe-income-reset" class="text-button">
+                Reset to suggested amounts
+              </button>
             </div>
             <div class="qe-field qe-span-full housing-calc-box is-compact">
               <label for="qe-housing-mode">Housing loan (from CPF OA)</label>
@@ -1933,7 +2232,7 @@
                   </div>
                 </div>
               </div>
-              <div id="qe-housing-custom-field" hidden>
+              <div class="qe-sub-field" id="qe-housing-custom-field" hidden>
                 <label for="qe-housing">Monthly housing from OA</label>
                 <div class="input-wrap">
                   <span>$</span>
@@ -2006,7 +2305,22 @@
               </div>
             </div>
             <div class="qe-field">
-              <label for="qe-equities">Global Equities (VWRA / FWRA)</label>
+              <label for="qe-sa-invested">Active CPFIS-SA investments</label>
+              <div class="input-wrap">
+                <span>$</span>
+                <input
+                  id="qe-sa-invested"
+                  type="number"
+                  min="0"
+                  max="1000000000"
+                  step="any"
+                  placeholder="0"
+                  inputmode="decimal"
+                />
+              </div>
+            </div>
+            <div class="qe-field">
+              <label for="qe-equities">Global Equities (VWRA / ISAC)</label>
               <div class="input-wrap">
                 <span>$</span>
                 <input
@@ -2065,6 +2379,19 @@
                 />
               </div>
             </div>
+            <div class="qe-field">
+              <label for="qe-srs-invested">SRS funds invested in</label>
+              <div class="input-wrap select-wrap">
+                <select id="qe-srs-invested">
+                  <option value="global" selected>
+                    Global Equity Index Funds
+                  </option>
+                  <option value="balanced">Balanced 60/40 Portfolio</option>
+                  <option value="ssb">SSB / T-Bills</option>
+                  <option value="cash">Uninvested Cash (0.05% p.a.)</option>
+                </select>
+              </div>
+            </div>
           </div>
         </div>
         <p id="qe-error" class="settings-error" role="status" hidden></p>
@@ -2081,7 +2408,7 @@
           <button type="button" class="text-button" id="qe-open-full-settings">
             All settings →
           </button>
-          <button type="button" class="button button-dark" data-qe-close>
+          <button type="button" class="button button-primary" data-qe-close>
             Done
           </button>
         </div>
@@ -2125,7 +2452,11 @@
           >
             All settings →
           </button>
-          <button type="button" class="button button-dark" data-exp-modal-close>
+          <button
+            type="button"
+            class="button button-primary"
+            data-exp-modal-close
+          >
             Done
           </button>
         </div>
@@ -2154,6 +2485,88 @@
         <path d="m5 12 7-7 7 7" />
       </svg>
     </button>
+    <dialog
+      id="confirm-reset-modal"
+      class="confirm-dialog"
+      aria-labelledby="confirm-reset-title"
+      aria-describedby="confirm-reset-desc"
+    >
+      <div class="confirm-dialog-card">
+        <div class="confirm-dialog-head">
+          <span class="confirm-dialog-icon" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+              />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+          </span>
+          <h2 id="confirm-reset-title">Reset to Default Plan?</h2>
+          <button
+            class="dialog-dismiss confirm-dialog-close"
+            type="button"
+            data-confirm-reset-cancel
+            aria-label="Cancel reset"
+          >
+            ×
+          </button>
+        </div>
+        <p id="confirm-reset-desc" class="confirm-dialog-copy">
+          This will replace your current salary, CPF balances, investment
+          buckets, and custom living budget with the default Singapore age-35
+          illustration ($5,500/mo salary, $60,000 liquid assets, Community Care
+          preset).
+        </p>
+        <div class="confirm-dialog-actions">
+          <button
+            type="button"
+            class="button button-small"
+            data-confirm-reset-cancel
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="button button-small button-danger"
+            id="confirm-reset-accept"
+            data-confirm-reset-accept
+          >
+            Reset to defaults
+          </button>
+        </div>
+      </div>
+    </dialog>
+
+    <div
+      id="ui-toast"
+      class="ui-toast"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+      hidden
+    >
+      <span class="ui-toast-dot" aria-hidden="true"></span>
+      <span id="ui-toast-text" class="ui-toast-text"></span>
+      <button
+        type="button"
+        class="ui-toast-close"
+        data-toast-dismiss
+        aria-label="Dismiss notification"
+      >
+        ×
+      </button>
+    </div>
+
     <script src="model.js" defer></script>
     <script src="app.js" defer></script>
   </body>

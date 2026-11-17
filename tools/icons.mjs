@@ -1,5 +1,6 @@
 import sharp from "sharp";
 import { readFile, writeFile } from "node:fs/promises";
+
 const source = await readFile(new URL("../assets/icon.svg", import.meta.url));
 const full = sharp(source, { density: 192 });
 const standard = Buffer.from(
@@ -7,7 +8,7 @@ const standard = Buffer.from(
     .toString()
     .replace(
       '<path fill="url(#bg)" d="M0 0h512v512H0z"/>',
-      '<rect width="512" height="512" rx="104" fill="url(#bg)"/><g transform="translate(-30.72 -30.72) scale(1.12)">',
+      '<rect width="512" height="512" rx="112" fill="url(#bg)"/><g transform="translate(-25.6 -25.6) scale(1.1)">',
     )
     .replace("</svg>", "</g></svg>"),
 );
@@ -26,9 +27,9 @@ for (const [name, size] of [
     .png({ compressionLevel: 9, palette: true, quality: 100 })
     .toFile(new URL(`../assets/${name}.png`, import.meta.url).pathname);
 }
-// A simpler, larger glyph stays legible in a browser tab at 16px.
+// Crisp high-legibility Rose-Pink shield + 3 ascending bars for 16px-48px browser tabs.
 const favicon =
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#11253d"/><path d="m32 8 21 8v16c0 12-9 20-21 25C20 52 11 44 11 32V16z" fill="#a5e68e"/><path d="M22 39V28h10v-9m0 0 8 8m-8-8-8 8" fill="none" stroke="#11253d" stroke-width="5" stroke-linejoin="round"/></svg>';
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ec4899"/><stop offset="1" stop-color="#e83e8c"/></linearGradient></defs><rect width="64" height="64" rx="14" fill="url(#g)"/><path d="M32 10l19 8.4v14.4c0 12.6-8.1 23.6-19 27.7-10.9-4.1-19-15.1-19-27.7V18.4L32 10z" fill="none" stroke="#ffffff" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M24.5 40v-7M32 40V27.5M39.5 40V22.5" fill="none" stroke="#ffffff" stroke-width="4.4" stroke-linecap="round"/></svg>';
 await writeFile(new URL("../favicon.svg", import.meta.url), favicon + "\n");
 const images = await Promise.all(
   [16, 32, 48].map((size) =>

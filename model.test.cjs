@@ -1585,3 +1585,447 @@ test("4-Tap retirement architecture, SRS age-63 $400k/$450k-$500k ballooning tra
   assert.equal(taps.tap4Ssb.targetBuffer, 150000);
   assert.equal(taps.tap4Ssb.masCap, 200000);
 });
+
+test("SG_DEFAULT_PLAN, index.html initial inputs, and buildPrintReportModel stay 100% synced and immune to context rot", () => {
+  const fs = require("node:fs");
+  const M = require("./model.js");
+  const html = fs.readFileSync("index.html", "utf8");
+  const appJs = fs.readFileSync("app.js", "utf8");
+
+  // 1. Verify SG_DEFAULT_PLAN reflects modern Singapore age-35 profile with exact 85/15 equity split
+  const def = M.SG_DEFAULT_PLAN;
+  assert.ok(def, "Expected SG_DEFAULT_PLAN exported on RetirementModel");
+  assert.equal(def.age, 35);
+  assert.equal(def.retire, 65);
+  assert.equal(def.salary, 5500);
+  assert.equal(def.lifestyle, "cca");
+  assert.equal(def.equities, 34000);
+  assert.equal(def.sgDividends, 6000);
+  assert.equal(def.ssbCash, 20000);
+  assert.equal(def.equities + def.sgDividends, 40000);
+  assert.equal(
+    Math.round((def.equities / (def.equities + def.sgDividends)) * 100),
+    85,
+  );
+  assert.equal(
+    Math.round((def.sgDividends / (def.equities + def.sgDividends)) * 100),
+    15,
+  );
+  assert.equal(def.sgSleevePct, 15);
+  assert.equal(def.targetEquityPct, 80);
+  assert.equal(def.existingReliefs, 1000);
+  assert.equal(def.housingMode, "all-oa");
+
+  // 2. Verify index.html input default values match SG_DEFAULT_PLAN 1-for-1
+  const getInputAttrValue = (id) => {
+    const re = new RegExp(`<input[^>]*id="${id}"[^>]*>`, "m");
+    const m = html.match(re);
+    assert.ok(m, `Expected <input id="${id}"> in index.html`);
+    const valMatch = m[0].match(/\bvalue="([^"]*)"/);
+    return valMatch ? valMatch[1] : null;
+  };
+  assert.equal(Number(getInputAttrValue("person-salary")), def.salary);
+  assert.equal(Number(getInputAttrValue("known-retire")), def.retire);
+  assert.equal(
+    Number(getInputAttrValue("known-annual-bonus")),
+    def.annualBonus,
+  );
+  assert.equal(Number(getInputAttrValue("known-oa")), def.oa);
+  assert.equal(Number(getInputAttrValue("known-sa")), def.sa);
+  assert.equal(Number(getInputAttrValue("known-ma")), def.ma);
+  assert.equal(Number(getInputAttrValue("known-equities")), def.equities);
+  assert.equal(
+    Number(getInputAttrValue("known-sg-dividends")),
+    def.sgDividends,
+  );
+  assert.equal(Number(getInputAttrValue("known-ssb-cash")), def.ssbCash);
+  assert.equal(Number(getInputAttrValue("known-srs")), def.srs);
+  assert.equal(Number(getInputAttrValue("known-srs-annual")), def.srsAnnual);
+  assert.equal(
+    Number(getInputAttrValue("known-existing-reliefs")),
+    def.existingReliefs,
+  );
+  assert.equal(
+    Number(getInputAttrValue("known-target-equity")),
+    def.targetEquityPct,
+  );
+  assert.equal(Number(getInputAttrValue("known-sg-sleeve")), def.sgSleevePct);
+
+  // 3. Verify app.js uses RetirementModel.SG_DEFAULT_PLAN and pm.colophonRulesText (no hardcoded statutory strings in renderPrintSheet)
+  assert.ok(
+    appJs.includes("...RetirementModel.SG_DEFAULT_PLAN"),
+    "app.js must derive SG_DEFAULT_PLAN from RetirementModel.SG_DEFAULT_PLAN",
+  );
+  assert.ok(
+    appJs.includes("pm.colophonRulesText"),
+    "renderPrintSheet must render pm.colophonRulesText from model.js",
+  );
+  assert.ok(
+    appJs.includes("swellCombo: true") &&
+      appJs.includes('"print-swell"') &&
+      appJs.includes("buildExpensePieSVG(ep, { isPrint: true })"),
+    "renderPrintSheet must render the same Swell combo chart, readiness semi-gauge, and living budget donut as Overview",
+  );
+  assert.equal(
+    appJs.includes("FRS $220.4k, ERS $440.8k"),
+    false,
+    "renderPrintSheet must not contain hardcoded CPF sum strings",
+  );
+
+  // 4. Verify buildPrintReportModel on SG_DEFAULT_PLAN produces accurate dynamic fields
+  const sum = M.calculate(def);
+  const sim = M.simulate(def, "salary", { summary: sum });
+  const r = M.todayPlan(sum);
+  const s = M.todayPlan({ ...sum, scenarios: [sim.selectedScenario] })
+    .scenarios[0];
+  const fire = M.firePlan(def, "salary", { summary: sum, simulation: sim });
+  const bogle = M.bogleheadAllocation(def, sim.invest);
+  const tax = M.taxSweetSpot(def);
+  const guide = M.outsideAllocationGuide(r, sim);
+  const pm = M.buildPrintReportModel({
+    summary: r,
+    selectedScenario: s,
+    simulation: sim,
+    fire,
+    bogle,
+    tax,
+    guide,
+    params: def,
+  });
+
+  assert.equal(pm.budgetChipLabel, "Community Care Apartments ($2,800/mo)");
+  assert.equal(pm.housingChipLabel, "Housing: All new OA");
+  assert.ok(pm.colophonRulesText.includes("BRS $110.2k"));
+  assert.ok(pm.colophonRulesText.includes("FRS $220.4k"));
+  assert.ok(pm.colophonRulesText.includes("ERS $440.8k"));
+  assert.ok(pm.colophonRulesText.includes("OW cap $8k"));
+  assert.ok(pm.colophonRulesText.includes("RSTU cap $8k"));
+  assert.ok(pm.colophonRulesText.includes("SRS cap $15.3k"));
+  assert.ok(pm.colophonRulesText.includes("relief cap $80k"));
+  assert.ok(pm.taps && pm.taps.tap1Cpf && pm.taps.tap4Ssb);
+  assert.ok(pm.actionRows[0].tag.includes("$150k SSB"));
+  assert.ok(pm.actionRows[1].tag.includes("85/15 G/SG"));
+
+  // 5. Verify SRS balloon-trap warning and custom itemized budget surface in buildPrintReportModel
+  const pTrap = {
+    ...def,
+    salary: 12000,
+    srs: 80000,
+    srsAnnual: 15300,
+    spend: 3450,
+    isCustomBudget: true,
+    itemizedActive: true,
+    housingMode: "paid-up",
+    housing: 0,
+  };
+  const sumT = M.calculate(pTrap);
+  const simT = M.simulate(pTrap, "salary", { summary: sumT });
+  const rT = M.todayPlan(sumT);
+  const sT = M.todayPlan({ ...sumT, scenarios: [simT.selectedScenario] })
+    .scenarios[0];
+  const fireT = M.firePlan(pTrap, "salary", {
+    summary: sumT,
+    simulation: simT,
+  });
+  const bogleT = M.bogleheadAllocation(pTrap, simT.invest);
+  const taxT = M.taxSweetSpot(pTrap);
+  const guideT = M.outsideAllocationGuide(rT, simT);
+  const pmT = M.buildPrintReportModel({
+    summary: rT,
+    selectedScenario: sT,
+    simulation: simT,
+    fire: fireT,
+    bogle: bogleT,
+    tax: taxT,
+    guide: guideT,
+    params: pTrap,
+  });
+
+  assert.equal(pmT.budgetChipLabel, "Custom itemized ($3,450/mo)");
+  assert.equal(pmT.housingChipLabel, "Housing: Paid-up ($0 OA)");
+  assert.equal(pmT.actionRows[3].tag, "SRS >$450k Trap!");
+  assert.ok(pmT.actionRows[3].value.includes("Cap SRS ≤$400k"));
+});
+
+test("outsideAllocationGuide, retirementTapsPlan, and buildPrintReportModel stay aligned across bonus, MAS rates, real SRS taps, and housing/asset breakdowns", () => {
+  const M = require("./model.js");
+  const def = M.SG_DEFAULT_PLAN;
+
+  // 1. outsideAllocationGuide incorporates annualBonus and existingReliefs ($80k personal relief cap)
+  const pBonus = {
+    ...def,
+    salary: 5500,
+    annualBonus: 36000,
+    existingReliefs: 1000,
+  };
+  const sumB = M.calculate(pBonus);
+  const simB = M.simulate(pBonus, "salary", { summary: sumB });
+  const rB = M.todayPlan(sumB);
+  const guideNoParams = M.outsideAllocationGuide(rB, simB);
+  const guideWithParams = M.outsideAllocationGuide(rB, simB, pBonus);
+  assert.ok(
+    guideWithParams.tax.marginalRate > guideNoParams.tax.marginalRate,
+    "Expected annualBonus in params to raise marginal tax rate in outsideAllocationGuide",
+  );
+
+  const pCapped = {
+    ...pBonus,
+    existingReliefs: 80000,
+  };
+  const guideCapped = M.outsideAllocationGuide(rB, simB, pCapped);
+  assert.equal(guideCapped.remainingReliefCap, 0);
+  assert.equal(guideCapped.rstuEligible, 0);
+  assert.equal(guideCapped.rstuTaxSaved, 0);
+  assert.equal(guideCapped.srsTaxSaved, 0);
+
+  // 2. retirementTapsPlan exposes real-dollar Tap 2 SRS fields and honors live masRates
+  const pSrs = {
+    ...def,
+    age: 35,
+    retire: 65,
+    srs: 40000,
+    srsAnnual: 10000,
+    srsInvested: true,
+    maSpend: 6000,
+  };
+  const sumS = M.calculate(pSrs);
+  const simS = M.simulate(pSrs, "salary", { summary: sumS });
+  const rS = M.todayPlan(sumS);
+  assert.equal(typeof sumS.maShortfallToday, "number");
+  assert.equal(typeof rS.maShortfallToday, "number");
+  const sS = M.todayPlan({ ...sumS, scenarios: [simS.selectedScenario] })
+    .scenarios[0];
+  const fireS = M.firePlan(pSrs, "salary", { summary: sumS, simulation: simS });
+  const bogleS = M.bogleheadAllocation(pSrs, simS.invest);
+  const taxS = M.taxSweetSpot(pSrs);
+  const customMas = {
+    ssb: { year1Return: 2.15, year10Return: 2.74 },
+  };
+  const taps = M.retirementTapsPlan({
+    summary: rS,
+    selectedScenario: sS,
+    simulation: simS,
+    fire: fireS,
+    bogle: bogleS,
+    tax: taxS,
+    params: pSrs,
+    masRates: customMas,
+  });
+  assert.equal(taps.tap4Ssb.ssb1YrPct, 2.15);
+  assert.equal(taps.tap4Ssb.ssb10YrPct, 2.74);
+  assert.ok(taps.tap2Srs.projectedAt63Today > 0);
+  assert.ok(
+    taps.tap2Srs.projectedAt63Today < taps.tap2Srs.projectedAt63,
+    "Real projected SRS at 63 should be discounted for inflation vs nominal",
+  );
+  assert.ok(
+    taps.tap2Srs.tenYearMonthlyDrawToday < taps.tap2Srs.tenYearMonthlyDraw,
+    "Real monthly SRS draw should be discounted for inflation vs nominal",
+  );
+
+  // 3. buildPrintReportModel handles $0 HDB loan, active loan years + shortfall, and reconciled startingAssets
+  const pZeroHdb = {
+    ...def,
+    housingMode: "hdb",
+    loanBalance: 0,
+    loanRate: 2.6,
+    loanYears: 20,
+    housing: 0,
+  };
+  const sumZ = M.calculate(pZeroHdb);
+  const simZ = M.simulate(pZeroHdb, "salary", { summary: sumZ });
+  const rZ = M.todayPlan(sumZ);
+  const sZ = M.todayPlan({ ...sumZ, scenarios: [simZ.selectedScenario] })
+    .scenarios[0];
+  const fireZ = M.firePlan(pZeroHdb, "salary", {
+    summary: sumZ,
+    simulation: simZ,
+  });
+  const bogleZ = M.bogleheadAllocation(pZeroHdb, simZ.invest);
+  const taxZ = M.taxSweetSpot(pZeroHdb);
+  const guideZ = M.outsideAllocationGuide(rZ, simZ, pZeroHdb);
+  const pmZ = M.buildPrintReportModel({
+    summary: rZ,
+    selectedScenario: sZ,
+    simulation: simZ,
+    fire: fireZ,
+    bogle: bogleZ,
+    tax: taxZ,
+    guide: guideZ,
+    params: pZeroHdb,
+    masRates: customMas,
+  });
+  assert.equal(pmZ.housingChipLabel, "Housing: $0 OA (HDB)");
+  assert.equal(pmZ.taps.tap4Ssb.ssb10YrPct, 2.74);
+  assert.equal(pmZ.startingAssets.cpfTotal, def.oa + def.sa + def.ma);
+  assert.equal(
+    pmZ.startingAssets.liquidOutside,
+    def.equities + def.sgDividends + def.ssbCash,
+  );
+  assert.equal(
+    pmZ.startingAssets.totalAssets,
+    pmZ.startingAssets.cpfTotal + pmZ.startingAssets.outsideTotal,
+  );
+
+  const hcBank = M.computeHousingPayment({
+    mode: "bank",
+    loanBalance: 600000,
+    loanRate: 3.2,
+    loanYears: 22,
+  });
+  const pLoanShort = {
+    ...def,
+    salary: 3500,
+    oa: 0,
+    housingMode: "bank",
+    housing: hcBank.monthlyShare,
+    housingYears: hcBank.years,
+  };
+  const sumL = M.calculate(pLoanShort);
+  const simL = M.simulate(pLoanShort, "salary", { summary: sumL });
+  const rL = M.todayPlan(sumL);
+  const sL = M.todayPlan({ ...sumL, scenarios: [simL.selectedScenario] })
+    .scenarios[0];
+  const fireL = M.firePlan(pLoanShort, "salary", {
+    summary: sumL,
+    simulation: simL,
+  });
+  const bogleL = M.bogleheadAllocation(pLoanShort, simL.invest);
+  const taxL = M.taxSweetSpot(pLoanShort);
+  const guideL = M.outsideAllocationGuide(rL, simL, pLoanShort);
+  const pmL = M.buildPrintReportModel({
+    summary: rL,
+    selectedScenario: sL,
+    simulation: simL,
+    fire: fireL,
+    bogle: bogleL,
+    tax: taxL,
+    guide: guideL,
+    params: pLoanShort,
+  });
+  assert.ok(pmL.housingChipLabel.includes("(Bank, 22y"));
+  assert.ok(pmL.housingChipLabel.includes("Shortfall"));
+});
+
+test("annualBonus credits Additional Wage CPF up to $102,000 ceiling, srsInvestedIn differentiates returns, and milestonePlan/retirementTapsPlan stay personalized", () => {
+  const M = require("./model.js");
+  const def = M.SG_DEFAULT_PLAN;
+
+  // 1. Additional Wage CPF up to $102,000 annual CPF salary ceiling
+  const noBonus = M.calculate({ ...def, salary: 5500, annualBonus: 0 });
+  const withBonus = M.calculate({ ...def, salary: 5500, annualBonus: 12000 });
+  assert.equal(withBonus.awSubjectAnnual, 12000);
+  assert.equal(withBonus.annualBonusEmployeeCpf, 2400);
+  assert.equal(
+    Math.round(withBonus.annualBonusTotalCpf),
+    Math.round(12000 * 0.37),
+  );
+  assert.ok(
+    withBonus.cpfAt55 > noBonus.cpfAt55,
+    "Expected annualBonus AW CPF to increase projected CPF at 55",
+  );
+
+  // Above $8k/mo OW ($96,000/yr), AW CPF is strictly capped at remaining $6,000 ($102k - $96k)
+  const cap6k = M.calculate({ ...def, salary: 8500, annualBonus: 6000 });
+  const cap30k = M.calculate({ ...def, salary: 8500, annualBonus: 30000 });
+  assert.equal(cap6k.awSubjectAnnual, 6000);
+  assert.equal(cap30k.awSubjectAnnual, 6000);
+  assert.equal(
+    Math.round(cap6k.cpfAt55 * 100),
+    Math.round(cap30k.cpfAt55 * 100),
+    "Expected bonuses above the $102k annual CPF ceiling to add zero extra CPF",
+  );
+
+  // 2. srsInvestedIn return differentiation in taxSweetSpot and firePlan
+  const srsBase = {
+    ...def,
+    age: 35,
+    retire: 65,
+    srs: 20000,
+    srsAnnual: 8000,
+    returnRate: 0.06,
+  };
+  const txGlobal = M.taxSweetSpot({ ...srsBase, srsInvestedIn: "global" });
+  const txBalanced = M.taxSweetSpot({ ...srsBase, srsInvestedIn: "balanced" });
+  const txSsb = M.taxSweetSpot({ ...srsBase, srsInvestedIn: "ssb" });
+  const txCash = M.taxSweetSpot({ ...srsBase, srsInvestedIn: "cash" });
+  assert.ok(txGlobal.srsProjectedAt63 > txBalanced.srsProjectedAt63);
+  assert.ok(txBalanced.srsProjectedAt63 > txSsb.srsProjectedAt63);
+  assert.ok(txSsb.srsProjectedAt63 > txCash.srsProjectedAt63);
+  assert.ok(txCash.srsIdleWarning.includes("uninvested cash"));
+
+  const fpGlobal = M.firePlan({ ...srsBase, srsInvestedIn: "global" });
+  const fpBalanced = M.firePlan({ ...srsBase, srsInvestedIn: "balanced" });
+  const fpSsb = M.firePlan({ ...srsBase, srsInvestedIn: "ssb" });
+  const fpCash = M.firePlan({ ...srsBase, srsInvestedIn: "cash" });
+  const nwAt65 = (fp) => fp.points.find((pt) => pt.age === 65).totalNetWorth;
+  assert.ok(nwAt65(fpGlobal) > nwAt65(fpBalanced));
+  assert.ok(nwAt65(fpBalanced) > nwAt65(fpSsb));
+  assert.ok(nwAt65(fpSsb) > nwAt65(fpCash));
+
+  // 3. milestonePlan reconciles today's dollars, plannedCpfExtra, and Standard vs Escalating payouts
+  const mpStd = M.milestonePlan(
+    { ...def, age: 35, plan: "standard", cpfExtra: 0 },
+    "ers",
+  );
+  const mpEsc = M.milestonePlan(
+    { ...def, age: 35, plan: "escalating", cpfExtra: 300 },
+    "ers",
+  );
+  assert.ok(mpStd.targetToday < mpStd.target);
+  assert.equal(
+    Math.round(mpStd.targetToday),
+    Math.round(M.todayValue(mpStd.target, 55, 35, def.inflationRate)),
+  );
+  assert.ok(
+    mpEsc.cohortMilestones.frs.payoutToday <
+      mpStd.cohortMilestones.frs.payoutToday,
+    "Escalating initial cohort payout at 65 should start ~20% below Standard",
+  );
+  assert.equal(mpEsc.plannedCpfExtra, 300);
+  assert.ok(mpEsc.withPlanned.remainingGap < mpStd.gap);
+  assert.ok(mpEsc.withPlanned.additionalMonthlyNeeded < mpStd.monthly);
+
+  // 4. retirementTapsPlan Tap 2 personalized verdicts across income/tax states
+  const tapsLow = M.retirementTapsPlan({
+    params: { ...def, salary: 3000, srs: 0, srsAnnual: 0 },
+  });
+  assert.equal(tapsLow.tap2Srs.worthIt, false);
+  assert.equal(tapsLow.tap2Srs.verdictStatus, "skip-low-tax");
+
+  const tapsMid = M.retirementTapsPlan({
+    params: { ...def, salary: 5500, sa: 45000, srs: 0, srsAnnual: 0 },
+  });
+  assert.equal(tapsMid.tap2Srs.worthIt, false);
+  assert.equal(tapsMid.tap2Srs.verdictStatus, "rstu-first");
+
+  const tapsHigh = M.retirementTapsPlan({
+    params: { ...def, salary: 10000, srs: 0, srsAnnual: 5500 },
+  });
+  assert.equal(tapsHigh.tap2Srs.worthIt, true);
+  assert.equal(tapsHigh.tap2Srs.verdictStatus, "worth-it");
+  assert.ok(tapsHigh.tap2Srs.verdictLabel.includes("Worth It"));
+
+  const tapsTrap = M.retirementTapsPlan({
+    params: { ...def, salary: 10000, srs: 0, srsAnnual: 10000 },
+  });
+  assert.equal(tapsTrap.tap2Srs.worthIt, true);
+  assert.equal(tapsTrap.tap2Srs.verdictStatus, "trap-alert");
+
+  const tapsIdle = M.retirementTapsPlan({
+    params: {
+      ...def,
+      salary: 10000,
+      srs: 25000,
+      srsAnnual: 5000,
+      srsInvestedIn: "cash",
+    },
+  });
+  assert.equal(tapsIdle.tap2Srs.verdictStatus, "idle-cash");
+
+  const tapsCapped = M.retirementTapsPlan({
+    params: { ...def, salary: 10000, existingReliefs: 80000 },
+  });
+  assert.equal(tapsCapped.tap2Srs.worthIt, false);
+  assert.equal(tapsCapped.tap2Srs.verdictStatus, "cap-full");
+});

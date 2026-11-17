@@ -897,6 +897,7 @@
           closedSAInterest = 0;
         }
         snapshot55.fundedRA = b.ra;
+        snapshot55.oaAfter55 = b.oa;
         snapshot55.remainingReserve = reserve;
       }
       const target = goal === "ers" ? 2 * frs : frs;
@@ -927,9 +928,16 @@
         m < monthsRetire && (before55 || (p.post55Work && currentAge < 65));
       // The new age band applies from the month after the birthday.
       const [o, r, totalRate] = allocation(currentAge, year);
-      const contribution = working
-        ? Math.min(Number(p.salary), C.wageCap) * totalRate
+      const owWage = working ? Math.min(Number(p.salary), C.wageCap) : 0;
+      const awSubjectAnnual = working
+        ? Math.min(
+            Math.max(0, Number(p.annualBonus || 0)),
+            Math.max(0, C.annualWageCap - owWage * 12),
+          )
         : 0;
+      const owContribution = owWage * totalRate;
+      const awContribution = (awSubjectAnnual / 12) * totalRate;
+      const contribution = owContribution + awContribution;
       const incoming = {
         oa: contribution * o,
         sa: 0,
@@ -957,7 +965,7 @@
         m >= housingMonths
           ? 0
           : p.housing == null
-            ? incoming.oa
+            ? owContribution * o
             : Number(p.housing);
       const shortfall = Math.max(0, housing - b.oa - incoming.oa);
       housingShortfall += shortfall;
@@ -1257,8 +1265,17 @@
     const topup = Math.min(1000, base.currentTopupRoom),
       delay = Math.min(10, years55),
       wage = Math.min(salary, C.wageCap),
+      annualBonus = Math.max(0, Number(p.annualBonus || 0)),
+      awSubjectAnnual = Math.min(
+        annualBonus,
+        Math.max(0, C.annualWageCap - wage * 12),
+      ),
+      [oaShare, saShare, totalCpfRate] = allocation(age),
       contribution = wage * 0.37,
-      [oaShare, saShare] = allocation(age);
+      annualBonusEmployeeCpf = awSubjectAnnual * 0.2,
+      annualBonusEmployerCpf =
+        awSubjectAnnual * Math.max(0, totalCpfRate - 0.2),
+      annualBonusTotalCpf = awSubjectAnnual * totalCpfRate;
     return {
       scenarios,
       lifestyle,
@@ -1298,6 +1315,12 @@
       afterCpf: salary - wage * 0.2,
       contribution,
       wage,
+      awBonusAnnual: annualBonus,
+      awSubjectAnnual,
+      annualBonusEmployeeCpf,
+      annualBonusEmployerCpf,
+      annualBonusTotalCpf,
+      totalCpfRate,
       currentOA: contribution * oaShare,
       currentSA: contribution * saShare,
       currentMA: contribution * (1 - oaShare - saShare),
@@ -1311,6 +1334,7 @@
       ),
       housingShortfall: base.housingShortfall,
       housingShortfallToday: base.housingShortfallToday,
+      maShortfallToday: base.maShortfallToday,
       extraPost55CPF: base.extraPost55CPF,
       post55OA: base.post55OA,
       post55RAContributions: base.post55RAContributions,
@@ -1465,13 +1489,17 @@
     validate(p);
     if (!["brs", "frs", "ers"].includes(key))
       throw new Error("Choose BRS, FRS or ERS.");
-    const frs = retirementSum(C.year + 55 - Number(p.age));
+    const age = Number(p.age);
+    const inflation = p.inflationRate ?? C.inflation;
+    const plan = p.plan === "escalating" ? "escalating" : "standard";
+    const frs = retirementSum(C.year + 55 - age);
+    const scale = frs / C.frs;
     const target = frs * { brs: 0.5, frs: 1, ers: 2 }[key];
     const base = projectCPF(p);
     const available = base.availableAt55;
     const gap = Math.max(0, target - available);
     const retire = Number(p.retire ?? 65);
-    const months = Math.round((Math.min(55, retire) - Number(p.age)) * 12);
+    const months = Math.round((Math.min(55, retire) - age) * 12);
     const goal = key === "brs" ? "salary" : key;
     let monthly = gap > 0.005 && months <= 0 ? null : 0;
     let projection = goal === "salary" ? base : projectCPF(p, 0, goal);
@@ -1486,16 +1514,76 @@
       monthly = Math.ceil(high);
       projection = projectCPF(p, monthly, goal);
     }
+    const plannedCpfExtra =
+      months <= 0 ? 0 : Math.max(0, Number(p.cpfExtra || 0));
+    const plannedProj =
+      plannedCpfExtra > 0
+        ? projectCPF(p, plannedCpfExtra, goal)
+        : goal === "salary"
+          ? base
+          : projectCPF(p, 0, goal);
+    const plannedAvailable = plannedProj.availableAt55 + plannedProj.reserve;
+    const remainingGapAfterPlanned = Math.max(0, target - plannedProj.fundedRA);
+    const additionalMonthlyNeeded =
+      monthly === null ? null : Math.max(0, monthly - plannedCpfExtra);
+    const cohortMilestones = {};
+    for (const [mKey, mult] of [
+      ["brs", 0.5],
+      ["frs", 1],
+      ["ers", 2],
+    ]) {
+      const sum2026 = C.frs * mult;
+      const sumAt55 = frs * mult;
+      const sumToday = todayValue(sumAt55, 55, age, inflation);
+      const stdNominal = referencePayout(sum2026, "standard") * scale;
+      const escNominal = referencePayout(sum2026, "escalating") * scale;
+      const activeNominal = plan === "escalating" ? escNominal : stdNominal;
+      cohortMilestones[mKey] = {
+        sum2026,
+        sumAt55,
+        sumToday,
+        payout2026Ref: referencePayout(sum2026, plan),
+        payoutAt65Nominal: activeNominal,
+        payoutToday: todayValue(activeNominal, 65, age, inflation),
+        standardPayoutToday: todayValue(stdNominal, 65, age, inflation),
+        escalatingPayoutToday: todayValue(escNominal, 65, age, inflation),
+      };
+    }
     return {
       key,
+      age,
+      inflation,
+      plan,
       target,
+      targetToday: todayValue(target, 55, age, inflation),
       available,
+      availableToday: todayValue(available, 55, age, inflation),
       gap,
+      gapToday: todayValue(gap, 55, age, inflation),
       monthly,
       untilAge: Math.min(55, retire),
       currentRoom: base.currentTopupRoom,
       reserveAt55: projection.reserve,
+      reserveAt55Today: todayValue(projection.reserve, 55, age, inflation),
       fundedRA: projection.fundedRA,
+      fundedRAToday: todayValue(projection.fundedRA, 55, age, inflation),
+      plannedCpfExtra,
+      withPlanned: {
+        availableAt55: plannedAvailable,
+        availableAt55Today: todayValue(plannedAvailable, 55, age, inflation),
+        fundedRA: plannedProj.fundedRA,
+        fundedRAToday: todayValue(plannedProj.fundedRA, 55, age, inflation),
+        remainingGap: remainingGapAfterPlanned,
+        remainingGapToday: todayValue(
+          remainingGapAfterPlanned,
+          55,
+          age,
+          inflation,
+        ),
+        additionalMonthlyNeeded,
+        hitsTarget: plannedProj.fundedRA >= target - 0.5,
+      },
+      cohortMilestones,
       projection,
     };
   }
@@ -1586,6 +1674,7 @@
     result.gap = at(r.gap, r.retire);
     result.post55RAContributions = r.post55RAContributionsToday;
     result.housingShortfall = r.housingShortfallToday;
+    result.maShortfallToday = r.maShortfallToday;
     result.post55OA = at(r.post55OA, 65);
     result.scenarios = r.scenarios.map((s) => ({
       ...s,
@@ -1651,15 +1740,32 @@
   }
 
   // Personalized Singapore outside-CPF priority waterfall & take-home pay allocation guide.
-  function outsideAllocationGuide(summary, simulation) {
+  function outsideAllocationGuide(summary, simulation, params = {}) {
     const afterCpf = Math.max(0, summary.afterCpf || 0);
-    const annualGross = summary.salary * 12;
-    const annualEmployeeCpf = summary.employeeCpf * 12;
-    const earnedIncomeRelief = 1000;
-    const chargeableIncome = Math.max(
+    const salary = Math.max(0, Number(summary.salary || 0));
+    const annualBonus = Math.max(
       0,
-      annualGross - annualEmployeeCpf - earnedIncomeRelief,
+      Number(params?.annualBonus ?? summary.annualBonus ?? 0),
     );
+    const annualGross = salary * 12 + annualBonus;
+    const owAnnual = Math.min(salary, C.wageCap) * 12;
+    const awSubject = Math.min(
+      annualBonus,
+      Math.max(0, C.annualWageCap - owAnnual),
+    );
+    const annualEmployeeCpf =
+      annualBonus > 0
+        ? (owAnnual + awSubject) * 0.2
+        : (summary.employeeCpf || 0) * 12;
+    const existingReliefs = Math.max(
+      0,
+      Number(params?.existingReliefs ?? summary.existingReliefs ?? 1000),
+    );
+    const totalBaseReliefs = Math.min(
+      C.personalReliefCap,
+      annualEmployeeCpf + existingReliefs,
+    );
+    const chargeableIncome = Math.max(0, annualGross - totalBaseReliefs);
     const tax = residentTax(chargeableIncome);
     const netTakeHome = Math.max(0, afterCpf - tax.monthlyTax);
     const cpfExtra = simulation.cpfExtra || 0;
@@ -1717,16 +1823,25 @@
 
     const emergencySpendBase = Math.max(0, Number(summary.todaySpend) || 0);
     const horizon = Math.max(0, summary.retire - summary.age);
-    const rstuEligible = Math.min(C.rstuReliefCap, summary.currentTopupRoom);
+    const remainingReliefCap = Math.max(
+      0,
+      C.personalReliefCap - totalBaseReliefs,
+    );
+    const rstuEligible = Math.min(
+      C.rstuReliefCap,
+      summary.currentTopupRoom,
+      remainingReliefCap,
+    );
+    const srsEligible = Math.min(C.srsCap, remainingReliefCap);
     const rstuTaxSaved = Math.max(
       0,
       tax.annualTax - residentTax(chargeableIncome - rstuEligible).annualTax,
     );
     const srsTaxSaved = Math.max(
       0,
-      tax.annualTax - residentTax(chargeableIncome - C.srsCap).annualTax,
+      tax.annualTax - residentTax(chargeableIncome - srsEligible).annualTax,
     );
-    const taxWorthIt = tax.marginalRate >= 0.07;
+    const taxWorthIt = tax.marginalRate >= 0.07 && remainingReliefCap > 0;
 
     let safeShare, srsShare;
     if (horizon >= 12) {
@@ -1766,6 +1881,7 @@
       horizon,
       emergencyMin: Math.round(emergencySpendBase * 6),
       emergencyMax: Math.round(emergencySpendBase * 12),
+      remainingReliefCap,
       rstuEligible,
       rstuTaxSaved,
       srsTaxSaved,
@@ -1803,6 +1919,38 @@
     returnRate: 0.05,
     inflationRate: 0.03,
     post55Work: false,
+  };
+
+  const SG_DEFAULT_PLAN = {
+    lifestyle: "cca",
+    dob: "1991-01-01",
+    age: 35,
+    salary: 5500,
+    retire: C.retirementAge,
+    oa: 0,
+    sa: 0,
+    ma: 0,
+    equities: 34000,
+    sgDividends: 6000,
+    ssbCash: 20000,
+    srs: 0,
+    srsAge: 63,
+    srsAnnual: 0,
+    srsInvestedIn: "global",
+    annualBonus: 0,
+    existingReliefs: 1000,
+    targetEquityPct: 80,
+    sgSleevePct: C.defaultSgDividendSplitPct,
+    plan: "standard",
+    returnRate: 0.05,
+    inflationRate: 0.025,
+    post55Work: false,
+    reserveReturn: 0,
+    housingMode: "all-oa",
+    housingBalance: "",
+    housingYears: 20,
+    housingRate: 2.6,
+    housingParties: 1,
   };
 
   function resolvePortfolioBuckets(p) {
@@ -1846,6 +1994,25 @@
     return buckets.hasBuckets && p.savings == null
       ? { ...p, savings: buckets.total }
       : p;
+  }
+
+  function resolveSrsReturnRate(p, baseReturnRate = C.investmentReturn) {
+    const mode = p?.srsInvestedIn || "global";
+    if (mode === "cash") return C.srsIdleRate;
+    const rawSsbPct =
+      p?.masRates?.ssb?.year10Return ??
+      (typeof DEFAULT_MAS_LIVE_RATES !== "undefined"
+        ? DEFAULT_MAS_LIVE_RATES.ssb?.year10Return
+        : undefined) ??
+      2.39;
+    const ssbPct = Number(rawSsbPct);
+    const ssbRate = Math.max(
+      0,
+      (Number.isFinite(ssbPct) ? ssbPct : 2.39) / 100,
+    );
+    if (mode === "ssb") return ssbRate;
+    if (mode === "balanced") return 0.6 * baseReturnRate + 0.4 * ssbRate;
+    return baseReturnRate;
   }
 
   // 2026 IRAS CPF RSTU vs SRS Tax Sweet-Spot Calculator
@@ -1909,10 +2076,10 @@
       Math.max(0, Number(p.srsAnnual || 0)),
     );
     const srsInvestedIn = p.srsInvestedIn || "global";
-    const srsReturnRate =
-      srsInvestedIn === "cash"
-        ? C.srsIdleRate
-        : Math.max(0, Number(p.returnRate ?? C.investmentReturn));
+    const srsReturnRate = resolveSrsReturnRate(
+      p,
+      Math.max(0, Number(p.returnRate ?? C.investmentReturn)),
+    );
     const srsMonthsToLockIn = Math.max(
       0,
       Math.round((srsLockInAge - curAge) * 12),
@@ -1938,62 +2105,9 @@
     const srsTaxableAnnualAt63 = srsTenYearAnnualDraw * 0.5;
     const srsWithdrawalTaxAt63 = residentTax(srsTaxableAnnualAt63);
 
-    let srsTrapStatus = "safe";
-    let srsTrapHeadline =
-      "Within $400k tax-free SRS target at age " + srsLockInAge;
-    let srsTrapGuidance =
-      "Withdraw over 10 years from age " +
-      srsLockInAge +
-      " with a 50% tax concession (up to $40,000/yr or $3,333/mo tax-free if you have no other taxable income).";
-    if (srsProjectedAt63 >= C.srsTrapFloorAt63) {
-      srsTrapStatus = "balloon-trap";
-      srsTrapHeadline =
-        "SRS Ballooning Trap: Projected $" +
-        Math.round(srsProjectedAt63).toLocaleString("en-SG") +
-        " at age " +
-        srsLockInAge +
-        " exceeds $450k–$500k";
-      srsTrapGuidance =
-        "Forced 10-year withdrawals ($" +
-        Math.round(srsTenYearAnnualDraw).toLocaleString("en-SG") +
-        "/yr → $" +
-        Math.round(srsTaxableAnnualAt63).toLocaleString("en-SG") +
-        "/yr taxable after 50% concession) push you back into progressive tax brackets (~$" +
-        Math.round(srsWithdrawalTaxAt63.annualTax).toLocaleString("en-SG") +
-        "/yr tax). Once on track to hit ~$400k by " +
-        srsLockInAge +
-        " (≤$" +
-        Math.round(srsMaxSafeAnnualTo400k).toLocaleString("en-SG") +
-        "/yr), direct excess cash into your personal brokerage account instead.";
-    } else if (srsProjectedAt63 >= C.srsSoftCapAt63) {
-      srsTrapStatus = "near-cap";
-      srsTrapHeadline =
-        "On track for ~$400k SRS soft cap ($" +
-        Math.round(srsProjectedAt63).toLocaleString("en-SG") +
-        " at age " +
-        srsLockInAge +
-        ")";
-      srsTrapGuidance =
-        "Do not let your SRS pot balloon past ~$450k–$500k by age " +
-        srsLockInAge +
-        ". Keep annual SRS ≤$" +
-        Math.round(srsMaxSafeAnnualTo400k).toLocaleString("en-SG") +
-        "/yr and direct excess cash into your personal brokerage (85% Global Growth / 15% SG Dividend) instead.";
-    } else if (
-      srsFullCapProjectedAt63 > C.srsTrapFloorAt63 &&
-      srsAnnualPlanned === 0
-    ) {
-      srsTrapGuidance +=
-        " Pacing tip: maxing $15,300/yr every year until " +
-        srsLockInAge +
-        " would balloon to ~$" +
-        Math.round(srsFullCapProjectedAt63).toLocaleString("en-SG") +
-        "; a steady ~$" +
-        Math.round(srsMaxSafeAnnualTo400k).toLocaleString("en-SG") +
-        "/yr hits the optimal $400k pot by " +
-        srsLockInAge +
-        ".";
-    }
+    const srsYearsToLockIn = Math.max(0, Math.round(srsLockInAge - curAge));
+    const marginalPctLabel =
+      (taxBefore.marginalRate * 100).toFixed(1).replace(/\.0$/, "") + "%";
 
     let tier, headline, guidance;
     if (reliefCapRemaining <= 0) {
@@ -2018,7 +2132,87 @@
       headline =
         "Max CPF RSTU ($8,000/yr) + SRS ($15,300/yr) — ≥ 11.5% bracket";
       guidance =
-        "In the 11.5%+ bracket, locking tax-relieved dollars yields strong day-one tax alpha. Max RSTU (up to FRS) plus $15,300 SRS, and invest SRS immediately so it does not sit idle at 0.05%.";
+        srsMaxSafeAnnualTo400k > 0 && srsMaxSafeAnnualTo400k < C.srsCap - 50
+          ? `In the 11.5%+ bracket, locking tax-relieved dollars yields strong day-one tax alpha. Max RSTU (up to FRS) plus SRS (up to $15,300/yr statutory cap, or ~$${Math.round(srsMaxSafeAnnualTo400k).toLocaleString("en-SG")}/yr steady pace to stay within the $400k age-${srsLockInAge} tax-free ceiling), and invest SRS immediately so it does not sit idle at 0.05%.`
+          : "In the 11.5%+ bracket, locking tax-relieved dollars yields strong day-one tax alpha. Max RSTU (up to FRS) plus $15,300 SRS, and invest SRS immediately so it does not sit idle at 0.05%.";
+    }
+
+    let srsTrapStatus = "safe";
+    let srsTrapTone = "is-info";
+    let srsTrapHeadline = "No SRS planned · Optional after $8k RSTU";
+    let srsTrapGuidance =
+      "50% of each SRS withdrawal is taxable over the 10-year window from age " +
+      srsLockInAge +
+      "—keeping your nominal pot ≤ $400,000 lets you draw up to $40,000/yr ($3,333/mo) at $0 tax if you have no other taxable income.";
+    if (srsProjectedAt63 >= C.srsTrapFloorAt63) {
+      srsTrapStatus = "balloon-trap";
+      srsTrapTone = "is-danger";
+      srsTrapHeadline =
+        "Ballooning Trap · $" +
+        Math.round(srsProjectedAt63).toLocaleString("en-SG") +
+        " at age " +
+        srsLockInAge +
+        " (> $450k)";
+      srsTrapGuidance =
+        "50% of each SRS withdrawal is taxable. Drawing $" +
+        Math.round(srsTenYearAnnualDraw).toLocaleString("en-SG") +
+        "/yr over 10 years leaves $" +
+        Math.round(srsTaxableAnnualAt63).toLocaleString("en-SG") +
+        "/yr chargeable (~$" +
+        Math.round(srsWithdrawalTaxAt63.annualTax).toLocaleString("en-SG") +
+        "/yr tax). Cap annual SRS at ≤$" +
+        Math.round(srsMaxSafeAnnualTo400k).toLocaleString("en-SG") +
+        "/yr and direct excess cash into your personal brokerage account instead.";
+    } else if (srsProjectedAt63 >= C.srsSoftCapAt63) {
+      srsTrapStatus = "near-cap";
+      srsTrapTone = "is-warn";
+      srsTrapHeadline =
+        "Near $400k Cap · $" +
+        Math.round(srsProjectedAt63).toLocaleString("en-SG") +
+        " at age " +
+        srsLockInAge;
+      srsTrapGuidance =
+        "50% of each SRS withdrawal is taxable. Keep your age-" +
+        srsLockInAge +
+        " pot below $450k–$500k (≤$" +
+        Math.round(srsMaxSafeAnnualTo400k).toLocaleString("en-SG") +
+        "/yr pace) and direct excess cash into your personal brokerage (85% Global Growth / 15% SG Dividend) instead.";
+    } else if (srsProjectedAt63 > 0) {
+      srsTrapStatus = "safe";
+      srsTrapTone = srsInvestedIn === "cash" ? "is-warn" : "is-good";
+      srsTrapHeadline =
+        srsInvestedIn === "cash"
+          ? "Idle Cash (0.05%) · $" +
+            Math.round(srsProjectedAt63).toLocaleString("en-SG") +
+            " at age " +
+            srsLockInAge
+          : "On Track · $" +
+            Math.round(srsProjectedAt63).toLocaleString("en-SG") +
+            " at age " +
+            srsLockInAge +
+            " (≤$400k tax-free)";
+      srsTrapGuidance =
+        "50% of each SRS withdrawal is taxable. Your projected age-" +
+        srsLockInAge +
+        " pot stays within the $400,000 soft cap, so 10-year withdrawals ($" +
+        Math.round(srsTenYearAnnualDraw).toLocaleString("en-SG") +
+        "/yr) stay below the $20,000/yr IRAS tax-free threshold ($0 withdrawal tax).";
+    } else {
+      srsTrapStatus = "safe";
+      srsTrapTone =
+        tier === "liquid" || tier === "cap-reached" ? "is-warn" : "is-info";
+      srsTrapHeadline =
+        tier === "cap-reached"
+          ? "No SRS · $80k relief cap full"
+          : tier === "liquid"
+            ? "No SRS · Skip at " + marginalPctLabel + " tax"
+            : tier === "rstu-first"
+              ? "No SRS · Prioritize $8k RSTU first"
+              : "No SRS planned · ≤$" +
+                Math.round(
+                  Math.min(maxSrsAfterRstu, srsMaxSafeAnnualTo400k),
+                ).toLocaleString("en-SG") +
+                "/yr safe pace";
     }
 
     return {
@@ -2053,14 +2247,19 @@
       srsWithdrawalTaxAt63,
       srsSoftCapAt63: C.srsSoftCapAt63,
       srsTrapFloorAt63: C.srsTrapFloorAt63,
+      srsYearsToLockIn,
       srsTrapStatus,
+      srsTrapTone,
       srsTrapHeadline,
       srsTrapGuidance,
       tier,
       headline,
       guidance,
       srsIdleWarning:
-        "SRS cash earns only 0.05% p.a. unless invested in index funds, T-bills, or Singapore Savings Bonds.",
+        srsInvestedIn === "cash" &&
+        (srsBalanceToday > 0 || srsAnnualPlanned > 0)
+          ? "Warning: Your SRS is set to uninvested cash (0.05% p.a.). Invest SRS in Global ETFs, a 60/40 portfolio, or Singapore Savings Bonds so inflation does not erode your tax relief."
+          : "SRS cash earns only 0.05% p.a. unless invested in index funds, T-bills, or Singapore Savings Bonds.",
     };
   }
 
@@ -2239,8 +2438,7 @@
     const todaySpend = summary.todaySpend;
     const rate = monthlyRate(investmentReturn);
     const srsWithdrawalAge = Number(p.srsAge) === 64 ? 64 : 63;
-    const srsRate =
-      p.srsInvestedIn === "cash" ? monthlyRate(C.srsIdleRate) : rate;
+    const srsRate = monthlyRate(resolveSrsReturnRate(p, investmentReturn));
 
     const payout65 = sim.selectedScenario.payout;
     const retireMonth = Math.round((retire - age) * 12);
@@ -2893,6 +3091,7 @@
     guide,
     params = {},
     basis = "today",
+    masRates = null,
   }) {
     const r = summary;
     const s = selectedScenario;
@@ -2940,10 +3139,25 @@
       ptAtRetire?.today?.cpfTotal ??
       fire?.phase2?.projectedCpfAt65Today ??
       s.balance;
+    const outsideAtRetire =
+      basis === "nominal"
+        ? (ptAtRetire?.totalOutside ?? 0)
+        : (ptAtRetire?.today?.totalOutside ?? outsideNeed);
     const projectedAtRetire =
       basis === "nominal"
         ? (ptAtRetire?.totalNetWorth ?? 0)
         : (ptAtRetire?.today?.totalNetWorth ?? outsideNeed + cpfAtRetire);
+
+    const taps = retirementTapsPlan({
+      summary: r,
+      selectedScenario: s,
+      simulation,
+      fire,
+      bogle,
+      tax,
+      params,
+      masRates,
+    });
 
     const cpfFloor65 = fire?.phase2?.cpfLife65Today ?? s.payout;
     const cpfCovPct = Math.min(
@@ -3021,18 +3235,124 @@
       monthlySplitValue = parts.join(" · ") || fmtSgd(0) + "/mo";
     }
 
+    const presetBaseline = lifestyles[r.lifestyle]?.budget || 2800;
+    const isCustomBudget = Boolean(
+      params?.isCustomBudget ||
+      Math.round(Number(r.todaySpend || 0) * 100) !==
+        Math.round(presetBaseline * 100),
+    );
+    const budgetChipLabel = isCustomBudget
+      ? (params?.itemizedActive ? "Custom itemized" : "Custom") +
+        " (" +
+        fmtSgd(r.todaySpend) +
+        "/mo)"
+      : r.lifestyleLabel + " (" + fmtSgd(r.todaySpend) + "/mo)";
+    const isLoanMode =
+      params?.housingMode === "hdb" || params?.housingMode === "bank";
+    const loanTypeTag = params?.housingMode === "bank" ? "Bank" : "HDB";
+    const housingBaseChip =
+      params?.housingMode === "paid-up" ||
+      (params?.housing === 0 && !isLoanMode)
+        ? "Housing: Paid-up ($0 OA)"
+        : Number(params?.housing || 0) > 0
+          ? "Housing OA " +
+            fmtSgd(params.housing) +
+            "/mo" +
+            (isLoanMode
+              ? " (" +
+                loanTypeTag +
+                (Number(params?.housingYears) > 0
+                  ? ", " + Math.round(Number(params.housingYears)) + "y"
+                  : "") +
+                ")"
+              : "")
+          : isLoanMode
+            ? "Housing: $0 OA (" + loanTypeTag + ")"
+            : "Housing: All new OA";
+    const housingChipLabel =
+      (r.housingShortfall || 0) > 0.5
+        ? housingBaseChip + " · Shortfall " + fmtSgd(r.housingShortfall)
+        : housingBaseChip;
+
+    const bucketsToday = resolvePortfolioBuckets(params);
+    const startingOa = Math.max(0, Number(params?.oa || 0));
+    const startingSa = Math.max(0, Number(params?.sa || 0));
+    const startingMa = Math.max(0, Number(params?.ma || 0));
+    const startingSaInvested = Math.max(0, Number(params?.saInvested || 0));
+    const startingCpfToday = startingOa + startingSa + startingMa;
+    const startingLiquidOutside = bucketsToday.liquidOnly;
+    const startingSrs = bucketsToday.srs;
+    const startingOutsideTotal = bucketsToday.total;
+    const startingTotalAssets = startingCpfToday + startingOutsideTotal;
+    const srsIdleActive =
+      (startingSrs > 0 || Number(params?.srsAnnual || 0) > 0) &&
+      params?.srsInvestedIn === "cash";
+    const startingAssets = {
+      oa: startingOa,
+      sa: startingSa,
+      ma: startingMa,
+      saInvested: startingSaInvested,
+      cpfTotal: startingCpfToday,
+      equities: bucketsToday.equities,
+      sgDividends: bucketsToday.sgDividends,
+      ssbCash: bucketsToday.ssbCash,
+      liquidOutside: startingLiquidOutside,
+      srs: startingSrs,
+      outsideTotal: startingOutsideTotal,
+      totalAssets: startingTotalAssets,
+      srsIdleActive,
+    };
+
+    const fmtK = (n) =>
+      "$" + (n % 1000 === 0 ? String(n / 1000) : (n / 1000).toFixed(1)) + "k";
+    const colophonRulesText =
+      "Based on " +
+      C.year +
+      " CPF & IRAS rules (BRS " +
+      fmtK(C.brs) +
+      ", FRS " +
+      fmtK(C.frs) +
+      ", ERS " +
+      fmtK(C.ers) +
+      ", BHS " +
+      fmtK(C.bhs) +
+      ", OW cap " +
+      fmtK(C.wageCap) +
+      ", RSTU cap " +
+      fmtK(C.rstuReliefCap) +
+      ", SRS cap " +
+      fmtK(C.srsCap) +
+      ", relief cap " +
+      fmtK(C.personalReliefCap) +
+      "). Age-55 cohort sums grow " +
+      Number((C.sumGrowth * 100).toFixed(1)) +
+      "%/yr.";
+
     const actionRows = [
       {
-        label: "1 · HYSA Buffer",
-        tag: "Today · 6–12m",
+        label: "1 · HYSA & SSB Buffer",
+        tag: "6–12m + $" + Math.round(C.ssbTargetBuffer / 1000) + "k SSB",
         value:
           fmtSgd(guide?.emergencyMin ?? r.todaySpend * 6) +
           "–" +
-          fmtSgd(guide?.emergencyMax ?? r.todaySpend * 12),
+          fmtSgd(guide?.emergencyMax ?? r.todaySpend * 12) +
+          " · SSB " +
+          fmtSgd(taps.tap4Ssb.currentSsbCash) +
+          "/$" +
+          Math.round(C.ssbTargetBuffer / 1000) +
+          "k",
       },
       {
         label: "2 · Holistic Mix (" + targetEqPct + "/" + targetBondPct + ")",
-        tag: effEqPct + "% Eq · " + effBondPct + "% Bond",
+        tag:
+          effEqPct +
+          "% Eq (" +
+          (hol.globalEquitySplitPct ?? C.defaultGlobalEquitySplitPct) +
+          "/" +
+          (hol.sgEquitySplitPct ?? C.defaultSgDividendSplitPct) +
+          " G/SG) · " +
+          effBondPct +
+          "% Bond",
         value: mixDeltaText,
       },
       {
@@ -3042,12 +3362,26 @@
       },
       {
         label: "4 · Tax Relief (" + marginalPct + ")",
-        tag: "IRAS tier",
-        value: taxActionValue,
+        tag:
+          tax?.srsTrapStatus === "balloon-trap"
+            ? "SRS >$" + Math.round(C.srsTrapFloorAt63 / 1000) + "k Trap!"
+            : tax?.srsTrapStatus === "near-cap"
+              ? "SRS ~$" + Math.round(C.srsSoftCapAt63 / 1000) + "k cap"
+              : "IRAS · $" + Math.round(C.personalReliefCap / 1000) + "k cap",
+        value:
+          taxActionValue +
+          (tax?.srsTrapStatus === "balloon-trap"
+            ? " · Cap SRS ≤$" + Math.round(C.srsSoftCapAt63 / 1000) + "k"
+            : ""),
       },
       {
         label: "5 · Age-" + retireAge + " Target",
-        tag: "Today’s $",
+        tag:
+          taps.tap1Cpf.oaAt55Today > 0
+            ? "Today’s $ · +" +
+              fmtSgd(taps.tap1Cpf.oaInterestMonthlyToday) +
+              "/mo 55 OA"
+            : "Today’s $ · 4-Tap Floor",
         value: fmtSgd(outsideNeed) + " out + " + fmtSgd(cpfAtRetire) + " CPF",
       },
     ];
@@ -3067,8 +3401,14 @@
       retireAge,
       endAge,
       outsideNeed,
+      outsideAtRetire,
       cpfAtRetire,
       projectedAtRetire,
+      taps,
+      isCustomBudget,
+      budgetChipLabel,
+      housingChipLabel,
+      colophonRulesText,
       cpfFloor65,
       cpfCovPct,
       builtTodayPct,
@@ -3089,6 +3429,7 @@
       waterfallStartAge,
       waterfallEndAge,
       hasSrs,
+      startingAssets,
       actionRows,
       customSavingNote: hasCustomSaving
         ? "Custom input active: " +
@@ -4132,6 +4473,7 @@
     bogle,
     tax,
     params = {},
+    masRates = null,
   } = {}) {
     const effP = withEffectiveSavings(params);
     const sum = summary || calculate(effP);
@@ -4150,8 +4492,11 @@
     const bg = bogle || bogleheadAllocation(effP, sim.invest);
     const tx = tax || taxSweetSpot(effP);
 
-    const keepOA = projectCPF(effP);
-    const oaAt55Nominal = Math.max(0, keepOA.availableAt55 - keepOA.cpfAt55);
+    const keepOA = sim?.cpfResult || projectCPF(effP);
+    const oaAt55Nominal = Math.max(
+      0,
+      keepOA.oaAfter55 ?? keepOA.availableAt55 - keepOA.cpfAt55,
+    );
     const oaAt55Today = todayValue(oaAt55Nominal, 55, sum.age, sum.inflation);
     const oaInterestMonthlyNominal = (oaAt55Nominal * C.oaRate) / 12;
     const oaInterestMonthlyToday = (oaAt55Today * C.oaRate) / 12;
@@ -4173,18 +4518,87 @@
       scen.gap65 > 0
         ? scen.gap65 * fundingRatio
         : (portAtRetireToday * 0.04) / 12;
-    const ssb10YrRate =
-      (DEFAULT_MAS_LIVE_RATES.ssb?.year10Return || 2.39) / 100;
+    const resolvedMas = masRates || params?.masRates || DEFAULT_MAS_LIVE_RATES;
+    const ssb10YrPct = Number(
+      resolvedMas?.ssb?.year10Return ??
+        DEFAULT_MAS_LIVE_RATES.ssb?.year10Return ??
+        2.39,
+    );
+    const ssb1YrPct = Number(
+      resolvedMas?.ssb?.year1Return ??
+        DEFAULT_MAS_LIVE_RATES.ssb?.year1Return ??
+        2.86,
+    );
+    const ssb10YrRate = ssb10YrPct / 100;
     const ssb150kMonthlyYield = Math.round(
       (C.ssbTargetBuffer * ssb10YrRate) / 12,
+    );
+    const srsProjectedAt63Today = todayValue(
+      tx.srsProjectedAt63,
+      tx.srsLockInAge,
+      sum.age,
+      sum.inflation,
+    );
+    const srsTenYearAnnualDrawToday = srsProjectedAt63Today / 10;
+    const srsTenYearMonthlyDrawToday = srsTenYearAnnualDrawToday / 12;
+    const srsMode = tx.srsInvestedIn || effP.srsInvestedIn || "global";
+    const srsEffectiveTaxSaved =
+      tx.maxRstu > 0 ? tx.srsTaxSavedAfterRstu : tx.srsStandaloneTaxSaved;
+    const srsWorthIt =
+      tx.tier === "max-both" ||
+      (tx.tier === "rstu-first" &&
+        tx.saRoom <= 0 &&
+        tx.srsStandaloneTaxSaved > 0);
+    const marginalPctStr = (tx.taxBefore.marginalRate * 100)
+      .toFixed(1)
+      .replace(/\.0$/, "");
+    let srsVerdictStatus = "worth-it";
+    let srsVerdictLabel = `Worth It · Saves $${Math.round(srsEffectiveTaxSaved).toLocaleString("en-SG")}/yr`;
+    if (tx.srsTrapStatus === "balloon-trap") {
+      srsVerdictStatus = "trap-alert";
+      srsVerdictLabel = "Trap Alert · Over $450k";
+    } else if (
+      srsMode === "cash" &&
+      (tx.srsBalanceToday > 0 || tx.srsAnnualPlanned > 0)
+    ) {
+      srsVerdictStatus = "idle-cash";
+      srsVerdictLabel = "Invest SRS · 0.05% Cash";
+    } else if (tx.tier === "cap-reached") {
+      srsVerdictStatus = "cap-full";
+      srsVerdictLabel = "Skip · $80k Cap Full";
+    } else if (tx.tier === "liquid") {
+      srsVerdictStatus = "skip-low-tax";
+      srsVerdictLabel = `Skip · ${marginalPctStr}% Tax`;
+    } else if (tx.tier === "rstu-first" && tx.saRoom > 0) {
+      srsVerdictStatus = "rstu-first";
+      srsVerdictLabel = `RSTU First · ${marginalPctStr}% Tax`;
+    }
+
+    const cpfBudgetCovPct = Math.min(
+      100,
+      Math.round((scen.payout / Math.max(1, todaySum.spend65)) * 100),
+    );
+    const eqGapCovPct =
+      scen.gap65 > 0
+        ? Math.min(100, Math.round((portDrawToday / scen.gap65) * 100))
+        : 100;
+    const emergencyMin = Math.round(todaySum.todaySpend * 6);
+    const emergencyMax = Math.round(todaySum.todaySpend * 12);
+    const currentSsbMonthlyYield = Math.round(
+      (bg.buckets.ssbCash * ssb10YrRate) / 12,
     );
 
     return {
       tap1Cpf: {
         plan: sum.plan,
+        selectedPathKey: scen.key,
+        selectedPathLabel: scen.label,
         monthlyPayoutToday: scen.payout,
         standardMonthlyToday: scen.standardPayout,
         escalatingMonthlyToday: scen.standardPayout * C.escalatingRatio,
+        spend65Today: todaySum.spend65,
+        todaySpend: todaySum.todaySpend,
+        budgetCoveragePct: cpfBudgetCovPct,
         targetRefMonthly: C.cpfLifeTargetRef,
         brs: { sum: C.brs, monthly: 950 },
         frs: { sum: C.frs, monthly: 1780 },
@@ -4208,27 +4622,55 @@
         trapFloorAt63: C.srsTrapFloorAt63,
         trapCeilingAt63: C.srsTrapCeilingAt63,
         projectedAt63: tx.srsProjectedAt63,
+        projectedAt63Today: srsProjectedAt63Today,
         tenYearAnnualDraw: tx.srsTenYearAnnualDraw,
+        tenYearAnnualDrawToday: srsTenYearAnnualDrawToday,
         tenYearMonthlyDraw: tx.srsTenYearMonthlyDraw,
+        tenYearMonthlyDrawToday: srsTenYearMonthlyDrawToday,
+        srsInvestedIn: srsMode,
+        srsReturnRate: tx.srsReturnRate,
+        srsBalanceToday: tx.srsBalanceToday,
+        srsAnnualPlanned: tx.srsAnnualPlanned,
         withdrawalTaxAnnual: tx.srsWithdrawalTaxAt63.annualTax,
         maxSafeAnnualTo400k: tx.srsMaxSafeAnnualTo400k,
         trapStatus: tx.srsTrapStatus,
         trapHeadline: tx.srsTrapHeadline,
         trapGuidance: tx.srsTrapGuidance,
+        tier: tx.tier,
+        marginalRate: tx.taxBefore.marginalRate,
+        chargeableIncome: tx.chargeableIncome,
+        reliefCapRemaining: tx.reliefCapRemaining,
+        maxRstu: tx.maxRstu,
+        rstuTaxSaved: tx.rstuTaxSaved,
+        maxSrsAfterRstu: tx.maxSrsAfterRstu,
+        srsTaxSavedAfterRstu: tx.srsTaxSavedAfterRstu,
+        srsStandaloneTaxSaved: tx.srsStandaloneTaxSaved,
+        worthIt: srsWorthIt,
+        verdictStatus: srsVerdictStatus,
+        verdictLabel: srsVerdictLabel,
       },
       tap3Equities: {
         globalSplitPct: bg.holistic.globalEquitySplitPct,
         sgDividendSplitPct: bg.holistic.sgEquitySplitPct,
         currentEquities: bg.holistic.totalEquities,
+        monthlyInvest: sim.invest,
+        portfolioAtRetireToday: portAtRetireToday,
+        postCpfGap65Today: scen.gap65,
+        gapCoveragePct: eqGapCovPct,
         projectedMonthlyDrawToday: portDrawToday,
         benchmarkMinMonthly: C.equityTapMinRef,
         benchmarkMaxMonthly: C.equityTapMaxRef,
       },
       tap4Ssb: {
         currentSsbCash: bg.buckets.ssbCash,
+        emergencyMin,
+        emergencyMax,
+        currentMonthlyYield: currentSsbMonthlyYield,
         targetBuffer: C.ssbTargetBuffer,
         masCap: C.ssbCap,
         monthlyYieldAt150k: ssb150kMonthlyYield,
+        ssb10YrPct,
+        ssb1YrPct,
       },
       vhr: {
         oaRate: C.oaRate,
@@ -4249,6 +4691,7 @@
   const api = {
     C,
     DEMO_PLAN,
+    SG_DEFAULT_PLAN,
     computeAgeFromDob,
     defaultDobForAge,
     computeHousingPayment,

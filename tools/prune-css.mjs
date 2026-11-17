@@ -3,7 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 
 const css = await readFile("styles.css", "utf8");
 const [result] = await new PurgeCSS().purge({
-  content: ["index.html", "app.js"],
+  content: ["index.html", "app.js", "model.js"],
   css: [{ raw: css }],
   safelist: {
     standard: ["is-active", "sr-status"],
@@ -15,13 +15,16 @@ const [result] = await new PurgeCSS().purge({
       /^seg-/,
       /^th-/,
       /^cov-/,
+      /^poster-/,
       /data-qe-panel/,
       /data-seg-idx/,
+      /data-tone/,
       /data-view/,
       /data-tick/,
       /details-content/,
       /focus-visible/,
       /::backdrop/,
+      /::-webkit-/,
     ],
   },
   rejected: true,
