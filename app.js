@@ -2519,6 +2519,688 @@ function buildExpenseCardHTML(ep, r) {
   </section>`;
 }
 
+function buildFinBentoGridHTML({
+  fire,
+  r,
+  p,
+  simulation,
+  bogle,
+  pctOfPay,
+  contribution,
+  expenseData,
+  taps,
+  paycheck,
+  tax,
+  startingCpf,
+  startingSrs,
+  startingTotalAssets,
+}) {
+  const hMode = p.housingMode || "all-oa";
+  const hParties = Math.max(1, Math.round(Number(p.housingParties || 1)));
+  const rawLoanBal =
+    hMode === "hdb" || hMode === "bank"
+      ? Math.max(0, Number(p.housingBalance || 0))
+      : 0;
+  const userLoanShare = Math.round(rawLoanBal / hParties);
+  const netWorthAfterDebt = startingTotalAssets - userLoanShare;
+  const housingModeLabel =
+    hMode === "paid-up"
+      ? "Paid-up home"
+      : hMode === "hdb"
+        ? `HDB loan (2.6% · ${p.housingYears || 20}y)`
+        : hMode === "bank"
+          ? `Bank loan (${p.housingRate || 2.6}% · ${p.housingYears || 20}y)`
+          : hMode === "custom"
+            ? "Custom monthly OA"
+            : "Covered by monthly OA";
+
+  const cashBal = Math.round(bogle.buckets.ssbCash || 0);
+  const eqBal = Math.round(
+    (bogle.buckets.equities || 0) + (bogle.buckets.sgDividends || 0),
+  );
+  const cpfSrsBal = Math.round(startingCpf + startingSrs);
+  const assetDenom = Math.max(1, cashBal + eqBal + cpfSrsBal);
+  const cashShareW = Math.round((cashBal / assetDenom) * 100);
+  const eqShareW = Math.round((eqBal / assetDenom) * 100);
+  const cpfShareW = Math.max(0, 100 - cashShareW - eqShareW);
+
+  // Housing & IRAS tax monthly figures
+  const hInfo = RetirementModel.computeHousingPayment({
+    mode: hMode,
+    loanBalance: p.housingBalance,
+    loanRate: p.housingRate,
+    loanYears: p.housingYears,
+    loanParties: p.housingParties,
+    manualMonthly: p.housing,
+  });
+  const housingTotalMo =
+    hMode === "paid-up"
+      ? 0
+      : hMode === "all-oa"
+        ? Math.round(r.currentOA || 0)
+        : Math.round(hInfo.monthlyShare || 0);
+  const housingOaMo = Math.min(Math.round(r.currentOA || 0), housingTotalMo);
+  const housingCashMo = Math.max(0, housingTotalMo - housingOaMo);
+  const margTaxRate = tax?.taxBefore?.marginalRate || 0;
+  const activeTaxSavedYr =
+    Math.min(tax?.rstuTaxSaved || 0, Math.round((simulation.cpfExtra || 0) * 12 * margTaxRate)) +
+    Math.min(tax?.srsTaxSavedAfterRstu || 0, Math.round((p.srsAnnual || 0) * margTaxRate));
+  const monthlyTax = Math.max(
+    0,
+    Math.round(((tax?.taxBefore?.annualTax || 0) - activeTaxSavedYr) / 12),
+  );
+  const livingAndTaxMo = Math.max(
+    0,
+    Math.round(r.afterCpf - contribution - housingCashMo),
+  );
+  const discretionaryCashMo = Math.max(0, livingAndTaxMo - monthlyTax);
+
+  // Cashflow bar shares out of take-home pay
+  const takeHomeDenom = Math.max(1, r.afterCpf);
+  const saveW = Math.min(
+    100,
+    Math.max(0, Math.round((contribution / takeHomeDenom) * 100)),
+  );
+  const taxAndHousingCash = Math.round(monthlyTax + housingCashMo);
+
+  const housingMetaLabel =
+    hMode === "paid-up"
+      ? "Paid-up property ($0 OA)"
+      : hMode === "all-oa"
+        ? `Up to ${m(housingOaMo)} CPF OA ($0 cash)`
+        : housingCashMo > 0
+          ? `${m(housingCashMo)} cash + ${m(housingOaMo)} CPF OA`
+          : `${m(housingOaMo)} via CPF OA`;
+
+  // Portfolio distribution & passive income today
+  const hol = bogle.holistic || {};
+  const holDenom = Math.max(1, hol.totalNetWorth || startingTotalAssets || 1);
+  const glEqBal = Math.round(
+    hol.globalEquities ??
+      (bogle.buckets.equities || 0) + (bogle.buckets.srsGrowth || 0),
+  );
+  const sgDivBal = Math.round(
+    hol.sgDividends ?? (bogle.buckets.sgDividends || 0),
+  );
+  const safeBondBal = Math.round(
+    hol.totalBonds ?? (bogle.buckets.ssbCash || 0) + startingCpf,
+  );
+  const glEqW = Math.round((glEqBal / holDenom) * 100);
+  const sgEqW = Math.round((sgDivBal / holDenom) * 100);
+  const safeW = Math.max(0, 100 - glEqW - sgEqW);
+
+  const sgDivMoNow = Math.round(((sgDivBal * 0.05) / 12) * 100) / 100;
+  const cashMoNow =
+    Math.round((taps.tap4Ssb.currentMonthlyYield || 0) * 100) / 100;
+  const passiveMoNow = Math.round((sgDivMoNow + cashMoNow) * 100) / 100;
+  const passiveYrNow = Math.round(passiveMoNow * 12);
+
+  // Subscriptions, Insurance & Fixed Bills from expenseData
+  const allItems = expenseData?.items || [];
+  const fixedMatcher =
+    /insurance|healthshield|multiplier life|accident|term|utilities|s&cc|town council|wifi|mobile|streaming|subscription|broadband|telco|levy|helper/i;
+  const recurringItems = allItems
+    .filter(
+      (it) =>
+        it.category === "housing" ||
+        it.category === "digital" ||
+        fixedMatcher.test(it.name),
+    )
+    .sort((a, b) => b.amount - a.amount);
+  const recurringTotal = Math.round(
+    recurringItems.reduce((acc, it) => acc + (it.amount || 0), 0),
+  );
+  const expTotal = Math.max(
+    1,
+    Math.round(expenseData?.total || r.todaySpend || 1),
+  );
+  const recurringPct = Math.min(
+    100,
+    Math.round((recurringTotal / expTotal) * 100),
+  );
+  const insSubTotal = Math.round(
+    recurringItems
+      .filter(
+        (it) =>
+          it.category === "care" ||
+          /insurance|healthshield|life|accident/i.test(it.name),
+      )
+      .reduce((acc, it) => acc + (it.amount || 0), 0),
+  );
+  const billSubTotal = Math.max(0, recurringTotal - insSubTotal);
+  const fixedOutMo = Math.round(monthlyTax + housingCashMo + recurringTotal);
+  const fixedOutW = Math.min(
+    100 - saveW,
+    Math.max(0, Math.round((fixedOutMo / takeHomeDenom) * 100)),
+  );
+  const livingW = Math.max(0, 100 - saveW - fixedOutW);
+  const insW = Math.min(100, Math.round((insSubTotal / expTotal) * 100));
+  const billW = Math.min(
+    100 - insW,
+    Math.round((billSubTotal / expTotal) * 100),
+  );
+  const flexW = Math.max(0, 100 - insW - billW);
+
+  const catColorMap = {};
+  (expenseData?.categories || []).forEach((c) => {
+    catColorMap[c.key] = c.color;
+  });
+
+  function formatBillRow(it) {
+    const raw = String(it.name || "");
+    const parenMatch = raw.match(/^(.*?)\s*\(([^)]+)\)\s*(.*)$/);
+    let shortTitle = raw;
+    let detailNote = "";
+    if (parenMatch) {
+      shortTitle = [parenMatch[1], parenMatch[3]].filter(Boolean).join(" ").trim();
+      detailNote = parenMatch[2].trim();
+    } else if (raw.includes(" + ")) {
+      const parts = raw.split(" + ");
+      shortTitle = parts[0].trim();
+      detailNote = parts.slice(1).join(" + ").trim();
+    }
+    const baseTag =
+      it.category === "digital"
+        ? "Subscription"
+        : it.category === "housing"
+          ? "Utility"
+          : "Policy / Care";
+    const metaText = detailNote ? `${detailNote} · ${baseTag}` : baseTag;
+    return { shortTitle, metaText };
+  }
+
+  return `
+    <div class="fin-bento-grid" id="fin-bento-grid" role="region" aria-label="Personal finance overview widgets">
+      <!-- 1. Net Worth & Balance Sheet -->
+      <article class="fin-bento-card card-surface">
+        <div class="fin-bento-head">
+          <div>
+            <span class="fin-bento-eyebrow">Net Worth &amp; Balance Sheet</span>
+            <h3 class="fin-bento-title">${m(netWorthAfterDebt)} <small>${userLoanShare > 0 ? "net of loan" : "debt-free"}</small></h3>
+          </div>
+          <button type="button" class="fin-link-pill" data-quick-edit="balances">Edit balances</button>
+        </div>
+        <div class="fin-bento-bar" aria-hidden="true">
+          <span style="width:${cpfShareW}%;background:var(--sem-cpf);" title="CPF + SRS (${cpfShareW}%)"></span>
+          <span style="width:${eqShareW}%;background:var(--sem-equities);" title="Equities (${eqShareW}%)"></span>
+          <span style="width:${cashShareW}%;background:var(--sem-cash);" title="Cash &amp; SSB (${cashShareW}%)"></span>
+        </div>
+        <ul class="fin-bento-list">
+          <li>
+            <span class="fin-bento-item-label"><i style="background:var(--sem-cpf);"></i>CPF + SRS Locked</span>
+            <span class="fin-bento-item-meta">OA ${compactMoney(p.oa || 0)} · SA ${compactMoney(p.sa || 0)} · MA ${compactMoney(p.ma || 0)}</span>
+            <strong>${m(cpfSrsBal)}</strong>
+          </li>
+          <li>
+            <span class="fin-bento-item-label"><i style="background:var(--sem-equities);"></i>Equities &amp; SG Div</span>
+            <span class="fin-bento-item-meta">${m(bogle.buckets.equities || 0)} Global · ${m(sgDivBal)} SG</span>
+            <strong>${m(eqBal)}</strong>
+          </li>
+          <li>
+            <span class="fin-bento-item-label"><i style="background:var(--sem-cash);"></i>Liquid Cash &amp; SSB</span>
+            <span class="fin-bento-item-meta">${taps.tap4Ssb.effectiveRatePct.toFixed(2)}% blended EIR</span>
+            <strong>${m(cashBal)}</strong>
+          </li>
+          <li class="${userLoanShare > 0 ? "is-liability-row" : ""}">
+            <span class="fin-bento-item-label"><i style="background:var(--sem-alert);"></i>Mortgage Liability</span>
+            <span class="fin-bento-item-meta">${housingModeLabel}</span>
+            <strong>${userLoanShare > 0 ? `−${m(userLoanShare)}` : "$0"}</strong>
+          </li>
+        </ul>
+      </article>
+
+      <!-- 2. Monthly Cashflow -->
+      <article class="fin-bento-card card-surface">
+        <div class="fin-bento-head">
+          <div>
+            <span class="fin-bento-eyebrow">Monthly Cashflow &amp; Surplus</span>
+            <h3 class="fin-bento-title">${m(r.afterCpf, "/mo")} <small>take-home (${pctOfPay}% saved)</small></h3>
+          </div>
+          <button type="button" class="fin-link-pill" data-quick-edit="salary">Edit income</button>
+        </div>
+        <div class="fin-bento-bar" aria-hidden="true">
+          <span style="width:${saveW}%;background:var(--sem-cpf);" title="Saved &amp; Invested (${saveW}%)"></span>
+          <span style="width:${fixedOutW}%;background:var(--sem-cash);" title="Tax, Housing &amp; Fixed Bills (${fixedOutW}%)"></span>
+          <span style="width:${livingW}%;background:var(--sem-equities-sg);" title="Spare Cash / Flex Living (${livingW}%)"></span>
+        </div>
+        <ul class="fin-bento-list">
+          <li>
+            <span class="fin-bento-item-label"><i style="background:var(--sem-cpf);"></i>Saved &amp; Invested</span>
+            <span class="fin-bento-item-meta">${m(simulation.invest)} Inv · ${m(simulation.cashSaving || 0)} Cash · ${m(simulation.cpfExtra || 0)} CPF</span>
+            <strong class="is-emerald">${m(contribution, "/mo")}</strong>
+          </li>
+          <li>
+            <span class="fin-bento-item-label"><i style="background:var(--primary);"></i>Mandatory CPF + Mortgage</span>
+            <span class="fin-bento-item-meta">${m(r.employeeCpf + r.employerCpf)} CPF · ${housingMetaLabel}</span>
+            <strong>${m(r.employeeCpf + r.employerCpf + housingTotalMo, "/mo")}</strong>
+          </li>
+          <li>
+            <span class="fin-bento-item-label"><i style="background:var(--sem-cash);"></i>IRAS Tax &amp; Fixed Bills</span>
+            <span class="fin-bento-item-meta">${m(monthlyTax, "/mo")} tax · ${m(recurringTotal, "/mo")} fixed bills</span>
+            <strong>${m(monthlyTax + recurringTotal, "/mo")}</strong>
+          </li>
+          <li class="is-spare-cash-row">
+            <span class="fin-bento-item-label"><i style="background:var(--sem-equities-sg);"></i>Unallocated Cash Surplus</span>
+            <span class="fin-bento-item-meta">${r.afterCpf - contribution - housingCashMo - monthlyTax - recurringTotal < 0 ? `Exceeds take-home by ${m(Math.abs(Math.round(r.afterCpf - contribution - housingCashMo - monthlyTax - recurringTotal)), "/mo")}` : "After savings, tax &amp; fixed bills"}</span>
+            <strong class="${discretionaryCashMo - recurringTotal > 0 ? "is-emerald" : r.afterCpf - contribution - housingCashMo - monthlyTax - recurringTotal < 0 ? "is-danger-text" : ""}" id="bento-spare-cash-val">${m(Math.max(0, discretionaryCashMo - recurringTotal), "/mo")}</strong>
+          </li>
+        </ul>
+      </article>
+
+      <!-- 3. Portfolio Distribution & Passive Yield -->
+      <article class="fin-bento-card card-surface">
+        <div class="fin-bento-head">
+          <div>
+            <span class="fin-bento-eyebrow">Portfolio Distribution &amp; Yield</span>
+            <h3 class="fin-bento-title">+${centsHtml(passiveMoNow)}<span>/mo</span> <small>passive yield now</small></h3>
+          </div>
+          <button type="button" class="fin-link-pill" data-go-tab="dividend-calc">Yield calculator →</button>
+        </div>
+        <div class="fin-bento-bar" aria-hidden="true">
+          <span style="width:${glEqW}%;background:var(--sem-equities);" title="Global Equity (${glEqW}%)"></span>
+          <span style="width:${sgEqW}%;background:var(--sem-equities-sg);" title="SG Dividend (${sgEqW}%)"></span>
+          <span style="width:${safeW}%;background:var(--sem-cpf);" title="Safe Floor (${safeW}%)"></span>
+        </div>
+        <ul class="fin-bento-list">
+          <li>
+            <span class="fin-bento-item-label"><i style="background:var(--sem-equities);"></i>Global Equity ETFs</span>
+            <span class="fin-bento-item-meta">VWRA / IWDA · +${m(taps.tap3Equities.monthlyGlobalBuy, "/mo")} buy</span>
+            <strong>${m(glEqBal)} (${glEqW}%)</strong>
+          </li>
+          <li>
+            <span class="fin-bento-item-label"><i style="background:var(--sem-equities-sg);"></i>SG Dividend Sleeve</span>
+            <span class="fin-bento-item-meta">~${centsHtml(sgDivMoNow)}/mo @ 5% · +${m(taps.tap3Equities.monthlySgBuy, "/mo")} buy</span>
+            <strong>${m(sgDivBal)} (${sgEqW}%)</strong>
+          </li>
+          <li>
+            <span class="fin-bento-item-label"><i style="background:var(--sem-cpf);"></i>CPF + SSB Safe Floor</span>
+            <span class="fin-bento-item-meta">~${centsHtml(cashMoNow)}/mo cash interest (${taps.tap4Ssb.effectiveRatePct.toFixed(2)}%)</span>
+            <strong>${m(safeBondBal)} (${safeW}%)</strong>
+          </li>
+          <li>
+            <span class="fin-bento-item-label"><i style="background:var(--sem-cash);"></i>Annual Passive Cashflow</span>
+            <span class="fin-bento-item-meta">SG dividends + SSB/HYSA interest</span>
+            <strong class="is-emerald">+${m(passiveYrNow, "/yr")}</strong>
+          </li>
+        </ul>
+      </article>
+
+      <!-- 4. Subscriptions, Insurance & Fixed Bills -->
+      <article class="fin-bento-card card-surface">
+        <div class="fin-bento-head">
+          <div>
+            <span class="fin-bento-eyebrow">Subscriptions, Insurance &amp; Bills</span>
+            <h3 class="fin-bento-title">${m(recurringTotal, "/mo")} <small>${recurringPct}% of ${m(expenseData?.total || r.todaySpend)} budget</small></h3>
+          </div>
+          <button type="button" class="fin-link-pill" data-open-expense-modal="custom">Edit expenses</button>
+        </div>
+        <div class="fin-bento-bar" aria-hidden="true">
+          <span style="width:${insW}%;background:var(--sem-cpf);" title="Insurance &amp; Healthcare (${insW}%)"></span>
+          <span style="width:${billW}%;background:var(--sem-srs);" title="Utilities, WiFi &amp; Subscriptions (${billW}%)"></span>
+          <span style="width:${flexW}%;background:var(--border-strong);" title="Flexible Dining, Groceries &amp; Lifestyle (${flexW}%)"></span>
+        </div>
+        <ul class="fin-bento-list">
+          ${recurringItems
+            .slice(0, 4)
+            .map((it) => {
+              const dotColor = catColorMap[it.category] || "var(--primary)";
+              const { shortTitle, metaText } = formatBillRow(it);
+              return `<li>
+                <span class="fin-bento-item-label" title="${escapeAttr(it.name)}"><i style="background:${dotColor};"></i>${escapeAttr(shortTitle)}</span>
+                <span class="fin-bento-item-meta">${escapeAttr(metaText)}</span>
+                <strong>${m(it.amount, "/mo")}</strong>
+              </li>`;
+            })
+            .join("")}
+        </ul>
+      </article>
+    </div>`;
+}
+
+function buildMoneyMovesStripHTML({
+  fire,
+  r,
+  s,
+  p,
+  simulation,
+  bogle,
+  contribution,
+  taps,
+  tax,
+  expenseData,
+  pctOfPay = 0,
+}) {
+  const fn = fire.fireNumber;
+  const moves = [];
+
+  // Compute exact Unallocated Cash Surplus so we never recommend investing cash the user does not have
+  const hMode = p.housingMode || "all-oa";
+  const hInfo = RetirementModel.computeHousingPayment({
+    mode: hMode,
+    loanBalance: p.housingBalance,
+    loanRate: p.housingRate,
+    loanYears: p.housingYears,
+    loanParties: p.housingParties,
+    manualMonthly: p.housing,
+  });
+  const housingTotalMo =
+    hMode === "paid-up"
+      ? 0
+      : hMode === "all-oa"
+        ? Math.round(r.currentOA || 0)
+        : Math.round(hInfo.monthlyShare || 0);
+  const housingOaMo = Math.min(Math.round(r.currentOA || 0), housingTotalMo);
+  const housingCashMo = Math.max(0, housingTotalMo - housingOaMo);
+  const margRate = tax?.taxBefore?.marginalRate || 0;
+  const activeTaxSavedYr =
+    Math.min(tax?.rstuTaxSaved || 0, Math.round((simulation.cpfExtra || 0) * 12 * margRate)) +
+    Math.min(tax?.srsTaxSavedAfterRstu || 0, Math.round((p.srsAnnual || 0) * margRate));
+  const monthlyTax = Math.max(
+    0,
+    Math.round(((tax?.taxBefore?.annualTax || 0) - activeTaxSavedYr) / 12),
+  );
+  const fixedMatcher =
+    /insurance|healthshield|multiplier life|accident|term|utilities|s&cc|town council|wifi|mobile|streaming|subscription|broadband|telco|levy|helper/i;
+  const recurringTotal = Math.round(
+    (expenseData?.items || [])
+      .filter(
+        (it) =>
+          it.category === "housing" ||
+          it.category === "digital" ||
+          fixedMatcher.test(it.name),
+      )
+      .reduce((acc, it) => acc + (it.amount || 0), 0),
+  );
+  const rawSurplusMo = Math.round(
+    r.afterCpf - contribution - housingCashMo - monthlyTax - recurringTotal,
+  );
+  const unallocatedSurplusMo = Math.max(0, rawSurplusMo);
+  const maxAffordableSaveMo = Math.max(
+    0,
+    Math.round(r.afterCpf - housingCashMo - monthlyTax - recurringTotal),
+  );
+
+  // 0. Cashflow Over-Commitment Guardrail (when planned savings + tax + fixed bills exceed take-home pay)
+  if (!r.retiringNow && rawSurplusMo < -10 && contribution > maxAffordableSaveMo) {
+    const excessOutflowMo = Math.abs(rawSurplusMo);
+    moves.push({
+      score: 6500 + excessOutflowMo,
+      badge: `Exceeds cashflow by ${m(excessOutflowMo, "/mo")}`,
+      tone: "is-amber",
+      title: `Cap monthly savings to ${m(maxAffordableSaveMo, "/mo")} sustainable limit`,
+      desc: `Planned savings (${m(contribution, "/mo")}) plus tax and fixed bills (${m(housingCashMo + monthlyTax + recurringTotal, "/mo")}) exceed your ${m(r.afterCpf, "/mo")} take-home pay by ${m(excessOutflowMo, "/mo")}.`,
+      ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="cap-affordable-save" data-move-val="${maxAffordableSaveMo}">Cap at ${m(maxAffordableSaveMo, "/mo")} →</button>`,
+      subHtml: `<button type="button" class="fin-move-link" data-quick-edit="invest">Edit savings</button>`,
+    });
+  }
+
+  // 1. Close Retirement Shortfall (ONLY when < 100% funded AND user has Unallocated Cash Surplus >= $50/mo)
+  if ((!fn.fullyFundedTo95 || fn.pctFunded < 100) && unallocatedSurplusMo >= 50) {
+    const curInvestMo = Math.round(simulation.invest || 0);
+    const neededInvest = Math.max(
+      curInvestMo + 1,
+      Math.ceil(fn.requiredInvestTo95 || fn.requiredMonthlyTo95 || 0),
+    );
+    const fullDeltaMo = Math.max(1, neededInvest - curInvestMo);
+    const affordableDeltaMo = Math.min(fullDeltaMo, unallocatedSurplusMo);
+    const targetInvestMo = curInvestMo + affordableDeltaMo;
+    const closesFullGap = affordableDeltaMo >= fullDeltaMo;
+    moves.push({
+      score: 5000 + (100 - fn.pctFunded) * 20,
+      badge: closesFullGap
+        ? `${fn.pctFunded}% → 100% funded`
+        : `Uses ${m(affordableDeltaMo, "/mo")} surplus`,
+      tone: "is-amber",
+      title: closesFullGap
+        ? `Add +${m(affordableDeltaMo, "/mo")} to monthly investing`
+        : `Deploy +${m(affordableDeltaMo, "/mo")} cash surplus to monthly investing`,
+      desc: closesFullGap
+        ? `Raising monthly investing from ${m(curInvestMo, "/mo")} to ${m(targetInvestMo, "/mo")} (from your ${m(unallocatedSurplusMo, "/mo")} unallocated cash surplus) closes your ${m(Math.round(fn.shortfallToday || 0))} age-${fire.retire} shortfall.`
+        : `Raising monthly investing from ${m(curInvestMo, "/mo")} to ${m(targetInvestMo, "/mo")} deploys your available ${m(unallocatedSurplusMo, "/mo")} unallocated cash surplus toward closing your age-${fire.retire} shortfall.`,
+      ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="match-save" data-move-val="${targetInvestMo}">Apply ${m(targetInvestMo, "/mo")} →</button>`,
+      subHtml: `<button type="button" class="fin-move-link" data-go-tab="trajectory">Trajectory</button>`,
+    });
+  }
+
+  // 2. CPF SA RSTU Tax Relief (7%+ IRAS bracket with SA room < FRS AND sufficient Unallocated Cash Surplus)
+  const curCpfExtraMo = Math.round(simulation.cpfExtra || 0);
+  const curCpfExtraYr = curCpfExtraMo * 12;
+  const rstuRoomYr = Math.max(0, (tax?.maxRstu || 0) - curCpfExtraYr);
+  const fullTargetCpfMo = Math.ceil((tax?.maxRstu || 8000) / 12);
+  const affordableCpfDeltaMo = Math.min(
+    Math.max(0, fullTargetCpfMo - curCpfExtraMo),
+    unallocatedSurplusMo,
+  );
+  const targetCpfMo = curCpfExtraMo + affordableCpfDeltaMo;
+  const effectiveRstuRoomYr = Math.min(rstuRoomYr, affordableCpfDeltaMo * 12);
+  const rstuSaveYr = Math.round(effectiveRstuRoomYr * margRate);
+  if (
+    (tax?.tier === "rstu-first" || tax?.tier === "max-both") &&
+    unallocatedSurplusMo >= 50 &&
+    effectiveRstuRoomYr >= 240 &&
+    rstuSaveYr >= 15
+  ) {
+    const rateLabel = (margRate * 100).toFixed(1).replace(/\.0$/, "");
+    moves.push({
+      score: 3200 + rstuSaveYr,
+      badge: `+${m(rstuSaveYr, "/yr")} tax saved`,
+      tone: "is-emerald",
+      title: `Top up ${m(effectiveRstuRoomYr, "/yr")} to CPF SA (RSTU)`,
+      desc: `At your ${rateLabel}% IRAS bracket, +${m(affordableCpfDeltaMo, "/mo")} RSTU cuts tax by ${m(rstuSaveYr, "/yr")} and earns 4.0% p.a. risk-free.`,
+      ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="apply-rstu" data-move-val="${targetCpfMo}">Apply +${m(targetCpfMo, "/mo")} RSTU →</button>`,
+      subHtml: `<button type="button" class="fin-move-link" data-go-tab="tax">Tax Relief</button>`,
+    });
+  }
+
+  // 3. SRS Tax Shelter — strictly gated: ONLY when taps.tap2Srs.worthIt is true AND user has Unallocated Cash Surplus
+  const curSrsYr = Math.round(p.srsAnnual || 0);
+  const maxAffordableSrsYr = curSrsYr + unallocatedSurplusMo * 12;
+  const safeSrsTargetYr = Math.min(
+    tax?.maxSrsAfterRstu || 15300,
+    Math.max(0, Math.floor(tax?.srsMaxSafeAnnualTo400k || 0)),
+    maxAffordableSrsYr,
+  );
+  const remSafeSrsYr = Math.max(0, safeSrsTargetYr - curSrsYr);
+  const remSafeSrsSaveYr = Math.round(remSafeSrsYr * margRate);
+  const srsWorthIt = Boolean(taps?.tap2Srs?.worthIt);
+
+  if (
+    srsWorthIt &&
+    unallocatedSurplusMo >= 50 &&
+    remSafeSrsYr >= 240 &&
+    remSafeSrsSaveYr >= 25 &&
+    tax?.srsTrapStatus !== "balloon-trap"
+  ) {
+    const rateLabel = (margRate * 100).toFixed(1).replace(/\.0$/, "");
+    moves.push({
+      score: 2800 + remSafeSrsSaveYr,
+      badge: `+${m(remSafeSrsSaveYr, "/yr")} tax saved`,
+      tone: "is-emerald",
+      title: `Shelter ${m(safeSrsTargetYr, "/yr")} in SRS (${rateLabel}% bracket)`,
+      desc: `At your ${rateLabel}% bracket, SRS saves ${m(remSafeSrsSaveYr, "/yr")} in IRAS tax while staying inside the $400k age-63 tax-free cap.`,
+      ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="apply-srs" data-move-val="${safeSrsTargetYr}">Apply ${m(safeSrsTargetYr, "/yr")} SRS →</button>`,
+      subHtml: `<button type="button" class="fin-move-link" data-go-tab="tax">Tax Relief</button>`,
+    });
+  } else if (curSrsYr > 0 && !srsWorthIt) {
+    // Guardrail: user has SRS top-ups enabled in a low tax bracket where SRS lock-in is not worth it
+    const rateLabel = (margRate * 100).toFixed(1).replace(/\.0$/, "");
+    moves.push({
+      score: 2750,
+      badge: `Avoid age-63 lock-in`,
+      tone: "is-amber",
+      title: `Skip ${m(curSrsYr, "/yr")} SRS at ${rateLabel}% tax bracket`,
+      desc: `At a ${rateLabel}% bracket (<11.5%), locking cash in SRS until age 63 (50% taxable on withdrawal) underperforms liquid ETFs & CPF SA.`,
+      ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="apply-srs" data-move-val="0">Set SRS to $0/yr →</button>`,
+      subHtml: `<button type="button" class="fin-move-link" data-go-tab="tax">Tax Relief</button>`,
+    });
+  } else if (tax?.srsTrapStatus === "balloon-trap" && curSrsYr > safeSrsTargetYr) {
+    moves.push({
+      score: 2900,
+      badge: `Avoid $450k+ SRS tax trap`,
+      tone: "is-amber",
+      title: `Cap SRS at ${m(safeSrsTargetYr, "/yr")} to stay ≤$400k`,
+      desc: `Your projected SRS exceeds $450k at age 63, triggering withdrawal tax. Capping at ${m(safeSrsTargetYr, "/yr")} keeps drawdowns $0-tax.`,
+      ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="apply-srs" data-move-val="${safeSrsTargetYr}">Cap at ${m(safeSrsTargetYr, "/yr")} →</button>`,
+      subHtml: `<button type="button" class="fin-move-link" data-go-tab="tax">Tax Relief</button>`,
+    });
+  }
+
+  // 4. Invest Idle 0.05% SRS Cash
+  if (
+    p.srsInvestedIn === "cash" &&
+    ((p.srs || 0) > 0 || (p.srsAnnual || 0) > 0)
+  ) {
+    const srsBal = Math.round(p.srs || 0);
+    const extraSrsYr = Math.max(50, Math.round(srsBal * 0.0495));
+    moves.push({
+      score: 2650 + extraSrsYr,
+      badge: `0.05% → 5.0% p.a.`,
+      tone: "is-amber",
+      title: `Invest idle SRS cash into Global ETFs`,
+      desc: `Uninvested SRS cash earns 0.05% p.a. Deploying into low-cost indexed funds compounds tax-deferred until age 63.`,
+      ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="invest-srs">Invest SRS in Global ETFs →</button>`,
+      subHtml: `<button type="button" class="fin-move-link" data-go-tab="tax">Tax Relief</button>`,
+    });
+  }
+
+  // 5. Cash Stack Overflow Sweep (when base-tier 0.05% bank overflow exists)
+  const cashBd = taps.tap4Ssb.cashBreakdown;
+  if (cashBd && cashBd.sweepAnnualGain > 20 && cashBd.totalOverflowBalance > 0) {
+    const gainYr = Math.round(cashBd.sweepAnnualGain);
+    moves.push({
+      score: 2500 + gainYr,
+      badge: `+${m(gainYr, "/yr")} risk-free`,
+      tone: "is-blue",
+      title: `Sweep ${m(cashBd.totalOverflowBalance)} overflow to MAS SSB`,
+      desc: `Moving 0.05% base-tier bank cash into MAS 10Y SSB (${taps.tap4Ssb.ssb10YRatePct.toFixed(2)}%) lifts your cash EIR to ${cashBd.sweptEffectiveRatePct.toFixed(2)}%.`,
+      ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="sweep-cash">Sweep Overflow →</button>`,
+      subHtml: `<button type="button" class="fin-move-link" data-go-tab="cash-parking">Cash Parking</button>`,
+    });
+  }
+
+  // 6. CPF OA -> SA Interest Arbitrage (when OA > $25k buffer before age 55 and SA < FRS)
+  if ((p.oa || 0) > 25000 && fire.age < 55 && (tax?.saRoom || 0) > 5000) {
+    const oaExcess = Math.min(
+      Math.max(0, Math.round((p.oa || 0) - 20000)),
+      Math.round(tax.saRoom),
+    );
+    const extraSaYr = Math.round(oaExcess * 0.015);
+    if (oaExcess >= 2000 && extraSaYr >= 30) {
+      moves.push({
+        score: 2300 + extraSaYr,
+        badge: `+${m(extraSaYr, "/yr")} CPF yield`,
+        tone: "is-blue",
+        title: `Transfer ${m(oaExcess)} excess OA to SA (+1.5%)`,
+        desc: `Keeping $20k in OA for the +1% cap and transferring ${m(oaExcess)} to SA lifts risk-free CPF interest from 2.5% to 4.0%.`,
+        ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="transfer-oa-sa" data-move-val="${oaExcess}">Transfer ${m(oaExcess)} to SA →</button>`,
+        subHtml: `<button type="button" class="fin-move-link" data-go-tab="cpf-milestones">Milestones</button>`,
+      });
+    }
+  }
+
+  // 7. Portfolio Rebalance (only deploy cash above the 6-month / $20k emergency reserve floor)
+  const hol = bogle.holistic || {};
+  const curEqPct = Math.round(hol.effectiveEquityPct || 0);
+  const tgtEqPct = Math.round(p.targetEquityPct ?? 80);
+  const eqDriftPct = Math.abs(curEqPct - tgtEqPct);
+  const curCashBucket = Math.round(bogle.buckets.ssbCash || 0);
+  const emergencyReserveFloor = Math.max(20000, Math.round((r.todaySpend || 2800) * 6));
+  const deployableExcessCash = Math.max(0, curCashBucket - emergencyReserveFloor);
+  const liqTotal = Math.round(
+    (bogle.buckets.equities || 0) +
+      (bogle.buckets.sgDividends || 0) +
+      curCashBucket,
+  );
+  if (liqTotal >= 5000 && eqDriftPct >= 5) {
+    const holTot = Math.max(1, Math.round(hol.totalNetWorth || liqTotal));
+    const targetTotalEq = Math.round(holTot * (tgtEqPct / 100));
+    const srsEq = Math.round(bogle.buckets.srsGrowth || 0);
+    const rawNewLiqEq = Math.min(liqTotal, Math.max(0, targetTotalEq - srsEq));
+    const curLiqEq = Math.round(
+      (bogle.buckets.equities || 0) + (bogle.buckets.sgDividends || 0),
+    );
+    const isUnderweightEq = rawNewLiqEq > curLiqEq;
+    const shiftAmt = isUnderweightEq
+      ? Math.min(rawNewLiqEq - curLiqEq, deployableExcessCash)
+      : curLiqEq - rawNewLiqEq;
+    if (shiftAmt >= 2000) {
+      const rateDiff = Math.max(
+        0.015,
+        (Number(p.returnRate ?? 0.05) || 0.05) -
+          (taps.tap4Ssb.effectiveRatePct || 2.39) / 100,
+      );
+      const annualBoost = Math.round(shiftAmt * rateDiff);
+      moves.push({
+        score: 2100 + annualBoost,
+        badge: isUnderweightEq
+          ? `+${m(annualBoost, "/yr")} expected return`
+          : `Lock in ${m(shiftAmt)} safe floor`,
+        tone: "is-blue",
+        title: isUnderweightEq
+          ? `Deploy ${m(shiftAmt)} excess cash above reserve to ${tgtEqPct}/${100 - tgtEqPct} target`
+          : `Rebalance ${m(shiftAmt)} equity overweight to ${tgtEqPct}/${100 - tgtEqPct} target`,
+        desc: isUnderweightEq
+          ? `Preserving your ${m(emergencyReserveFloor)} emergency reserve, shifting ${m(shiftAmt)} of excess cash into Global/SG equities moves toward your ${tgtEqPct}/${100 - tgtEqPct} target (+${m(annualBoost, "/yr")}).`
+          : `Your portfolio is ${curEqPct}/${100 - curEqPct} vs your ${tgtEqPct}/${100 - tgtEqPct} target. Moving ${m(shiftAmt)} into SSB/cash restores your fixed-income allocation.`,
+        ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="rebalance-portfolio">Rebalance to ${tgtEqPct}/${100 - tgtEqPct} →</button>`,
+        subHtml: `<button type="button" class="fin-move-link" data-go-tab="allocator">Allocator</button>`,
+      });
+    }
+  }
+
+  const topMoves = moves.sort((a, b) => b.score - a.score).slice(0, 3);
+
+  if (topMoves.length === 0) {
+    const hasShortfall = !fn.fullyFundedTo95 || fn.pctFunded < 100;
+    if (hasShortfall && unallocatedSurplusMo < 50) {
+      return `
+        <div class="fin-moves-strip is-all-done" id="fin-money-moves" role="region" aria-label="Actionable money moves">
+          <div class="fin-moves-done-bar">
+            <span class="fin-moves-done-badge">Cashflow Fully Committed ($0/mo surplus)</span>
+            <span class="fin-moves-done-text">100% of available take-home cashflow is allocated (${pctOfPay}% saved). To close your remaining age-${fire.retire} shortfall (${fn.pctFunded}% funded), adjust your retirement budget or target retirement age.</span>
+          </div>
+        </div>`;
+    }
+    return `
+      <div class="fin-moves-strip is-all-done" id="fin-money-moves" role="region" aria-label="Actionable money moves">
+        <div class="fin-moves-done-bar">
+          <span class="fin-moves-done-badge">✓ All Portfolio Actions Applied</span>
+          <span class="fin-moves-done-text">Your monthly savings, eligible IRAS tax reliefs, and ${tgtEqPct}/${100 - tgtEqPct} portfolio allocation are fully optimized.</span>
+        </div>
+      </div>`;
+  }
+
+  return `
+    <div class="fin-moves-strip" id="fin-money-moves" role="region" aria-label="Prioritized money moves">
+      <div class="fin-moves-head">
+        <div class="fin-moves-title-wrap">
+          <span class="fin-moves-kicker">Actionable Insights</span>
+          <h3>${topMoves.length === 1 ? "1 Recommended Portfolio Action" : `Priority Portfolio Actions (${topMoves.length})`}</h3>
+        </div>
+        <span class="fin-moves-subpill">Disappears once applied · Ranked by impact</span>
+      </div>
+      <div class="fin-moves-grid cols-${topMoves.length}">
+        ${topMoves
+          .map(
+            (mv, idx) => `
+          <article class="fin-move-card card-surface">
+            <div class="fin-move-top">
+              <span class="fin-move-rank">#${idx + 1}</span>
+              <span class="fin-move-badge ${mv.tone}">${mv.badge}</span>
+            </div>
+            <h4 class="fin-move-title">${mv.title}</h4>
+            <p class="fin-move-desc">${mv.desc}</p>
+            <div class="fin-move-actions">
+              ${mv.ctaHtml}
+              ${mv.subHtml}
+            </div>
+          </article>`,
+          )
+          .join("")}
+      </div>
+    </div>`;
+}
+
 function buildFinOverviewGrid(
   fire,
   r,
@@ -2555,11 +3237,14 @@ function buildFinOverviewGrid(
     diffYears == null
       ? "After age 80"
       : diffYears > 0
-        ? `Age ${projFireAge} (-${diffYears} yr${diffYears > 1 ? "s" : ""} early)`
+        ? `Age ${projFireAge} (${diffYears} yr${diffYears > 1 ? "s" : ""} earlier optional)`
         : diffYears === 0
           ? `Age ${projFireAge} (on target)`
-          : `Age ${projFireAge} (+${-diffYears} yr${-diffYears > 1 ? "s" : ""})`;
-  const deltaLine = `${fn.pctFunded}% of age-95 goal`;
+          : `Age ${projFireAge} (+${-diffYears} yr${-diffYears > 1 ? "s" : ""} later)`;
+  const deltaLine =
+    diffYears != null && diffYears > 0 && onTrack
+      ? `Can retire ${diffYears} yr${diffYears > 1 ? "s" : ""} earlier · ${fn.pctFunded}% funded`
+      : `${fn.pctFunded}% of age-95 goal`;
   const deltaColor =
     diffYears != null && diffYears >= 0 && onTrack ? "#047857" : "#B45309";
 
@@ -2695,6 +3380,35 @@ function buildFinOverviewGrid(
         <span class="fin-kpi-sub"><b class="swell-delta is-up">${compactMoney(startingCpf)} CPF</b> · ${compactMoney(startingOutside)} liquid</span>
       </button>
     </div>
+    ${buildFinBentoGridHTML({
+      fire,
+      r,
+      p,
+      simulation,
+      bogle,
+      pctOfPay,
+      contribution,
+      expenseData,
+      taps,
+      paycheck,
+      tax,
+      startingCpf,
+      startingSrs,
+      startingTotalAssets,
+    })}
+    ${buildMoneyMovesStripHTML({
+      fire,
+      r,
+      s,
+      p,
+      simulation,
+      bogle,
+      contribution,
+      taps,
+      tax,
+      expenseData,
+      pctOfPay,
+    })}
     ${expenseData ? buildExpenseCardHTML(expenseData, r) : ""}
   </section>
 
@@ -4469,10 +5183,216 @@ function buildDividendBenchmarksHTML(divModel) {
     </div>`;
 }
 
-function buildDividendCalculatorSection(divModel, bogle, r) {
+function buildTargetResultsHTML(targetModel) {
+  if (!targetModel) return "";
+  const yrsLabel =
+    targetModel.capitalGap <= 0
+      ? "Goal Reached Today"
+      : targetModel.yearsToGoal == null
+        ? "Increase Monthly Saving"
+        : `${targetModel.yearsToGoal.toFixed(1)} yrs`;
+  const yrsSub =
+    targetModel.capitalGap <= 0
+      ? `Your ${m(targetModel.currentCapital)} already covers this goal`
+      : targetModel.yearsToGoal == null
+        ? "Cannot reach goal at $0/mo contribution"
+        : `Saving ${m(targetModel.monthlyContribution, "/mo")} at ${targetModel.ratePct.toFixed(2)}% p.a.`;
+
+  return `
+    <div class="div-payout-hero">
+      <div class="div-payout-main">
+        <span class="div-payout-eyebrow">Required Capital for ${m(targetModel.targetMonthly, "/mo")}</span>
+        <strong class="div-payout-amount" id="div-target-req-readout">${m(targetModel.requiredCapital)}</strong>
+        <p class="div-payout-sub">Generates <strong>${m(targetModel.targetMonthly, "/mo")}</strong> (<strong>${m(targetModel.targetAnnual, "/yr")}</strong>) perpetually at <strong>${targetModel.ratePct.toFixed(2)}% p.a.</strong></p>
+      </div>
+      <div class="div-payout-subgrid">
+        <div class="div-payout-stat">
+          <span>Capital Shortfall</span>
+          <strong id="div-target-gap-readout">${m(targetModel.capitalGap)}</strong>
+          <small>${targetModel.pctReachedNow.toFixed(1)}% funded (${m(targetModel.currentCapital)} now)</small>
+        </div>
+        <div class="div-payout-stat">
+          <span>Time to Target</span>
+          <strong class="is-emerald" id="div-target-years-readout">${yrsLabel}</strong>
+          <small>${yrsSub}</small>
+        </div>
+        <div class="div-payout-stat">
+          <span>Required Monthly Savings (15Y / 20Y)</span>
+          <strong id="div-target-15y-readout">${m(targetModel.save15YrMo, "/mo")}</strong>
+          <small>20 yrs: ${m(targetModel.save20YrMo, "/mo")} · 10 yrs: ${m(targetModel.save10YrMo, "/mo")}</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="div-verdict-card is-${targetModel.tone}" id="div-target-verdict-card" role="status" aria-live="polite">
+      <div class="div-verdict-head">
+        <span class="status-pill is-${targetModel.tone}">${targetModel.badge}</span>
+        <h3>${targetModel.headline}</h3>
+      </div>
+      <p class="div-verdict-summary">${targetModel.summary}</p>
+    </div>`;
+}
+
+function buildTargetBenchmarksHTML(targetModel) {
+  if (!targetModel?.tierRows) return "";
+  return `
+    <div class="rules-card-head">
+      <div>
+        <h2 id="div-bench-title">Capital Required for ${m(targetModel.targetMonthly, "/mo")} Across Singapore Yield Tiers</h2>
+        <p>Higher yield requires a smaller lump sum, but going above <strong>6.0% p.a.</strong> increases NAV erosion and dividend cut risk.</p>
+      </div>
+      <span class="fin-target-pill">Goal: ${m(targetModel.targetMonthly, "/mo")}</span>
+    </div>
+    <div class="table-scroll">
+      <table class="ember-ledger-table div-bench-table" aria-label="Target monthly income capital comparison">
+        <thead>
+          <tr>
+            <th scope="col">Singapore Yield Tier</th>
+            <th scope="col" class="num-col">Ref Yield</th>
+            <th scope="col" class="num-col">Required Capital</th>
+            <th scope="col" class="num-col">Capital Shortfall</th>
+            <th scope="col" class="num-col">15Y Monthly Savings</th>
+            <th scope="col" class="num-col">20Y Monthly Savings</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${targetModel.tierRows
+            .map(
+              (row) => `<tr class="${row.isSelected ? "is-selected is-active-row" : ""}">
+                <td>
+                  <div class="div-bench-name">
+                    <strong>${row.label}</strong>
+                    <small>${row.sub}</small>
+                  </div>
+                </td>
+                <td class="num-col"><span class="div-rate-badge">${row.ratePct.toFixed(2)}%</span></td>
+                <td class="num-col"><strong class="div-mo-val">${m(row.requiredCapital)}</strong></td>
+                <td class="num-col">${m(row.capitalGap)}</td>
+                <td class="num-col">${m(row.save15YrMo, "/mo")}</td>
+                <td class="num-col">${m(row.save20YrMo, "/mo")}</td>
+              </tr>`,
+            )
+            .join("")}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function buildAnnuityResultsHTML(annuityModel) {
+  if (!annuityModel) return "";
+  const irrStr =
+    annuityModel.impliedAnnualIrrPct <= -99
+      ? "−100%"
+      : `${annuityModel.impliedAnnualIrrPct >= 0 ? "+" : ""}${annuityModel.impliedAnnualIrrPct.toFixed(2)}% p.a.`;
+  const irrTone =
+    annuityModel.impliedAnnualIrrPct >= 4.0
+      ? "is-emerald"
+      : annuityModel.impliedAnnualIrrPct < 2.5
+        ? "is-danger"
+        : "is-amber";
+  const vsCpfDelta = Math.round(annuityModel.diyCpfSa.monthlyPayout - annuityModel.quotedMonthlyPayout);
+  const vsDiyDelta = Math.round(annuityModel.diyBench.monthlyPayout - annuityModel.quotedMonthlyPayout);
+
+  return `
+    <div class="div-payout-hero">
+      <div class="div-payout-main">
+        <span class="div-payout-eyebrow">Implied Annualized Return (IRR)</span>
+        <strong class="div-payout-amount ${irrTone}" id="div-annuity-irr-readout">${irrStr}</strong>
+        <p class="div-payout-sub"><strong>${m(annuityModel.monthlyContribution, "/mo")}</strong> × <strong>${annuityModel.contributeYears} yrs</strong>${annuityModel.deferYears > 0 ? ` · <strong>${annuityModel.deferYears} yrs</strong> deferment` : ""} → <strong>${m(annuityModel.quotedMonthlyPayout, "/mo")}</strong> × <strong>${annuityModel.payoutYears} yrs</strong></p>
+      </div>
+      <div class="div-payout-subgrid">
+        <div class="div-payout-stat">
+          <span>Total Premium → Total Payout</span>
+          <strong id="div-annuity-mult-readout">${annuityModel.payoutMultiple.toFixed(2)}x (${m(annuityModel.totalPayoutReceived)})</strong>
+          <small>Total Premium: ${m(annuityModel.totalPrincipalPaid)} · Net Gain: ${annuityModel.netProfitNominal >= 0 ? "+" : "−"}${m(Math.abs(annuityModel.netProfitNominal))}</small>
+        </div>
+        <div class="div-payout-stat">
+          <span>DIY @ 4.0% CPF SA Floor</span>
+          <strong id="div-annuity-cpf-readout">${m(Math.round(annuityModel.diyCpfSa.monthlyPayout), "/mo")}</strong>
+          <small>${vsCpfDelta > 0 ? `DIY pays +${m(vsCpfDelta, "/mo")} more` : vsCpfDelta < 0 ? `Plan beats SA by +${m(Math.abs(vsCpfDelta), "/mo")}` : "Matches 4.0% floor"}</small>
+        </div>
+        <div class="div-payout-stat">
+          <span>DIY @ ${annuityModel.benchmarkRatePct.toFixed(1)}% Portfolio</span>
+          <strong class="is-emerald" id="div-annuity-diy-readout">${m(Math.round(annuityModel.diyBench.monthlyPayout), "/mo")}</strong>
+          <small>${vsDiyDelta > 0 ? `DIY pays +${m(vsDiyDelta, "/mo")} more` : `Accumulated: ${m(annuityModel.diyBench.potAtPayoutStart)}`}</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="div-verdict-card is-${annuityModel.tone}" id="div-annuity-verdict-card" role="status" aria-live="polite">
+      <div class="div-verdict-head">
+        <span class="status-pill is-${annuityModel.tone}">${annuityModel.badge}</span>
+        <h3>${annuityModel.headline}</h3>
+      </div>
+      <p class="div-verdict-summary">${annuityModel.summary}</p>
+    </div>`;
+}
+
+function buildAnnuityBenchmarksHTML(annuityModel) {
+  if (!annuityModel?.comparisons) return "";
+  return `
+    <div class="rules-card-head">
+      <div>
+        <h2 id="div-bench-title">Quoted Annuity vs DIY Investing (${m(annuityModel.monthlyContribution, "/mo")} for ${annuityModel.contributeYears} Yrs)</h2>
+        <p>See what happens if you invest the exact same <strong>${m(annuityModel.monthlyContribution, "/mo")}</strong> yourself over <strong>${annuityModel.contributeYears} years</strong>${annuityModel.deferYears > 0 ? ` + ${annuityModel.deferYears} deferment years` : ""} and draw down over <strong>${annuityModel.payoutYears} years</strong>.</p>
+      </div>
+      <span class="fin-target-pill">Total Premium: ${m(annuityModel.totalPrincipalPaid)}</span>
+    </div>
+    <div class="table-scroll">
+      <table class="ember-ledger-table div-bench-table" aria-label="Annuity vs DIY benchmark comparison">
+        <thead>
+          <tr>
+            <th scope="col">Strategy / Benchmark</th>
+            <th scope="col" class="num-col">Annual Return</th>
+            <th scope="col" class="num-col">Accumulated Value</th>
+            <th scope="col" class="num-col">Monthly Payout (${annuityModel.payoutYears}y)</th>
+            <th scope="col" class="num-col">Total Payout</th>
+            <th scope="col" class="num-col">vs Quoted Plan</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${annuityModel.comparisons
+            .map((c) => {
+              const delta = c.monthlyDeltaVsQuoted;
+              const deltaStr = c.isQuoted
+                ? `<span class="div-your-rate-pill">Quoted Plan</span>`
+                : Math.abs(delta) < 1
+                  ? "Same payout"
+                  : delta > 0
+                    ? `DIY +${m(Math.round(delta), "/mo")}`
+                    : `Plan +${m(Math.round(Math.abs(delta)), "/mo")}`;
+              const deltaClass = c.isQuoted
+                ? ""
+                : delta > 0
+                  ? "is-emerald"
+                  : "is-muted-diff";
+              return `<tr class="${c.isQuoted ? "is-selected is-active-row" : ""}">
+                <td>
+                  <div class="div-bench-name">
+                    <strong>${c.label}</strong>
+                    <small>${c.sub}</small>
+                  </div>
+                </td>
+                <td class="num-col"><span class="div-rate-badge">${c.ratePct.toFixed(2)}%</span></td>
+                <td class="num-col">${m(c.potAtPayoutStart)}</td>
+                <td class="num-col"><strong class="div-mo-val">${m(Math.round(c.monthlyPayout))}<span>/mo</span></strong></td>
+                <td class="num-col">${m(c.totalPayout)}</td>
+                <td class="num-col ${deltaClass}">${deltaStr}</td>
+              </tr>`;
+            })
+            .join("")}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function buildDividendCalculatorSection({
+  mode = "lump",
+  divModel,
+  targetModel,
+  annuityModel,
+}) {
   if (!divModel) return "";
-  const sgDivBal = Math.round(bogle?.buckets?.sgDividends || 0);
-  const liquidBal = Math.round(r?.savings || 0);
   const capPresets = [
     { val: 10000, label: "$10k" },
     { val: 50000, label: "$50k" },
@@ -4481,12 +5401,6 @@ function buildDividendCalculatorSection(divModel, bogle, r) {
     { val: 500000, label: "$500k" },
     { val: 1000000, label: "$1M" },
   ];
-  if (sgDivBal > 0 && !capPresets.some((p) => p.val === sgDivBal)) {
-    capPresets.push({ val: sgDivBal, label: `My SG Sleeve (${money(sgDivBal)})` });
-  }
-  if (liquidBal > 0 && !capPresets.some((p) => p.val === liquidBal)) {
-    capPresets.push({ val: liquidBal, label: `My Liquid Portfolio (${money(liquidBal)})` });
-  }
 
   const ratePresets = [
     { val: 0.05, label: "0.05% Bank Base" },
@@ -4498,6 +5412,289 @@ function buildDividendCalculatorSection(divModel, bogle, r) {
     { val: 8.0, label: "8.0% High Yield" },
   ];
 
+  const targetMoPresets = [
+    { val: 2000, label: "$2,000/mo" },
+    { val: 3500, label: "$3,500/mo" },
+    { val: 5000, label: "$5,000/mo" },
+    { val: 8000, label: "$8,000/mo" },
+    { val: 10000, label: "$10,000/mo" },
+    { val: 15000, label: "$15,000/mo" },
+  ];
+
+  const startCapPresets = [
+    { val: 0, label: "$0" },
+    { val: 50000, label: "$50k" },
+    { val: 100000, label: "$100k" },
+    { val: 250000, label: "$250k" },
+    { val: 500000, label: "$500k" },
+  ];
+
+  const saveMoPresets = [
+    { val: 500, label: "$500/mo" },
+    { val: 1000, label: "$1,000/mo" },
+    { val: 1500, label: "$1,500/mo" },
+    { val: 2000, label: "$2,000/mo" },
+    { val: 3000, label: "$3,000/mo" },
+    { val: 5000, label: "$5,000/mo" },
+  ];
+
+  const hdrTone =
+    mode === "target"
+      ? targetModel.tone
+      : mode === "annuity"
+        ? annuityModel.tone
+        : divModel.tone;
+  const hdrText =
+    mode === "target"
+      ? `${targetModel.badge} · ${m(targetModel.requiredCapital)} needed`
+      : mode === "annuity"
+        ? `${annuityModel.badge} · ${annuityModel.impliedAnnualIrrPct.toFixed(2)}% IRR`
+        : `${divModel.badge} · ${divModel.ratePct.toFixed(2)}%`;
+
+  let controlsHTML = "";
+  let resultsHTML = "";
+  let benchHTML = "";
+
+  if (mode === "target" && targetModel) {
+    controlsHTML = `
+      <div class="div-control-block">
+        <div class="div-control-label-row">
+          <label for="div-target-monthly" id="div-calc-heading">Target Monthly Passive Income</label>
+          <span class="div-control-hint">Desired monthly payout</span>
+        </div>
+        <div class="div-input-stepper-row">
+          <button type="button" class="div-step-btn" data-div-target-step="-500" aria-label="Decrease target monthly income by $500">−$500</button>
+          <div class="input-prefix div-cap-input-wrap">
+            <span>$</span>
+            <input id="div-target-monthly" type="number" inputmode="numeric" min="100" max="500000" step="100" value="${Math.round(targetModel.targetMonthly)}" aria-label="Target monthly income in SGD" />
+          </div>
+          <button type="button" class="div-step-btn" data-div-target-step="500" aria-label="Increase target monthly income by $500">+$500</button>
+        </div>
+        <div class="div-chip-row" role="group" aria-label="Quick target monthly income presets">
+          ${targetMoPresets
+            .map((tp) => {
+              const active = Math.round(targetModel.targetMonthly) === tp.val;
+              return `<button type="button" class="div-preset-chip${active ? " is-active" : ""}" data-div-target-pick="${tp.val}" aria-pressed="${active}">${tp.label}</button>`;
+            })
+            .join("")}
+        </div>
+      </div>
+
+      <div class="div-control-block">
+        <div class="div-control-label-row">
+          <label for="div-target-rate">Expected Portfolio / Dividend Yield (% p.a.)</label>
+          <span class="div-control-hint">Annual percentage yield</span>
+        </div>
+        <div class="div-rate-input-row">
+          <input id="div-target-rate-slider" class="div-rate-slider" type="range" min="0.5" max="12" step="0.05" value="${Math.min(12, Math.max(0.5, targetModel.ratePct))}" aria-label="Target yield percentage slider" />
+          <div class="input-suffix div-rate-num-wrap">
+            <input id="div-target-rate" type="number" inputmode="decimal" min="0.1" max="25" step="0.05" value="${Number(targetModel.ratePct.toFixed(2))}" aria-label="Expected annual yield percentage" />
+            <span>% p.a.</span>
+          </div>
+        </div>
+        <div class="div-chip-row" role="group" aria-label="Yield presets for target income">
+          ${ratePresets
+            .filter((rp) => rp.val >= 2.0)
+            .map((rp) => {
+              const active = Math.abs(targetModel.ratePct - rp.val) < 0.015;
+              return `<button type="button" class="div-preset-chip${active ? " is-active" : ""}" data-div-target-rate-pick="${rp.val}" aria-pressed="${active}">${rp.label}</button>`;
+            })
+            .join("")}
+        </div>
+      </div>
+
+      <div class="div-subcontrols-grid">
+        <div class="div-control-block">
+          <div class="div-control-label-row">
+            <label for="div-target-cur-cap">Starting Capital Today</label>
+            <span class="div-control-hint">Initial lump sum</span>
+          </div>
+          <div class="input-prefix div-cap-input-wrap">
+            <span>$</span>
+            <input id="div-target-cur-cap" type="number" inputmode="numeric" min="0" max="50000000" step="1000" value="${Math.round(targetModel.currentCapital)}" aria-label="Starting capital in SGD" />
+          </div>
+          <div class="div-chip-row" role="group" aria-label="Starting capital presets">
+            ${startCapPresets
+              .map((cp) => {
+                const active = Math.round(targetModel.currentCapital) === cp.val;
+                return `<button type="button" class="div-preset-chip${active ? " is-active" : ""}" data-div-target-cap-pick="${cp.val}" aria-pressed="${active}">${cp.label}</button>`;
+              })
+              .join("")}
+          </div>
+        </div>
+
+        <div class="div-control-block">
+          <div class="div-control-label-row">
+            <label for="div-target-mo-save">Monthly Contribution</label>
+            <span class="div-control-hint">Monthly investment</span>
+          </div>
+          <div class="input-prefix div-cap-input-wrap">
+            <span>$</span>
+            <input id="div-target-mo-save" type="number" inputmode="numeric" min="0" max="500000" step="100" value="${Math.round(targetModel.monthlyContribution)}" aria-label="Monthly contribution in SGD" />
+          </div>
+          <div class="div-chip-row" role="group" aria-label="Monthly contribution presets">
+            ${saveMoPresets
+              .slice(0, 4)
+              .map((sp) => {
+                const active = Math.round(targetModel.monthlyContribution) === sp.val;
+                return `<button type="button" class="div-preset-chip${active ? " is-active" : ""}" data-div-target-save-pick="${sp.val}" aria-pressed="${active}">${sp.label}</button>`;
+              })
+              .join("")}
+          </div>
+        </div>
+      </div>`;
+    resultsHTML = buildTargetResultsHTML(targetModel);
+    benchHTML = buildTargetBenchmarksHTML(targetModel);
+  } else if (mode === "annuity" && annuityModel) {
+    controlsHTML = `
+      <div class="div-subcontrols-grid">
+        <div class="div-control-block">
+          <div class="div-control-label-row">
+            <label for="div-annuity-mo-save" id="div-calc-heading">Monthly Premium</label>
+            <span class="div-control-hint">Regular contribution</span>
+          </div>
+          <div class="input-prefix div-cap-input-wrap">
+            <span>$</span>
+            <input id="div-annuity-mo-save" type="number" inputmode="numeric" min="50" max="500000" step="50" value="${Math.round(annuityModel.monthlyContribution)}" aria-label="Monthly contribution to annuity plan" />
+          </div>
+          <div class="div-chip-row" role="group" aria-label="Monthly pay-in presets">
+            ${saveMoPresets
+              .slice(0, 5)
+              .map((sp) => {
+                const active = Math.round(annuityModel.monthlyContribution) === sp.val;
+                return `<button type="button" class="div-preset-chip${active ? " is-active" : ""}" data-div-annuity-save-pick="${sp.val}" aria-pressed="${active}">${sp.label}</button>`;
+              })
+              .join("")}
+          </div>
+        </div>
+
+        <div class="div-control-block">
+          <div class="div-control-label-row">
+            <label for="div-annuity-quoted-mo">Quoted Monthly Payout</label>
+            <span class="div-control-hint">Projected monthly income</span>
+          </div>
+          <div class="input-prefix div-cap-input-wrap">
+            <span>$</span>
+            <input id="div-annuity-quoted-mo" type="number" inputmode="numeric" min="0" max="1000000" step="50" value="${Math.round(annuityModel.quotedMonthlyPayout)}" aria-label="Quoted monthly payout from annuity" />
+          </div>
+          <div class="div-chip-row" role="group" aria-label="Quoted monthly payout presets">
+            ${[800, 1000, 1150, 1350, 1800]
+              .map((qp) => {
+                const active = Math.round(annuityModel.quotedMonthlyPayout) === qp;
+                return `<button type="button" class="div-preset-chip${active ? " is-active" : ""}" data-div-annuity-payout-pick="${qp}" aria-pressed="${active}">$${qp.toLocaleString("en-SG")}/mo</button>`;
+              })
+              .join("")}
+          </div>
+        </div>
+      </div>
+
+      <div class="div-subcontrols-grid is-three-cols">
+        <div class="div-control-block">
+          <div class="div-control-label-row">
+            <label for="div-annuity-pay-yrs">Premium Term</label>
+          </div>
+          <div class="input-suffix div-rate-num-wrap">
+            <input id="div-annuity-pay-yrs" type="number" inputmode="numeric" min="1" max="50" step="1" value="${annuityModel.contributeYears}" aria-label="Number of years paying premiums" />
+            <span>yrs</span>
+          </div>
+          <div class="div-chip-row">
+            ${[5, 10, 15, 20]
+              .map(
+                (y) =>
+                  `<button type="button" class="div-preset-chip${annuityModel.contributeYears === y ? " is-active" : ""}" data-div-annuity-pay-yrs="${y}">${y}y</button>`,
+              )
+              .join("")}
+          </div>
+        </div>
+
+        <div class="div-control-block">
+          <div class="div-control-label-row">
+            <label for="div-annuity-defer-yrs">Deferment Period</label>
+          </div>
+          <div class="input-suffix div-rate-num-wrap">
+            <input id="div-annuity-defer-yrs" type="number" inputmode="numeric" min="0" max="30" step="1" value="${annuityModel.deferYears}" aria-label="Deferment years before payout starts" />
+            <span>yrs</span>
+          </div>
+          <div class="div-chip-row">
+            ${[0, 5, 10, 15]
+              .map(
+                (y) =>
+                  `<button type="button" class="div-preset-chip${annuityModel.deferYears === y ? " is-active" : ""}" data-div-annuity-defer-yrs="${y}">${y}y</button>`,
+              )
+              .join("")}
+          </div>
+        </div>
+
+        <div class="div-control-block">
+          <div class="div-control-label-row">
+            <label for="div-annuity-draw-yrs">Payout Duration</label>
+          </div>
+          <div class="input-suffix div-rate-num-wrap">
+            <input id="div-annuity-draw-yrs" type="number" inputmode="numeric" min="1" max="50" step="1" value="${annuityModel.payoutYears}" aria-label="Number of years receiving payouts" />
+            <span>yrs</span>
+          </div>
+          <div class="div-chip-row">
+            ${[10, 15, 20, 30]
+              .map(
+                (y) =>
+                  `<button type="button" class="div-preset-chip${annuityModel.payoutYears === y ? " is-active" : ""}" data-div-annuity-draw-yrs="${y}">${y}y</button>`,
+              )
+              .join("")}
+          </div>
+        </div>
+      </div>`;
+    resultsHTML = buildAnnuityResultsHTML(annuityModel);
+    benchHTML = buildAnnuityBenchmarksHTML(annuityModel);
+  } else {
+    controlsHTML = `
+      <div class="div-control-block">
+        <div class="div-control-label-row">
+          <label for="div-calc-capital" id="div-calc-heading">Capital / Principal Amount</label>
+          <span class="div-control-hint">Lump sum invested</span>
+        </div>
+        <div class="div-input-stepper-row">
+          <button type="button" class="div-step-btn" data-div-cap-step="-10000" aria-label="Decrease capital by $10,000">−$10k</button>
+          <div class="input-prefix div-cap-input-wrap">
+            <span>$</span>
+            <input id="div-calc-capital" type="number" inputmode="numeric" min="0" max="50000000" step="1000" value="${Math.round(divModel.capital)}" aria-label="Capital amount in SGD" />
+          </div>
+          <button type="button" class="div-step-btn" data-div-cap-step="10000" aria-label="Increase capital by $10,000">+$10k</button>
+        </div>
+        <div class="div-chip-row" role="group" aria-label="Quick capital presets">
+          ${capPresets
+            .map((cp) => {
+              const active = Math.round(divModel.capital) === cp.val;
+              return `<button type="button" class="div-preset-chip${active ? " is-active" : ""}" data-div-cap-pick="${cp.val}" aria-pressed="${active}">${cp.label}</button>`;
+            })
+            .join("")}
+        </div>
+      </div>
+
+      <div class="div-control-block">
+        <div class="div-control-label-row">
+          <label for="div-calc-rate">Dividend / Interest Yield (% p.a.)</label>
+          <span class="div-control-hint">Annual percentage yield</span>
+        </div>
+        <div class="div-rate-input-row">
+          <input id="div-calc-rate-slider" class="div-rate-slider" type="range" min="0" max="12" step="0.05" value="${Math.min(12, Math.max(0, divModel.ratePct))}" aria-label="Dividend or interest yield slider" />
+          <div class="input-suffix div-rate-num-wrap">
+            <input id="div-calc-rate" type="number" inputmode="decimal" min="0" max="25" step="0.05" value="${Number(divModel.ratePct.toFixed(2))}" aria-label="Annual yield percentage" />
+            <span>% p.a.</span>
+          </div>
+        </div>
+        <div class="div-chip-row" role="group" aria-label="Singapore benchmark yield presets">
+          ${ratePresets
+            .map((rp) => {
+              const active = Math.abs(divModel.ratePct - rp.val) < 0.015;
+              return `<button type="button" class="div-preset-chip${active ? " is-active" : ""}" data-div-rate-pick="${rp.val}" aria-pressed="${active}">${rp.label}</button>`;
+            })
+            .join("")}
+        </div>
+      </div>`;
+    resultsHTML = buildDividendResultsHTML(divModel);
+    benchHTML = buildDividendBenchmarksHTML(divModel);
+  }
+
   return `
     <nav class="ui-breadcrumb" aria-label="Breadcrumb">
       <button type="button" class="ui-breadcrumb-link" data-go-tab="overview">Overview</button>
@@ -4506,71 +5703,43 @@ function buildDividendCalculatorSection(divModel, bogle, r) {
     </nav>
     <header class="ember-page-header fin-page-header">
       <div class="fin-header-copy">
-        <h1>Dividend &amp; Passive Yield Calculator</h1>
-        <p class="cash-page-sub">Enter any capital sum and interest or dividend rate to see your monthly passive income and whether that yield is good or bad against Singapore benchmarks.</p>
+        <h1>Dividend, Target Income &amp; Annuity Calculator</h1>
+        <p class="cash-page-sub">Standalone Singapore calculator for lump-sum yield, target monthly passive income, and retirement annuity evaluation.</p>
       </div>
       <div class="ember-header-meta">
-        <span class="status-pill is-${divModel.tone}" id="div-header-badge">${divModel.badge} · ${divModel.ratePct.toFixed(2)}%</span>
+        <span class="status-pill is-${hdrTone}" id="div-header-badge">${hdrText}</span>
       </div>
     </header>
+
+    <div class="div-mode-bar" role="tablist" aria-label="Calculator mode">
+      <button type="button" role="tab" class="div-mode-tab${mode === "lump" ? " is-active" : ""}" data-div-mode="lump" aria-selected="${mode === "lump"}">
+        <strong>Dividend &amp; Interest Yield</strong>
+        <span>Principal &amp; Yield → Monthly Income</span>
+      </button>
+      <button type="button" role="tab" class="div-mode-tab${mode === "target" ? " is-active" : ""}" data-div-mode="target" aria-selected="${mode === "target"}">
+        <strong>Target Monthly Income</strong>
+        <span>Required Capital &amp; Accumulation Horizon</span>
+      </button>
+      <button type="button" role="tab" class="div-mode-tab${mode === "annuity" ? " is-active" : ""}" data-div-mode="annuity" aria-selected="${mode === "annuity"}">
+        <strong>Annuity &amp; Savings Plan</strong>
+        <span>Premium, Deferment &amp; Payout IRR Analysis</span>
+      </button>
+    </div>
 
     <section class="card-surface rules-card div-calc-card" id="dividend-calculator-card" aria-labelledby="div-calc-heading">
       <div class="div-calc-grid">
         <div class="div-calc-controls">
-          <div class="div-control-block">
-            <div class="div-control-label-row">
-              <label for="div-calc-capital" id="div-calc-heading">Capital / Principal Amount</label>
-              <span class="div-control-hint">Lump sum invested</span>
-            </div>
-            <div class="div-input-stepper-row">
-              <button type="button" class="div-step-btn" data-div-cap-step="-10000" aria-label="Decrease capital by $10,000">−$10k</button>
-              <div class="input-prefix div-cap-input-wrap">
-                <span>$</span>
-                <input id="div-calc-capital" type="number" inputmode="numeric" min="0" max="50000000" step="1000" value="${Math.round(divModel.capital)}" aria-label="Capital amount in SGD" />
-              </div>
-              <button type="button" class="div-step-btn" data-div-cap-step="10000" aria-label="Increase capital by $10,000">+$10k</button>
-            </div>
-            <div class="div-chip-row" role="group" aria-label="Quick capital presets">
-              ${capPresets
-                .map((cp) => {
-                  const active = Math.round(divModel.capital) === cp.val;
-                  return `<button type="button" class="div-preset-chip${active ? " is-active" : ""}" data-div-cap-pick="${cp.val}" aria-pressed="${active}">${cp.label}</button>`;
-                })
-                .join("")}
-            </div>
-          </div>
-
-          <div class="div-control-block">
-            <div class="div-control-label-row">
-              <label for="div-calc-rate">Dividend / Interest Yield (% p.a.)</label>
-              <span class="div-control-hint">Annual percentage yield</span>
-            </div>
-            <div class="div-rate-input-row">
-              <input id="div-calc-rate-slider" class="div-rate-slider" type="range" min="0" max="12" step="0.05" value="${Math.min(12, Math.max(0, divModel.ratePct))}" aria-label="Dividend or interest yield slider" />
-              <div class="input-suffix div-rate-num-wrap">
-                <input id="div-calc-rate" type="number" inputmode="decimal" min="0" max="25" step="0.05" value="${Number(divModel.ratePct.toFixed(2))}" aria-label="Annual yield percentage" />
-                <span>% p.a.</span>
-              </div>
-            </div>
-            <div class="div-chip-row" role="group" aria-label="Singapore benchmark yield presets">
-              ${ratePresets
-                .map((rp) => {
-                  const active = Math.abs(divModel.ratePct - rp.val) < 0.015;
-                  return `<button type="button" class="div-preset-chip${active ? " is-active" : ""}" data-div-rate-pick="${rp.val}" aria-pressed="${active}">${rp.label}</button>`;
-                })
-                .join("")}
-            </div>
-          </div>
+          ${controlsHTML}
         </div>
 
         <div class="div-calc-results" id="div-calc-results-pane">
-          ${buildDividendResultsHTML(divModel)}
+          ${resultsHTML}
         </div>
       </div>
     </section>
 
     <section class="card-surface rules-card div-bench-card" id="dividend-benchmarks-card" aria-labelledby="div-bench-title">
-      ${buildDividendBenchmarksHTML(divModel)}
+      ${benchHTML}
     </section>
   `;
 }
@@ -4668,8 +5837,19 @@ function setupSimplePlan() {
   let currentCashPlan = null;
   let liveMasRates = null;
   let cashParkingFilter = "all";
+  let divCalcMode = "lump"; // "lump" | "target" | "annuity"
   let divCalcCapital = 100000;
   let divCalcRatePct = 5.0;
+  let divTargetMonthly = 10000;
+  let divTargetRatePct = 5.0;
+  let divTargetCurrCap = 100000;
+  let divTargetMoSave = 2000;
+  let divAnnuityMoSave = 1000;
+  let divAnnuityPayYears = 10;
+  let divAnnuityDeferYears = 5;
+  let divAnnuityDrawYears = 15;
+  let divAnnuityQuotedMo = 1150;
+  let divAnnuityBenchRatePct = 5.0;
   let cashParkingSearch = "";
   let cashParkingTag = "all";
   let cashAnimFrame = 0;
@@ -6342,60 +7522,103 @@ function setupSimplePlan() {
       inflationRate: r.inflation,
       ssbRatePct: ssbRefPct,
     });
+    const targetModel = RetirementModel.evaluateTargetMonthlyIncome({
+      targetMonthly: divTargetMonthly,
+      ratePct: divTargetRatePct,
+      currentCapital: divTargetCurrCap,
+      monthlyContribution: divTargetMoSave,
+      inflationPct: Math.round((r.inflation || 0.025) * 1000) / 10,
+      masRates: liveMasRates,
+    });
+    const annuityModel = RetirementModel.evaluateAnnuityPlan({
+      monthlyContribution: divAnnuityMoSave,
+      contributeYears: divAnnuityPayYears,
+      deferYears: divAnnuityDeferYears,
+      payoutYears: divAnnuityDrawYears,
+      quotedMonthlyPayout: divAnnuityQuotedMo,
+      benchmarkRatePct: divAnnuityBenchRatePct,
+      masRates: liveMasRates,
+    });
     if (dividendCalcSlot) {
       const activeDivEl = document.activeElement;
+      const divInputIds = [
+        "div-calc-capital",
+        "div-calc-rate",
+        "div-calc-rate-slider",
+        "div-target-monthly",
+        "div-target-rate",
+        "div-target-rate-slider",
+        "div-target-cur-cap",
+        "div-target-mo-save",
+        "div-annuity-mo-save",
+        "div-annuity-quoted-mo",
+        "div-annuity-pay-yrs",
+        "div-annuity-defer-yrs",
+        "div-annuity-draw-yrs",
+      ];
       const editingDivControl =
         activeDivEl &&
         dividendCalcSlot.contains(activeDivEl) &&
-        ["div-calc-capital", "div-calc-rate", "div-calc-rate-slider"].includes(
-          activeDivEl.id,
-        );
+        divInputIds.includes(activeDivEl.id);
       const resPane = dividendCalcSlot.querySelector("#div-calc-results-pane");
       const benchCard = dividendCalcSlot.querySelector(
         "#dividend-benchmarks-card",
       );
       if (editingDivControl && resPane && benchCard) {
-        resPane.innerHTML = buildDividendResultsHTML(divModel);
-        benchCard.innerHTML = buildDividendBenchmarksHTML(divModel);
         const hdrBadge = dividendCalcSlot.querySelector("#div-header-badge");
-        if (hdrBadge) {
-          hdrBadge.className = `status-pill is-${divModel.tone}`;
-          hdrBadge.textContent = `${divModel.badge} · ${divModel.ratePct.toFixed(2)}%`;
-        }
-        if (activeDivEl.id !== "div-calc-capital") {
-          const capInp = dividendCalcSlot.querySelector("#div-calc-capital");
-          if (capInp) capInp.value = String(Math.round(divModel.capital));
-        }
-        if (activeDivEl.id !== "div-calc-rate") {
-          const rateInp = dividendCalcSlot.querySelector("#div-calc-rate");
-          if (rateInp) rateInp.value = String(Number(divModel.ratePct.toFixed(2)));
-        }
-        if (activeDivEl.id !== "div-calc-rate-slider") {
-          const rateSlider = dividendCalcSlot.querySelector(
-            "#div-calc-rate-slider",
-          );
-          if (rateSlider) {
-            rateSlider.value = String(Math.min(12, Math.max(0, divModel.ratePct)));
+        if (divCalcMode === "target") {
+          resPane.innerHTML = buildTargetResultsHTML(targetModel);
+          benchCard.innerHTML = buildTargetBenchmarksHTML(targetModel);
+          if (hdrBadge) {
+            hdrBadge.className = `status-pill is-${targetModel.tone}`;
+            hdrBadge.textContent = `${targetModel.badge} · ${m(targetModel.requiredCapital)} needed`;
+          }
+          if (activeDivEl.id !== "div-target-rate") {
+            const rInp = dividendCalcSlot.querySelector("#div-target-rate");
+            if (rInp) rInp.value = String(Number(targetModel.ratePct.toFixed(2)));
+          }
+          if (activeDivEl.id !== "div-target-rate-slider") {
+            const rSl = dividendCalcSlot.querySelector("#div-target-rate-slider");
+            if (rSl) rSl.value = String(Math.min(12, Math.max(0.5, targetModel.ratePct)));
+          }
+        } else if (divCalcMode === "annuity") {
+          resPane.innerHTML = buildAnnuityResultsHTML(annuityModel);
+          benchCard.innerHTML = buildAnnuityBenchmarksHTML(annuityModel);
+          if (hdrBadge) {
+            hdrBadge.className = `status-pill is-${annuityModel.tone}`;
+            hdrBadge.textContent = `${annuityModel.badge} · ${annuityModel.impliedAnnualIrrPct.toFixed(2)}% IRR`;
+          }
+        } else {
+          resPane.innerHTML = buildDividendResultsHTML(divModel);
+          benchCard.innerHTML = buildDividendBenchmarksHTML(divModel);
+          if (hdrBadge) {
+            hdrBadge.className = `status-pill is-${divModel.tone}`;
+            hdrBadge.textContent = `${divModel.badge} · ${divModel.ratePct.toFixed(2)}%`;
+          }
+          if (activeDivEl.id !== "div-calc-capital") {
+            const capInp = dividendCalcSlot.querySelector("#div-calc-capital");
+            if (capInp) capInp.value = String(Math.round(divModel.capital));
+          }
+          if (activeDivEl.id !== "div-calc-rate") {
+            const rateInp = dividendCalcSlot.querySelector("#div-calc-rate");
+            if (rateInp) rateInp.value = String(Number(divModel.ratePct.toFixed(2)));
+          }
+          if (activeDivEl.id !== "div-calc-rate-slider") {
+            const rateSlider = dividendCalcSlot.querySelector(
+              "#div-calc-rate-slider",
+            );
+            if (rateSlider) {
+              rateSlider.value = String(Math.min(12, Math.max(0, divModel.ratePct)));
+            }
           }
         }
-        dividendCalcSlot.querySelectorAll("[data-div-cap-pick]").forEach((btn) => {
-          const active =
-            Math.round(divModel.capital) === Number(btn.dataset.divCapPick);
-          btn.classList.toggle("is-active", active);
-          btn.setAttribute("aria-pressed", String(active));
-        });
-        dividendCalcSlot.querySelectorAll("[data-div-rate-pick]").forEach((btn) => {
-          const active =
-            Math.abs(divModel.ratePct - Number(btn.dataset.divRatePick)) < 0.015;
-          btn.classList.toggle("is-active", active);
-          btn.setAttribute("aria-pressed", String(active));
-        });
       } else {
-        dividendCalcSlot.innerHTML = buildDividendCalculatorSection(
+        dividendCalcSlot.innerHTML = buildDividendCalculatorSection({
+          mode: divCalcMode,
           divModel,
-          bogle,
-          r,
-        );
+          targetModel,
+          annuityModel,
+        });
       }
     }
     if ($("#nav-badge-dividend")) {
@@ -6829,6 +8052,115 @@ function setupSimplePlan() {
       pendingResetTrigger = null;
       return;
     }
+    const moneyMoveBtn = event.target.closest("[data-money-move]");
+    if (moneyMoveBtn) {
+      const moveType = moneyMoveBtn.dataset.moneyMove;
+      const moveVal = moneyMoveBtn.dataset.moveVal;
+      if (moveType === "cap-affordable-save" && moveVal != null) {
+        const capTotal = Math.max(0, Math.round(Number(moveVal) || 0));
+        selected = "salary";
+        let rem = capTotal;
+        const curInv = Math.max(0, Math.round(Number($("#known-invest")?.value || 0)));
+        const curCashSav = Math.max(0, Math.round(Number($("#known-cash-saving")?.value || 0)));
+        const curCpfEx = Math.max(0, Math.round(Number($("#known-cpf-extra")?.value || 0)));
+        const nextInv = Math.min(curInv, rem);
+        rem = Math.max(0, rem - nextInv);
+        const nextCashSav = Math.min(curCashSav, rem);
+        rem = Math.max(0, rem - nextCashSav);
+        const nextCpfEx = Math.min(curCpfEx, rem);
+        if ($("#known-invest")) $("#known-invest").value = String(nextInv);
+        if ($("#sim-invest")) $("#sim-invest").value = String(nextInv);
+        if ($("#qe-invest")) $("#qe-invest").value = String(nextInv);
+        if ($("#known-cash-saving")) $("#known-cash-saving").value = String(nextCashSav);
+        if ($("#sim-cash-saving")) $("#sim-cash-saving").value = String(nextCashSav);
+        if ($("#qe-cash-saving")) $("#qe-cash-saving").value = String(nextCashSav);
+        if ($("#known-cpf-extra")) $("#known-cpf-extra").value = String(nextCpfEx);
+        if ($("#qe-cpf-extra")) $("#qe-cpf-extra").value = String(nextCpfEx);
+        render();
+        showToast(`Capped monthly savings to ${money(nextInv + nextCashSav + nextCpfEx)}/mo within take-home cashflow`);
+      } else if (moveType === "match-save" && moveVal != null) {
+        if ($("#known-invest")) $("#known-invest").value = String(moveVal);
+        if ($("#sim-invest")) $("#sim-invest").value = String(moveVal);
+        if ($("#qe-invest")) $("#qe-invest").value = String(moveVal);
+        render();
+        showToast(`Updated monthly investment to ${money(Number(moveVal))}/mo`);
+      } else if (moveType === "apply-rstu" && moveVal != null) {
+        if ($("#known-cpf-extra")) $("#known-cpf-extra").value = String(moveVal);
+        if ($("#qe-cpf-extra")) $("#qe-cpf-extra").value = String(moveVal);
+        render();
+        showToast(`Applied +${money(Number(moveVal))}/mo CPF SA top-up (RSTU tax relief)`);
+      } else if (moveType === "apply-srs" && moveVal != null) {
+        if ($("#known-srs-annual")) $("#known-srs-annual").value = String(moveVal);
+        if ($("#qe-srs-annual")) $("#qe-srs-annual").value = String(moveVal);
+        render();
+        showToast(
+          Number(moveVal) > 0
+            ? `Applied ${money(Number(moveVal))}/yr SRS contribution`
+            : "Set planned annual SRS contribution to $0/yr",
+        );
+      } else if (moveType === "invest-srs") {
+        if ($("#known-srs-invested")) $("#known-srs-invested").value = "global";
+        if ($("#qe-srs-invested")) $("#qe-srs-invested").value = "global";
+        render();
+        showToast("Switched SRS balance from 0.05% cash to Global ETFs");
+      } else if (moveType === "transfer-oa-sa" && moveVal != null) {
+        const amt = Math.max(0, Math.round(Number(moveVal) || 0));
+        const curOa = Math.max(0, Number($("#known-oa")?.value || 0));
+        const curSa = Math.max(0, Number($("#known-sa")?.value || 0));
+        const nextOa = Math.max(0, curOa - amt);
+        const nextSa = curSa + (curOa - nextOa);
+        if ($("#known-oa")) $("#known-oa").value = String(nextOa);
+        if ($("#qe-oa")) $("#qe-oa").value = String(nextOa);
+        if ($("#known-sa")) $("#known-sa").value = String(nextSa);
+        if ($("#qe-sa")) $("#qe-sa").value = String(nextSa);
+        render();
+        showToast(`Transferred ${money(curOa - nextOa)} excess CPF OA to SA (4.0% p.a.)`);
+      } else if (moveType === "rebalance-portfolio") {
+        const curEq = Math.max(0, Number($("#known-equities")?.value || 0));
+        const curSg = Math.max(0, Number($("#known-sg-dividends")?.value || 0));
+        const curCash = useItemizedCashAccounts && customCashAccounts.length
+          ? sumCustomCashAccounts()
+          : Math.max(0, Number($("#known-ssb-cash")?.value || 0));
+        const curOa = Math.max(0, Number($("#known-oa")?.value || 0));
+        const curSa = Math.max(0, Number($("#known-sa")?.value || 0));
+        const curMa = Math.max(0, Number($("#known-ma")?.value || 0));
+        const curSrs = Math.max(0, Number($("#known-srs")?.value || 0));
+        const srsMode = $("#known-srs-invested")?.value || "global";
+        const srsEq = srsMode === "global" ? curSrs : srsMode === "balanced" ? Math.round(curSrs * 0.6) : 0;
+        const liqTot = curEq + curSg + curCash;
+        const holTot = liqTot + curOa + curSa + curMa + curSrs;
+        const tgtEqPct = Math.max(0, Math.min(100, Number($("#known-target-equity")?.value || 80)));
+        const sgSleevePct = Math.max(0, Math.min(100, Number($("#known-sg-sleeve")?.value || 15)));
+        const emergencyFloor = Math.max(20000, Math.round((currentFirePlan?.todaySpend || 2800) * 6));
+        const maxLiqEqPreservingReserve = Math.max(curEq + curSg, liqTot - Math.min(curCash, emergencyFloor));
+        const targetHolEq = Math.round(holTot * (tgtEqPct / 100));
+        const nextLiqEq = Math.min(maxLiqEqPreservingReserve, Math.max(0, targetHolEq - srsEq));
+        const nextSg = Math.round(nextLiqEq * (sgSleevePct / 100));
+        const nextGlobal = Math.max(0, nextLiqEq - nextSg);
+        const nextCash = Math.max(0, liqTot - nextLiqEq);
+        useItemizedCashAccounts = false;
+        if ($("#known-equities")) $("#known-equities").value = String(nextGlobal);
+        if ($("#qe-equities")) $("#qe-equities").value = String(nextGlobal);
+        if ($("#known-sg-dividends")) $("#known-sg-dividends").value = String(nextSg);
+        if ($("#qe-sg-dividends")) $("#qe-sg-dividends").value = String(nextSg);
+        if ($("#known-ssb-cash")) $("#known-ssb-cash").value = String(nextCash);
+        if ($("#qe-ssb-cash")) $("#qe-ssb-cash").value = String(nextCash);
+        syncBucketsToTotal();
+        render();
+        showToast(`Rebalanced liquid portfolio to ${tgtEqPct}/${100 - tgtEqPct} target (${money(nextGlobal)} Global · ${money(nextSg)} SG · ${money(nextCash)} Cash)`);
+      } else if (moveType === "sweep-cash") {
+        if (!customCashAccounts.length) {
+          const curCash = Math.max(0, Number($("#known-ssb-cash")?.value || 20000));
+          customCashAccounts = RetirementModel.defaultCashAccounts(curCash, liveMasRates);
+        }
+        customCashAccounts = RetirementModel.sweepCashAccountsOverflow(customCashAccounts, liveMasRates);
+        useItemizedCashAccounts = true;
+        syncCashAccountsToBucket();
+        render();
+        showToast("Swept overflow cash into MAS 10Y SSB");
+      }
+      return;
+    }
     const clampBtn = event.target.closest("[data-clamp-field]");
     if (clampBtn) {
       const fieldId = clampBtn.dataset.clampField;
@@ -7031,6 +8363,28 @@ function setupSimplePlan() {
       }
       return;
     }
+    const useSpareBtn = event.target.closest("[data-use-spare-cash]");
+    if (useSpareBtn) {
+      const spareVal = Math.max(0, Math.round(Number(useSpareBtn.dataset.useSpareCash) || 0));
+      if (spareVal > 0) {
+        divTargetMoSave = spareVal;
+        divAnnuityMoSave = spareVal;
+      }
+      divCalcMode = "target";
+      render();
+      document.querySelector(`button[data-tab="dividend-calc"]`)?.click();
+      showToast(`Loaded ${money(spareVal)}/mo Spare Cash into Utility Calculator`);
+      return;
+    }
+    const divModeBtn = event.target.closest("[data-div-mode]");
+    if (divModeBtn) {
+      const nextMode = divModeBtn.dataset.divMode;
+      if (["lump", "target", "annuity"].includes(nextMode)) {
+        divCalcMode = nextMode;
+        render();
+      }
+      return;
+    }
     const divCapPickBtn = event.target.closest("[data-div-cap-pick]");
     if (divCapPickBtn) {
       divCalcCapital = Math.min(
@@ -7060,6 +8414,88 @@ function setupSimplePlan() {
             100,
         ),
       );
+      render();
+      return;
+    }
+    const divTargetPickBtn = event.target.closest("[data-div-target-pick]");
+    if (divTargetPickBtn) {
+      divTargetMonthly = Math.min(
+        500000,
+        Math.max(100, Math.round(Number(divTargetPickBtn.dataset.divTargetPick) || 10000)),
+      );
+      render();
+      return;
+    }
+    const divTargetStepBtn = event.target.closest("[data-div-target-step]");
+    if (divTargetStepBtn) {
+      const delta = Number(divTargetStepBtn.dataset.divTargetStep || 0);
+      divTargetMonthly = Math.min(
+        500000,
+        Math.max(100, Math.round(divTargetMonthly + delta)),
+      );
+      render();
+      return;
+    }
+    const divTargetRatePickBtn = event.target.closest("[data-div-target-rate-pick]");
+    if (divTargetRatePickBtn) {
+      divTargetRatePct = Math.min(
+        25,
+        Math.max(0.1, Math.round((Number(divTargetRatePickBtn.dataset.divTargetRatePick) || 5) * 100) / 100),
+      );
+      render();
+      return;
+    }
+    const divTargetCapPickBtn = event.target.closest("[data-div-target-cap-pick]");
+    if (divTargetCapPickBtn) {
+      divTargetCurrCap = Math.min(
+        50000000,
+        Math.max(0, Math.round(Number(divTargetCapPickBtn.dataset.divTargetCapPick) || 0)),
+      );
+      render();
+      return;
+    }
+    const divTargetSavePickBtn = event.target.closest("[data-div-target-save-pick]");
+    if (divTargetSavePickBtn) {
+      divTargetMoSave = Math.min(
+        500000,
+        Math.max(0, Math.round(Number(divTargetSavePickBtn.dataset.divTargetSavePick) || 0)),
+      );
+      render();
+      return;
+    }
+    const divAnnuitySavePickBtn = event.target.closest("[data-div-annuity-save-pick]");
+    if (divAnnuitySavePickBtn) {
+      divAnnuityMoSave = Math.min(
+        500000,
+        Math.max(50, Math.round(Number(divAnnuitySavePickBtn.dataset.divAnnuitySavePick) || 1000)),
+      );
+      render();
+      return;
+    }
+    const divAnnuityPayoutPickBtn = event.target.closest("[data-div-annuity-payout-pick]");
+    if (divAnnuityPayoutPickBtn) {
+      divAnnuityQuotedMo = Math.min(
+        1000000,
+        Math.max(0, Math.round(Number(divAnnuityPayoutPickBtn.dataset.divAnnuityPayoutPick) || 1200)),
+      );
+      render();
+      return;
+    }
+    const divAnnuityPayYrsBtn = event.target.closest("[data-div-annuity-pay-yrs]");
+    if (divAnnuityPayYrsBtn) {
+      divAnnuityPayYears = Math.min(50, Math.max(1, Math.round(Number(divAnnuityPayYrsBtn.dataset.divAnnuityPayYrs) || 15)));
+      render();
+      return;
+    }
+    const divAnnuityDeferYrsBtn = event.target.closest("[data-div-annuity-defer-yrs]");
+    if (divAnnuityDeferYrsBtn) {
+      divAnnuityDeferYears = Math.min(30, Math.max(0, Math.round(Number(divAnnuityDeferYrsBtn.dataset.divAnnuityDeferYrs) || 0)));
+      render();
+      return;
+    }
+    const divAnnuityDrawYrsBtn = event.target.closest("[data-div-annuity-draw-yrs]");
+    if (divAnnuityDrawYrsBtn) {
+      divAnnuityDrawYears = Math.min(50, Math.max(1, Math.round(Number(divAnnuityDrawYrsBtn.dataset.divAnnuityDrawYrs) || 20)));
       render();
       return;
     }
@@ -7805,6 +9241,93 @@ function setupSimplePlan() {
               25,
               Math.max(0, Math.round((Number(raw) || 0) * 100) / 100),
             );
+      scheduleRender();
+      return;
+    }
+    if (event.target.id === "div-target-monthly") {
+      const raw = event.target.value.trim();
+      divTargetMonthly =
+        raw === ""
+          ? 0
+          : Math.min(500000, Math.max(0, Math.round(Number(raw) || 0)));
+      scheduleRender();
+      return;
+    }
+    if (
+      event.target.id === "div-target-rate" ||
+      event.target.id === "div-target-rate-slider"
+    ) {
+      const raw = event.target.value.trim();
+      divTargetRatePct =
+        raw === ""
+          ? 0.1
+          : Math.min(
+              25,
+              Math.max(0.1, Math.round((Number(raw) || 0.1) * 100) / 100),
+            );
+      scheduleRender();
+      return;
+    }
+    if (event.target.id === "div-target-cur-cap") {
+      const raw = event.target.value.trim();
+      divTargetCurrCap =
+        raw === ""
+          ? 0
+          : Math.min(50000000, Math.max(0, Math.round(Number(raw) || 0)));
+      scheduleRender();
+      return;
+    }
+    if (event.target.id === "div-target-mo-save") {
+      const raw = event.target.value.trim();
+      divTargetMoSave =
+        raw === ""
+          ? 0
+          : Math.min(500000, Math.max(0, Math.round(Number(raw) || 0)));
+      scheduleRender();
+      return;
+    }
+    if (event.target.id === "div-annuity-mo-save") {
+      const raw = event.target.value.trim();
+      divAnnuityMoSave =
+        raw === ""
+          ? 100
+          : Math.min(500000, Math.max(1, Math.round(Number(raw) || 100)));
+      scheduleRender();
+      return;
+    }
+    if (event.target.id === "div-annuity-quoted-mo") {
+      const raw = event.target.value.trim();
+      divAnnuityQuotedMo =
+        raw === ""
+          ? 0
+          : Math.min(1000000, Math.max(0, Math.round(Number(raw) || 0)));
+      scheduleRender();
+      return;
+    }
+    if (event.target.id === "div-annuity-pay-yrs") {
+      const raw = event.target.value.trim();
+      divAnnuityPayYears =
+        raw === ""
+          ? 1
+          : Math.min(50, Math.max(1, Math.round(Number(raw) || 1)));
+      scheduleRender();
+      return;
+    }
+    if (event.target.id === "div-annuity-defer-yrs") {
+      const raw = event.target.value.trim();
+      divAnnuityDeferYears =
+        raw === ""
+          ? 0
+          : Math.min(30, Math.max(0, Math.round(Number(raw) || 0)));
+      scheduleRender();
+      return;
+    }
+    if (event.target.id === "div-annuity-draw-yrs") {
+      const raw = event.target.value.trim();
+      divAnnuityDrawYears =
+        raw === ""
+          ? 1
+          : Math.min(50, Math.max(1, Math.round(Number(raw) || 1)));
       scheduleRender();
       return;
     }

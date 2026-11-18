@@ -2986,6 +2986,51 @@
       rate,
       retireMonth,
     );
+    let requiredInvestTo95 = Math.max(
+      0,
+      Math.ceil(requiredMonthlyTo95 - monthlyCashSaving),
+    );
+    if (depletionAge !== null && retireMonth > 0) {
+      const stRet = candStateByAge.get(retire);
+      const oaAtRet = stRet ? stRet.oa : 0;
+      const eqF =
+        rate > 0 ? ((1 + rate) ** retireMonth - 1) / rate : retireMonth;
+      const cashF =
+        cashRate > 0
+          ? ((1 + cashRate) ** retireMonth - 1) / cashRate
+          : retireMonth;
+      const baseEqRet =
+        (buckets.equities + buckets.sgDividends) * (1 + rate) ** retireMonth;
+      const baseCashRet = buckets.ssbCash * (1 + cashRate) ** retireMonth;
+      const srsRet = stRet
+        ? stRet.srs
+        : buckets.srs * (1 + srsRate) ** retireMonth;
+      const testSurvives = (testInv) => {
+        const { eqBuy, cashBuy } = splitDirectLiquidContrib(
+          testInv,
+          monthlyCashSaving,
+        );
+        return survivesDrawdownFromAge(
+          retire,
+          baseEqRet + eqBuy * eqF,
+          baseCashRet + cashBuy * cashF,
+          srsRet,
+          oaAtRet,
+        );
+      };
+      let lo = Math.max(0, Math.floor(monthlyLiquidContrib) + 1);
+      let hi = Math.max(lo + 500, Math.ceil(requiredMonthlyTo95 * 1.6) + 500);
+      while (!testSurvives(hi) && hi < 200000) hi *= 2;
+      for (let step = 0; step < 18; step++) {
+        if (lo >= hi) break;
+        const mid = Math.floor((lo + hi) / 2);
+        if (testSurvives(mid)) hi = mid;
+        else lo = mid + 1;
+      }
+      requiredInvestTo95 = lo;
+    } else if (depletionAge === null) {
+      requiredInvestTo95 = Math.round(monthlyLiquidContrib);
+    }
 
     const fmt = (v) => `$${Math.round(Math.max(0, v)).toLocaleString("en-SG")}`;
     const totalMonthlySaving = sim.cpfExtra + sim.invest;
@@ -3016,6 +3061,7 @@
         totalRequiredAtRetire: effectiveFireNumberAtRetire,
         totalRequiredToday: effectiveFireNumberToday,
         requiredMonthlyTo95,
+        requiredInvestTo95,
         projectedOutsideAtRetireNominal: outsideAtRetire,
         projectedOutsideAtRetireToday: outsideAtRetireToday,
         shortfallToday: Math.max(
@@ -5579,44 +5625,44 @@
 
     let tierKey = "sweet-spot";
     let tone = "good";
-    let badge = "Strong · SG Dividend Sweet Spot";
+    let badge = "Core Income · SG Dividend Benchmark";
     let headline = `Sustainable Income Tier (+${realRatePct.toFixed(2)}% Real)`;
     let summary = `Beats both 4.00% CPF SA/RA and ${inflationPct.toFixed(1)}% inflation. Aligns with STI ETFs (~4.5%), SG local banks (DBS/OCBC/UOB ~5.0%–5.5%), and blue-chip SG REITs (5.0%–6.0%) with 0% SG dividend withholding tax.`;
 
     if (ratePct < 1.5) {
       tierKey = "sub-floor";
       tone = "danger";
-      badge = "Bad · Losing Purchasing Power";
+      badge = "Sub-Inflation · Negative Real Yield";
       headline = "Below Safe Floor — Erodes Real Principal";
       summary = `Trails Singapore’s ${inflationPct.toFixed(1)}% inflation and ${ssbRatePct.toFixed(2)}% MAS 10Y SSB. At ${ratePct.toFixed(2)}%, inflation erodes ${Math.abs(realRatePct).toFixed(2)}%/yr of real purchasing power.`;
     } else if (ratePct < inflationPct) {
       tierKey = "capital-preserve";
       tone = "warn";
-      badge = "Fair for Cash · Trails Inflation";
+      badge = "Capital Preservation · Trails Inflation";
       headline = "Liquid Parking Tier — Slightly Behind Inflation";
       summary = `Comparable to MAS T-Bills / 10Y SSB (${ssbRatePct.toFixed(2)}%) and base HYSA tiers. Safe for emergency liquidity, but trails ${inflationPct.toFixed(1)}% inflation and 2.50% CPF OA.`;
     } else if (ratePct < 4.0) {
       tierKey = "safe-floor";
       tone = "info";
-      badge = "Good · Beats Inflation & CPF OA";
+      badge = "Moderate Yield · Beats Inflation & CPF OA";
       headline = `Inflation-Beating Safe Yield (+${realRatePct.toFixed(2)}% Real)`;
       summary = `Outpaces ${inflationPct.toFixed(1)}% inflation and 2.50% CPF OA while approaching the 4.00% CPF SA/RA floor. Typical of promotional HYSAs, money market funds, and SGD investment-grade bonds.`;
     } else if (ratePct <= 6.2) {
       tierKey = "sweet-spot";
       tone = "good";
-      badge = "Strong · SG Dividend Sweet Spot";
+      badge = "Core Income · SG Dividend Benchmark";
       headline = `Sustainable Income Tier (+${realRatePct.toFixed(2)}% Real)`;
       summary = `Beats both 4.00% CPF SA/RA and ${inflationPct.toFixed(1)}% inflation. Aligns with STI ETFs (~4.5%), SG local banks (DBS/OCBC/UOB ~5.0%–5.5%), and blue-chip SG REITs (5.0%–6.0%) with 0% SG dividend withholding tax.`;
     } else if (ratePct <= 7.5) {
       tierKey = "elevated";
       tone = "warn";
-      badge = "Elevated · Verify Payout Quality";
+      badge = "Elevated Yield · Verify Payout Coverage";
       headline = "High Yield — Check Free Cash Flow & Gearing";
       summary = "Above typical SG blue-chip bank and REIT averages (4.5%–6.0%). Confirm distributions are backed by recurring operating cash flow rather than high debt gearing (>40%) or capital return.";
     } else {
       tierKey = "yield-trap";
       tone = "danger";
-      badge = "Caution · High Yield-Trap Risk";
+      badge = "High Risk · Capital Erosion Warning";
       headline = "Unsustainable SGD Yield Zone — Watch for NAV Erosion";
       summary = "In SGD terms, yields above 7.5% rarely sustain without share price / NAV decay, DPU cuts, FX depreciation, or covered-call upside drag. Check 5-year total return before committing capital.";
     }
@@ -5660,7 +5706,7 @@
         sub: "DBS · OCBC · UOB · 0% SG dividend tax",
         ratePct: 5.0,
         tone: "good",
-        verdictShort: "Core SG dividend sweet spot",
+        verdictShort: "Core SG dividend benchmark",
       },
       {
         key: "sg-reits",
@@ -5725,6 +5771,287 @@
     };
   }
 
+  function evaluateTargetMonthlyIncome({
+    targetMonthly = 10000,
+    ratePct = 5.0,
+    currentCapital = 60000,
+    monthlyContribution = 1817,
+    inflationPct = 2.5,
+    masRates = null,
+  } = {}) {
+    const tgtMo = Math.max(0, Number(targetMonthly) || 0);
+    const rPct = Math.max(0.1, Math.min(25, Number(ratePct) || 5.0));
+    const curCap = Math.max(0, Number(currentCapital) || 0);
+    const moSave = Math.max(0, Number(monthlyContribution) || 0);
+    const infPct = Math.max(0, Number(inflationPct) || 2.5);
+    const ssbRatePct = Number(
+      masRates?.ssb?.tenYearAvgReturn ?? masRates?.ssb?.year10Return ?? DEFAULT_MAS_LIVE_RATES.ssb10YAvgPct ?? 2.16,
+    );
+
+    const targetAnnual = Math.round(tgtMo * 12 * 100) / 100;
+    const rateDec = rPct / 100;
+    const requiredCapital = rateDec > 0 ? Math.round(targetAnnual / rateDec) : 0;
+    const realRatePct = Math.round((rPct - infPct) * 100) / 100;
+    const capitalGap = Math.max(0, requiredCapital - curCap);
+    const pctReachedNow =
+      requiredCapital > 0
+        ? Math.min(100, Math.round((curCap / requiredCapital) * 1000) / 10)
+        : 100;
+
+    // Exact years to reach requiredCapital with curCap + moSave compounding monthly at rPct
+    const rMo = rateDec / 12;
+    let monthsToGoal = 0;
+    if (capitalGap > 0) {
+      if (moSave <= 0 && curCap <= 0) {
+        monthsToGoal = Infinity;
+      } else {
+        let bal = curCap;
+        while (bal < requiredCapital && monthsToGoal < 1200) {
+          bal = bal * (1 + rMo) + moSave;
+          monthsToGoal++;
+        }
+        if (bal < requiredCapital) monthsToGoal = Infinity;
+      }
+    }
+    const yearsToGoal = Number.isFinite(monthsToGoal)
+      ? Math.round((monthsToGoal / 12) * 10) / 10
+      : null;
+
+    // Required monthly contribution to hit requiredCapital in 10, 15, 20, 25 years
+    const calcReqSaveForYears = (yrs, tierRatePct = rPct) => {
+      const n = Math.max(1, Math.round(yrs * 12));
+      const rm = tierRatePct / 100 / 12;
+      const tierCap = tierRatePct > 0 ? Math.round((tgtMo * 12) / (tierRatePct / 100)) : 0;
+      const fvCur = curCap * (1 + rm) ** n;
+      const rem = Math.max(0, tierCap - fvCur);
+      if (rem <= 0) return 0;
+      const af = rm > 0 ? ((1 + rm) ** n - 1) / rm : n;
+      return Math.ceil(rem / af);
+    };
+
+    const yieldVerdict = evaluateDividendYield({
+      capital: requiredCapital,
+      ratePct: rPct,
+      inflationRate: infPct / 100,
+      ssbRatePct,
+    });
+
+    const tierRows = [
+      { key: "ssb", label: "MAS 10Y SSB", sub: "Risk-free sovereign floor", ratePct: ssbRatePct },
+      { key: "cpf-sa", label: "CPF SA / RA Floor", sub: "4.0% statutory floor", ratePct: 4.0 },
+      { key: "sg-banks", label: "STI ETF / SG Banks", sub: "DBS · OCBC · UOB (0% tax)", ratePct: 5.0 },
+      { key: "sg-reits", label: "SG Blue-Chip REITs", sub: "Industrial & Retail REITs", ratePct: 6.0 },
+      { key: "yield-trap", label: "High-Risk / Yield Trap", sub: "High NAV erosion risk", ratePct: 8.0 },
+    ].map((t) => {
+      const reqCap = Math.round((tgtMo * 12) / (t.ratePct / 100));
+      const gap = Math.max(0, reqCap - curCap);
+      return {
+        ...t,
+        requiredCapital: reqCap,
+        capitalGap: gap,
+        save15YrMo: calcReqSaveForYears(15, t.ratePct),
+        save20YrMo: calcReqSaveForYears(20, t.ratePct),
+        isSelected: Math.abs(t.ratePct - rPct) <= 0.35,
+      };
+    });
+
+    return {
+      targetMonthly: tgtMo,
+      targetAnnual,
+      ratePct: rPct,
+      inflationPct: infPct,
+      realRatePct,
+      currentCapital: curCap,
+      monthlyContribution: moSave,
+      requiredCapital,
+      capitalGap,
+      pctReachedNow,
+      yearsToGoal,
+      save10YrMo: calcReqSaveForYears(10, rPct),
+      save15YrMo: calcReqSaveForYears(15, rPct),
+      save20YrMo: calcReqSaveForYears(20, rPct),
+      save25YrMo: calcReqSaveForYears(25, rPct),
+      tone: yieldVerdict.tone,
+      badge: yieldVerdict.badge,
+      headline: yieldVerdict.headline,
+      summary: yieldVerdict.summary,
+      tierRows,
+    };
+  }
+
+  function evaluateAnnuityPlan({
+    monthlyContribution = 1000,
+    contributeYears = 10,
+    deferYears = 5,
+    payoutYears = 15,
+    quotedMonthlyPayout = 1150,
+    benchmarkRatePct = 5.0,
+    masRates = null,
+  } = {}) {
+    const moPayIn = Math.max(1, Number(monthlyContribution) || 1000);
+    const cYrs = Math.max(1, Math.min(50, Math.round(Number(contributeYears) || 15)));
+    const dYrs = Math.max(0, Math.min(30, Math.round(Number(deferYears) || 0)));
+    const pYrs = Math.max(1, Math.min(50, Math.round(Number(payoutYears) || 20)));
+    const quotedMo = Math.max(0, Number(quotedMonthlyPayout) || 0);
+    const benchRatePct = Math.max(0.5, Math.min(20, Number(benchmarkRatePct) || 5.0));
+    const ssbRatePct = Number(
+      masRates?.ssb?.tenYearAvgReturn ?? masRates?.ssb?.year10Return ?? DEFAULT_MAS_LIVE_RATES.ssb10YAvgPct ?? 2.16,
+    );
+
+    const nIn = cYrs * 12;
+    const nDefer = dYrs * 12;
+    const nOut = pYrs * 12;
+    const totalPrincipalPaid = Math.round(moPayIn * nIn);
+    const totalPayoutReceived = Math.round(quotedMo * nOut);
+    const netProfitNominal = totalPayoutReceived - totalPrincipalPaid;
+    const payoutMultiple =
+      totalPrincipalPaid > 0
+        ? Math.round((totalPayoutReceived / totalPrincipalPaid) * 100) / 100
+        : 0;
+
+    // Solve exact monthly IRR where NPV(rMo) = 0
+    // PV of inflows (contributions at t = 0..nIn-1) = PV of outflows (payouts at t = nIn+nDefer..nIn+nDefer+nOut-1)
+    let impliedAnnualIrrPct = 0;
+    if (quotedMo <= 0) {
+      impliedAnnualIrrPct = -100;
+    } else if (Math.abs(totalPayoutReceived - totalPrincipalPaid) < 1) {
+      impliedAnnualIrrPct = 0;
+    } else {
+      const npvAtMonthlyRate = (rm) => {
+        if (Math.abs(rm) < 1e-9) return totalPayoutReceived - totalPrincipalPaid;
+        const pvIn = moPayIn * ((1 - (1 + rm) ** -nIn) / rm);
+        const pvOutAtStartOfPayout = quotedMo * ((1 - (1 + rm) ** -nOut) / rm);
+        const pvOut = pvOutAtStartOfPayout * (1 + rm) ** -(nIn + nDefer);
+        return pvOut - pvIn;
+      };
+      let lo = -0.015;
+      let hi = 0.03;
+      while (npvAtMonthlyRate(hi) > 0 && hi < 0.25) hi *= 2;
+      for (let i = 0; i < 45; i++) {
+        const mid = (lo + hi) / 2;
+        if (npvAtMonthlyRate(mid) > 0) lo = mid;
+        else hi = mid;
+      }
+      const rMoSolved = (lo + hi) / 2;
+      impliedAnnualIrrPct = Math.round(rMoSolved * 12 * 100 * 100) / 100;
+    }
+
+    // Helper: what monthly payout does investing moPayIn at ratePct produce over pYrs?
+    const calcDiyAnnuity = (annualPct) => {
+      const rm = annualPct / 100 / 12;
+      const fvContribute =
+        rm > 0 ? moPayIn * (((1 + rm) ** nIn - 1) / rm) : moPayIn * nIn;
+      const potAtPayoutStart = fvContribute * (1 + rm) ** nDefer;
+      const monthlyDraw =
+        rm > 0
+          ? (potAtPayoutStart * rm) / (1 - (1 + rm) ** -nOut)
+          : potAtPayoutStart / nOut;
+      const perpetualInterestMo = potAtPayoutStart * rm;
+      return {
+        ratePct: annualPct,
+        potAtPayoutStart: Math.round(potAtPayoutStart),
+        monthlyPayout: Math.round(monthlyDraw * 100) / 100,
+        totalPayout: Math.round(monthlyDraw * nOut),
+        perpetualMonthly: Math.round(perpetualInterestMo * 100) / 100,
+        monthlyDeltaVsQuoted: Math.round((monthlyDraw - quotedMo) * 100) / 100,
+      };
+    };
+
+    const diySsb = calcDiyAnnuity(ssbRatePct);
+    const diyCpfSa = calcDiyAnnuity(4.0);
+    const diyBench = calcDiyAnnuity(benchRatePct);
+
+    let verdictKey = "fair";
+    let tone = "info";
+    let badge = "Fair Risk-Free Floor";
+    let headline = `Implied return is ${impliedAnnualIrrPct.toFixed(2)}% p.a.`;
+    let summary = "";
+
+    if (impliedAnnualIrrPct < 2.5) {
+      verdictKey = "endowment-trap";
+      tone = "danger";
+      badge = "Sub-Benchmark · Trails 2.5% Inflation & CPF OA";
+      headline = `Implied yield is only ${impliedAnnualIrrPct.toFixed(2)}% p.a. — trails 2.5% inflation & CPF OA`;
+      summary = `Although ${payoutMultiple.toFixed(2)}x total payout (\$${totalPayoutReceived.toLocaleString("en-SG")}) looks higher than your \$${totalPrincipalPaid.toLocaleString("en-SG")} principal, locking money for ${cYrs + dYrs + pYrs} years at ${impliedAnnualIrrPct.toFixed(2)}% p.a. loses to CPF SA (4.0%, which pays \$${Math.round(diyCpfSa.monthlyPayout).toLocaleString("en-SG")}/mo) and DIY investing at ${benchRatePct.toFixed(1)}% (\$${Math.round(diyBench.monthlyPayout).toLocaleString("en-SG")}/mo).`;
+    } else if (impliedAnnualIrrPct < 4.0) {
+      verdictKey = "below-cpf-sa";
+      tone = "warn";
+      badge = "Below Hurdle · Trails 4.0% Risk-Free Rate";
+      headline = `${impliedAnnualIrrPct.toFixed(2)}% p.a. beats inflation but trails risk-free CPF SA (4.0%)`;
+      summary = `Paying \$${moPayIn.toLocaleString("en-SG")}/mo for ${cYrs} yrs into a 4.0% floor builds \$${diyCpfSa.potAtPayoutStart.toLocaleString("en-SG")} and pays \$${Math.round(diyCpfSa.monthlyPayout).toLocaleString("en-SG")}/mo (+\$${Math.round(Math.max(0, diyCpfSa.monthlyPayout - quotedMo)).toLocaleString("en-SG")}/mo more than this plan).`;
+    } else if (impliedAnnualIrrPct <= 6.5) {
+      verdictKey = "worth-it";
+      tone = "good";
+      badge = "Outperforms · Beats 4.0% Risk-Free Hurdle";
+      headline = `Strong ${impliedAnnualIrrPct.toFixed(2)}% p.a. implied return across ${cYrs + dYrs + pYrs} years`;
+      summary = `Receiving \$${quotedMo.toLocaleString("en-SG")}/mo for ${pYrs} yrs delivers ${impliedAnnualIrrPct.toFixed(2)}% p.a., outperforming the 4.0% CPF SA floor (\$${Math.round(diyCpfSa.monthlyPayout).toLocaleString("en-SG")}/mo). Verify how much of the payout is guaranteed vs non-guaranteed bonus.`;
+    } else {
+      verdictKey = "high-risk-projection";
+      tone = "warn";
+      badge = "Elevated · Non-Guaranteed Projection";
+      headline = `${impliedAnnualIrrPct.toFixed(2)}% p.a. exceeds typical guaranteed annuity floors`;
+      summary = `No Singapore endowment or annuity guarantees ${impliedAnnualIrrPct.toFixed(2)}% p.a. Check the policy illustration’s guaranteed surrender value, or invest directly in low-cost Global/SG ETFs with full liquidity.`;
+    }
+
+    const comparisons = [
+      {
+        key: "quoted",
+        label: "Quoted Annuity Plan",
+        sub: `\${moPayIn.toLocaleString("en-SG")}/mo × ${cYrs}y term${dYrs > 0 ? ` · ${dYrs}y deferment` : ""} · ${pYrs}y payout`,
+        ratePct: impliedAnnualIrrPct,
+        potAtPayoutStart: Math.round(
+          calcDiyAnnuity(Math.max(0, impliedAnnualIrrPct)).potAtPayoutStart,
+        ),
+        monthlyPayout: quotedMo,
+        totalPayout: totalPayoutReceived,
+        perpetualMonthly: 0,
+        monthlyDeltaVsQuoted: 0,
+        isQuoted: true,
+      },
+      {
+        key: "ssb",
+        label: "DIY · MAS 10Y SSB Floor",
+        sub: "100% liquid sovereign floor · $0 lock-in penalty",
+        ...diySsb,
+      },
+      {
+        key: "cpf-sa",
+        label: "DIY · CPF SA / RA (4.0% Floor)",
+        sub: "AAA risk-free statutory rate",
+        ...diyCpfSa,
+      },
+      {
+        key: "diy-bench",
+        label: `DIY · Portfolio @ ${benchRatePct.toFixed(1)}% p.a.`,
+        sub: `\${diyBench.potAtPayoutStart.toLocaleString("en-SG")} accumulated value · ~\${Math.round(diyBench.perpetualMonthly).toLocaleString("en-SG")}/mo perpetual yield`,
+        ...diyBench,
+      },
+    ];
+
+    return {
+      monthlyContribution: moPayIn,
+      contributeYears: cYrs,
+      deferYears: dYrs,
+      payoutYears: pYrs,
+      quotedMonthlyPayout: quotedMo,
+      benchmarkRatePct: benchRatePct,
+      totalPrincipalPaid,
+      totalPayoutReceived,
+      netProfitNominal,
+      payoutMultiple,
+      impliedAnnualIrrPct,
+      diySsb,
+      diyCpfSa,
+      diyBench,
+      verdictKey,
+      tone,
+      badge,
+      headline,
+      summary,
+      comparisons,
+    };
+  }
+
   function generateTrajectory(p, selectedKey = "salary") {
     return simulate(p, selectedKey);
   }
@@ -5784,6 +6111,8 @@
     retirementTapsPlan,
     buildPrintReportModel,
     evaluateDividendYield,
+    evaluateTargetMonthlyIncome,
+    evaluateAnnuityPlan,
     generateTrajectory,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

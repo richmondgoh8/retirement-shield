@@ -2438,3 +2438,64 @@ test("evaluateDividendYield computes monthly, annual, quarterly, daily payouts a
   assert.equal(yieldTrap.tone, "danger");
   assert.equal(yieldTrap.monthlyPayout, 750);
 });
+
+
+test("evaluateTargetMonthlyIncome computes required capital, gap, years to goal, and 15/20-year savings", () => {
+  const M = RetirementModel;
+  const res = M.evaluateTargetMonthlyIncome({
+    targetMonthly: 10000,
+    ratePct: 5.0,
+    currentCapital: 60000,
+    monthlyContribution: 1817,
+    inflationPct: 2.5,
+  });
+  assert.equal(res.targetAnnual, 120000);
+  assert.equal(res.requiredCapital, 2400000);
+  assert.equal(res.capitalGap, 2340000);
+  assert.equal(res.pctReachedNow, 2.5);
+  assert.ok(res.yearsToGoal > 30 && res.yearsToGoal < 42);
+  assert.ok(res.save15YrMo > res.save20YrMo);
+  assert.equal(res.tone, "good");
+  assert.equal(res.tierRows.length, 5);
+});
+
+test("evaluateAnnuityPlan computes implied IRR, payout multiple, DIY comparisons, and verdicts", () => {
+  const M = RetirementModel;
+  const subSa = M.evaluateAnnuityPlan({
+    monthlyContribution: 1000,
+    contributeYears: 15,
+    deferYears: 0,
+    payoutYears: 20,
+    quotedMonthlyPayout: 1200,
+    benchmarkRatePct: 5.0,
+  });
+  assert.equal(subSa.totalPrincipalPaid, 180000);
+  assert.equal(subSa.totalPayoutReceived, 288000);
+  assert.equal(subSa.payoutMultiple, 1.6);
+  assert.ok(subSa.impliedAnnualIrrPct > 2.5 && subSa.impliedAnnualIrrPct < 4.0);
+  assert.equal(subSa.verdictKey, "below-cpf-sa");
+  assert.equal(subSa.tone, "warn");
+  assert.ok(subSa.diyCpfSa.monthlyPayout > 1200);
+  assert.ok(subSa.diyBench.monthlyPayout > subSa.diyCpfSa.monthlyPayout);
+  assert.equal(subSa.comparisons.length, 4);
+
+  const badTrap = M.evaluateAnnuityPlan({
+    monthlyContribution: 1000,
+    contributeYears: 15,
+    deferYears: 5,
+    payoutYears: 20,
+    quotedMonthlyPayout: 1000,
+  });
+  assert.equal(badTrap.verdictKey, "endowment-trap");
+  assert.equal(badTrap.tone, "danger");
+
+  const worthIt = M.evaluateAnnuityPlan({
+    monthlyContribution: 1000,
+    contributeYears: 15,
+    deferYears: 0,
+    payoutYears: 20,
+    quotedMonthlyPayout: 1600,
+  });
+  assert.equal(worthIt.verdictKey, "worth-it");
+  assert.equal(worthIt.tone, "good");
+});
