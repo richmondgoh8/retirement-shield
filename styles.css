@@ -44,13 +44,29 @@
   --raw-slate-600: #475569;
   --raw-slate-800: #1e293b;
   --raw-gray-200: #e5e7eb;
-  --raw-space-xs: 6px;
-  --raw-space-sm: 10px;
+  --raw-space-2xs: 4px;
+  --raw-space-xs: 8px;
+  --raw-space-sm: 12px;
   --raw-space-md: 16px;
-  --raw-space-lg: 22px;
+  --raw-space-lg: 24px;
   --raw-space-xl: 32px;
   --raw-duration-fast: 150ms;
   --raw-duration-panel: 220ms;
+
+  /* Typography Scale & Font Stacks */
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-md: 1.0625rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+  --text-display: 2.5rem;
+  --leading-tight: 1.12;
+  --leading-snug: 1.28;
+  --leading-normal: 1.55;
 
   /* 2. Semantic Tokens (Role & Intent — Screen Mode) */
   --canvas: var(--raw-slate-50);
@@ -100,22 +116,23 @@
   --sem-alert-soft: var(--raw-red-50);
   --sem-alert-border: var(--raw-red-200);
 
-  /* Elevation & Motion Tokens */
+  /* Elevation, Concentric 4pt/8pt Radii & Motion Tokens */
   --shadow:
-    0 2px 6px rgba(15, 23, 42, 0.03), 0 10px 28px rgba(15, 23, 42, 0.05);
+    0 1px 3px rgba(15, 23, 42, 0.03), 0 6px 18px rgba(15, 23, 42, 0.04);
   --surface-shadow:
-    0 2px 6px rgba(15, 23, 42, 0.03), 0 10px 28px rgba(15, 23, 42, 0.05);
+    0 1px 3px rgba(15, 23, 42, 0.03), 0 6px 18px rgba(15, 23, 42, 0.04);
   --surface-shadow-hover:
-    0 6px 16px rgba(15, 23, 42, 0.06), 0 16px 36px rgba(15, 23, 42, 0.08);
+    0 4px 12px rgba(15, 23, 42, 0.05), 0 12px 28px rgba(232, 62, 140, 0.06);
   --dialog-shadow:
     0 24px 64px -12px rgba(15, 23, 42, 0.2),
     0 4px 16px -2px rgba(15, 23, 42, 0.08);
   --popover-shadow:
     0 12px 32px -4px rgba(15, 23, 42, 0.12),
     0 4px 12px -2px rgba(15, 23, 42, 0.06);
-  --radius-sm: var(--raw-space-sm);
-  --radius-md: 14px;
-  --radius-lg: 18px;
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
   --sidebar-w: 244px;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 
@@ -144,10 +161,11 @@ body {
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  font-size: 15px;
-  line-height: 1.55;
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
   overflow-x: hidden;
   font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "cv05" 1, "cv08" 1, "ss01" 1;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -1975,8 +1993,8 @@ svg text {
     border-color: var(--border-strong);
   }
 
-  .button:hover:not(:disabled) {
-    transform: translateY(-1px);
+  .button:active:not(:disabled) {
+    transform: scale(0.99);
   }
 
   .button-primary:hover:not(:disabled),
@@ -3688,11 +3706,8 @@ svg text {
 }
 
 .fin-kpi-card:hover {
-  transform: translateY(-2px);
   border-color: var(--swell-pink-border);
-  box-shadow:
-    0 12px 26px -10px rgba(15, 23, 42, 0.08),
-    0 4px 12px rgba(15, 23, 42, 0.04);
+  box-shadow: var(--surface-shadow-hover);
 }
 
 .fin-kpi-head {
@@ -3932,11 +3947,8 @@ svg text {
 }
 
 .fin-card.is-interactive:hover {
-  transform: translateY(-1px);
-  border-color: var(--primary-border);
-  box-shadow:
-    0 8px 22px rgba(17, 24, 39, 0.07),
-    0 2px 5px rgba(37, 99, 235, 0.06);
+  border-color: var(--swell-pink-border);
+  box-shadow: var(--surface-shadow-hover);
 }
 
 .fin-card.is-interactive:active {
@@ -4911,25 +4923,25 @@ svg text {
 
 .swell-source-row {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) auto;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   padding: 4px 0;
   min-width: 0;
 }
 
 .swell-source-badge {
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
-  background: var(--src-bg, #2563eb);
-  color: #ffffff;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+  color: var(--ink);
+  border: 1px solid var(--border);
   display: inline-grid;
   place-items: center;
   font-size: 0.73rem;
-  font-weight: 800;
+  font-weight: 700;
   flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
 }
 
 .swell-source-label {
@@ -4963,13 +4975,13 @@ svg text {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 10px;
+  padding: 2.5px 9px;
   border-radius: 999px;
-  background: var(--swell-slate-badge);
-  color: #ffffff;
-  border: 0;
-  font-size: 0.73rem;
-  font-weight: 700;
+  background: var(--surface-subtle);
+  color: var(--ink-soft);
+  border: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 600;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
@@ -5275,13 +5287,23 @@ svg text {
 .ledger-tag {
   display: inline-flex;
   align-items: center;
-  padding: 1px 7px;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  background: var(--surface-subtle);
-  color: var(--ink-soft);
-  border: 1px solid var(--border);
+  padding: 0;
+  font-size: 0.72rem;
+  font-weight: 500;
+  background: transparent;
+  color: var(--ink-muted);
+  border: 0;
+}
+
+.fin-inline-meta {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.fin-inline-meta.is-sep {
+  opacity: 0.6;
 }
 
 .ledger-sub {
@@ -7408,9 +7430,8 @@ svg text {
 }
 
 .cash-card:hover {
-  transform: translateY(-2px);
-  border-color: var(--primary-border);
-  box-shadow: 0 8px 22px rgba(37, 99, 235, 0.08);
+  border-color: var(--swell-pink-border);
+  box-shadow: var(--surface-shadow-hover);
 }
 
 .cash-card:hover .cash-domain-link {
@@ -9431,11 +9452,8 @@ button.fin-saving-card {
 }
 
 button.fin-saving-card:hover {
-  transform: translateY(-2px);
   border-color: var(--swell-pink-border);
-  box-shadow:
-    0 12px 26px -10px rgba(15, 23, 42, 0.08),
-    0 4px 12px rgba(15, 23, 42, 0.04);
+  box-shadow: var(--surface-shadow-hover);
 }
 
 button.fin-saving-card:hover .fin-saving-edit {
@@ -9915,8 +9933,8 @@ button.fin-saving-card:hover .fin-saving-edit {
 
 .div-cap-input-wrap:focus-within,
 .div-rate-num-wrap:focus-within {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-soft);
+  border-color: var(--swell-pink);
+  box-shadow: 0 0 0 3px var(--swell-pink-soft);
 }
 
 .div-cap-input-wrap > span,
@@ -9943,7 +9961,7 @@ button.fin-saving-card:hover .fin-saving-edit {
 
 .div-rate-slider {
   width: 100%;
-  accent-color: var(--primary);
+  accent-color: var(--swell-pink);
   cursor: pointer;
 }
 
@@ -9975,16 +9993,16 @@ button.fin-saving-card:hover .fin-saving-edit {
 }
 
 .div-preset-chip:hover {
-  border-color: var(--primary-border);
-  color: var(--primary-ink);
-  background: var(--primary-soft);
+  border-color: var(--swell-pink-border);
+  color: var(--swell-pink-ink);
+  background: var(--swell-pink-soft);
 }
 
 .div-preset-chip.is-active {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: var(--raw-white);
-  font-weight: 700;
+  background: var(--swell-pink-soft);
+  border-color: var(--swell-pink);
+  color: var(--swell-pink-ink);
+  font-weight: 650;
 }
 
 .div-calc-results {
@@ -9999,8 +10017,8 @@ button.fin-saving-card:hover .fin-saving-edit {
   gap: 16px;
   padding: 20px 22px;
   border-radius: var(--radius-md);
-  background: linear-gradient(145deg, var(--surface) 0%, var(--primary-soft) 100%);
-  border: 1px solid var(--primary-border);
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-strong);
 }
 
 .div-payout-main {
@@ -10011,10 +10029,10 @@ button.fin-saving-card:hover .fin-saving-edit {
 
 .div-payout-eyebrow {
   font-size: 0.72rem;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--primary-ink);
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
 }
 
 .div-payout-amount {
@@ -10045,7 +10063,7 @@ button.fin-saving-card:hover .fin-saving-edit {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   padding-top: 12px;
-  border-top: 1px solid var(--primary-border);
+  border-top: 1px solid var(--border);
 }
 
 .div-payout-stat {
@@ -10059,16 +10077,16 @@ button.fin-saving-card:hover .fin-saving-edit {
 }
 
 .div-payout-stat > span {
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: 0.71rem;
+  font-weight: 600;
   color: var(--ink-muted);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.025em;
 }
 
 .div-payout-stat > strong {
   font-size: 1.02rem;
-  font-weight: 800;
+  font-weight: 750;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
@@ -10101,23 +10119,27 @@ button.fin-saving-card:hover .fin-saving-edit {
 }
 
 .div-verdict-card.is-good {
-  background: var(--sem-cpf-soft);
-  border-color: var(--sem-cpf-border);
+  background: var(--surface);
+  border-color: var(--border-strong);
+  border-left: 3px solid var(--sem-cpf);
 }
 
 .div-verdict-card.is-info {
-  background: var(--primary-soft);
-  border-color: var(--primary-border);
+  background: var(--surface);
+  border-color: var(--border-strong);
+  border-left: 3px solid var(--primary);
 }
 
 .div-verdict-card.is-warn {
-  background: var(--sem-cash-soft);
-  border-color: var(--sem-cash-border);
+  background: var(--surface);
+  border-color: var(--border-strong);
+  border-left: 3px solid var(--sem-cash);
 }
 
 .div-verdict-card.is-danger {
-  background: var(--sem-alert-soft);
-  border-color: var(--sem-alert-border);
+  background: var(--surface);
+  border-color: var(--border-strong);
+  border-left: 3px solid var(--sem-alert);
 }
 
 .div-verdict-head {
@@ -10301,14 +10323,14 @@ button.fin-saving-card:hover .fin-saving-edit {
 }
 
 .div-bench-test-btn:hover {
-  border-color: var(--primary);
-  color: var(--primary-ink);
-  background: var(--primary-soft);
+  border-color: var(--swell-pink);
+  color: var(--swell-pink-ink);
+  background: var(--swell-pink-soft);
 }
 
 .div-bench-test-btn.is-active {
-  background: var(--primary);
-  border-color: var(--primary);
+  background: var(--swell-pink);
+  border-color: var(--swell-pink);
   color: var(--raw-white);
 }
 
@@ -10343,9 +10365,10 @@ button.fin-saving-card:hover .fin-saving-edit {
 
 .div-bench-table th {
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   font-size: 0.7rem;
-  font-weight: 700;
+  font-weight: 600;
+  color: var(--ink-muted);
   padding: 11px 14px;
 }
 
@@ -10387,7 +10410,7 @@ button.fin-saving-card:hover .fin-saving-edit {
   display: inline-block;
   padding: 3px 9px;
   border-radius: 999px;
-  background: var(--primary);
+  background: var(--swell-pink);
   color: var(--raw-white);
   font-size: 0.72rem;
   font-weight: 700;
@@ -10423,7 +10446,7 @@ button.fin-saving-card:hover .fin-saving-edit {
 }
 
 .fin-bento-card:hover {
-  border-color: var(--border-strong);
+  border-color: var(--swell-pink-border);
   box-shadow: var(--surface-shadow-hover);
 }
 
@@ -10437,9 +10460,9 @@ button.fin-saving-card:hover .fin-saving-edit {
 .fin-bento-eyebrow {
   display: block;
   font-size: 0.7rem;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   color: var(--ink-muted);
   margin-bottom: 3px;
 }
@@ -10598,10 +10621,10 @@ button.fin-saving-card:hover .fin-saving-edit {
 
 .fin-moves-kicker {
   font-size: 0.68rem;
-  font-weight: 800;
+  font-weight: 650;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--primary);
+  letter-spacing: 0.04em;
+  color: var(--swell-pink-ink);
 }
 
 .fin-moves-title-wrap > h3 {
@@ -10640,7 +10663,7 @@ button.fin-saving-card:hover .fin-saving-edit {
 }
 
 .fin-move-card:hover {
-  border-color: var(--border-strong);
+  border-color: var(--swell-pink-border);
   background: var(--surface);
 }
 
@@ -10806,11 +10829,12 @@ button.fin-saving-card:hover .fin-saving-edit {
    ============================================================================ */
 
 .fin-bento-list > li.is-spare-cash-row {
-  background: var(--sem-cpf-soft);
+  background: var(--surface-subtle);
+  border: 1px solid var(--sem-cpf-border);
+  border-left: 3px solid var(--sem-cpf);
   margin: 4px -8px -4px;
-  padding: 8px 8px;
+  padding: 7px 10px;
   border-radius: var(--radius-sm);
-  border-bottom: none;
 }
 
 .fin-spare-cta {
@@ -10860,9 +10884,9 @@ button.fin-saving-card:hover .fin-saving-edit {
 }
 
 .div-mode-tab.is-active {
-  background: var(--primary-soft);
-  border-color: var(--primary);
-  box-shadow: 0 0 0 1px var(--primary);
+  background: var(--swell-pink-soft);
+  border-color: var(--swell-pink);
+  box-shadow: 0 0 0 1px var(--swell-pink);
 }
 
 .div-mode-tab > strong {
@@ -10872,7 +10896,7 @@ button.fin-saving-card:hover .fin-saving-edit {
 }
 
 .div-mode-tab.is-active > strong {
-  color: var(--primary-ink);
+  color: var(--swell-pink-ink);
 }
 
 .div-mode-tab > span {
@@ -10896,4 +10920,188 @@ button.fin-saving-card:hover .fin-saving-edit {
   .div-subcontrols-grid.is-three-cols {
     grid-template-columns: 1fr;
   }
+}
+
+
+/* ============================================================================
+   FOUNDATIONS: UNIFIED INTERACTIVE STATES, VALIDATION & CHART STABILITY
+   ============================================================================ */
+
+.chart-area {
+  min-height: 240px;
+}
+
+button:active:not(:disabled),
+.div-preset-chip:active:not(:disabled),
+.div-mode-tab:active:not(:disabled),
+.fin-move-cta:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+button:disabled,
+input:disabled,
+select:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+input:user-invalid,
+input.is-invalid,
+.input-wrap:has(input:user-invalid),
+.input-wrap.is-invalid {
+  border-color: var(--sem-alert) !important;
+  box-shadow: 0 0 0 3px var(--sem-alert-soft) !important;
+}
+
+code,
+pre,
+.mono-val {
+  font-family: var(--font-mono);
+}
+
+/* ============================================================================
+   GOLD-STANDARD WEALTH DASHBOARD UPGRADES (MERCURY, PROJECTIONLAB, COPILOT, FINARY)
+   ============================================================================ */
+
+/* 1. Mercury-Style Live Header Scrubbing on Net Worth Card */
+.nw-live-scrub-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: var(--swell-pink-soft);
+  border: 1px solid var(--swell-pink-border);
+  color: var(--swell-pink-ink);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.nw-live-breakdown {
+  font-size: 0.76rem;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.nw-live-breakdown > b {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.swell-bar-col rect {
+  transition: opacity var(--raw-duration-fast) ease, filter var(--raw-duration-fast) ease;
+}
+
+.swell-bar-col.is-scrub-active rect {
+  opacity: 1 !important;
+  filter: brightness(1.08);
+  stroke: var(--swell-pink-ink);
+  stroke-width: 1.2px;
+}
+
+/* 2. Endowus / ProjectionLab Guaranteed Sovereign Floor vs Market Drawdown Split Bar */
+.fin-security-split-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px;
+  margin: 4px 0 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+}
+
+.fin-security-split-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.fin-security-split-meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fin-security-split-meta > span > i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.fin-security-split-meta strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.fin-security-split-track {
+  display: flex;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--border);
+  gap: 2px;
+}
+
+.fin-security-split-track > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width var(--raw-duration-panel) ease;
+}
+
+/* 3. Finary / Copilot Interactive Bento Hover-Sync & Share Pills */
+.fin-bento-share-pill {
+  display: inline-block;
+  padding: 1px 6px;
+  margin-left: 4px;
+  border-radius: 999px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  color: var(--ink-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  vertical-align: baseline;
+}
+
+.fin-bento-bar > span {
+  transition:
+    width var(--raw-duration-panel) ease,
+    opacity var(--raw-duration-fast) ease,
+    transform var(--raw-duration-fast) ease;
+}
+
+.fin-bento-card.has-bento-hover .fin-bento-bar > span:not(.is-seg-hl) {
+  opacity: 0.25;
+}
+
+.fin-bento-card.has-bento-hover .fin-bento-bar > span.is-seg-hl {
+  opacity: 1;
+  transform: scaleY(1.25);
+}
+
+.fin-bento-list > li[data-bento-seg] {
+  transition: background-color var(--raw-duration-fast) ease;
+  border-radius: var(--radius-xs);
+}
+
+.fin-bento-list > li.is-seg-hl {
+  background: var(--swell-pink-soft);
+}
+
+.fin-bento-list > li.is-seg-hl .fin-bento-share-pill {
+  background: var(--surface);
+  border-color: var(--swell-pink-border);
+  color: var(--swell-pink-ink);
 }

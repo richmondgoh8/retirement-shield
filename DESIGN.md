@@ -40,15 +40,17 @@ primitives:
     slate-800: "#1e293b"
     gray-200: "#e5e7eb"
   spacing:
-    xs: "6px"
-    sm: "10px"
+    2xs: "4px"
+    xs: "8px"
+    sm: "12px"
     md: "16px"
-    lg: "22px"
+    lg: "24px"
     xl: "32px"
   rounded:
-    sm: "10px"
-    md: "14px"
-    lg: "18px"
+    xs: "6px"
+    sm: "8px"
+    md: "12px"
+    lg: "16px"
     pill: "999px"
   motion:
     ease-calm: "cubic-bezier(0.2, 0.8, 0.2, 1)"

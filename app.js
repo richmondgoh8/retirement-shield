@@ -573,24 +573,33 @@ function buildFundingSourcesList(taps, r, s, cpfCovPct) {
         count: `${money(s.payout)}/mo of ${money(r.spend65)} need${taps.tap1Cpf.monthlyExtraCpf > 0 ? ` (+${money(taps.tap1Cpf.monthlyExtraCpf)}/mo)` : ""}`,
         score: `${cpfCovPct}%`,
         color: "#047857",
-        badgeBg: "#047857",
+        badgeBg: "#ECFDF5",
+        softBg: "#ECFDF5",
+        border: "#A7F3D0",
         letter: "1",
+        icon: svgWrap("<path d=\"M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z\"/><path d=\"m9 12 2 2 4-4\"/>", 16),
       },
       {
         name: "Tap 2 · SRS Bridge",
         count: srsCountSub,
         score: srsDrawPill,
-        color: "#7C3AED",
-        badgeBg: "#7C3AED",
+        color: "#6D28D9",
+        badgeBg: "#F5F3FF",
+        softBg: "#F5F3FF",
+        border: "#DDD6FE",
         letter: "2",
+        icon: svgWrap("<rect x=\"3\" y=\"4\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M3 10h18\"/><path d=\"M8 2v4\"/><path d=\"M16 2v4\"/>", 16),
       },
       {
         name: "Tap 3 · Equity & Dividend",
         count: `${!r.retiringNow ? `+${money(taps.tap3Equities.monthlyInvest)}/mo (${taps.tap3Equities.globalSplitPct}/${taps.tap3Equities.sgDividendSplitPct} G/SG) → ` : ""}${compactMoney(taps.tap3Equities.projectedInvestAtRetireToday ?? taps.tap3Equities.portfolioAtRetireToday)} at ${r.retire} · ${s.gap65 > 0 ? `${money(taps.tap3Equities.projectedMonthlyDrawToday)}/mo of ${money(s.gap65)} gap` : `+${money(taps.tap3Equities.projectedMonthlyDrawToday)}/mo draw`}`,
         score: `${taps.tap3Equities.targetEquityPct ?? 80}/${taps.tap3Equities.targetBondPct ?? 20}`,
         color: "#1D4ED8",
-        badgeBg: "#2563EB",
+        badgeBg: "#EFF6FF",
+        softBg: "#EFF6FF",
+        border: "#BFDBFE",
         letter: "3",
+        icon: svgWrap("<polyline points=\"22 7 13.5 15.5 8.5 10.5 2 17\"/><polyline points=\"16 7 22 7 22 13\"/>", 16),
       },
       {
         name: taps.tap4Ssb.cashAccountsActive
@@ -611,8 +620,11 @@ function buildFundingSourcesList(taps, r, s, cpfCovPct) {
               ? `${ssbPctOf150k}%`
               : ssbRateTag,
         color: "#B45309",
-        badgeBg: "#B45309",
+        badgeBg: "#FFFBEB",
+        softBg: "#FFFBEB",
+        border: "#FDE68A",
         letter: "4",
+        icon: svgWrap("<path d=\"M3 21h18\"/><path d=\"M3 10h18\"/><path d=\"M5 6l7-3 7 3\"/><path d=\"M4 10v11\"/><path d=\"M20 10v11\"/><path d=\"M8 14v3\"/><path d=\"M12 14v3\"/><path d=\"M16 14v3\"/>", 16),
       },
       {
         name: "Age-55 OA Interest Tap",
@@ -622,8 +634,11 @@ function buildFundingSourcesList(taps, r, s, cpfCovPct) {
             : "$0 excess OA at 55",
         score: "2.5% p.a.",
         color: "#0F766E",
-        badgeBg: "#0F766E",
+        badgeBg: "#F0FDFA",
+        softBg: "#F0FDFA",
+        border: "#99F6E4",
         letter: "55",
+        icon: svgWrap("<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M9 15l6-6\"/><circle cx=\"9.5\" cy=\"9.5\" r=\".5\" fill=\"currentColor\"/><circle cx=\"14.5\" cy=\"14.5\" r=\".5\" fill=\"currentColor\"/>", 16),
       },
     ],
   };
@@ -865,7 +880,7 @@ function renderPrintSheet({
             ${fundingSources
               .map(
                 (src) => `<li class="poster-source-row">
-                  <span class="poster-source-badge" style="background:${src.badgeBg};">${src.letter}</span>
+                  <span class="poster-source-badge" style="background:${src.softBg};color:${src.color};border:1px solid ${src.border};">${src.icon || src.letter}</span>
                   <div class="poster-source-copy">
                     <strong style="color:${src.color};">${src.name}</strong>
                     <small>${src.count}</small>
@@ -1372,19 +1387,35 @@ function renderStackedNetWorthSVG(
     {
       age: fire.retire,
       label: `Retire ${fire.retire}`,
-      color: "#2563EB",
+      color: "#BE185D",
+      bg: "#FDF2F8",
+      border: "#FBCFE8",
     },
-    { age: 55, label: "55 SA Closure", color: "#059669" },
+    {
+      age: 55,
+      label: "55 SA Closure",
+      color: "#047857",
+      bg: "#ECFDF5",
+      border: "#A7F3D0",
+    },
     ...(showSrs
       ? [
           {
             age: fire.srsWithdrawalAge,
             label: `${fire.srsWithdrawalAge} SRS`,
-            color: "#7C3AED",
+            color: "#6D28D9",
+            bg: "#F5F3FF",
+            border: "#DDD6FE",
           },
         ]
       : []),
-    { age: 65, label: "65 CPF LIFE", color: "#059669" },
+    {
+      age: 65,
+      label: "65 CPF LIFE",
+      color: "#047857",
+      bg: "#ECFDF5",
+      border: "#A7F3D0",
+    },
   ]
     .filter((mItem) => mItem.age >= minAge && mItem.age <= maxAge)
     .sort((a, b) => a.age - b.age);
@@ -1395,7 +1426,9 @@ function renderStackedNetWorthSVG(
     if (existing) {
       if (item.age === 65 && existing.label.startsWith("Retire")) {
         existing.label = "65 Retire · CPF LIFE";
-        existing.color = "#059669";
+        existing.color = "#BE185D";
+        existing.bg = "#FDF2F8";
+        existing.border = "#FBCFE8";
       } else if (existing.label.startsWith("Retire")) {
         existing.label = `${item.age} Retire · ${item.label.replace(/^\d+\s*/, "")}`;
       } else {
@@ -1407,24 +1440,30 @@ function renderStackedNetWorthSVG(
   }
 
   const rowBoxes = [[], [], [], []];
-  const rowYs = compactPrint ? [15, 27, 39, 50] : [18, 32, 46, 60];
+  const rowYs = compactPrint ? [15, 28, 41, 52] : [18, 34, 50, 66];
   const milestoneSVG = milestones
     .map((mItem) => {
       const x = dX(mItem.age);
       const anchor =
-        x < padL + 48 ? "start" : x > W - padR - 48 ? "end" : "middle";
-      const estW = mItem.label.length * 7.2 + 12;
+        x < padL + 54 ? "start" : x > W - padR - 54 ? "end" : "middle";
+      const pillW = Math.max(54, mItem.label.length * (compactPrint ? 6.8 : 6.1) + 14);
+      const pillH = compactPrint ? 17 : 16;
       const x1 =
-        anchor === "start" ? x : anchor === "end" ? x - estW : x - estW / 2;
-      const x2 = x1 + estW;
+        anchor === "start" ? x : anchor === "end" ? x - pillW : x - pillW / 2;
+      const x2 = x1 + pillW;
       let chosenRow = rowBoxes.findIndex((boxes) =>
-        boxes.every((b) => x2 + 12 <= b.x1 || x1 - 12 >= b.x2),
+        boxes.every((b) => x2 + 10 <= b.x1 || x1 - 10 >= b.x2),
       );
       if (chosenRow === -1) chosenRow = rowBoxes.length - 1;
       rowBoxes[chosenRow].push({ x1, x2 });
       const labelY = rowYs[chosenRow];
-      return `<line x1="${x}" y1="${padT}" x2="${x}" y2="${H - padB}" stroke="${mItem.color}" stroke-width="1.35" stroke-dasharray="4,3" stroke-opacity="0.65" />
-        <text x="${x}" y="${labelY}" text-anchor="${anchor}" font-size="${compactPrint ? 13 : 11}" font-weight="700" fill="${mItem.color}">${mItem.label}</text>`;
+      const pillY = labelY - (compactPrint ? 12 : 11.5);
+      const textX = (x1 + pillW / 2).toFixed(1);
+      return `<g class="nw-milestone-flag">
+        <line x1="${x}" y1="${(pillY + pillH).toFixed(1)}" x2="${x}" y2="${H - padB}" stroke="${mItem.color}" stroke-width="1.25" stroke-dasharray="3,3" stroke-opacity="0.6" />
+        <rect x="${x1.toFixed(1)}" y="${pillY.toFixed(1)}" width="${pillW.toFixed(1)}" height="${pillH}" rx="4.5" fill="${mItem.bg || "#FFFFFF"}" stroke="${mItem.border || mItem.color}" stroke-width="1" />
+        <text x="${textX}" y="${labelY}" text-anchor="middle" font-size="${compactPrint ? 11.5 : 10}" font-weight="650" fill="${mItem.color}">${mItem.label}</text>
+      </g>`;
     })
     .join("");
 
@@ -1508,7 +1547,7 @@ function renderStackedNetWorthSVG(
       ${bandsSVG}
       ${milestoneSVG}
       ${calloutsSVG}
-      <line class="nw-scrub-line" x1="0" y1="${padT}" x2="0" y2="${H - padB}" stroke="var(--ink)" stroke-width="1.4" stroke-dasharray="3,3" style="display:none;" />
+      <line class="nw-scrub-line" x1="0" y1="${padT}" x2="0" y2="${H - padB}" stroke="var(--swell-pink)" stroke-width="1.6" stroke-dasharray="3,3" style="display:none;" />
       ${scrubDotsSVG}
     </svg>`;
 
@@ -1642,6 +1681,23 @@ function renderStackedNetWorthSVG(
       dot.setAttribute("cy", dY(val));
       dot.style.display = "block";
     });
+    svg.querySelectorAll(".swell-bar-col").forEach((col) => {
+      col.classList.toggle("is-scrub-active", Number(col.dataset.age) === pt.age);
+    });
+    if (chartArea.id === "dash-networth-chart") {
+      const heroTitleEl = document.getElementById("ember-traj-title");
+      const heroValEl = document.getElementById("hero-nw-live");
+      const heroSubEl = document.getElementById("hero-nw-sub-live");
+      if (heroTitleEl && heroValEl && heroSubEl) {
+        if (!heroTitleEl.dataset.defaultHtml) heroTitleEl.dataset.defaultHtml = heroTitleEl.innerHTML;
+        if (!heroValEl.dataset.defaultHtml) heroValEl.dataset.defaultHtml = heroValEl.innerHTML;
+        if (!heroSubEl.dataset.defaultHtml) heroSubEl.dataset.defaultHtml = heroSubEl.innerHTML;
+        const dispVal = soloSeries ? pt[soloSeries.key] : pt.total;
+        heroTitleEl.innerHTML = `Age ${pt.age} (${pt.year}) <span class="nw-live-scrub-pill">Live Scrub</span>`;
+        heroValEl.innerHTML = m(dispVal);
+        heroSubEl.innerHTML = `<span class="nw-live-breakdown">CPF <b>${compactMoney(pt.cpf)}</b> · Eq <b>${compactMoney(pt.eq)}</b> · Cash <b>${compactMoney(pt.ssb)}</b></span>`;
+      }
+    }
 
     tooltipEl.hidden = false;
     tooltipEl.innerHTML = soloSeries
@@ -1679,6 +1735,17 @@ function renderStackedNetWorthSVG(
       svg
         .querySelectorAll(".nw-scrub-dot")
         .forEach((dot) => (dot.style.display = "none"));
+      svg
+        .querySelectorAll(".swell-bar-col.is-scrub-active")
+        .forEach((col) => col.classList.remove("is-scrub-active"));
+    }
+    if (chartArea.id === "dash-networth-chart") {
+      const heroTitleEl = document.getElementById("ember-traj-title");
+      const heroValEl = document.getElementById("hero-nw-live");
+      const heroSubEl = document.getElementById("hero-nw-sub-live");
+      if (heroTitleEl?.dataset.defaultHtml) heroTitleEl.innerHTML = heroTitleEl.dataset.defaultHtml;
+      if (heroValEl?.dataset.defaultHtml) heroValEl.innerHTML = heroValEl.dataset.defaultHtml;
+      if (heroSubEl?.dataset.defaultHtml) heroSubEl.innerHTML = heroSubEl.dataset.defaultHtml;
     }
     setHoveredBand(null);
     tooltipEl.hidden = true;
@@ -1787,11 +1854,19 @@ function renderCashflowWaterfallSVG(
       ? {
           idx: idxSrs,
           label: `SRS (${fire.srsWithdrawalAge})`,
-          color: "#7C3AED",
+          color: "#6D28D9",
+          bg: "#F5F3FF",
+          border: "#DDD6FE",
         }
       : null,
     idx65 >= 0
-      ? { idx: idx65, label: "CPF LIFE (65)", color: "#059669" }
+      ? {
+          idx: idx65,
+          label: "CPF LIFE (65)",
+          color: "#047857",
+          bg: "#ECFDF5",
+          border: "#A7F3D0",
+        }
       : null,
   ]
     .filter(Boolean)
@@ -1801,9 +1876,17 @@ function renderCashflowWaterfallSVG(
         j === 1 && idxSrs >= 0 && Math.abs(idx65 - idxSrs) <= 5;
       const my = closeToPrev ? padT - 18 : padT - 6;
       const anchor =
-        mx < padL + 44 ? "start" : mx > W - padR - 48 ? "end" : "middle";
-      return `<line x1="${mx}" y1="${padT}" x2="${mx}" y2="${H - padB}" stroke="${mk.color}" stroke-width="1.4" stroke-dasharray="3,3" stroke-opacity="0.7" />
-        <text x="${mx}" y="${my}" text-anchor="${anchor}" font-size="11" font-weight="700" fill="${mk.color}">${mk.label}</text>`;
+        mx < padL + 48 ? "start" : mx > W - padR - 48 ? "end" : "middle";
+      const pillW = Math.max(54, mk.label.length * 6.2 + 14);
+      const pillH = 16;
+      const x1 =
+        anchor === "start" ? mx : anchor === "end" ? mx - pillW : mx - pillW / 2;
+      const pillY = my - 11.5;
+      return `<g class="nw-milestone-flag">
+        <line x1="${mx}" y1="${padT}" x2="${mx}" y2="${H - padB}" stroke="${mk.color}" stroke-width="1.3" stroke-dasharray="3,3" stroke-opacity="0.65" />
+        <rect x="${x1.toFixed(1)}" y="${pillY.toFixed(1)}" width="${pillW.toFixed(1)}" height="${pillH}" rx="4.5" fill="${mk.bg}" stroke="${mk.border}" stroke-width="1" />
+        <text x="${(x1 + pillW / 2).toFixed(1)}" y="${my}" text-anchor="middle" font-size="10" font-weight="650" fill="${mk.color}">${mk.label}</text>
+      </g>`;
     })
     .join("");
 
@@ -1812,7 +1895,7 @@ function renderCashflowWaterfallSVG(
       ${yTicks}${xLabels}${bars}
       <path d="${spendLine}" fill="none" stroke="var(--ink)" stroke-width="2" stroke-dasharray="6,3" />
       ${markers}
-      <line class="wf-scrub-line" x1="0" y1="${padT}" x2="0" y2="${H - padB}" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="3,3" style="display:none;" />
+      <line class="wf-scrub-line" x1="0" y1="${padT}" x2="0" y2="${H - padB}" stroke="var(--swell-pink)" stroke-width="1.6" stroke-dasharray="3,3" style="display:none;" />
     </svg>`;
 
   if (legendEl) {
@@ -1999,7 +2082,8 @@ function buildFinReadinessGaugeSVG(
   onTrack = pctFunded >= 100,
   uid = "swell",
 ) {
-  const ratio = Math.max(0.05, Math.min(1, (Number(pctFunded) || 0) / 100));
+  const pctVal = Math.max(0, Math.round(Number(pctFunded) || 0));
+  const ratio = Math.max(0.05, Math.min(1, pctVal / 100));
   const cx = 120;
   const cy = 114;
   const r = 84;
@@ -2012,53 +2096,36 @@ function buildFinReadinessGaugeSVG(
   const knobX = cx + Math.cos(activeRad) * r;
   const knobY = cy + Math.sin(activeRad) * r;
 
-  const isAmazing = Boolean(onTrack && pctFunded >= 100);
-  const isNear = pctFunded >= 80 && !isAmazing;
+  const isAmazing = Boolean(onTrack && pctVal >= 100);
+  const isNear = pctVal >= 80 && !isAmazing;
   const statusWord = isAmazing
-    ? "On Track!"
+    ? "On Track"
     : isNear
-      ? "Close to Goal"
-      : pctFunded >= 60
-        ? "Building Up"
-        : "Needs Boost";
+      ? "Near Target"
+      : pctVal >= 60
+        ? "In Progress"
+        : "Action Needed";
   const statusColor = isAmazing
     ? "#047857"
     : isNear
       ? "#B45309"
-      : pctFunded >= 60
+      : pctVal >= 60
         ? "#B45309"
         : "#B91C1C";
-
-  const mouthSvg = isAmazing
-    ? `<path d="M 107 95 Q 120 111 133 95 Z" fill="#1E293B" />
-       <path d="M 113 101 Q 120 107 127 101 Q 120 98 113 101 Z" fill="#F43F5E" />`
-    : isNear
-      ? `<path d="M 109 96 Q 120 106 131 96" fill="none" stroke="#1E293B" stroke-width="3" stroke-linecap="round" />`
-      : `<path d="M 111 101 Q 120 95 129 101" fill="none" stroke="#1E293B" stroke-width="2.8" stroke-linecap="round" />`;
-
   return `<div class="fin-gauge-wrap swell-gauge-wrap">
-    <svg class="fin-gauge-svg swell-gauge-svg" viewBox="0 0 240 138" width="240" height="138" aria-hidden="true">
+    <svg class="fin-gauge-svg swell-gauge-svg" viewBox="0 0 240 132" width="240" height="132" aria-hidden="true">
       <defs>
         <linearGradient id="${uid}-arc-grad" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0%" stop-color="#F43F5E" />
           <stop offset="50%" stop-color="#EC4899" />
           <stop offset="100%" stop-color="#E83E8C" />
         </linearGradient>
-        <linearGradient id="${uid}-emoji-gold" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#FDE047" />
-          <stop offset="55%" stop-color="#FBBF24" />
-          <stop offset="100%" stop-color="#F59E0B" />
-        </linearGradient>
       </defs>
-      <path d="M ${startX} ${startY} A ${r} ${r} 0 0 1 ${endX} ${endY}" fill="none" stroke="#E5E7EB" stroke-width="14" stroke-linecap="round" />
-      <path d="M ${startX} ${startY} A ${r} ${r} 0 0 1 ${knobX.toFixed(1)} ${knobY.toFixed(1)}" fill="none" stroke="url(#${uid}-arc-grad)" stroke-width="14" stroke-linecap="round" />
-      <circle cx="${knobX.toFixed(1)}" cy="${knobY.toFixed(1)}" r="7" fill="#E83E8C" stroke="#FFFFFF" stroke-width="3.2" />
-      <g class="swell-emoji-face">
-        <circle cx="120" cy="91" r="24" fill="url(#${uid}-emoji-gold)" />
-        <ellipse cx="111.5" cy="84.5" rx="2.7" ry="3.6" fill="#1E293B" />
-        <ellipse cx="128.5" cy="84.5" rx="2.7" ry="3.6" fill="#1E293B" />
-        ${mouthSvg}
-      </g>
+      <path d="M ${startX} ${startY} A ${r} ${r} 0 0 1 ${endX} ${endY}" fill="none" stroke="#E2E8F0" stroke-width="12" stroke-linecap="round" />
+      <path d="M ${startX} ${startY} A ${r} ${r} 0 0 1 ${knobX.toFixed(1)} ${knobY.toFixed(1)}" fill="none" stroke="url(#${uid}-arc-grad)" stroke-width="12" stroke-linecap="round" />
+      <circle cx="${knobX.toFixed(1)}" cy="${knobY.toFixed(1)}" r="6.5" fill="#E83E8C" stroke="#FFFFFF" stroke-width="2.8" />
+      <text x="120" y="90" text-anchor="middle" fill="#0F172A" font-size="25" font-weight="800" letter-spacing="-0.03em">${pctVal}%</text>
+      <text x="120" y="108" text-anchor="middle" fill="#64748B" font-size="9.5" font-weight="600" letter-spacing="0.03em">FUNDED TO 95</text>
     </svg>
     <div class="swell-gauge-status" style="color:${statusColor};">${statusWord}</div>
     <div class="fin-gauge-center swell-gauge-readout">
@@ -2414,8 +2481,9 @@ function buildExpenseCardHTML(ep, r) {
       <div class="fin-expense-title-col">
         <div class="fin-expense-title-row">
           <h2 id="expense-card-title">Retirement Living Budget</h2>
-          <span class="fin-target-pill" id="exp-mode-pill">${modeLabel}</span>
-          <span class="status-pill is-info" id="exp-takehome-pill">${ageNeedLabel}</span>
+          <span class="fin-inline-meta" id="exp-mode-pill">${modeLabel}</span>
+          <span class="fin-inline-meta is-sep" aria-hidden="true">·</span>
+          <span class="fin-inline-meta" id="exp-takehome-pill">${ageNeedLabel}</span>
         </div>
         <p id="exp-sync-caption">${captionText}</p>
       </div>
@@ -2431,7 +2499,7 @@ function buildExpenseCardHTML(ep, r) {
           >
             <span class="header-account-avatar" data-tone="${isCustom ? "custom" : ep.lifestyle}" aria-hidden="true">${isCustom ? "$" : ep.lifestyle === "cca" ? "C" : "H"}</span>
             <span id="exp-card-dropdown-label">${dropdownLabel}</span>
-            <svg class="header-account-caret" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg class="header-account-caret" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="m6 9 6 6 6-6" />
             </svg>
           </button>
@@ -2721,25 +2789,25 @@ function buildFinBentoGridHTML({
           <button type="button" class="fin-link-pill" data-quick-edit="balances">Edit balances</button>
         </div>
         <div class="fin-bento-bar" aria-hidden="true">
-          <span style="width:${cpfShareW}%;background:var(--sem-cpf);" title="CPF + SRS (${cpfShareW}%)"></span>
-          <span style="width:${eqShareW}%;background:var(--sem-equities);" title="Equities (${eqShareW}%)"></span>
-          <span style="width:${cashShareW}%;background:var(--sem-cash);" title="Cash &amp; SSB (${cashShareW}%)"></span>
+          <span data-bento-seg="0" style="width:${cpfShareW}%;background:var(--sem-cpf);" title="CPF + SRS (${cpfShareW}%)"></span>
+          <span data-bento-seg="1" style="width:${eqShareW}%;background:var(--sem-equities);" title="Equities (${eqShareW}%)"></span>
+          <span data-bento-seg="2" style="width:${cashShareW}%;background:var(--sem-cash);" title="Cash &amp; SSB (${cashShareW}%)"></span>
         </div>
         <ul class="fin-bento-list">
-          <li>
+          <li data-bento-seg="0">
             <span class="fin-bento-item-label"><i style="background:var(--sem-cpf);"></i>CPF + SRS Locked</span>
             <span class="fin-bento-item-meta">OA ${compactMoney(p.oa || 0)} · SA ${compactMoney(p.sa || 0)} · MA ${compactMoney(p.ma || 0)}</span>
-            <strong>${m(cpfSrsBal)}</strong>
+            <strong>${m(cpfSrsBal)} <small class="fin-bento-share-pill">${cpfShareW}%</small></strong>
           </li>
-          <li>
+          <li data-bento-seg="1">
             <span class="fin-bento-item-label"><i style="background:var(--sem-equities);"></i>Equities &amp; SG Div</span>
             <span class="fin-bento-item-meta">${m(bogle.buckets.equities || 0)} Global · ${m(sgDivBal)} SG</span>
-            <strong>${m(eqBal)}</strong>
+            <strong>${m(eqBal)} <small class="fin-bento-share-pill">${eqShareW}%</small></strong>
           </li>
-          <li>
+          <li data-bento-seg="2">
             <span class="fin-bento-item-label"><i style="background:var(--sem-cash);"></i>Liquid Cash &amp; SSB</span>
             <span class="fin-bento-item-meta">${taps.tap4Ssb.effectiveRatePct.toFixed(2)}% blended EIR</span>
-            <strong>${m(cashBal)}</strong>
+            <strong>${m(cashBal)} <small class="fin-bento-share-pill">${cashShareW}%</small></strong>
           </li>
           <li class="${userLoanShare > 0 ? "is-liability-row" : ""}">
             <span class="fin-bento-item-label"><i style="background:var(--sem-alert);"></i>Mortgage Liability</span>
@@ -2759,12 +2827,12 @@ function buildFinBentoGridHTML({
           <button type="button" class="fin-link-pill" data-quick-edit="salary">Edit income</button>
         </div>
         <div class="fin-bento-bar" aria-hidden="true">
-          <span style="width:${saveW}%;background:var(--sem-cpf);" title="Saved &amp; Invested (${saveW}%)"></span>
-          <span style="width:${fixedOutW}%;background:var(--sem-cash);" title="Tax, Housing &amp; Fixed Bills (${fixedOutW}%)"></span>
-          <span style="width:${livingW}%;background:var(--sem-equities-sg);" title="Spare Cash / Flex Living (${livingW}%)"></span>
+          <span data-bento-seg="0" style="width:${saveW}%;background:var(--sem-cpf);" title="Saved &amp; Invested (${saveW}%)"></span>
+          <span data-bento-seg="1" style="width:${fixedOutW}%;background:var(--sem-cash);" title="Tax, Housing &amp; Fixed Bills (${fixedOutW}%)"></span>
+          <span data-bento-seg="2" style="width:${livingW}%;background:var(--sem-equities-sg);" title="Unallocated Cash Surplus (${livingW}%)"></span>
         </div>
         <ul class="fin-bento-list">
-          <li>
+          <li data-bento-seg="0">
             <span class="fin-bento-item-label"><i style="background:var(--sem-cpf);"></i>Saved &amp; Invested</span>
             <span class="fin-bento-item-meta">${m(simulation.invest)} Inv · ${m(simulation.cashSaving || 0)} Cash · ${m(simulation.cpfExtra || 0)} CPF</span>
             <strong class="is-emerald">${m(contribution, "/mo")}</strong>
@@ -2774,12 +2842,12 @@ function buildFinBentoGridHTML({
             <span class="fin-bento-item-meta">${m(r.employeeCpf + r.employerCpf)} CPF · ${housingMetaLabel}</span>
             <strong>${m(r.employeeCpf + r.employerCpf + housingTotalMo, "/mo")}</strong>
           </li>
-          <li>
+          <li data-bento-seg="1">
             <span class="fin-bento-item-label"><i style="background:var(--sem-cash);"></i>IRAS Tax &amp; Fixed Bills</span>
             <span class="fin-bento-item-meta">${m(monthlyTax, "/mo")} tax · ${m(recurringTotal, "/mo")} fixed bills</span>
             <strong>${m(monthlyTax + recurringTotal, "/mo")}</strong>
           </li>
-          <li class="is-spare-cash-row">
+          <li class="is-spare-cash-row" data-bento-seg="2">
             <span class="fin-bento-item-label"><i style="background:var(--sem-equities-sg);"></i>Unallocated Cash Surplus</span>
             <span class="fin-bento-item-meta">${r.afterCpf - contribution - housingCashMo - monthlyTax - recurringTotal < 0 ? `Exceeds take-home by ${m(Math.abs(Math.round(r.afterCpf - contribution - housingCashMo - monthlyTax - recurringTotal)), "/mo")}` : "After savings, tax &amp; fixed bills"}</span>
             <strong class="${discretionaryCashMo - recurringTotal > 0 ? "is-emerald" : r.afterCpf - contribution - housingCashMo - monthlyTax - recurringTotal < 0 ? "is-danger-text" : ""}" id="bento-spare-cash-val">${m(Math.max(0, discretionaryCashMo - recurringTotal), "/mo")}</strong>
@@ -2797,25 +2865,25 @@ function buildFinBentoGridHTML({
           <button type="button" class="fin-link-pill" data-go-tab="dividend-calc">Yield calculator →</button>
         </div>
         <div class="fin-bento-bar" aria-hidden="true">
-          <span style="width:${glEqW}%;background:var(--sem-equities);" title="Global Equity (${glEqW}%)"></span>
-          <span style="width:${sgEqW}%;background:var(--sem-equities-sg);" title="SG Dividend (${sgEqW}%)"></span>
-          <span style="width:${safeW}%;background:var(--sem-cpf);" title="Safe Floor (${safeW}%)"></span>
+          <span data-bento-seg="0" style="width:${glEqW}%;background:var(--sem-equities);" title="Global Equity (${glEqW}%)"></span>
+          <span data-bento-seg="1" style="width:${sgEqW}%;background:var(--sem-equities-sg);" title="SG Dividend (${sgEqW}%)"></span>
+          <span data-bento-seg="2" style="width:${safeW}%;background:var(--sem-cpf);" title="Safe Floor (${safeW}%)"></span>
         </div>
         <ul class="fin-bento-list">
-          <li>
+          <li data-bento-seg="0">
             <span class="fin-bento-item-label"><i style="background:var(--sem-equities);"></i>Global Equity ETFs</span>
             <span class="fin-bento-item-meta">VWRA / IWDA · +${m(taps.tap3Equities.monthlyGlobalBuy, "/mo")} buy</span>
-            <strong>${m(glEqBal)} (${glEqW}%)</strong>
+            <strong>${m(glEqBal)} <small class="fin-bento-share-pill">${glEqW}%</small></strong>
           </li>
-          <li>
+          <li data-bento-seg="1">
             <span class="fin-bento-item-label"><i style="background:var(--sem-equities-sg);"></i>SG Dividend Sleeve</span>
             <span class="fin-bento-item-meta">~${centsHtml(sgDivMoNow)}/mo @ 5% · +${m(taps.tap3Equities.monthlySgBuy, "/mo")} buy</span>
-            <strong>${m(sgDivBal)} (${sgEqW}%)</strong>
+            <strong>${m(sgDivBal)} <small class="fin-bento-share-pill">${sgEqW}%</small></strong>
           </li>
-          <li>
+          <li data-bento-seg="2">
             <span class="fin-bento-item-label"><i style="background:var(--sem-cpf);"></i>CPF + SSB Safe Floor</span>
             <span class="fin-bento-item-meta">~${centsHtml(cashMoNow)}/mo cash interest (${taps.tap4Ssb.effectiveRatePct.toFixed(2)}%)</span>
-            <strong>${m(safeBondBal)} (${safeW}%)</strong>
+            <strong>${m(safeBondBal)} <small class="fin-bento-share-pill">${safeW}%</small></strong>
           </li>
           <li>
             <span class="fin-bento-item-label"><i style="background:var(--sem-cash);"></i>Annual Passive Cashflow</span>
@@ -2835,20 +2903,23 @@ function buildFinBentoGridHTML({
           <button type="button" class="fin-link-pill" data-open-expense-modal="custom">Edit expenses</button>
         </div>
         <div class="fin-bento-bar" aria-hidden="true">
-          <span style="width:${insW}%;background:var(--sem-cpf);" title="Insurance &amp; Healthcare (${insW}%)"></span>
-          <span style="width:${billW}%;background:var(--sem-srs);" title="Utilities, WiFi &amp; Subscriptions (${billW}%)"></span>
-          <span style="width:${flexW}%;background:var(--border-strong);" title="Flexible Dining, Groceries &amp; Lifestyle (${flexW}%)"></span>
+          <span data-bento-seg="0" style="width:${insW}%;background:var(--sem-cpf);" title="Insurance &amp; Healthcare (${insW}%)"></span>
+          <span data-bento-seg="1" style="width:${billW}%;background:var(--sem-srs);" title="Utilities, WiFi &amp; Subscriptions (${billW}%)"></span>
+          <span data-bento-seg="2" style="width:${flexW}%;background:var(--border-strong);" title="Flexible Dining, Groceries &amp; Lifestyle (${flexW}%)"></span>
         </div>
         <ul class="fin-bento-list">
           ${recurringItems
             .slice(0, 4)
             .map((it) => {
+              const isInsItem = it.category === "care" || /insurance|healthshield|life|accident/i.test(it.name);
+              const segIdx = isInsItem ? "0" : "1";
+              const itemSharePct = Math.round(((it.amount || 0) / expTotal) * 100);
               const dotColor = catColorMap[it.category] || "var(--primary)";
               const { shortTitle, metaText } = formatBillRow(it);
-              return `<li>
+              return `<li data-bento-seg="${segIdx}">
                 <span class="fin-bento-item-label" title="${escapeAttr(it.name)}"><i style="background:${dotColor};"></i>${escapeAttr(shortTitle)}</span>
                 <span class="fin-bento-item-meta">${escapeAttr(metaText)}</span>
-                <strong>${m(it.amount, "/mo")}</strong>
+                <strong>${m(it.amount, "/mo")} <small class="fin-bento-share-pill">${itemSharePct}%</small></strong>
               </li>`;
             })
             .join("")}
@@ -3630,9 +3701,9 @@ function buildFinOverviewGrid(
           <div class="swell-mini-kpi is-primary">
             <span class="fin-card-eyebrow" id="ember-traj-title">Net Worth at Age ${fire.retire}</span>
             <div class="fin-big-figure-row">
-              <strong class="fin-big-figure">${m(retireNw, "", "hero-nw")}</strong>
+              <strong class="fin-big-figure" id="hero-nw-live">${m(retireNw, "", "hero-nw")}</strong>
             </div>
-            <span class="swell-sub-delta"><b class="swell-delta ${onTrack ? "is-up" : "is-warn"}">${fn.pctFunded}% funded</b> to age 95</span>
+            <span class="swell-sub-delta" id="hero-nw-sub-live"><b class="swell-delta ${onTrack ? "is-up" : "is-warn"}">${fn.pctFunded}% funded</b> to age 95</span>
           </div>
           <div class="swell-mini-kpi">
             <span class="fin-card-eyebrow">${hasCustomSaveOverride ? "Committed Saving" : "Monthly Saving"}</span>
@@ -3645,6 +3716,23 @@ function buildFinOverviewGrid(
             <span class="swell-sub-delta"><b class="swell-delta is-up">${cpfCov65Pct}%</b> of budget</span>
           </div>
         </div>
+        ${(() => {
+          const ssbMoFloor = Math.round(taps.tap4Ssb.currentSsbCash > 0 ? (taps.tap4Ssb.currentMonthlyYield ?? taps.tap4Ssb.monthlyYieldAt150k) : taps.tap4Ssb.monthlyYieldAt150k);
+          const guaranteedFloorMo = Math.round(s.payout + ssbMoFloor);
+          const guaranteedPct = Math.min(100, Math.round((guaranteedFloorMo / Math.max(1, r.spend65)) * 100));
+          const marketDrawMo = Math.max(0, Math.round(r.spend65 - guaranteedFloorMo));
+          const marketPct = Math.max(0, 100 - guaranteedPct);
+          return `<div class="fin-security-split-bar" aria-label="Age-65 Guaranteed Sovereign Floor versus Market Drawdown">
+            <div class="fin-security-split-meta">
+              <span><i style="background:var(--sem-cpf);"></i>Guaranteed Floor (CPF LIFE + SSB): <strong>${money(guaranteedFloorMo)}/mo (${guaranteedPct}%)</strong></span>
+              <span><i style="background:var(--primary);"></i>Market Portfolio Draw: <strong>${money(marketDrawMo)}/mo (${marketPct}%)</strong></span>
+            </div>
+            <div class="fin-security-split-track" aria-hidden="true">
+              <span style="width:${guaranteedPct}%;background:var(--sem-cpf);"></span>
+              <span style="width:${marketPct}%;background:var(--primary);"></span>
+            </div>
+          </div>`;
+        })()}
         <div class="swell-chart-subbar">
           <div class="swell-inline-keys" aria-hidden="true">
             <span class="swell-inline-key"><i class="swell-key-swatch is-pink"></i>55+ Wealth</span>
@@ -3679,7 +3767,7 @@ function buildFinOverviewGrid(
                   src,
                   idx,
                 ) => `<li class="swell-source-row" style="--item-idx:${idx}">
-                  <span class="swell-source-badge" style="background:${src.badgeBg};" aria-hidden="true">${src.letter}</span>
+                  <span class="swell-source-badge" style="background:${src.softBg};color:${src.color};border-color:${src.border};" aria-hidden="true">${src.icon || src.letter}</span>
                   <span class="swell-source-label">
                     <strong style="color:${src.color};">${src.name}</strong>
                     <small>${src.count}</small>
@@ -3852,7 +3940,7 @@ function buildFinOverviewGrid(
           <span class="disclaimer-preview">Today’s dollars · ${Number((r.inflation * 100).toFixed(1))}% inflation · ${Math.round(r.investmentReturn * 100)}% outside return</span>
           <span class="disclaimer-toggle" aria-hidden="true">
             <span class="disclaimer-toggle-label">Details</span>
-            <svg class="disclaimer-toggle-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <svg class="disclaimer-toggle-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round">
               <path class="line-h" d="M3.5 8h9" />
               <path class="line-v" d="M8 3.5v9" />
             </svg>
@@ -5004,7 +5092,7 @@ function buildCashParkingSection(
       </div>
       <div class="cash-search-tag-bar">
         <div class="cash-search-wrap">
-          <svg class="cash-search-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <svg class="cash-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           <input type="search" id="cash-search-input" class="cash-search-input" placeholder="Search SSB, MariBank, UOB, SRS, T+0…" aria-label="Search cash parking vehicles" value="${String(searchQuery || "").replace(/"/g, "&quot;")}" />
           <button type="button" class="cash-search-clear" data-cash-search-clear aria-label="Clear search" ${searchQuery ? "" : "hidden"}>×</button>
         </div>
@@ -9099,6 +9187,17 @@ function setupSimplePlan() {
   }
 
   planRoot.addEventListener("mouseover", (event) => {
+    const bentoSegEl = event.target.closest(".fin-bento-card [data-bento-seg]");
+    if (bentoSegEl) {
+      const bCard = bentoSegEl.closest(".fin-bento-card");
+      const segKey = bentoSegEl.dataset.bentoSeg;
+      if (bCard) {
+        bCard.classList.add("has-bento-hover");
+        bCard.querySelectorAll("[data-bento-seg]").forEach((el) => {
+          el.classList.toggle("is-seg-hl", el.dataset.bentoSeg === segKey);
+        });
+      }
+    }
     const target = event.target.closest(
       "#expense-breakdown-card [data-exp-cat]",
     );
@@ -9129,6 +9228,13 @@ function setupSimplePlan() {
     }
   });
   planRoot.addEventListener("mouseout", (event) => {
+    const bentoCard = event.target.closest(".fin-bento-card");
+    if (bentoCard && (!event.relatedTarget || !bentoCard.contains(event.relatedTarget.closest?.("[data-bento-seg]") || event.relatedTarget))) {
+      bentoCard.classList.remove("has-bento-hover");
+      bentoCard.querySelectorAll("[data-bento-seg].is-seg-hl").forEach((el) => {
+        el.classList.remove("is-seg-hl");
+      });
+    }
     const card = $("#expense-breakdown-card");
     if (!card || (event.relatedTarget && card.contains(event.relatedTarget)))
       return;
@@ -11056,7 +11162,7 @@ function setupFieldHelp() {
       button.setAttribute("aria-expanded", "false");
       button.setAttribute("aria-controls", panel.id);
       button.innerHTML =
-        '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10.5v6M12 7v1"/></svg>';
+        '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10.5v6M12 7v1"/></svg>';
       panel.setAttribute("popover", "auto");
       panel.setAttribute("role", "tooltip");
       panel.addEventListener("toggle", (event) => {

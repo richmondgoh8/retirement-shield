@@ -219,4 +219,9 @@ test("4-Tap semantic asset colors, spinbutton reset, and clean page headers foll
     srcCss,
     /\.cash-sync-tag\s*\{[\s\S]*?color:\s*var\(--sem-cpf-ink\)/,
   );
+  // Gold-standard wealth dashboard upgrades: Mercury live scrub, ProjectionLab milestone flags, Sovereign Floor split, and Bento hover-sync
+  assert.ok(srcApp.includes("nw-live-scrub-pill"), "Expected Mercury-style live header scrubbing in app.js");
+  assert.ok(srcApp.includes("nw-milestone-flag"), "Expected ProjectionLab-style milestone pill flags in app.js");
+  assert.ok(srcApp.includes("fin-security-split-bar"), "Expected Guaranteed Floor vs Market Portfolio Draw split bar in app.js");
+  assert.ok(srcApp.includes("data-bento-seg"), "Expected Finary/Copilot Bento hover-sync segments in app.js");
 });
