@@ -771,16 +771,13 @@ test("bogleheadAllocation computes liquid vs holistic net worth split and smart 
   assert.equal(alloc.holistic.totalNetWorth, 355000);
   assert.ok(alloc.holistic.effectiveEquityPct < 50);
   assert.ok(alloc.liquid.equityPct > 80);
-  // Since holistic equity % is far below 80% target due to CPF, 100% of $2,000 goes to equities
-  assert.equal(alloc.monthlyRebalance.buyBondMonthly, 0);
-  assert.equal(
-    alloc.monthlyRebalance.buyGlobalMonthly +
-      alloc.monthlyRebalance.buySgMonthly,
-    2000,
-  );
+  // Direct split: $2,000 follows 80/20 Equity/Bond and 90/10 Global/SG regardless of CPF floor
+  assert.equal(alloc.monthlyRebalance.buyBondMonthly, 400);
+  assert.equal(alloc.monthlyRebalance.buyGlobalMonthly, 1440);
+  assert.equal(alloc.monthlyRebalance.buySgMonthly, 160);
 
-  // Overweight SG Dividends sleeve + $0 CPF routes 100% into Global UCITS and avoids false "CPF holds" copy
-  const overweightSg = M.bogleheadAllocation(
+  // Direct split with 95/5 Equity/Bond and 97/3 Global/SG on $1,000
+  const direct95 = M.bogleheadAllocation(
     {
       age: 35,
       oa: 0,
@@ -795,11 +792,11 @@ test("bogleheadAllocation computes liquid vs holistic net worth split and smart 
     },
     1000,
   );
-  assert.equal(overweightSg.monthlyRebalance.buySgMonthly, 0);
-  assert.equal(overweightSg.monthlyRebalance.buyGlobalMonthly, 1000);
-  assert.equal(overweightSg.monthlyRebalance.buyBondMonthly, 0);
-  assert.match(overweightSg.monthlyRebalance.note, /SSB \/ Cash holds 33%/);
-  assert.match(overweightSg.monthlyRebalance.note, /100% goes to Global UCITS/);
+  assert.equal(direct95.monthlyRebalance.buyBondMonthly, 50);
+  assert.equal(direct95.monthlyRebalance.buySgMonthly, 29);
+  assert.equal(direct95.monthlyRebalance.buyGlobalMonthly, 921);
+  assert.match(direct95.monthlyRebalance.note, /95\/5 Equity\/Bond split/);
+  assert.match(direct95.monthlyRebalance.note, /SSB \/ Cash holds 33%/);
 });
 
 test("firePlan models two-phase FIRE bridge, 1M65 trajectory to 95, and SRS 63/64 rule", () => {
@@ -1622,7 +1619,8 @@ test("SG_DEFAULT_PLAN, index.html initial inputs, and buildPrintReportModel stay
     const m = html.match(re);
     assert.ok(m, `Expected <input id="${id}"> in index.html`);
     const valMatch = m[0].match(/\bvalue="([^"]*)"/);
-    return valMatch ? valMatch[1] : null;
+    const phMatch = m[0].match(/\bplaceholder="([^"]*)"/);
+    return valMatch ? valMatch[1] : phMatch ? phMatch[1] : null;
   };
   assert.equal(Number(getInputAttrValue("person-salary")), def.salary);
   assert.equal(Number(getInputAttrValue("known-retire")), def.retire);
@@ -2028,4 +2026,415 @@ test("annualBonus credits Additional Wage CPF up to $102,000 ceiling, srsInveste
   });
   assert.equal(tapsCapped.tap2Srs.worthIt, false);
   assert.equal(tapsCapped.tap2Srs.verdictStatus, "cap-full");
+});
+
+test("Multi-Account Tiered Cash & SSB Breakdown computes exact tiered EIR, SDIC bank-group aggregation, overflow sweep, and compounds in firePlan", () => {
+  const M = require("./model.js");
+  const def = M.SG_DEFAULT_PLAN;
+
+  // 1. User scenario: $150,000 in DBS Multiplier ($100k bonus cap @ 2.00%, excess @ 0.05% base)
+  const dbs150k = M.computeCashAccountsBreakdown([
+    {
+      preset: "dbs-multiplier",
+      name: "DBS Multiplier",
+      balance: 150000,
+      bonusCap: 100000,
+      bonusRatePct: 2.0,
+      baseRatePct: 0.05,
+    },
+  ]);
+  assert.equal(dbs150k.totalBalance, 150000);
+  assert.equal(dbs150k.totalTier1Balance, 100000);
+  assert.equal(dbs150k.totalOverflowBalance, 50000);
+  assert.equal(dbs150k.accounts[0].tier1AnnualInterest, 2000);
+  assert.equal(dbs150k.accounts[0].overflowAnnualInterest, 25);
+  assert.equal(dbs150k.totalAnnualInterest, 2025);
+  assert.equal(dbs150k.effectiveRatePct, 1.35);
+  assert.equal(dbs150k.accounts[0].rateDragPct, 0.65);
+  assert.equal(dbs150k.sdicOverflowTotal, 50000);
+  assert.equal(dbs150k.sdicExceededBanks.length, 1);
+  assert.equal(dbs150k.sdicExceededBanks[0].bankGroup, "dbs-posb");
+
+  // 2. Shared $100k SDIC limit between DBS and POSB + multi-account blended EIR
+  const multi = M.computeCashAccountsBreakdown([
+    {
+      preset: "dbs-multiplier",
+      name: "DBS Multiplier",
+      balance: 120000,
+      bonusCap: 100000,
+      bonusRatePct: 2.0,
+      baseRatePct: 0.05,
+    },
+    {
+      preset: "posb-say",
+      name: "POSB Savings",
+      balance: 30000,
+      bonusCap: 100000,
+      bonusRatePct: 2.0,
+      baseRatePct: 0.05,
+    },
+    {
+      preset: "ocbc-360",
+      name: "OCBC 360",
+      balance: 80000,
+      bonusCap: 100000,
+      bonusRatePct: 2.45,
+      baseRatePct: 0.05,
+    },
+  ]);
+  assert.equal(multi.totalBalance, 230000);
+  assert.equal(multi.totalOverflowBalance, 20000);
+  // DBS (120k) + POSB (30k) = 150k in dbs-posb group -> 50k above $100k SDIC limit
+  assert.equal(multi.sdicOverflowTotal, 50000);
+  assert.equal(multi.sdicExceededBanks[0].balance, 150000);
+  assert.equal(multi.sdicExceededBanks[0].uninsured, 50000);
+
+  // 3. 1-click sweep of bonus-cap overflow into MAS SSB
+  const swept = M.sweepCashAccountsOverflow([
+    {
+      preset: "dbs-multiplier",
+      name: "DBS Multiplier",
+      balance: 150000,
+      bonusCap: 100000,
+      bonusRatePct: 2.0,
+      baseRatePct: 0.05,
+    },
+  ]);
+  const sweptBd = M.computeCashAccountsBreakdown(swept);
+  assert.equal(sweptBd.totalBalance, 150000);
+  assert.equal(sweptBd.totalOverflowBalance, 0);
+  assert.equal(
+    swept.find((a) => a.preset === "dbs-multiplier").balance,
+    100000,
+  );
+  assert.equal(swept.find((a) => a.preset === "ssb").balance, 50000);
+  assert.ok(
+    sweptBd.effectiveRatePct > dbs150k.effectiveRatePct,
+    "Sweeping overflow to MAS SSB should raise blended effective interest rate",
+  );
+  assert.equal(
+    Math.round(sweptBd.totalAnnualInterest - dbs150k.totalAnnualInterest),
+    Math.round(dbs150k.sweepAnnualGain),
+  );
+
+  // 4. Integration into firePlan, cashParkingPlan, and retirementTapsPlan
+  const pCappedCash = {
+    ...def,
+    age: 35,
+    retire: 65,
+    returnRate: 0.05,
+    cashAccountsActive: true,
+    cashAccounts: [
+      {
+        preset: "dbs-multiplier",
+        name: "DBS Multiplier",
+        balance: 150000,
+        bonusCap: 100000,
+        bonusRatePct: 2.0,
+        baseRatePct: 0.05,
+      },
+    ],
+  };
+  const pSweptCash = {
+    ...pCappedCash,
+    cashAccounts: swept,
+  };
+  const fpCapped = M.firePlan(pCappedCash, "salary");
+  const fpSwept = M.firePlan(pSweptCash, "salary");
+  assert.equal(fpCapped.buckets.ssbCash, 150000);
+  assert.equal(fpCapped.buckets.cashEffectiveRatePct, 1.35);
+  const nw65Capped = fpCapped.points.find((pt) => pt.age === 65).totalNetWorth;
+  const nw65Swept = fpSwept.points.find((pt) => pt.age === 65).totalNetWorth;
+  assert.ok(
+    nw65Swept > nw65Capped,
+    "Expected sweeping $50k overflow from 0.05% base to SSB to increase projected age-65 net worth",
+  );
+
+  const cp = M.cashParkingPlan({ params: pCappedCash });
+  assert.equal(cp.cashAccountsActive, true);
+  assert.equal(cp.currentCash, 150000);
+  assert.equal(cp.cashBreakdown.effectiveRatePct, 1.35);
+  assert.ok(cp.positionHeadline.includes("Over Bonus Cap"));
+
+  const taps = M.retirementTapsPlan({ params: pCappedCash, fire: fpCapped });
+  assert.equal(taps.tap4Ssb.cashAccountsActive, true);
+  assert.equal(taps.tap4Ssb.effectiveRatePct, 1.35);
+  assert.equal(taps.tap4Ssb.overflowBalance, 50000);
+});
+
+test("firePlan routes monthly savings holistically, spends post-55 excess CPF OA and low-yielding cash first, and Portfolio Allocator chip moves monotonically with equity", () => {
+  const fs = require("node:fs");
+  const M = require("./model.js");
+  const appJs = fs.readFileSync("app.js", "utf8");
+
+  // 1. Portfolio Allocator top chip uses Current - Target signed variance (not inverse Target - Current)
+  assert.ok(
+    appJs.includes("const equityDeltaPct = curEqRounded - tgtEqRounded;"),
+    "Expected Portfolio Allocator chip to compute signed Current - Target delta",
+  );
+  assert.equal(
+    appJs.includes("Equities needed"),
+    false,
+    "Expected inverse +X% Equities needed badge text to be replaced",
+  );
+
+  // 2. Age-32 profile with large CPF + Cash defensive floor routes 100% of monthly liquid savings to equities and counts post-55 excess OA
+  const p32 = {
+    ...M.SG_DEFAULT_PLAN,
+    age: 32,
+    retire: 65,
+    salary: 10000,
+    lifestyle: "home-helper",
+    spend: 3900,
+    oa: 110000,
+    sa: 40000,
+    ma: 31357,
+    equities: 80002,
+    sgDividends: 6000,
+    ssbCash: 139500,
+    srs: 2,
+    savings: 80002 + 6000 + 139500 + 2,
+    cashAccountsActive: true,
+    cashAccounts: [
+      {
+        preset: "dbs-multiplier",
+        name: "DBS Multiplier",
+        balance: 100000,
+        bonusCap: 100000,
+        bonusRatePct: 2.0,
+        baseRatePct: 0.05,
+      },
+      {
+        preset: "ssb",
+        name: "MAS SSB",
+        balance: 39500,
+        bonusCap: 200000,
+        bonusRatePct: 2.39,
+        baseRatePct: 2.39,
+      },
+    ],
+    targetEquityPct: 55,
+    sgSleevePct: 15,
+    housingMode: "hdb",
+    housing: 1456.8,
+    housingYears: 20,
+    returnRate: 0.05,
+    inflationRate: 0.025,
+  };
+  const sum32 = M.calculate(p32);
+  const sim32 = M.simulate(p32, "salary", { summary: sum32 });
+  const fire32 = M.firePlan(p32, "salary", {
+    summary: sum32,
+    simulation: sim32,
+  });
+
+  // With direct 55/45 split on auto-saving ($624/mo), ~76%+ funded and lasts to age ~87+
+  assert.ok(fire32.fireNumber.pctFunded >= 75 && fire32.fireNumber.pctFunded < 100);
+  assert.ok(fire32.fireNumber.depletionAge >= 86);
+  assert.equal(fire32.fireNumber.projectedFireAge, 75);
+
+  // Adopting projectedFireAge (75) while keeping the $624/mo investment is 100%+ funded to 95 with zero depletion and does not shift projectedFireAge higher
+  const p32AtReady = {
+    ...p32,
+    retire: fire32.fireNumber.projectedFireAge,
+    invest: Math.round(sim32.invest),
+  };
+  const sum32Ready = M.calculate(p32AtReady);
+  const sim32Ready = M.simulate(p32AtReady, "salary", { summary: sum32Ready });
+  const fire32Ready = M.firePlan(p32AtReady, "salary", {
+    summary: sum32Ready,
+    simulation: sim32Ready,
+  });
+  assert.equal(fire32Ready.fireNumber.fullyFundedTo95, true);
+  assert.equal(fire32Ready.fireNumber.depletionAge, null);
+  assert.ok(fire32Ready.fireNumber.pctFunded >= 100);
+  assert.equal(
+    fire32Ready.fireNumber.projectedFireAge,
+    fire32.fireNumber.projectedFireAge,
+  );
+
+  // Saving $1,400/mo with direct 55/45 split is 100%+ funded to age 95 with zero depletion
+  const p32Funded = { ...p32, invest: 1400 };
+  const sum32F = M.calculate(p32Funded);
+  const sim32F = M.simulate(p32Funded, "salary", { summary: sum32F });
+  const fire32F = M.firePlan(p32Funded, "salary", {
+    summary: sum32F,
+    simulation: sim32F,
+  });
+  assert.ok(fire32F.fireNumber.pctFunded >= 100);
+  assert.equal(fire32F.fireNumber.depletionAge, null);
+  assert.equal(fire32F.fireNumber.fullyFundedTo95, true);
+  assert.ok(fire32F.fireNumber.projectedFireAge <= 65);
+});
+
+test("Cash Savings and Outside Investment are split separately and Outside Investment models directly after chosen Allocator split", () => {
+  const M = require("./model.js");
+  const base = {
+    ...M.SG_DEFAULT_PLAN,
+    age: 35,
+    retire: 65,
+    salary: 8000,
+    oa: 50000,
+    sa: 40000,
+    ma: 30000,
+    equities: 50000,
+    sgDividends: 10000,
+    ssbCash: 20000,
+    srs: 0,
+    savings: 80000,
+    cashSaving: 500,
+    invest: 1000,
+    targetEquityPct: 70,
+    sgSleevePct: 20,
+    returnRate: 0.06,
+    cashReturnRate: 0.02,
+  };
+  const sum = M.calculate(base);
+  const sim = M.simulate(base, "salary", { summary: sum });
+  assert.equal(sim.cashSaving, 500);
+  assert.equal(sim.invest, 1000);
+
+  const bogle = M.bogleheadAllocation(base, sim.invest);
+  // $1,000 outside invest -> 70% Eq ($700: 80% Global $560 + 20% SG $140) + 30% Bond ($300)
+  assert.equal(bogle.monthlyRebalance.buyGlobalMonthly, 560);
+  assert.equal(bogle.monthlyRebalance.buySgMonthly, 140);
+  assert.equal(bogle.monthlyRebalance.buyBondMonthly, 300);
+
+  const r = M.todayPlan(sum);
+  const pc = M.paycheckAllocation(r, sim, bogle, base);
+  assert.equal(pc.cashSavingMo, 500);
+  assert.equal(pc.eqMo, 700);
+  assert.equal(pc.ssbMo, 300);
+  const rowSum = pc.rows.reduce((acc, row) => acc + row.amt, 0);
+  assert.ok(Math.abs(rowSum - pc.grossPlusEmployer) <= 3);
+
+  const fire70 = M.firePlan(base, "salary", { summary: sum, simulation: sim });
+  const p90 = { ...base, targetEquityPct: 90 };
+  const fire90 = M.firePlan(p90, "salary", { summary: sum, simulation: sim });
+  const pt70 = fire70.points.find((pt) => pt.age === 65);
+  const pt90 = fire90.points.find((pt) => pt.age === 65);
+  // Higher equity split (90% vs 70%) directly grows liquidEquities more and ssbCash less
+  assert.ok(pt90.liquidEquities > pt70.liquidEquities);
+  assert.ok(pt90.ssbCash < pt70.ssbCash);
+  // Cash savings ($500/mo) still accumulates into ssbCash even at 95% equity split
+  assert.ok(pt90.ssbCash > 20000 + 500 * 12 * 30);
+
+  // Full 100/0 and 0/100 splits are supported on both Equity/Bond and Global/SG
+  const bogle100Eq100Global = M.bogleheadAllocation({ ...base, targetEquityPct: 100, sgSleevePct: 0 }, 1000);
+  assert.equal(bogle100Eq100Global.holistic.targetEquityPct, 100);
+  assert.equal(bogle100Eq100Global.holistic.sgEquitySplitPct, 0);
+  assert.equal(bogle100Eq100Global.monthlyRebalance.buyGlobalMonthly, 1000);
+  assert.equal(bogle100Eq100Global.monthlyRebalance.buySgMonthly, 0);
+  assert.equal(bogle100Eq100Global.monthlyRebalance.buyBondMonthly, 0);
+
+  const bogle100Eq100Sg = M.bogleheadAllocation({ ...base, targetEquityPct: 100, sgSleevePct: 100 }, 1000);
+  assert.equal(bogle100Eq100Sg.holistic.targetEquityPct, 100);
+  assert.equal(bogle100Eq100Sg.holistic.sgEquitySplitPct, 100);
+  assert.equal(bogle100Eq100Sg.monthlyRebalance.buyGlobalMonthly, 0);
+  assert.equal(bogle100Eq100Sg.monthlyRebalance.buySgMonthly, 1000);
+  assert.equal(bogle100Eq100Sg.monthlyRebalance.buyBondMonthly, 0);
+
+  const bogle0Eq100Bond = M.bogleheadAllocation({ ...base, targetEquityPct: 0, sgSleevePct: 50 }, 1000);
+  assert.equal(bogle0Eq100Bond.holistic.targetEquityPct, 0);
+  assert.equal(bogle0Eq100Bond.monthlyRebalance.buyGlobalMonthly, 0);
+  assert.equal(bogle0Eq100Bond.monthlyRebalance.buySgMonthly, 0);
+  assert.equal(bogle0Eq100Bond.monthlyRebalance.buyBondMonthly, 1000);
+
+  // Verify retirementTapsPlan stays 100% synced with Monthly planned investment, Monthly planned savings, and firePlan
+  const s = r.scenarios.find((x) => x.key === "salary");
+  const taps70 = M.retirementTapsPlan({
+    summary: r,
+    selectedScenario: s,
+    simulation: sim,
+    fire: fire70,
+    bogle,
+    params: base,
+  });
+  assert.equal(taps70.tap3Equities.targetEquityPct, 70);
+  assert.equal(taps70.tap3Equities.targetBondPct, 30);
+  assert.equal(taps70.tap3Equities.globalSplitPct, 80);
+  assert.equal(taps70.tap3Equities.sgDividendSplitPct, 20);
+  assert.equal(taps70.tap3Equities.currentEquities, 60000);
+  assert.equal(taps70.tap3Equities.monthlyInvest, 1000);
+  assert.equal(taps70.tap3Equities.monthlyGlobalBuy, 560);
+  assert.equal(taps70.tap3Equities.monthlySgBuy, 140);
+  assert.equal(taps70.tap3Equities.monthlyBondBuy, 300);
+  assert.equal(taps70.tap4Ssb.monthlyCashSaving, 500);
+  assert.equal(taps70.tap4Ssb.effectiveRatePct, 2);
+  assert.ok(taps70.tap4Ssb.projectedCashOnlyAtRetireToday > taps70.tap4Ssb.currentSsbCash);
+  assert.ok(taps70.tap3Equities.projectedInvestAtRetireToday > taps70.tap3Equities.currentEquities);
+  assert.equal(
+    taps70.tap3Equities.gapCoveragePct,
+    Math.min(100, Math.round(fire70.fireNumber.pctFunded)),
+  );
+
+  // Verify simulate() and earliestRetirement() include cashSaving and cashReturnRate
+  const simNoCash = M.simulate({ ...base, cashSaving: 0 }, "salary", { summary: r });
+  assert.ok(sim.portfolioAtRetire > simNoCash.portfolioAtRetire);
+  assert.equal(sim.investmentDeposits, simNoCash.investmentDeposits + 500 * (65 - 35) * 12);
+  const erWithCash = M.earliestRetirement({ ...base, cashSaving: 500 }, "salary", 0, 1000);
+  const erNoCash = M.earliestRetirement({ ...base, cashSaving: 0 }, "salary", 0, 1000);
+  assert.ok(erWithCash <= erNoCash);
+
+  // Verify resolveCashReturnRate normalizes percentage (> 0.3) vs decimal
+  assert.equal(M.resolveCashReturnRate({ cashReturnRate: 2.5 }), 0.025);
+  assert.equal(M.resolveCashReturnRate({ cashReturnRate: 0.025 }), 0.025);
+
+  // Verify cashParkingPlan includes monthlyCashSaving + monthlyBondSlice
+  const cp = M.cashParkingPlan({ summary: r, bogle, params: base });
+  assert.equal(cp.monthlyCashSaving, 500);
+  assert.equal(cp.monthlyBondSlice, 300);
+  assert.equal(cp.monthlyCashSlice, 800);
+
+  // Verify buildPrintReportModel includes cashSavingMo in 3 · Monthly Split
+  const printReport = M.buildPrintReportModel({
+    params: base,
+    summary: r,
+    selectedScenario: s,
+    simulation: sim,
+    fire: fire70,
+    bogle,
+    paycheck: pc,
+  });
+  const splitRow = printReport.actionRows.find((row) => row.label.includes("Monthly Split"));
+  assert.ok(splitRow && splitRow.value.includes("$500 Cash"));
+});
+
+test("evaluateDividendYield computes monthly, annual, quarterly, daily payouts and SG benchmark verdict tiers", () => {
+  const M = RetirementModel;
+  const bankBase = M.evaluateDividendYield({ capital: 100000, ratePct: 0.05 });
+  assert.equal(bankBase.tierKey, "sub-floor");
+  assert.equal(bankBase.tone, "danger");
+  assert.equal(bankBase.annualPayout, 50);
+  assert.equal(bankBase.monthlyPayout, 4.17);
+  assert.ok(bankBase.realRatePct < 0);
+
+  const ssbFloor = M.evaluateDividendYield({ capital: 100000, ratePct: 2.3 });
+  assert.equal(ssbFloor.tierKey, "capital-preserve");
+  assert.equal(ssbFloor.tone, "warn");
+
+  const cpfSafe = M.evaluateDividendYield({ capital: 100000, ratePct: 3.5 });
+  assert.equal(cpfSafe.tierKey, "safe-floor");
+  assert.equal(cpfSafe.tone, "info");
+  assert.equal(cpfSafe.realRatePct, 1);
+
+  const sweetSpot = M.evaluateDividendYield({ capital: 100000, ratePct: 5.0 });
+  assert.equal(sweetSpot.tierKey, "sweet-spot");
+  assert.equal(sweetSpot.tone, "good");
+  assert.equal(sweetSpot.annualPayout, 5000);
+  assert.equal(sweetSpot.monthlyPayout, 416.67);
+  assert.equal(sweetSpot.quarterlyPayout, 1250);
+  assert.equal(sweetSpot.realRatePct, 2.5);
+  assert.equal(sweetSpot.benchmarks.length, 7);
+  assert.ok(sweetSpot.benchmarks.find((b) => b.key === "sg-banks")?.isClosest);
+
+  const elevated = M.evaluateDividendYield({ capital: 200000, ratePct: 6.8 });
+  assert.equal(elevated.tierKey, "elevated");
+  assert.equal(elevated.tone, "warn");
+  assert.equal(elevated.monthlyPayout, 1133.33);
+
+  const yieldTrap = M.evaluateDividendYield({ capital: 100000, ratePct: 9.0 });
+  assert.equal(yieldTrap.tierKey, "yield-trap");
+  assert.equal(yieldTrap.tone, "danger");
+  assert.equal(yieldTrap.monthlyPayout, 750);
 });

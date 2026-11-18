@@ -171,6 +171,29 @@ function syncCustomBudgetReset(opts = {}) {
       }
     }
   }
+  const cashNote = $("#settings-cash-accounts-note");
+  const cashOpenBtn = $("#open-cash-breakdown-settings");
+  if (cashNote) {
+    const active = Boolean(opts.useItemizedCashAccounts);
+    const count = Number(opts.cashAccountsCount || 0);
+    cashNote.hidden = !active;
+    if (cashOpenBtn) {
+      cashOpenBtn.textContent = active
+        ? `Edit ${count || "custom"} bank & SSB account${count === 1 ? "" : "s"} →`
+        : "Break down bank accounts & $100k caps →";
+    }
+    if (active) {
+      const span = cashNote.querySelector("span");
+      if (span) {
+        const rawCash = ($("#known-ssb-cash")?.value || "").trim();
+        const eirStr =
+          opts.cashEffectiveRatePct != null
+            ? ` @ ${Number(opts.cashEffectiveRatePct).toFixed(2)}% EIR`
+            : "";
+        span.textContent = `Driven by ${count || "multiple"} cash & SSB account${count === 1 ? "" : "s"} (${money(Number(rawCash || 0))}${eirStr}).`;
+      }
+    }
+  }
 }
 
 function bindDialogBackdropDismiss(dialog) {
@@ -447,7 +470,9 @@ function getMilestoneNodes(fire, r, s, simulation) {
   const pt75 = ptAt(Math.min(fire.endAge, Math.max(75, fire.retire)));
   const pt95 = pts[pts.length - 1];
   const totalMoSave =
-    (simulation?.cpfExtra || 0) + (simulation?.invest ?? s.privateSaving);
+    (simulation?.cpfExtra || 0) +
+    (simulation?.cashSaving || 0) +
+    (simulation?.invest ?? s.privateSaving);
 
   return [
     {
@@ -459,7 +484,7 @@ function getMilestoneNodes(fire, r, s, simulation) {
       sub: r.retiringNow
         ? "Immediate retirement transition"
         : `Saving ${money(totalMoSave)}/mo`,
-      color: "#2563EB",
+      color: "#1D4ED8",
       softBg: "#EFF6FF",
     },
     {
@@ -479,7 +504,7 @@ function getMilestoneNodes(fire, r, s, simulation) {
       metric: m(ptRet?.today?.totalNetWorth ?? 0),
       pill: fire.retire < 65 ? "Bridge" : "CPF LIFE",
       sub: `Budget ${money(r.futureSpend)}/mo · ${fire.retire < 65 ? "Liquid bridge" : "CPF LIFE active"}`,
-      color: "#2563EB",
+      color: "#1D4ED8",
       softBg: "#EFF6FF",
     },
     {
@@ -491,7 +516,7 @@ function getMilestoneNodes(fire, r, s, simulation) {
       metric: m(pt95?.today?.totalNetWorth ?? 0),
       pill: fire.fireNumber.fullyFundedTo95 ? "Sustained" : "Watch Gap",
       sub: `Spend ${money(pt75?.today?.monthlySpend ?? r.spend75)}/mo · CPF ${money(s.payout)}/mo`,
-      color: fire.fireNumber.fullyFundedTo95 ? "#7C3AED" : "#DC2626",
+      color: fire.fireNumber.fullyFundedTo95 ? "#7C3AED" : "#B91C1C",
       softBg: fire.fireNumber.fullyFundedTo95 ? "#F5F3FF" : "#FEF2F2",
     },
   ];
@@ -545,10 +570,10 @@ function buildFundingSourcesList(taps, r, s, cpfCovPct) {
     fundingSources: [
       {
         name: `Tap 1 · CPF LIFE (${r.plan === "escalating" ? "Esc" : "Std"})`,
-        count: `${money(s.payout)}/mo of ${money(r.spend65)} need`,
+        count: `${money(s.payout)}/mo of ${money(r.spend65)} need${taps.tap1Cpf.monthlyExtraCpf > 0 ? ` (+${money(taps.tap1Cpf.monthlyExtraCpf)}/mo)` : ""}`,
         score: `${cpfCovPct}%`,
-        color: "#059669",
-        badgeBg: "#10B981",
+        color: "#047857",
+        badgeBg: "#047857",
         letter: "1",
       },
       {
@@ -561,19 +586,32 @@ function buildFundingSourcesList(taps, r, s, cpfCovPct) {
       },
       {
         name: "Tap 3 · Equity & Dividend",
-        count: `${money(taps.tap3Equities.projectedMonthlyDrawToday)}/mo vs ${money(s.gap65)} gap`,
-        score: `${taps.tap3Equities.globalSplitPct}/${taps.tap3Equities.sgDividendSplitPct}`,
-        color: "#2563EB",
+        count: `${!r.retiringNow ? `+${money(taps.tap3Equities.monthlyInvest)}/mo (${taps.tap3Equities.globalSplitPct}/${taps.tap3Equities.sgDividendSplitPct} G/SG) → ` : ""}${compactMoney(taps.tap3Equities.projectedInvestAtRetireToday ?? taps.tap3Equities.portfolioAtRetireToday)} at ${r.retire} · ${s.gap65 > 0 ? `${money(taps.tap3Equities.projectedMonthlyDrawToday)}/mo of ${money(s.gap65)} gap` : `+${money(taps.tap3Equities.projectedMonthlyDrawToday)}/mo draw`}`,
+        score: `${taps.tap3Equities.targetEquityPct ?? 80}/${taps.tap3Equities.targetBondPct ?? 20}`,
+        color: "#1D4ED8",
         badgeBg: "#2563EB",
         letter: "3",
       },
       {
-        name: "Tap 4 · SSB Buffer",
-        count: `${compactMoney(taps.tap4Ssb.currentSsbCash)} of $150k · ~${money(ssbYieldMo)}/mo${taps.tap4Ssb.currentSsbCash > 0 ? "" : " @ cap"}`,
+        name: taps.tap4Ssb.cashAccountsActive
+          ? `Tap 4 · Cash & SSB (${taps.tap4Ssb.accountCount})`
+          : "Tap 4 · SSB Buffer",
+        count:
+          taps.tap4Ssb.cashAccountsActive ||
+          taps.tap4Ssb.hasCustomCashRate ||
+          (taps.tap4Ssb.monthlyCashSaving ?? 0) > 0
+            ? `${!r.retiringNow && (taps.tap4Ssb.monthlyCashSaving ?? 0) > 0 ? `+${money(taps.tap4Ssb.monthlyCashSaving)}/mo → ` : `${compactMoney(taps.tap4Ssb.currentSsbCash)} → `}${compactMoney(taps.tap4Ssb.projectedCashOnlyAtRetireToday ?? taps.tap4Ssb.currentSsbCash)} at ${r.retire} · ~${money(ssbYieldMo)}/mo @ ${taps.tap4Ssb.effectiveRatePct.toFixed(2)}%`
+            : `${compactMoney(taps.tap4Ssb.currentSsbCash)} → ${compactMoney(taps.tap4Ssb.projectedCashOnlyAtRetireToday ?? taps.tap4Ssb.currentSsbCash)} at ${r.retire} · ~${money(ssbYieldMo)}/mo${taps.tap4Ssb.currentSsbCash > 0 ? "" : " @ cap"}`,
         score:
-          taps.tap4Ssb.currentSsbCash > 0 ? `${ssbPctOf150k}%` : ssbRateTag,
+          taps.tap4Ssb.cashAccountsActive ||
+          taps.tap4Ssb.hasCustomCashRate ||
+          (taps.tap4Ssb.monthlyCashSaving ?? 0) > 0
+            ? `${taps.tap4Ssb.effectiveRatePct.toFixed(2)}%`
+            : taps.tap4Ssb.currentSsbCash > 0
+              ? `${ssbPctOf150k}%`
+              : ssbRateTag,
         color: "#B45309",
-        badgeBg: "#D97706",
+        badgeBg: "#B45309",
         letter: "4",
       },
       {
@@ -681,7 +719,7 @@ function renderPrintSheet({
           : `Age ${projFireAge} (+${-diffYears} yr${-diffYears > 1 ? "s" : ""})`;
   const deltaLine = `${pm.pctFunded}% of age-95 goal`;
   const deltaColor =
-    diffYears != null && diffYears >= 0 && pm.onTrack ? "#059669" : "#EA580C";
+    diffYears != null && diffYears >= 0 && pm.onTrack ? "#047857" : "#B45309";
 
   const ep =
     expenseData ||
@@ -758,58 +796,60 @@ function renderPrintSheet({
         </div>
       </header>
 
-      <section class="poster-kpi-strips" aria-label="Plan Snapshot">
-        <div class="poster-stat-strip">
-          <small>Your Age</small>
-          <div><strong>${fire.age} yrs</strong><span class="poster-pill">${p?.dob ? `DOB ${formatDobShort(p.dob)}` : "Current"}</span></div>
+      <section class="poster-snapshot-banner" aria-label="Plan Snapshot">
+        <div class="poster-kpi-strips">
+          <div class="poster-stat-strip">
+            <small>Your Age</small>
+            <div><strong>${fire.age} yrs</strong><span class="poster-pill">${p?.dob ? `DOB ${formatDobShort(p.dob)}` : "Current"}</span></div>
+          </div>
+          <div class="poster-stat-strip">
+            <small>Target Retire Age</small>
+            <div><strong>Age ${fire.retire}</strong><span class="poster-pill">${r.retiringNow ? "Now" : `${yearsToRetire} yrs`} · ${fire.retire < 65 ? `${65 - fire.retire}-yr bridge` : fire.retire === 65 ? "CPF LIFE" : "Deferred"}</span></div>
+          </div>
+          <div class="poster-stat-strip">
+            <small>Take-Home Pay</small>
+            <div><strong>${m(r.afterCpf, "/mo")}</strong><span class="poster-pill">${takeHomePctOfGross}% net on ${money(r.salary)}</span></div>
+          </div>
+          <div class="poster-stat-strip">
+            <small>Total Assets</small>
+            <div><strong>${m(startingTotalAssets)}</strong><span class="poster-pill">${compactMoney(startingCpf)} CPF · ${compactMoney(startingLiquid)} liq${startingSrs > 0 ? ` · ${compactMoney(startingSrs)} SRS` : ""}</span></div>
+          </div>
+          <div class="poster-stat-strip">
+            <small>Retire Budget</small>
+            <div><strong>${m(r.todaySpend, "/mo")}</strong><span class="poster-pill">${selectedPathName} · ${isItemizedTarget ? "Itemized" : isCustomBudget ? "Custom" : r.lifestyle === "cca" ? "CCA" : "Helper"}</span></div>
+          </div>
         </div>
-        <div class="poster-stat-strip">
-          <small>Target Retire Age</small>
-          <div><strong>Age ${fire.retire}</strong><span class="poster-pill">${r.retiringNow ? "Now" : `${yearsToRetire} yrs`} · ${fire.retire < 65 ? `${65 - fire.retire}-yr bridge` : fire.retire === 65 ? "CPF LIFE" : "Deferred"}</span></div>
-        </div>
-        <div class="poster-stat-strip">
-          <small>Take-Home Pay</small>
-          <div><strong>${m(r.afterCpf, "/mo")}</strong><span class="poster-pill">${takeHomePctOfGross}% net on ${money(r.salary)}</span></div>
-        </div>
-        <div class="poster-stat-strip">
-          <small>Total Assets</small>
-          <div><strong>${m(startingTotalAssets)}</strong><span class="poster-pill">${compactMoney(startingCpf)} CPF · ${compactMoney(startingLiquid)} liq${startingSrs > 0 ? ` · ${compactMoney(startingSrs)} SRS` : ""}</span></div>
-        </div>
-        <div class="poster-stat-strip">
-          <small>Retire Budget</small>
-          <div><strong>${m(r.todaySpend, "/mo")}</strong><span class="poster-pill">${selectedPathName} · ${isItemizedTarget ? "Itemized" : isCustomBudget ? "Custom" : r.lifestyle === "cca" ? "CCA" : "Helper"}</span></div>
+        <div class="poster-balances-strip" aria-label="Starting Asset Breakdown">
+          <span class="poster-balances-tag">Starting Balances</span>
+          ${assetBreakdownItems.join(`<span class="poster-balances-sep" aria-hidden="true">·</span>`)}
         </div>
       </section>
 
-      <div class="poster-balances-strip" aria-label="Starting Asset Breakdown">
-        <span class="poster-balances-tag">Starting Balances</span>
-        ${assetBreakdownItems.join('<span class="poster-balances-sep" aria-hidden="true">·</span>')}
-      </div>
-
       <section class="poster-discover-row">
         <div class="poster-chart-card poster-nw-card">
-          <div class="poster-nw-top">
-            <div class="poster-nw-kpis">
-              <div class="poster-nw-kpi">
-                <small>Net Worth at Age ${pm.retireAge}</small>
-                <strong>${m(pm.projectedAtRetire)}</strong>
-                <span class="poster-nw-delta">${pm.pctFunded}% funded to 95</span>
-              </div>
-              <div class="poster-nw-kpi">
-                <small>${pm.savingKpiLabel}</small>
-                <strong>${m(pm.monthlySave, r.retiringNow ? " now" : "/mo")}</strong>
-                <span class="poster-nw-delta">${pm.savingKpiPill}</span>
-              </div>
-              <div class="poster-nw-kpi">
-                <small>CPF LIFE from 65</small>
-                <strong class="is-emerald">${m(pm.cpfFloor65, "/mo")}</strong>
-                <span class="poster-nw-delta">${pm.cpfCovPct}% of budget</span>
-              </div>
-            </div>
+          <div class="poster-panel-head">
+            <h3>Net Worth Trajectory (Age ${r.age}–95)</h3>
             <div class="poster-swell-keys">
               <span><i class="is-pink"></i>55+ Wealth</span>
               <span><i class="is-slate"></i>Pre-55 Base</span>
-              <span><i class="is-line"></i>Net Worth Trend</span>
+              <span><i class="is-line"></i>Trend</span>
+            </div>
+          </div>
+          <div class="poster-nw-kpis">
+            <div class="poster-nw-kpi">
+              <small>Net Worth at Age ${pm.retireAge}</small>
+              <strong>${m(pm.projectedAtRetire)}</strong>
+              <span class="poster-nw-delta">${pm.pctFunded}% funded to 95</span>
+            </div>
+            <div class="poster-nw-kpi">
+              <small>${pm.savingKpiLabel}</small>
+              <strong>${m(pm.monthlySave, r.retiringNow ? " now" : "/mo")}</strong>
+              <span class="poster-nw-delta">${pm.savingKpiPill}</span>
+            </div>
+            <div class="poster-nw-kpi">
+              <small>CPF LIFE from 65</small>
+              <strong class="is-emerald">${m(pm.cpfFloor65, "/mo")}</strong>
+              <span class="poster-nw-delta">${pm.cpfCovPct}% of budget</span>
             </div>
           </div>
           <div id="print-nw-chart" class="poster-chart-svg"></div>
@@ -879,31 +919,40 @@ function renderPrintSheet({
       </section>
 
       <section class="poster-bottom-grid">
-        <div class="poster-panel poster-budget-panel">
+        <div class="poster-panel poster-strategy-panel">
           <div class="poster-panel-head">
-            <h3>Retirement Living Budget</h3>
-            <small>${budgetHeaderSub}</small>
+            <h3>CPF Path &amp; Action Plan</h3>
+            <small>Today’s $ · ${pm.customSavingNote ? "Custom save" : "Target"}</small>
           </div>
-          <div class="poster-budget-body">
-            ${buildExpensePieSVG(ep, { isPrint: true })}
-            <div class="poster-budget-cats">
-              ${(ep.categories || [])
-                .map((cat) => {
-                  const barW =
-                    ep.total > 0 && cat.amount > 0
-                      ? Math.max(4, Math.round(cat.pct))
-                      : 0;
-                  return `<div class="poster-cat-row">
-                    <div class="poster-cat-meta">
-                      <span><i style="background:${cat.color};"></i>${cat.label}</span>
-                      <b>${m(cat.amount)} (${Math.round(cat.pct)}%)</b>
-                    </div>
-                    <div class="poster-pipe-track"><span style="width:${barW}%;background:${cat.color};"></span></div>
-                  </div>`;
-                })
+          <table class="poster-mini-table">
+            <thead><tr><th>Strategy Path</th><th>Age-55 CPF</th><th>Extra CPF</th><th>Outside Save</th><th>CPF LIFE (65+)</th></tr></thead>
+            <tbody>
+              ${r.scenarios
+                .map(
+                  (sc) => `<tr class="${sc.key === s.key ? "is-active" : ""}">
+                    <td>${sc.key === "salary" ? "Salary CPF" : sc.key.toUpperCase()}${sc.key === s.key ? " ★" : ""}</td>
+                    <td>${m(sc.balance)}</td>
+                    <td>${m(sc.cpfFunding, r.retiringNow ? " now" : "/mo")}</td>
+                    <td>${m(sc.privateSaving, r.retiringNow ? " now" : "/mo")}</td>
+                    <td>${m(sc.payout, "/mo")}</td>
+                  </tr>`,
+                )
                 .join("")}
-            </div>
+            </tbody>
+          </table>
+          ${pm.customSavingNote ? `<p class="poster-override-note">${pm.customSavingNote}</p>` : ""}
+          <div class="poster-subhead">
+            <span>Priority Action Checklist</span>
+            <small>5-Step Plan</small>
           </div>
+          <ul class="poster-tiers">
+            ${pm.actionRows
+              .map(
+                (row) =>
+                  `<li><span>${row.label} <em class="poster-tier-tag">${row.tag}</em></span><b>${row.value}</b></li>`,
+              )
+              .join("")}
+          </ul>
         </div>
 
         <div class="poster-panel poster-cashflow-panel">
@@ -950,36 +999,41 @@ function renderPrintSheet({
           }
         </div>
 
-        <div class="poster-panel poster-strategy-panel">
+        <div class="poster-panel poster-budget-panel">
           <div class="poster-panel-head">
-            <h3>CPF Path &amp; Action Plan</h3>
-            <small>Today’s $ · ${pm.customSavingNote ? "Custom save" : "Target"}</small>
+            <h3>Retirement Living Budget</h3>
+            <small>${budgetHeaderSub}</small>
           </div>
-          <table class="poster-mini-table">
-            <thead><tr><th>Strategy Path</th><th>Age-55 CPF</th><th>Extra CPF</th><th>Outside Save</th><th>CPF LIFE (65+)</th></tr></thead>
-            <tbody>
-              ${r.scenarios
-                .map(
-                  (sc) => `<tr class="${sc.key === s.key ? "is-active" : ""}">
-                    <td>${sc.key === "salary" ? "Salary CPF" : sc.key.toUpperCase()}${sc.key === s.key ? " ★" : ""}</td>
-                    <td>${m(sc.balance)}</td>
-                    <td>${m(sc.cpfFunding, r.retiringNow ? " now" : "/mo")}</td>
-                    <td>${m(sc.privateSaving, r.retiringNow ? " now" : "/mo")}</td>
-                    <td>${m(sc.payout, "/mo")}</td>
-                  </tr>`,
-                )
+          <div class="poster-budget-body">
+            ${buildExpensePieSVG(ep, { isPrint: true })}
+            <div class="poster-budget-cats">
+              ${(ep.categories || [])
+                .map((cat) => {
+                  const barW =
+                    ep.total > 0 && cat.amount > 0
+                      ? Math.max(4, Math.round(cat.pct))
+                      : 0;
+                  return `<div class="poster-cat-row">
+                    <div class="poster-cat-meta">
+                      <span><i style="background:${cat.color};"></i>${cat.label}</span>
+                      <b>${m(cat.amount)} (${Math.round(cat.pct)}%)</b>
+                    </div>
+                    <div class="poster-pipe-track"><span style="width:${barW}%;background:${cat.color};"></span></div>
+                  </div>`;
+                })
                 .join("")}
-            </tbody>
-          </table>
-          ${pm.customSavingNote ? `<p class="poster-override-note">${pm.customSavingNote}</p>` : ""}
-          <ul class="poster-tiers">
-            ${pm.actionRows
-              .map(
-                (row) =>
-                  `<li><span>${row.label} <em class="poster-tier-tag">${row.tag}</em></span><b>${row.value}</b></li>`,
-              )
-              .join("")}
-          </ul>
+            </div>
+          </div>
+          <div class="poster-gauge-facts poster-budget-facts">
+            <div class="poster-gauge-fact">
+              <span>Today’s monthly target</span>
+              <strong>${m(r.todaySpend, "/mo")} (${isItemizedTarget ? "Itemized" : isCustomBudget ? "Custom" : r.lifestyle === "cca" ? "Community Care" : "Home + Helper"})</strong>
+            </div>
+            <div class="poster-gauge-fact">
+              <span>Age-65 need (${Number((r.inflation * 100).toFixed(1))}% infl.)</span>
+              <strong>${m(r.spend65, "/mo")} nominal (${m(s.payout, "/mo")} CPF LIFE)</strong>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1105,12 +1159,13 @@ function renderStackedNetWorthSVG(
     Boolean(opts.swellCombo) ||
     chartArea.id === "dash-networth-chart" ||
     chartArea.id === "print-nw-chart";
-  const W = compactPrint ? 640 : 860,
-    H = compactPrint ? 256 : 322,
-    padL = compactPrint ? 60 : 76,
-    padR = compactPrint ? 24 : 34,
-    padT = compactPrint ? 58 : 70,
-    padB = compactPrint ? 32 : 40;
+  const isOverviewHero = chartArea.id === "dash-networth-chart";
+  const W = compactPrint ? 680 : isOverviewHero ? 720 : 860,
+    H = compactPrint ? 176 : isOverviewHero ? 386 : 322,
+    padL = compactPrint ? 54 : isOverviewHero ? 58 : 76,
+    padR = compactPrint ? 16 : isOverviewHero ? 20 : 34,
+    padT = compactPrint ? 42 : isOverviewHero ? 54 : 70,
+    padB = compactPrint ? 24 : isOverviewHero ? 32 : 40;
   const plotW = W - padL - padR,
     plotH = H - padT - padB;
   const minAge = pts[0].age,
@@ -1295,7 +1350,8 @@ function renderStackedNetWorthSVG(
       ? `${stackDefs
           .map(
             (band) => `<g class="nw-band" data-series="${band.key}">
-              <path class="nw-band-fill" d="${areaPath(band.top, band.bot)}" fill="url(#${uid}-grad-${band.key})" fill-opacity="0.16" />
+              <path class="nw-band-fill" d="${areaPath(band.top, band.bot)}" fill="url(#${uid}-grad-${band.key})" fill-opacity="0.46" />
+              <path class="nw-band-stroke" d="${topLinePath(band.top)}" fill="none" stroke="${band.color}" stroke-width="1.2" stroke-opacity="0.45" stroke-linejoin="round" />
             </g>`,
           )
           .join("")}${swellComboSVG}`
@@ -1419,8 +1475,22 @@ function renderStackedNetWorthSVG(
         placedCallouts.push({ x1, x2, y1: labelY - 12, y2: labelY + 3 });
       }
       const dotColor = soloSeries ? soloSeries.color : "var(--ink)";
+      const pillText = svgCompactMoney(val);
+      const pillW = Math.max(
+        compactPrint ? 48 : 44,
+        labelText.length * (compactPrint ? 7.6 : 6.6) + 12,
+      );
+      const pillH = compactPrint ? 18 : 17;
+      const pillX = Math.max(
+        padL + 2,
+        Math.min(
+          W - padR - pillW - 2,
+          anchor === "end" ? x - pillW + 4 : x - pillW / 2,
+        ),
+      );
+      const pillY = labelY - (compactPrint ? 13 : 12);
       return `<circle cx="${x}" cy="${dotY}" r="3.5" fill="${dotColor}" stroke="var(--surface)" stroke-width="1.5" />
-        ${showLabel ? `<text x="${x}" y="${labelY}" text-anchor="${anchor}" font-size="${compactPrint ? 13 : 11}" font-weight="700" fill="var(--ink)" paint-order="stroke" stroke="var(--surface)" stroke-width="3" stroke-linejoin="round">${svgCompactMoney(val)}</text>` : ""}`;
+        ${showLabel ? `<g class="nw-callout-pill"><rect x="${pillX.toFixed(1)}" y="${pillY.toFixed(1)}" width="${pillW.toFixed(1)}" height="${pillH}" rx="4.5" fill="var(--surface)" fill-opacity="0.94" stroke="var(--border-strong)" stroke-width="1" /><text x="${(pillX + pillW / 2).toFixed(1)}" y="${labelY}" text-anchor="middle" font-size="${compactPrint ? 12.5 : 11}" font-weight="700" fill="var(--ink)">${pillText}</text></g>` : ""}`;
     })
     .join("");
 
@@ -1807,6 +1877,7 @@ function renderCashflowWaterfallSVG(
 }
 
 let finActivityTab = "coverage";
+let expCardExpanded = false;
 
 function buildFinActivityBarsSVG(fire, fn) {
   const pts = fire?.points || [];
@@ -1874,7 +1945,7 @@ function buildFinActivityBarsSVG(fire, fn) {
           : isSa
             ? "#F97316"
             : "#E2E8F0";
-      const labelFill = isRetire ? "#111827" : "#64748B";
+      const labelFill = isRetire ? "#1E293B" : "#475569";
       const labelWeight = isRetire ? "700" : "500";
       let callout = "";
       if (isRetire) {
@@ -1928,7 +1999,7 @@ function buildFinReadinessGaugeSVG(
   onTrack = pctFunded >= 100,
   uid = "swell",
 ) {
-  const ratio = Math.max(0.06, Math.min(0.97, (Number(pctFunded) || 0) / 125));
+  const ratio = Math.max(0.05, Math.min(1, (Number(pctFunded) || 0) / 100));
   const cx = 120;
   const cy = 114;
   const r = 84;
@@ -1951,12 +2022,12 @@ function buildFinReadinessGaugeSVG(
         ? "Building Up"
         : "Needs Boost";
   const statusColor = isAmazing
-    ? "#16A34A"
+    ? "#047857"
     : isNear
-      ? "#D97706"
+      ? "#B45309"
       : pctFunded >= 60
-        ? "#EA580C"
-        : "#EF4444";
+        ? "#B45309"
+        : "#B91C1C";
 
   const mouthSvg = isAmazing
     ? `<path d="M 107 95 Q 120 111 133 95 Z" fill="#1E293B" />
@@ -2319,11 +2390,19 @@ function buildExpenseCardHTML(ep, r) {
     : ep.itemizedActive
       ? `Custom · ${ep.items.length} item${ep.items.length === 1 ? "" : "s"}`
       : "Custom · Single figure";
+  const dropdownLabel = isCustom
+    ? `Custom (${money(ep.total)}/mo)`
+    : ep.lifestyle === "cca"
+      ? `Community Care (${money(ep.total)}/mo)`
+      : `Home + Helper (${money(ep.total)}/mo)`;
+  const customSubLabel = isCustom
+    ? `${money(ep.total)}/mo · Click to edit budget or items`
+    : "Set custom monthly budget or items…";
   const ageNeedLabel =
     r.retire < 65
       ? `Age ${r.retire} est: ${money(r.futureSpend)}/mo`
       : `Age 65 est: ${money(r.spend65)}/mo`;
-  const captionText = `Models what you need per month in retirement (<strong>${m(ep.total, "/mo")}</strong> today’s $). Separate from today’s take-home pay.`;
+  const captionText = `Models what you need per month in retirement (<strong>${m(ep.total, "/mo", "kpi-budget")}</strong> today’s $). Separate from today’s take-home pay.`;
   const topPreview = ep.items
     .filter((it) => it.amount > 0)
     .slice()
@@ -2336,19 +2415,69 @@ function buildExpenseCardHTML(ep, r) {
         <div class="fin-expense-title-row">
           <h2 id="expense-card-title">Retirement Living Budget</h2>
           <span class="fin-target-pill" id="exp-mode-pill">${modeLabel}</span>
+          <span class="status-pill is-info" id="exp-takehome-pill">${ageNeedLabel}</span>
         </div>
         <p id="exp-sync-caption">${captionText}</p>
       </div>
       <div class="fin-expense-actions">
-        <span class="status-pill is-info" id="exp-takehome-pill">${ageNeedLabel}</span>
-        <button type="button" class="button button-small fin-pill-btn" data-open-expense-modal="${isCustom ? "custom" : "preset"}">
-          ${!isCustom ? "View preset items" : "Edit budget / items"}
-        </button>
-        ${!isCustom ? '<button type="button" class="button button-small button-accent" data-exp-enter-custom>Switch to Custom</button>' : ""}
+        <div class="exp-card-dropdown-wrap" id="exp-card-dropdown-wrap">
+          <button
+            type="button"
+            class="header-account-pill exp-card-dropdown-pill"
+            id="exp-card-dropdown-btn"
+            aria-haspopup="menu"
+            aria-expanded="false"
+            aria-controls="exp-card-dropdown-menu"
+          >
+            <span class="header-account-avatar" data-tone="${isCustom ? "custom" : ep.lifestyle}" aria-hidden="true">${isCustom ? "$" : ep.lifestyle === "cca" ? "C" : "H"}</span>
+            <span id="exp-card-dropdown-label">${dropdownLabel}</span>
+            <svg class="header-account-caret" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+          <div class="header-account-menu exp-card-dropdown-menu" id="exp-card-dropdown-menu" role="menu" hidden>
+            <button
+              type="button"
+              role="menuitemradio"
+              class="header-menu-item${!isCustom && ep.lifestyle === "cca" ? " is-active" : ""}"
+              data-switch-lifestyle="cca"
+              aria-checked="${!isCustom && ep.lifestyle === "cca"}"
+            >
+              <div>
+                <strong>Community Care Apartments</strong>
+                <small>$2,800/mo baseline · assisted living from 55</small>
+              </div>
+            </button>
+            <button
+              type="button"
+              role="menuitemradio"
+              class="header-menu-item${!isCustom && ep.lifestyle === "home-helper" ? " is-active" : ""}"
+              data-switch-lifestyle="home-helper"
+              aria-checked="${!isCustom && ep.lifestyle === "home-helper"}"
+            >
+              <div>
+                <strong>Home + Helper</strong>
+                <small>$3,900/mo baseline · ageing in place</small>
+              </div>
+            </button>
+            <button
+              type="button"
+              role="menuitemradio"
+              class="header-menu-item${isCustom ? " is-active" : ""}"
+              data-select-custom
+              aria-checked="${isCustom}"
+            >
+              <div>
+                <strong>Custom</strong>
+                <small id="exp-card-custom-sub">${customSubLabel}</small>
+              </div>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="fin-expense-body">
+    <div class="fin-expense-body" id="exp-card-body">
       <div class="fin-expense-chart-col" id="exp-pie-slot">
         ${buildExpensePieSVG(ep)}
       </div>
@@ -2407,11 +2536,13 @@ function buildFinOverviewGrid(
   const fn = fire.fireNumber;
   const pct = Math.min(150, Math.max(0, fn.pctFunded));
   const onTrack = pct >= 100 && fn.fullyFundedTo95;
+  const cashSavingMo = simulation.cashSaving || 0;
   const hasCustomSaveOverride =
-    !r.retiringNow && Math.abs(simulation.invest - s.privateSaving) > 1;
+    !r.retiringNow &&
+    (Math.abs(simulation.invest - s.privateSaving) > 1 || cashSavingMo > 0);
   const contribution = r.retiringNow
     ? simulation.cpfExtra + s.privateSaving
-    : simulation.cpfExtra + simulation.invest;
+    : simulation.cpfExtra + cashSavingMo + simulation.invest;
   const projFireAge = fn.projectedFireAge;
   const readyText = projFireAge == null ? "After 80" : `Age ${projFireAge}`;
   const diffYears = projFireAge == null ? null : fire.retire - projFireAge;
@@ -2430,7 +2561,7 @@ function buildFinOverviewGrid(
           : `Age ${projFireAge} (+${-diffYears} yr${-diffYears > 1 ? "s" : ""})`;
   const deltaLine = `${fn.pctFunded}% of age-95 goal`;
   const deltaColor =
-    diffYears != null && diffYears >= 0 && onTrack ? "#059669" : "#EA580C";
+    diffYears != null && diffYears >= 0 && onTrack ? "#047857" : "#B45309";
 
   const cpfCov65Pct = Math.min(
     100,
@@ -2473,7 +2604,7 @@ function buildFinOverviewGrid(
     salary: {
       name: "Salary CPF",
       tag: "Baseline",
-      accent: "#64748B",
+      accent: "#475569",
       softBg: "#F1F5F9",
       icon: svgWrap(
         '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
@@ -2484,21 +2615,21 @@ function buildFinOverviewGrid(
     frs: {
       name: "FRS Target",
       tag: "Standard Sum",
-      accent: "#2563EB",
+      accent: "#1D4ED8",
       softBg: "#EFF6FF",
       icon: svgWrap(
         '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>',
         16,
       ),
-      note: "Targets $220.4k cohort FRS by 55 for steady baseline CPF LIFE.",
+      note: `Targets ${compactMoney(r.frs)} cohort FRS (today’s $) by 55 for steady baseline CPF LIFE.`,
     },
     ers: {
       name: "ERS Maximum",
       tag: "Max Floor",
-      accent: "#10B981",
+      accent: "#047857",
       softBg: "#ECFDF5",
       icon: svgWrap('<path d="M3 3v18h18"/><path d="m7 14 4-4 4 3 5-6"/>', 16),
-      note: "Voluntary RA top-ups from 55 toward $440.8k ERS; highest lifelong income.",
+      note: `Voluntary RA top-ups toward ${compactMoney(r.ers)} ERS (today’s $); highest lifelong income.`,
     },
   };
 
@@ -2529,16 +2660,15 @@ function buildFinOverviewGrid(
   return `<section class="swell-section-block" aria-label="Plan snapshot key metrics">
     <div class="swell-section-head">
       <h2>Plan Snapshot</h2>
-      <span class="swell-period-pill">Today’s Dollars · 2026 CPF</span>
     </div>
     <div class="fin-top-kpis" role="region" aria-label="Key plan inputs">
-      <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="age" aria-label="Edit your current age ${fire.age}${p.dob ? `, born ${formatDobShort(p.dob)}` : ""}">
+      <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="age" aria-label="Edit your current age ${fire.age}">
         <div class="fin-kpi-head">
           <span class="fin-kpi-label">Your Age</span>
           <span class="swell-kpi-icon" aria-hidden="true">${KPI_ICONS.age}</span>
         </div>
         <strong class="fin-kpi-val">${fire.age} <span class="swell-kpi-unit">yrs</span></strong>
-        <span class="fin-kpi-sub"><b class="swell-delta is-up">Current</b> · ${p.dob ? `DOB ${formatDobShort(p.dob)}` : "Set date of birth"}</span>
+        <span class="fin-kpi-sub"><b class="swell-delta">Current</b> · ${Math.max(0, 55 - fire.age)} yrs to 55</span>
       </button>
       <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="goal" aria-label="Edit target retirement age ${fire.retire}">
         <div class="fin-kpi-head">
@@ -2546,7 +2676,7 @@ function buildFinOverviewGrid(
           <span class="swell-kpi-icon" aria-hidden="true">${KPI_ICONS.goal}</span>
         </div>
         <strong class="fin-kpi-val">Age ${fire.retire}</strong>
-        <span class="fin-kpi-sub"><b class="swell-delta is-up">${r.retiringNow ? "Now" : `${yearsToRetire} yrs`}</b> · ${fire.retire < 65 ? `${65 - fire.retire}-yr bridge` : fire.retire === 65 ? "Standard CPF LIFE" : "Deferred payout"}</span>
+        <span class="fin-kpi-sub"><b class="swell-delta">${r.retiringNow ? "Now" : `${yearsToRetire} yrs`}</b> · ${fire.retire < 65 ? `${65 - fire.retire}-yr bridge` : fire.retire === 65 ? "Standard CPF LIFE" : "Deferred payout"}</span>
       </button>
       <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="salary" aria-label="Edit monthly salary. Take-home ${money(r.afterCpf)} per month on ${money(r.salary)} gross">
         <div class="fin-kpi-head">
@@ -2562,17 +2692,218 @@ function buildFinOverviewGrid(
           <span class="swell-kpi-icon" aria-hidden="true">${KPI_ICONS.balances}</span>
         </div>
         <strong class="fin-kpi-val">${m(startingTotalAssets, "", "kpi-assets")}</strong>
-        <span class="fin-kpi-sub"><b class="swell-delta is-up">${m(startingCpf)} CPF</b> · ${m(startingLiquid)} liquid${startingSrs > 0 ? ` · ${m(startingSrs)} SRS` : ""}</span>
-      </button>
-      <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="budget" aria-label="Edit retirement budget ${lifestyleCardAria}">
-        <div class="fin-kpi-head">
-          <span class="fin-kpi-label">Retire Budget</span>
-          <span class="swell-kpi-icon" aria-hidden="true">${KPI_ICONS.budget}</span>
-        </div>
-        <strong class="fin-kpi-val">${m(r.todaySpend, "/mo", "kpi-budget")}</strong>
-        <span class="fin-kpi-sub"><b class="swell-delta is-up">${selectedPathName}</b> · ${isItemizedTarget ? `${expenseData.items.length} items` : isCustomSpend ? "Custom" : r.lifestyle === "cca" ? "CCA preset" : "Helper preset"}</span>
+        <span class="fin-kpi-sub"><b class="swell-delta is-up">${compactMoney(startingCpf)} CPF</b> · ${compactMoney(startingOutside)} liquid</span>
       </button>
     </div>
+    ${expenseData ? buildExpenseCardHTML(expenseData, r) : ""}
+  </section>
+
+  <section class="swell-section-block" aria-label="Monthly CPF, savings, and investment plan">
+    <div class="swell-section-head">
+      <h2>Monthly Savings &amp; Investment Plan</h2>
+    </div>
+    <div class="fin-saving-trio-grid" role="region" aria-label="Monthly CPF, savings, and investment plan">
+      <button type="button" class="fin-card fin-saving-card fin-planned-cpf-card card-surface is-interactive" data-quick-edit="cpf-extra" data-qe-focus="#qe-cpf-extra" aria-label="Edit extra CPF saving each month">
+        ${(() => {
+          const cpfExtraMo = simulation.cpfExtra || 0;
+          const rstuYr = Math.min(8000, Math.round(cpfExtraMo * 12));
+          return `<div class="fin-saving-top">
+              <span class="fin-saving-title">Extra CPF saving</span>
+              <span class="status-pill is-good">4.0% p.a. SA / RA</span>
+            </div>
+            <div class="fin-saving-val-row">
+              <strong>${m(cpfExtraMo, "", "saving-cpf-extra")}</strong>
+              <span class="fin-curr">SGD/mo</span>
+            </div>
+            <div class="fin-saving-meta">
+              <span>Age-55 CPF: <strong>${m(s.balance, "", "saving-cpf-55")}</strong> · CPF LIFE (65+): <strong>${m(s.payout, "/mo", "saving-cpf-life")}</strong></span>
+              <small>IRAS RSTU tax relief: <strong>${m(rstuYr, "/yr", "saving-cpf-rstu")}</strong> of $8,000/yr max cap${Math.abs(cpfExtraMo - s.cpfFunding) > 1 ? ` · Path target ${m(s.cpfFunding, "/mo")}` : ""}</small>
+            </div>`;
+        })()}
+      </button>
+
+      <button type="button" class="fin-card fin-saving-card fin-planned-savings-card card-surface is-interactive" data-quick-edit="cash-saving" data-qe-focus="#qe-cash-saving" aria-label="Edit monthly planned savings (HYSA / SSB)">
+        ${(() => {
+          const hysaRatePct = Number(taps.tap4Ssb.effectiveRatePct.toFixed(2));
+          const curCashBal = taps.tap4Ssb.currentSsbCash;
+          const projCashAtRetire = taps.tap4Ssb.projectedCashOnlyAtRetireToday;
+          const curCashYieldMo = taps.tap4Ssb.currentMonthlyYield;
+          return `<div class="fin-saving-top">
+              <span class="fin-saving-title is-cash-tone">Monthly planned savings</span>
+              <span class="status-pill is-info">${hysaRatePct}% p.a. HYSA / SSB</span>
+            </div>
+            <div class="fin-saving-val-row">
+              <strong>${m(taps.tap4Ssb.monthlyCashSaving, "", "saving-cash")}</strong>
+              <span class="fin-curr">SGD/mo</span>
+            </div>
+            <div class="fin-saving-meta">
+              <span>Today: <strong>${m(curCashBal, "", "saving-cash-bal")}</strong> → Age ${fire.retire}: <strong>${m(projCashAtRetire, "", "saving-cash-ret")}</strong> (Tap 4)</span>
+              <small>Yields ~<strong>${m(curCashYieldMo, "/mo", "saving-cash-yield")}</strong> today at <strong>${hysaRatePct}% p.a.</strong> projected HYSA / SSB rate</small>
+            </div>`;
+        })()}
+      </button>
+
+      <button type="button" class="fin-card fin-saving-card fin-planned-invest-card card-surface is-interactive" data-quick-edit="invest" data-qe-focus="#qe-invest" aria-label="Edit monthly planned investment (Outside investment)">
+        ${(() => {
+          if (r.retiringNow) {
+            const pillTone = s.remainingPortfolioGap > 0 ? "warn" : "good";
+            return `<div class="fin-saving-top">
+                <span class="fin-saving-title is-invest-tone">Portfolio gap now</span>
+                <span class="status-pill is-${pillTone}">Lump sum</span>
+              </div>
+              <div class="fin-saving-val-row">
+                <strong>${m(s.privateSaving, "", "saving-lump")}</strong>
+                <span class="fin-curr">SGD now</span>
+              </div>
+              <div class="fin-saving-meta">
+                <span>Immediate portfolio requirement</span>
+                <small>Follows your ${taps.tap3Equities.targetEquityPct}% Equity / ${taps.tap3Equities.targetBondPct}% Bond outside investment split</small>
+              </div>`;
+          }
+          const glPct = taps.tap3Equities.globalSplitPct;
+          const sgPct = taps.tap3Equities.sgDividendSplitPct;
+          const curInvestBal = taps.tap3Equities.currentEquities;
+          const projInvestAtRetire = taps.tap3Equities.projectedInvestAtRetireToday;
+          return `<div class="fin-saving-top">
+              <span class="fin-saving-title is-invest-tone">Monthly planned investment</span>
+              <span class="status-pill is-good">${taps.tap3Equities.targetEquityPct}% Eq / ${taps.tap3Equities.targetBondPct}% Bond</span>
+            </div>
+            <div class="fin-saving-val-row">
+              <strong>${m(taps.tap3Equities.monthlyInvest, "", "saving-outside")}</strong>
+              <span class="fin-curr">SGD/mo</span>
+            </div>
+            <div class="fin-saving-meta">
+              <span>Today: <strong>${m(curInvestBal, "", "saving-inv-bal")}</strong> → Age ${fire.retire}: <strong>${m(projInvestAtRetire, "", "saving-inv-ret")}</strong> (Tap 3: <strong>${m(taps.tap3Equities.projectedMonthlyDrawToday, "/mo", "saving-inv-draw")}</strong>)</span>
+              <small>Outside split (${glPct}/${sgPct} G/SG): <strong>${m(taps.tap3Equities.monthlyGlobalBuy, "", "saving-buy-eq")}</strong> Global · <strong>${m(taps.tap3Equities.monthlySgBuy, "", "saving-buy-sg")}</strong> SG · <strong>${m(taps.tap3Equities.monthlyBondBuy, "", "saving-buy-bond")}</strong> Bond${Math.abs(taps.tap3Equities.monthlyInvest - s.privateSaving) > 1 ? ` (target ${m(s.privateSaving)})` : ""}</small>
+            </div>`;
+        })()}
+      </button>
+    </div>
+
+    ${(() => {
+      if (r.retiringNow) return "";
+      const exactPct = r.afterCpf > 0 ? (contribution / r.afterCpf) * 100 : 0;
+      const clampedPct = Math.min(100, Math.max(0, exactPct));
+      const leftAfterSave = r.afterCpf - contribution;
+      const exceedsPay = leftAfterSave < 0;
+      const isCritical = exceedsPay || pctOfPay > 85;
+      const isStretched = !isCritical && pctOfPay > 50;
+      const pillTone = isCritical ? "danger" : isStretched ? "warn" : "good";
+      const bandLabel = exceedsPay
+        ? "Exceeds pay"
+        : pctOfPay > 85
+          ? "Critical"
+          : pctOfPay > 50
+            ? "Stretched"
+            : pctOfPay > 30
+              ? "Healthy"
+              : "Comfortable";
+      const pillText = `${bandLabel} · ${pctOfPay}% of take-home`;
+
+      const healthyFill =
+        Math.round(Math.min(100, (Math.min(clampedPct, 50) / 50) * 100) * 10) / 10;
+      const stretchedFill =
+        clampedPct > 50
+          ? Math.round(
+              Math.min(100, ((Math.min(clampedPct, 85) - 50) / 35) * 100) * 10,
+            ) / 10
+          : 0;
+      const criticalFill =
+        clampedPct > 85
+          ? Math.round(
+              Math.min(100, ((Math.min(clampedPct, 100) - 85) / 15) * 100) * 10,
+            ) / 10
+          : 0;
+      const markerPos = Math.round(clampedPct * 10) / 10;
+      const leftSharePct = Math.max(0, 100 - pctOfPay);
+
+      const meterHtml = `<div class="fin-band-meter">
+        <div class="fin-band-track-wrap" role="img" aria-label="Monthly saving takes ${pctOfPay}% of take-home pay. Thresholds: up to 50% healthy, 51 to 85% stretched, over 85% critical.">
+          <div class="fin-band-track">
+            <div class="fin-band-zone is-healthy">
+              <span class="fin-band-fill" data-meter-key="band-healthy" data-meter-w="${healthyFill}" style="width:${healthyFill}%;"></span>
+            </div>
+            <div class="fin-band-zone is-stretched">
+              <span class="fin-band-fill" data-meter-key="band-stretched" data-meter-w="${stretchedFill}" style="width:${stretchedFill}%;"></span>
+            </div>
+            <div class="fin-band-zone is-critical">
+              <span class="fin-band-fill" data-meter-key="band-critical" data-meter-w="${criticalFill}" style="width:${criticalFill}%;"></span>
+            </div>
+          </div>
+          <span class="fin-band-marker is-${pillTone}" data-meter-key="band-marker" data-meter-left="${markerPos}" style="left:clamp(6px, ${markerPos}%, calc(100% - 6px));"></span>
+        </div>
+        <div class="fin-band-scale" aria-hidden="true">
+          <span data-tick="0">0%</span>
+          <span data-tick="50">50%</span>
+          <span data-tick="85">85%</span>
+          <span data-tick="100">100%</span>
+        </div>
+        <div class="fin-band-legend">
+          <span><i style="background:var(--sem-cpf);"></i>≤50% Healthy</span>
+          <span><i style="background:var(--sem-cash);"></i>51–85% Stretched</span>
+          <span><i style="background:var(--sem-alert);"></i>&gt;85% Critical</span>
+        </div>
+      </div>`;
+
+      const hasMonthlyShortfall = s.contributionShortfall > 1;
+      const monthlyChipLabel = hasMonthlyShortfall ? "Invest more / mo" : "Cap saving";
+      const shortfallLine = hasMonthlyShortfall
+        ? ` <span class="fin-saving-gap-note">Currently investing ${m(s.chosenInvest, "/mo")} — ${m(s.contributionShortfall, "/mo")} below target.</span>`
+        : "";
+
+      const statusHtml = exceedsPay
+        ? `<div class="fin-saving-alert is-danger" role="status">
+            <p>Exceeds your <strong>${m(r.afterCpf)}</strong> take-home by <strong>${m(-leftAfterSave, "/mo")}</strong>.${shortfallLine}</p>
+            <div class="fin-saving-actions">
+              <button type="button" class="fin-action-chip" data-quick-edit="balances">Invest assets</button>
+              <button type="button" class="fin-action-chip" commandfor="plan-settings" command="show-modal" aria-haspopup="dialog">Boost return</button>
+              <button type="button" class="fin-action-chip" data-quick-edit="invest">${monthlyChipLabel}</button>
+              <button type="button" class="fin-action-chip" data-quick-edit="goal">Retire later</button>
+              <button type="button" class="fin-action-chip" data-quick-edit="budget">Trim retire budget</button>
+            </div>
+          </div>`
+        : isCritical
+          ? `<div class="fin-saving-alert is-danger" role="status">
+              <p>Above the <strong>85%</strong> critical threshold — leaves <strong>${m(leftAfterSave, "/mo")}</strong> (${leftSharePct}%) of take-home for living &amp; tax.${shortfallLine}</p>
+              <div class="fin-saving-actions">
+                <button type="button" class="fin-action-chip" data-quick-edit="balances">Invest assets</button>
+                <button type="button" class="fin-action-chip" commandfor="plan-settings" command="show-modal" aria-haspopup="dialog">Boost return</button>
+                <button type="button" class="fin-action-chip" data-quick-edit="invest">${monthlyChipLabel}</button>
+                <button type="button" class="fin-action-chip" data-quick-edit="goal">Retire later</button>
+                <button type="button" class="fin-action-chip" data-quick-edit="budget">Trim retire budget</button>
+              </div>
+            </div>`
+          : isStretched
+            ? `<div class="fin-saving-alert is-warn" role="status">
+                <p>Above the <strong>50%</strong> healthy threshold — leaves <strong>${m(leftAfterSave, "/mo")}</strong> (${leftSharePct}%) of take-home for living &amp; tax.${shortfallLine}</p>
+                <div class="fin-saving-actions">
+                  ${hasMonthlyShortfall ? `<button type="button" class="fin-action-chip" data-quick-edit="invest">Invest more / mo</button>` : ""}
+                  <button type="button" class="fin-action-chip" data-quick-edit="balances">Invest assets</button>
+                  <button type="button" class="fin-action-chip" commandfor="plan-settings" command="show-modal" aria-haspopup="dialog">Boost return</button>
+                  <button type="button" class="fin-action-chip" data-quick-edit="invest" data-qe-focus="#qe-target-equity">Adjust split</button>
+                </div>
+              </div>`
+            : `<div class="fin-saving-ok-row">
+                <p class="fin-saving-ok">Within the <strong>≤50%</strong> healthy threshold — leaves <strong>${m(leftAfterSave, "/mo")}</strong> (${leftSharePct}%) for living &amp; tax.${shortfallLine}</p>
+              </div>`;
+
+      return `<section class="fin-card fin-saving-health-bar card-surface" aria-label="Monthly take-home saving health">
+        <div class="fin-saving-health-left">
+          <div class="fin-saving-health-head">
+            <span class="fin-saving-health-title">Monthly Take-Home Saving Health</span>
+            <span class="status-pill is-${pillTone}">${pillText}</span>
+          </div>
+          <p class="fin-saving-health-sub">
+            Total planned saving <strong>${m(contribution, "/mo", "saving-monthly")}</strong> (${m(simulation.cpfExtra || 0)} CPF · ${m(cashSavingMo)} Savings · ${m(simulation.invest)} Investment)
+            ${exceedsPay ? `exceeds ${m(r.afterCpf)} take-home by <strong>${m(-leftAfterSave, "/mo", "saving-left")}</strong>` : `leaves <strong>${m(leftAfterSave, "/mo", "saving-left")}</strong> of ${m(r.afterCpf)} take-home`}
+          </p>
+          ${statusHtml}
+        </div>
+        <div class="fin-saving-health-right">
+          ${meterHtml}
+        </div>
+      </section>`;
+    })()}
   </section>
 
   <section class="swell-section-block" aria-label="Wealth trajectory, income taps, and retirement readiness">
@@ -2737,255 +3068,92 @@ function buildFinOverviewGrid(
     </div>
   </section>
 
-  <section class="swell-section-block" aria-label="Strategy paths, monthly saving health, and living budget">
+  <section class="swell-section-block" aria-label="CPF strategy paths and retirement income architecture">
     <div class="swell-section-head">
-      <h2>Strategy Paths &amp; Living Budget</h2>
+      <h2>CPF Strategy &amp; Income Architecture</h2>
     </div>
-    <div class="fin-overview-grid swell-grow-grid">
-      <div class="fin-col-main">
-        <section class="fin-card fin-table-card card-surface" aria-labelledby="ledger-title">
-          <div class="ember-card-head">
-            <div>
-              <h2 id="ledger-title">CPF Retirement Path</h2>
-              <p>${r.retiringNow ? "With retirement set to now, FRS and ERS model lump-sum funding today; Salary CPF uses existing balances only." : "Compare relying on mandatory salary CPF versus funding FRS or ERS for higher lifelong CPF LIFE income."}</p>
-            </div>
-            <div class="ember-card-actions">
-              <div class="cpf-plan-inline-toggle" role="group" aria-label="CPF LIFE payout plan">
-                <button type="button" class="cpf-plan-chip${r.plan !== "escalating" ? " is-active" : ""}" data-toggle-cpf-plan="standard" aria-pressed="${r.plan !== "escalating"}">Standard</button>
-                <button type="button" class="cpf-plan-chip${r.plan === "escalating" ? " is-active" : ""}" data-toggle-cpf-plan="escalating" aria-pressed="${r.plan === "escalating"}">Escalating +2%/yr</button>
-              </div>
-              <button type="button" class="button button-small fin-pill-btn" data-go-tab="trajectory">Open Simulator →</button>
-            </div>
+    <section class="fin-card fin-table-card card-surface swell-path-full-card" aria-labelledby="ledger-title">
+      <div class="ember-card-head">
+        <div>
+          <h2 id="ledger-title">CPF Retirement Path</h2>
+          <p>${r.retiringNow ? "With retirement set to now, FRS and ERS model lump-sum funding today; Salary CPF uses existing balances only." : "Compare relying on mandatory salary CPF versus funding FRS or ERS for higher lifelong CPF LIFE income."}</p>
+        </div>
+        <div class="ember-card-actions">
+          <div class="cpf-plan-inline-toggle" role="group" aria-label="CPF LIFE payout plan">
+            <button type="button" class="cpf-plan-chip${r.plan !== "escalating" ? " is-active" : ""}" data-toggle-cpf-plan="standard" aria-pressed="${r.plan !== "escalating"}">Standard</button>
+            <button type="button" class="cpf-plan-chip${r.plan === "escalating" ? " is-active" : ""}" data-toggle-cpf-plan="escalating" aria-pressed="${r.plan === "escalating"}">Escalating +2%/yr</button>
           </div>
-          <div class="table-scroll">
-            <table class="ember-ledger-table fin-table">
-              <thead>
-                <tr>
-                  <th scope="col">Strategy Path</th>
-                  <th scope="col">Age-55 CPF</th>
-                  <th scope="col">Extra CPF</th>
-                  <th scope="col">Outside Save</th>
-                  <th scope="col">CPF LIFE (65+)</th>
-                  <th scope="col" class="col-action">Selection</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${r.scenarios
-                  .map((path) => {
-                    const meta = pathMeta[path.key] || pathMeta.salary;
-                    const isSelected = path.key === selected;
-                    return `<tr class="${isSelected ? "is-selected" : ""}">
-                      <td>
-                        <div class="fin-table-path">
-                          <span class="fin-path-icon" style="background:${meta.softBg};color:${meta.accent};">${meta.icon}</span>
-                          <div>
-                            <div class="ledger-path-cell">
-                              <strong>${meta.name}</strong>
-                              <span class="ledger-tag">${meta.tag}</span>
-                            </div>
-                            <small class="ledger-sub">${meta.note}</small>
-                          </div>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table class="ember-ledger-table fin-table is-row-selectable">
+          <thead>
+            <tr>
+              <th scope="col">Strategy Path</th>
+              <th scope="col">Age-55 CPF</th>
+              <th scope="col">Extra CPF</th>
+              <th scope="col">Outside Save</th>
+              <th scope="col">CPF LIFE (65+)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${r.scenarios
+              .map((path) => {
+                const meta = pathMeta[path.key] || pathMeta.salary;
+                const isSelected = path.key === selected;
+                const rowBal = isSelected ? s.balance : path.balance;
+                const rowCpf = isSelected && !r.retiringNow ? (simulation.cpfExtra || 0) : path.cpfFunding;
+                const rowOut = isSelected && !r.retiringNow ? (simulation.invest || 0) : path.privateSaving;
+                const rowLife = isSelected ? s.payout : path.payout;
+                const cpfDiffers = isSelected && !r.retiringNow && Math.abs(rowCpf - path.cpfFunding) > 1;
+                const outDiffers = isSelected && !r.retiringNow && Math.abs(rowOut - s.privateSaving) > 1;
+                return `<tr class="ledger-selectable-row${isSelected ? " is-selected" : ""}" data-path="${path.key}" tabindex="0" role="button" aria-pressed="${isSelected}" aria-label="${meta.name} (${meta.tag}): Age-55 CPF ${money(rowBal)}, CPF LIFE ${money(rowLife)}/mo${isSelected ? ", currently selected" : ""}">
+                  <td>
+                    <div class="fin-table-path">
+                      <span class="ledger-row-radio${isSelected ? " is-active" : ""}" aria-hidden="true"></span>
+                      <span class="fin-path-icon" style="background:${meta.softBg};color:${meta.accent};">${meta.icon}</span>
+                      <div>
+                        <div class="ledger-path-cell">
+                          <strong>${meta.name}</strong>
+                          <span class="ledger-tag">${meta.tag}</span>
+                          ${isSelected ? '<span class="ledger-active-pill">Active Path</span>' : ""}
                         </div>
-                      </td>
-                      <td class="num-cell" data-label="Age-55 CPF">${m(path.balance, "", `path-${path.key}-bal`)}</td>
-                      <td class="num-cell" data-label="Extra CPF">${m(path.cpfFunding, r.retiringNow ? " now" : "/mo", `path-${path.key}-cpf`)}</td>
-                      <td class="num-cell" data-label="Outside Save">${m(path.privateSaving, r.retiringNow ? " now" : "/mo", `path-${path.key}-out`)}</td>
-                      <td class="num-cell" data-label="CPF LIFE (65+)"><strong>${m(path.payout, "/mo", `path-${path.key}-life`)}</strong></td>
-                      <td class="col-action">
-                        <button type="button" class="${isSelected ? "ledger-btn-active" : "ledger-btn"}" data-path="${path.key}" aria-pressed="${isSelected}">${isSelected ? "Selected" : "Select"}</button>
-                      </td>
-                    </tr>`;
-                  })
-                  .join("")}
-              </tbody>
-            </table>
-          </div>
-          <details class="ember-disclaimer">
-            <summary class="ember-disclaimer-summary">
-              <span class="disclaimer-chip">2026 CPF &amp; IRAS</span>
-              <span class="disclaimer-preview">Today’s dollars · ${Number((r.inflation * 100).toFixed(1))}% inflation · ${Math.round(r.investmentReturn * 100)}% outside return</span>
-              <span class="disclaimer-toggle" aria-hidden="true">
-                <span class="disclaimer-toggle-label">Details</span>
-                <svg class="disclaimer-toggle-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-                  <path class="line-h" d="M3.5 8h9" />
-                  <path class="line-v" d="M8 3.5v9" />
-                </svg>
-              </span>
-            </summary>
-            <div class="ember-disclaimer-body">
-              <ul>
-                <li><strong>Purchasing power &amp; return:</strong> Shows today’s dollars (${Number((r.inflation * 100).toFixed(1))}% inflation, ${Math.round(r.investmentReturn * 100)}% blended net outside return including ETFs/SSB; ${r.post55Work ? "post-55 salary CPF included" : "post-55 work contributions excluded"}).</li>
-                <li><strong>2026 CPF &amp; IRAS rules:</strong> OW ceiling $8,000/mo, Basic Healthcare Sum $79,000, FRS $220,400, ERS $440,800, and $80,000 personal relief cap.</li>
-                <li><strong>Irreversible actions:</strong> Cash RSTU and OA-to-SA transfers before 55 cannot be reversed and receive $0 tax relief once SA/RA hits FRS. <button type="button" class="footnote-link-btn" commandfor="plan-settings" command="show-modal" aria-haspopup="dialog">Review assumptions ↗</button></li>
-              </ul>
-            </div>
-          </details>
-        </section>
-      </div>
-
-      <div class="fin-col-rail">
-        <section class="fin-card fin-saving-card card-surface" aria-label="Monthly saving needed">
-          ${(() => {
-            if (r.retiringNow) {
-              const pillTone = s.remainingPortfolioGap > 0 ? "warn" : "good";
-              return `<div class="fin-saving-top">
-                  <span class="fin-saving-title">Portfolio gap now</span>
-                  <span class="status-pill is-${pillTone}">Lump sum</span>
-                </div>
-                <div class="fin-saving-val-row">
-                  <strong>${m(s.privateSaving, "", "saving-lump")}</strong>
-                  <span class="fin-curr">SGD now</span>
-                  <button type="button" class="fin-link-pill fin-saving-edit" data-quick-edit="income">Review</button>
-                </div>
-                <div class="fin-saving-meta">
-                  <span>Immediate portfolio requirement</span>
-                </div>`;
-            }
-
-            const exactPct =
-              r.afterCpf > 0 ? (contribution / r.afterCpf) * 100 : 0;
-            const clampedPct = Math.min(100, Math.max(0, exactPct));
-            const leftAfterSave = r.afterCpf - contribution;
-            const exceedsPay = leftAfterSave < 0;
-            const isCritical = exceedsPay || pctOfPay > 85;
-            const isStretched = !isCritical && pctOfPay > 50;
-            const pillTone = isCritical
-              ? "danger"
-              : isStretched
-                ? "warn"
-                : "good";
-            const bandLabel = exceedsPay
-              ? "Exceeds pay"
-              : pctOfPay > 85
-                ? "Critical"
-                : pctOfPay > 50
-                  ? "Stretched"
-                  : pctOfPay > 30
-                    ? "Healthy"
-                    : "Comfortable";
-            const pillText = `${bandLabel} · ${pctOfPay}%`;
-
-            const healthyFill =
-              Math.round(
-                Math.min(100, (Math.min(clampedPct, 50) / 50) * 100) * 10,
-              ) / 10;
-            const stretchedFill =
-              clampedPct > 50
-                ? Math.round(
-                    Math.min(
-                      100,
-                      ((Math.min(clampedPct, 85) - 50) / 35) * 100,
-                    ) * 10,
-                  ) / 10
-                : 0;
-            const criticalFill =
-              clampedPct > 85
-                ? Math.round(
-                    Math.min(
-                      100,
-                      ((Math.min(clampedPct, 100) - 85) / 15) * 100,
-                    ) * 10,
-                  ) / 10
-                : 0;
-            const markerPos = Math.round(clampedPct * 10) / 10;
-            const leftSharePct = Math.max(0, 100 - pctOfPay);
-
-            const meterHtml = `<div class="fin-band-meter">
-              <div class="fin-band-track-wrap" role="img" aria-label="Monthly saving takes ${pctOfPay}% of take-home pay. Thresholds: up to 50% healthy, 51 to 85% stretched, over 85% critical.">
-                <div class="fin-band-track">
-                  <div class="fin-band-zone is-healthy">
-                    <span class="fin-band-fill" data-meter-key="band-healthy" data-meter-w="${healthyFill}" style="width:${healthyFill}%;"></span>
-                  </div>
-                  <div class="fin-band-zone is-stretched">
-                    <span class="fin-band-fill" data-meter-key="band-stretched" data-meter-w="${stretchedFill}" style="width:${stretchedFill}%;"></span>
-                  </div>
-                  <div class="fin-band-zone is-critical">
-                    <span class="fin-band-fill" data-meter-key="band-critical" data-meter-w="${criticalFill}" style="width:${criticalFill}%;"></span>
-                  </div>
-                </div>
-                <span class="fin-band-marker is-${pillTone}" data-meter-key="band-marker" data-meter-left="${markerPos}" style="left:clamp(6px, ${markerPos}%, calc(100% - 6px));"></span>
-              </div>
-              <div class="fin-band-scale" aria-hidden="true">
-                <span data-tick="0">0%</span>
-                <span data-tick="50">50%</span>
-                <span data-tick="85">85%</span>
-                <span data-tick="100">100%</span>
-              </div>
-              <div class="fin-band-legend">
-                <span><i style="background:var(--sem-cpf);"></i>≤50% Healthy</span>
-                <span><i style="background:var(--sem-cash);"></i>51–85% Stretched</span>
-                <span><i style="background:var(--sem-alert);"></i>&gt;85% Critical</span>
-              </div>
-            </div>`;
-
-            const hasMonthlyShortfall = s.contributionShortfall > 1;
-            const monthlyChipLabel = hasMonthlyShortfall
-              ? "Invest more / mo"
-              : "Cap saving";
-            const shortfallLine = hasMonthlyShortfall
-              ? ` <span class="fin-saving-gap-note">Currently saving ${m(s.chosenInvest, "/mo")} — ${m(s.contributionShortfall, "/mo")} below target.</span>`
-              : "";
-
-            const statusHtml = exceedsPay
-              ? `<div class="fin-saving-alert is-danger" role="status">
-                  <p>Exceeds your <strong>${m(r.afterCpf)}</strong> take-home by <strong>${m(-leftAfterSave, "/mo")}</strong>.${shortfallLine}</p>
-                  <div class="fin-saving-actions">
-                    <button type="button" class="fin-action-chip" data-quick-edit="balances">Invest assets</button>
-                    <button type="button" class="fin-action-chip" commandfor="plan-settings" command="show-modal" aria-haspopup="dialog">Boost return</button>
-                    <button type="button" class="fin-action-chip" data-quick-edit="income">${monthlyChipLabel}</button>
-                    <button type="button" class="fin-action-chip" data-quick-edit="goal">Retire later</button>
-                    <button type="button" class="fin-action-chip" data-quick-edit="budget">Trim retire budget</button>
-                  </div>
-                </div>`
-              : isCritical
-                ? `<div class="fin-saving-alert is-danger" role="status">
-                    <p>Above the <strong>85%</strong> critical threshold — leaves <strong>${m(leftAfterSave, "/mo")}</strong> (${leftSharePct}%) of take-home for living &amp; tax.${shortfallLine}</p>
-                    <div class="fin-saving-actions">
-                      <button type="button" class="fin-action-chip" data-quick-edit="balances">Invest assets</button>
-                      <button type="button" class="fin-action-chip" commandfor="plan-settings" command="show-modal" aria-haspopup="dialog">Boost return</button>
-                      <button type="button" class="fin-action-chip" data-quick-edit="income">${monthlyChipLabel}</button>
-                      <button type="button" class="fin-action-chip" data-quick-edit="goal">Retire later</button>
-                      <button type="button" class="fin-action-chip" data-quick-edit="budget">Trim retire budget</button>
+                        <small class="ledger-sub">${meta.note}</small>
+                      </div>
                     </div>
-                  </div>`
-                : isStretched
-                  ? `<div class="fin-saving-alert is-warn" role="status">
-                      <p>Above the <strong>50%</strong> healthy threshold — leaves <strong>${m(leftAfterSave, "/mo")}</strong> (${leftSharePct}%) of take-home for living &amp; tax.${shortfallLine}</p>
-                      <div class="fin-saving-actions">
-                        ${hasMonthlyShortfall ? `<button type="button" class="fin-action-chip" data-quick-edit="income">Invest more / mo</button>` : ""}
-                        <button type="button" class="fin-action-chip" data-quick-edit="balances">Invest assets</button>
-                        <button type="button" class="fin-action-chip" commandfor="plan-settings" command="show-modal" aria-haspopup="dialog">Boost return</button>
-                        <button type="button" class="fin-action-chip" data-go-tab="allocator">Where to invest →</button>
-                      </div>
-                    </div>`
-                  : `<div class="fin-saving-ok-row">
-                      <p class="fin-saving-ok">Within the <strong>≤50%</strong> healthy threshold — leaves <strong>${m(leftAfterSave, "/mo")}</strong> (${leftSharePct}%) for living &amp; tax.${shortfallLine}</p>
-                      <div class="fin-saving-ok-links">
-                        ${hasMonthlyShortfall ? `<button type="button" class="text-button fin-inline-action" data-quick-edit="income">Invest more / mo</button>` : ""}
-                        <button type="button" class="text-button fin-inline-action" data-go-tab="allocator">Where to invest →</button>
-                      </div>
-                    </div>`;
-
-            return `<div class="fin-saving-top">
-                <span class="fin-saving-title">${hasCustomSaveOverride ? "Monthly saving (custom)" : "Monthly saving needed"}</span>
-                <span class="status-pill is-${pillTone}">${pillText}</span>
-              </div>
-              <div class="fin-saving-val-row">
-                <strong>${m(contribution, "", "saving-monthly")}</strong>
-                <span class="fin-curr">SGD/mo</span>
-                ${exceedsPay ? "" : `<button type="button" class="fin-link-pill fin-saving-edit" data-quick-edit="income">Adjust</button>`}
-              </div>
-              <div class="fin-saving-meta">
-                <span>${m(simulation.cpfExtra, "", "saving-cpf-extra")} extra CPF · ${m(simulation.invest, "", "saving-outside")} outside${hasCustomSaveOverride ? ` (target ${m(s.privateSaving)})` : ""}</span>
-                <small>${exceedsPay ? `Exceeds ${m(r.afterCpf)} take-home by ${m(-leftAfterSave, "/mo", "saving-left")}` : `Leaves ${m(leftAfterSave, "/mo", "saving-left")} of ${m(r.afterCpf)} take-home`}</small>
-              </div>
-              ${meterHtml}
-              ${statusHtml}`;
-          })()}
-        </section>
+                  </td>
+                  <td class="num-cell" data-label="Age-55 CPF">${m(rowBal, "", `path-${path.key}-bal`)}</td>
+                  <td class="num-cell" data-label="Extra CPF">${m(rowCpf, r.retiringNow ? " now" : "/mo", `path-${path.key}-cpf`)}${cpfDiffers ? `<small class="ledger-cell-sub">Path: ${m(path.cpfFunding, "/mo")}</small>` : ""}</td>
+                  <td class="num-cell" data-label="Outside Save">${m(rowOut, r.retiringNow ? " now" : "/mo", `path-${path.key}-out`)}${outDiffers ? `<small class="ledger-cell-sub">Target: ${m(s.privateSaving, "/mo")}</small>` : ""}</td>
+                  <td class="num-cell" data-label="CPF LIFE (65+)"><strong>${m(rowLife, "/mo", `path-${path.key}-life`)}</strong></td>
+                </tr>`;
+              })
+              .join("")}
+          </tbody>
+        </table>
       </div>
-    </div>
-    ${expenseData ? buildExpenseCardHTML(expenseData, r) : ""}
+      <details class="ember-disclaimer">
+        <summary class="ember-disclaimer-summary">
+          <span class="disclaimer-chip">2026 CPF &amp; IRAS</span>
+          <span class="disclaimer-preview">Today’s dollars · ${Number((r.inflation * 100).toFixed(1))}% inflation · ${Math.round(r.investmentReturn * 100)}% outside return</span>
+          <span class="disclaimer-toggle" aria-hidden="true">
+            <span class="disclaimer-toggle-label">Details</span>
+            <svg class="disclaimer-toggle-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+              <path class="line-h" d="M3.5 8h9" />
+              <path class="line-v" d="M8 3.5v9" />
+            </svg>
+          </span>
+        </summary>
+        <div class="ember-disclaimer-body">
+          <ul>
+            <li><strong>Purchasing power &amp; return:</strong> Shows today’s dollars (${Number((r.inflation * 100).toFixed(1))}% inflation, ${Math.round(r.investmentReturn * 100)}% blended net outside return including ETFs/SSB; ${r.post55Work ? "post-55 salary CPF included" : "post-55 work contributions excluded"}).</li>
+            <li><strong>2026 CPF &amp; IRAS rules:</strong> OW ceiling $8,000/mo, Basic Healthcare Sum $79,000, FRS $220,400, ERS $440,800, and $80,000 personal relief cap.</li>
+            <li><strong>Irreversible actions:</strong> Cash RSTU and OA-to-SA transfers before 55 cannot be reversed and receive $0 tax relief once SA/RA hits FRS. <button type="button" class="footnote-link-btn" commandfor="plan-settings" command="show-modal" aria-haspopup="dialog">Review assumptions ↗</button></li>
+          </ul>
+        </div>
+      </details>
+    </section>
+
     <section class="fin-card card-surface swell-taps-card" id="retirement-taps-card" aria-labelledby="taps-blueprint-title">
       <div class="ember-card-head">
         <div>
@@ -3099,7 +3267,7 @@ function buildFinOverviewGrid(
         <article class="swell-tap-box">
           <div class="swell-tap-top">
             <span class="swell-tap-badge is-tap3">Tap 3 · Brokerage</span>
-            <span class="tap-verdict-pill is-info">${taps.tap3Equities.globalSplitPct}% Global / ${taps.tap3Equities.sgDividendSplitPct}% SG</span>
+            <span class="tap-verdict-pill is-info">${taps.tap3Equities.targetEquityPct}/${taps.tap3Equities.targetBondPct} · ${taps.tap3Equities.globalSplitPct}/${taps.tap3Equities.sgDividendSplitPct} G/SG</span>
           </div>
           <h3>Global Growth &amp; SG Dividend Equities</h3>
           <div class="tap-progress-wrap">
@@ -3111,16 +3279,16 @@ function buildFinOverviewGrid(
               <span class="tap-progress-fill is-tap3" style="width:${tap3Pct}%"></span>
             </div>
           </div>
-          <p>With <strong>${m(taps.tap3Equities.currentEquities)}</strong> today + <strong>${m(taps.tap3Equities.monthlyInvest, "/mo")}</strong> outside saving, your <strong>${taps.tap3Equities.globalSplitPct}/${taps.tap3Equities.sgDividendSplitPct}</strong> sleeve projects <strong>${m(taps.tap3Equities.projectedMonthlyDrawToday, "/mo")}</strong> sustainable drawdown${s.gap65 > 0 ? ` vs your <strong>${m(s.gap65, "/mo")}</strong> post-CPF gap` : " on top of full CPF coverage"}.</p>
+          <p>With <strong>${m(taps.tap3Equities.currentEquities)}</strong> today + <strong>${m(taps.tap3Equities.monthlyInvest, "/mo")}</strong> planned investment growing to <strong>${m(taps.tap3Equities.projectedInvestAtRetireToday)}</strong> at age ${r.retire}, your <strong>${taps.tap3Equities.targetEquityPct}% Eq / ${taps.tap3Equities.targetBondPct}% Bond (${taps.tap3Equities.globalSplitPct}/${taps.tap3Equities.sgDividendSplitPct} G/SG)</strong> portfolio supports <strong>${m(taps.tap3Equities.projectedMonthlyDrawToday, "/mo")}</strong> sustainable drawdown${s.gap65 > 0 ? ` vs your <strong>${m(s.gap65, "/mo")}</strong> post-CPF gap` : " on top of full CPF coverage"}.</p>
           <details class="tap-accordion">
             <summary class="tap-accordion-summary"><span>Overflow &amp; rebalancing rules</span><span class="tap-accordion-chevron" aria-hidden="true">▾</span></summary>
-            <small class="swell-tap-sub">Projected retirement portfolio: <b>${m(taps.tap3Equities.portfolioAtRetireToday)}</b> (today’s $). Absorbs all overflow savings once CPF, RSTU, and ~$400k SRS guardrails are satisfied.</small>
+            <small class="swell-tap-sub">Projected outside investment pot at ${r.retire}: <b>${m(taps.tap3Equities.projectedInvestAtRetireToday)}</b> (total outside incl. cash &amp; SRS: <b>${m(taps.tap3Equities.portfolioAtRetireToday)}</b> today’s $).</small>
           </details>
         </article>
         <article class="swell-tap-box">
           <div class="swell-tap-top">
             <span class="swell-tap-badge is-tap4">Tap 4 · Sovereign Buffer</span>
-            <span class="tap-verdict-pill is-warn">${m(taps.tap4Ssb.currentSsbCash)} / $150k</span>
+            <span class="tap-verdict-pill is-warn">${taps.tap4Ssb.cashAccountsActive || taps.tap4Ssb.hasCustomCashRate || taps.tap4Ssb.monthlyCashSaving > 0 ? `${!r.retiringNow && taps.tap4Ssb.monthlyCashSaving > 0 ? `+${m(taps.tap4Ssb.monthlyCashSaving, "/mo")} · ` : `${m(taps.tap4Ssb.currentSsbCash)} · `}${taps.tap4Ssb.effectiveRatePct.toFixed(2)}%` : `${m(taps.tap4Ssb.currentSsbCash)} / $150k`}</span>
           </div>
           <h3>SSB After All Done &amp; $150k Buffer</h3>
           <div class="tap-progress-wrap">
@@ -3132,7 +3300,7 @@ function buildFinOverviewGrid(
               <span class="tap-progress-fill is-tap4" style="width:${tap4Pct}%"></span>
             </div>
           </div>
-          <p>Your 6–12m emergency floor is <strong>${m(taps.tap4Ssb.emergencyMin)}–${m(taps.tap4Ssb.emergencyMax)}</strong>. Current cash/SSB (<strong>${m(taps.tap4Ssb.currentSsbCash)}</strong>) earns ~<strong>${m(taps.tap4Ssb.currentMonthlyYield, "/mo")}</strong> at live <strong>${taps.tap4Ssb.ssb10YrPct.toFixed(2)}%</strong> 10Y SSB yield (~<strong>${money(taps.tap4Ssb.monthlyYieldAt150k)}/mo</strong> at $150k).</p>
+          <p>Your 6–12m emergency floor is <strong>${m(taps.tap4Ssb.emergencyMin)}–${m(taps.tap4Ssb.emergencyMax)}</strong>. Current cash/SSB (<strong>${m(taps.tap4Ssb.currentSsbCash)}</strong>${!r.retiringNow && taps.tap4Ssb.monthlyCashSaving > 0 ? ` + <strong>${m(taps.tap4Ssb.monthlyCashSaving, "/mo")}</strong> planned savings → <strong>${m(taps.tap4Ssb.projectedCashOnlyAtRetireToday)}</strong> at age ${r.retire}` : ""}) earns ~<strong>${m(taps.tap4Ssb.currentMonthlyYield, "/mo")}</strong> at ${taps.tap4Ssb.cashAccountsActive ? `your blended <strong>${taps.tap4Ssb.effectiveRatePct.toFixed(2)}%</strong> EIR across <strong>${taps.tap4Ssb.accountCount} account${taps.tap4Ssb.accountCount === 1 ? "" : "s"}</strong>${taps.tap4Ssb.overflowBalance > 0 ? ` (${m(taps.tap4Ssb.overflowBalance)} above bonus caps)` : ""}` : taps.tap4Ssb.hasCustomCashRate ? `your <strong>${taps.tap4Ssb.effectiveRatePct.toFixed(2)}% p.a.</strong> projected HYSA / SSB rate` : `live <strong>${taps.tap4Ssb.effectiveRatePct.toFixed(2)}%</strong> 10Y SSB yield`} (~<strong>${money(taps.tap4Ssb.monthlyYieldAt150k)}/mo</strong> at $150k).</p>
           <details class="tap-accordion">
             <summary class="tap-accordion-summary"><span>Redemption &amp; MAS cap mechanics</span><span class="tap-accordion-chevron" aria-hidden="true">▾</span></summary>
             <small class="swell-tap-sub">100% Singapore Government-backed principal within the $200,000 MAS individual limit, with 10-year step-up coupons and penalty-free monthly redemption.</small>
@@ -3222,13 +3390,24 @@ function buildBogleheadSection(bogle) {
   const targetBondColor = hol.cpfTotal > 0 ? "#059669" : "#D97706";
   const targetBondTitle =
     hol.cpfTotal > 0 ? "Target Bond / CPF Floor" : "Target SSB / Cash Floor";
-  const equityGapPct = Math.round(hol.targetEquityPct - hol.effectiveEquityPct);
+  const curEqRounded = Math.round(hol.effectiveEquityPct);
+  const tgtEqRounded = Math.round(hol.targetEquityPct);
+  const equityDeltaPct = curEqRounded - tgtEqRounded;
   const gapBadge =
-    Math.abs(equityGapPct) <= 3
-      ? { cls: "is-good", text: "Aligned with target" }
-      : equityGapPct > 0
-        ? { cls: "is-equities", text: `+${equityGapPct}% Equities needed` }
-        : { cls: "is-bonds", text: `+${-equityGapPct}% Bond floor needed` };
+    Math.abs(equityDeltaPct) <= 3
+      ? {
+          cls: "is-good",
+          text: `${curEqRounded}% Eq · Aligned with ${tgtEqRounded}% Target`,
+        }
+      : equityDeltaPct < 0
+        ? {
+            cls: "is-equities",
+            text: `${curEqRounded}% Eq vs ${tgtEqRounded}% Target (${equityDeltaPct}% Eq)`,
+          }
+        : {
+            cls: "is-bonds",
+            text: `${curEqRounded}% Eq vs ${tgtEqRounded}% Target (+${equityDeltaPct}% Eq)`,
+          };
 
   return `<nav class="ui-breadcrumb" aria-label="Breadcrumb">
     <button type="button" class="ui-breadcrumb-link" data-go-tab="overview">Overview</button>
@@ -3286,8 +3465,8 @@ function buildBogleheadSection(bogle) {
       <div class="mix-compare-wrap">
         <div class="mix-compare-head">
           <div>
-            <h3>Target Holistic Mix &amp; Gap</h3>
-            <p>Dragging the target sliders below reshapes your long-term target mix and updates monthly buy orders live.</p>
+            <h3>Target Mix &amp; Outside Investment Split</h3>
+            <p>Choose a preset or enter your exact % split below — your monthly outside investment and projection follow this split directly.</p>
           </div>
           <span class="mix-gap-pill ${gapBadge.cls}">${gapBadge.text}</span>
         </div>
@@ -3318,15 +3497,78 @@ function buildBogleheadSection(bogle) {
         </div>
       </div>
 
-      <div class="bogle-sliders">
-        <label class="slider-control" for="bogle-target-slider">
-          <span class="slider-head"><span>Target Holistic Equity / Bond Split</span><strong id="bogle-target-readout">${hol.targetEquityPct}% Eq / ${hol.targetBondPct}% Bond</strong></span>
-          <input id="bogle-target-slider" type="range" min="20" max="95" step="5" value="${hol.targetEquityPct}" />
-        </label>
-        <label class="slider-control" for="bogle-sg-slider">
-          <span class="slider-head"><span>Equity Sleeve Split (Global Growth / SG Dividend)</span><strong id="bogle-sg-readout">${globalSplitPct}% Global / ${sgSplitPct}% SG</strong></span>
-          <input id="bogle-sg-slider" type="range" min="0" max="30" step="1" value="${hol.sgSleevePct}" />
-        </label>
+      <div class="bogle-sliders bogle-funnel">
+        <div class="bogle-funnel-stage is-stage-1">
+          <div class="bogle-funnel-head">
+            <div class="bogle-funnel-title-wrap">
+              <span class="bogle-step-badge">Step 1 · Total Split</span>
+              <label for="bogle-target-slider">Target Equity / Bond Split</label>
+            </div>
+            <strong class="bogle-funnel-readout" id="bogle-target-readout">${hol.targetEquityPct}% Equity · ${hol.targetBondPct}% Bond</strong>
+          </div>
+          <div class="bogle-stage1-bar" aria-hidden="true">
+            <span id="bogle-stage1-eq-bar" style="width:${hol.targetEquityPct}%;background:var(--primary);"></span>
+            <span id="bogle-stage1-bond-bar" style="width:${hol.targetBondPct}%;background:#D97706;"></span>
+          </div>
+          <div class="bogle-funnel-controls">
+            <div class="saving-stepper bogle-stepper">
+              <button type="button" data-bogle-step="bogle-target-slider" data-delta="-5" aria-label="Decrease target equity percentage by 5%">−</button>
+              <div class="input-wrap">
+                <input id="bogle-target-slider" type="number" min="0" max="100" step="1" value="${hol.targetEquityPct}" inputmode="numeric" />
+                <span>% Equity (${hol.targetBondPct}% Bond)</span>
+              </div>
+              <button type="button" data-bogle-step="bogle-target-slider" data-delta="5" aria-label="Increase target equity percentage by 5%">+</button>
+            </div>
+            <div class="qe-picker-chips bogle-preset-chips bogle-funnel-chips" role="group" aria-label="Target equity split presets">
+              ${[0, 50, 60, 70, 80, 90, 100]
+                .map(
+                  (v) =>
+                    `<button type="button" class="qe-picker-chip${hol.targetEquityPct === v ? " is-active" : ""}" data-bogle-eq-preset="${v}" aria-pressed="${hol.targetEquityPct === v}">${v}/${100 - v}</button>`,
+                )
+                .join("")}
+            </div>
+          </div>
+        </div>
+
+        <div class="bogle-funnel-connector" aria-hidden="true">
+          <span class="bogle-connector-elbow"></span>
+          <span class="bogle-connector-badge" id="bogle-funnel-connector-text">${
+            hol.targetEquityPct > 0
+              ? `Subdivides your <strong>${hol.targetEquityPct}% Equity Sleeve (${money(reb.buyGlobalMonthly + reb.buySgMonthly)}/mo)</strong> into Global vs SG Dividend`
+              : `Target Equity is <strong>0%</strong> (100% Bond) — increase Equity above 0% to activate Global / SG sleeve`
+          }</span>
+        </div>
+
+        <div class="bogle-funnel-stage is-stage-2${hol.targetEquityPct === 0 ? " is-disabled-sleeve" : ""}" id="bogle-funnel-stage-2">
+          <div class="bogle-funnel-head">
+            <div class="bogle-funnel-title-wrap">
+              <span class="bogle-step-badge is-sub" id="bogle-stage2-badge">Step 2 · Inside ${hol.targetEquityPct}% Equity</span>
+              <label for="bogle-sg-slider">Equity Sleeve Split (Global / SG Dividend)</label>
+            </div>
+            <div class="bogle-funnel-readout-group">
+              <strong class="bogle-funnel-readout" id="bogle-sg-readout">${globalSplitPct}% Global / ${sgSplitPct}% SG <span class="bogle-of-eq">of Eq</span></strong>
+              <span class="bogle-effective-pill" id="bogle-sg-effective-pill">= ${Math.round(hol.targetGlobalPct * 10) / 10}% Global · ${Math.round(hol.targetSgPct * 10) / 10}% SG of total</span>
+            </div>
+          </div>
+          <div class="bogle-funnel-controls">
+            <div class="saving-stepper bogle-stepper">
+              <button type="button" data-bogle-step="bogle-sg-slider" data-delta="-5" aria-label="Decrease SG dividend sleeve by 5%">−</button>
+              <div class="input-wrap">
+                <input id="bogle-sg-slider" type="number" min="0" max="100" step="1" value="${hol.sgSleevePct}" inputmode="numeric" />
+                <span>% SG (${globalSplitPct}% Global)</span>
+              </div>
+              <button type="button" data-bogle-step="bogle-sg-slider" data-delta="5" aria-label="Increase SG dividend sleeve by 5%">+</button>
+            </div>
+            <div class="qe-picker-chips bogle-preset-chips bogle-funnel-chips" role="group" aria-label="SG dividend sleeve presets">
+              ${[0, 10, 15, 20, 30, 50, 100]
+                .map(
+                  (v) =>
+                    `<button type="button" class="qe-picker-chip${hol.sgSleevePct === v ? " is-active" : ""}" data-bogle-sg-preset="${v}" aria-pressed="${hol.sgSleevePct === v}">${100 - v}/${v}</button>`,
+                )
+                .join("")}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="rebalance-directive">
@@ -3629,7 +3871,286 @@ function buildCashCardsMarkup(
   </div>`;
 }
 
+function buildCashAccountReadoutHTML(acc) {
+  if (!acc) return "";
+  const isUncapped = acc.bonusCap <= 0;
+  let breakdownStr = "";
+  let badgeTone = "info";
+  let badgeDetail = `${money(acc.monthlyInterest)}/mo · ${money(acc.annualInterest)}/yr`;
+
+  if (acc.hasOverflow) {
+    breakdownStr = `First <strong>${money(acc.tier1Balance)}</strong> @ <strong>${acc.bonusRatePct.toFixed(2)}%</strong> (${money(acc.tier1AnnualInterest)}/yr) + <strong class="is-overflow-text">${money(acc.overflowBalance)} excess @ ${acc.baseRatePct.toFixed(2)}%</strong> (${money(acc.overflowAnnualInterest)}/yr)`;
+    badgeTone = "warn";
+    badgeDetail = `${money(acc.monthlyInterest)}/mo · −${acc.rateDragPct.toFixed(2)}% drag`;
+  } else if (!isUncapped) {
+    const roomLeft = Math.max(0, acc.bonusCap - acc.balance);
+    breakdownStr = `Within ${money(acc.bonusCap)} bonus cap @ <strong>${acc.bonusRatePct.toFixed(2)}%</strong> (${money(roomLeft)} cap room left)`;
+    badgeTone = "good";
+  } else if (acc.category === "sovereign") {
+    breakdownStr = `MAS Sovereign (${acc.preset === "ssb" ? "$200k SSB limit" : "no cap"}) @ <strong>${acc.bonusRatePct.toFixed(2)}%</strong> p.a.`;
+    badgeTone = "good";
+  } else {
+    breakdownStr = `Flat / uncapped yield @ <strong>${acc.bonusRatePct.toFixed(2)}%</strong> p.a.`;
+    badgeTone = "info";
+  }
+
+  return `<span class="cash-acc-tier-formula">${breakdownStr}</span>
+    <span class="cash-acc-badge is-${badgeTone}"><strong>${acc.effectiveRatePct.toFixed(2)}% EIR</strong> · ${badgeDetail}</span>`;
+}
+
+function buildCashAccountsSummaryHTML(bd) {
+  if (!bd) return "";
+  const hasOverflow = bd.totalOverflowBalance > 0;
+  const hasSdicWarn = bd.sdicOverflowTotal > 0;
+  return `
+    <div class="cash-acc-kpi">
+      <span>Total Cash &amp; SSB</span>
+      <strong>${m(bd.totalBalance)}</strong>
+      <small>${bd.accountCount} account${bd.accountCount === 1 ? "" : "s"} synced to plan</small>
+    </div>
+    <div class="cash-acc-kpi">
+      <span>Blended Effective Yield</span>
+      <strong class="${hasOverflow ? "is-amber" : "is-emerald"}">${bd.effectiveRatePct.toFixed(2)}% EIR</strong>
+      <small>${hasOverflow ? `Dragged down by ${money(bd.totalOverflowBalance)} over cap` : "Compounds cash bucket in FIRE plan"}</small>
+    </div>
+    <div class="cash-acc-kpi">
+      <span>Passive Cash Interest</span>
+      <strong>${m(bd.totalMonthlyInterest, "/mo")}</strong>
+      <small>${m(bd.totalAnnualInterest, "/yr")} total annual interest</small>
+    </div>
+    <div class="cash-acc-kpi">
+      <span>Bonus Cap &amp; SDIC Status</span>
+      <strong class="${hasOverflow || hasSdicWarn ? "is-amber" : "is-emerald"}">${
+        hasOverflow
+          ? `${m(bd.totalOverflowBalance)} over cap`
+          : hasSdicWarn
+            ? `${m(bd.sdicOverflowTotal)} over SDIC`
+            : "Within all caps ✓"
+      }</strong>
+      <small>${
+        hasOverflow
+          ? `Excess earns ${bd.overflowAvgBaseRatePct.toFixed(2)}% · Sweep adds +${money(bd.sweepAnnualGain)}/yr`
+          : hasSdicWarn
+            ? `Exceeds $100k/bank in ${bd.sdicExceededBanks.map((b) => b.bankLabel).join(", ")}`
+            : "All accounts within bonus & $100k SDIC caps"
+      }</small>
+    </div>`;
+}
+
+function buildCashAccountsAlertsHTML(bd) {
+  if (!bd) return "";
+  const parts = [];
+  if (bd.totalOverflowBalance > 0) {
+    const overList = bd.accounts
+      .filter((a) => a.hasOverflow)
+      .map(
+        (a) =>
+          `<strong>${escapeAttr(a.name)}</strong> has <strong>${money(a.overflowBalance)}</strong> above its ${money(a.bonusCap)} cap earning <strong>${a.baseRatePct.toFixed(2)}%</strong> (dragging account EIR from ${a.bonusRatePct.toFixed(2)}% down to <strong>${a.effectiveRatePct.toFixed(2)}%</strong>)`,
+      )
+      .join("; ");
+    parts.push(`<div class="cash-acc-alert is-warn" role="status">
+      <div class="cash-acc-alert-copy">
+        <strong>Bonus Cap Overflow Detected (${money(bd.totalOverflowBalance)} earning ${bd.overflowAvgBaseRatePct.toFixed(2)}% base):</strong>
+        <span>${overList}. Sweeping the overflow into MAS SSB / T-Bills (${bd.ssb10YrPct.toFixed(2)}%) lifts your blended cash EIR to <strong>${bd.sweptEffectiveRatePct.toFixed(2)}%</strong> (<strong>+${money(bd.sweepAnnualGain)}/yr</strong> extra interest).</span>
+      </div>
+      ${
+        bd.sweepAnnualGain > 0
+          ? `<button type="button" class="button button-small button-accent cash-acc-sweep-btn" data-cash-acc-sweep>Sweep ${money(bd.totalOverflowBalance)} overflow to MAS SSB (+${money(bd.sweepAnnualGain)}/yr) →</button>`
+          : ""
+      }
+    </div>`);
+  }
+  if (bd.sdicOverflowTotal > 0) {
+    const sdicList = bd.sdicExceededBanks
+      .map(
+        (b) =>
+          `<strong>${escapeAttr(b.bankLabel)}</strong> combined deposits (<strong>${money(b.balance)}</strong>) exceed the $100,000 SDIC insured limit by <strong>${money(b.uninsured)}</strong>`,
+      )
+      .join("; ");
+    parts.push(`<div class="cash-acc-alert is-info" role="status">
+      <div class="cash-acc-alert-copy">
+        <strong>Per-Bank $100k SDIC Coverage Notice:</strong>
+        <span>${sdicList}. Note that DBS and POSB share a single $100,000 SDIC limit.</span>
+      </div>
+    </div>`);
+  }
+  if (bd.ssbTotal > bd.ssbCap) {
+    parts.push(`<div class="cash-acc-alert is-warn" role="status">
+      <div class="cash-acc-alert-copy">
+        <strong>MAS $200,000 Individual SSB Limit Exceeded:</strong>
+        <span>Your SSB rows total <strong>${money(bd.ssbTotal)}</strong> (${money(bd.ssbOverflow)} above the $200,000 MAS individual holding cap). Route excess into 6-Month MAS T-Bills or a secondary bank.</span>
+      </div>
+    </div>`);
+  }
+  return parts.join("");
+}
+
+function buildCashAccountsEditorHTML(cp, context = "page") {
+  if (!cp) return "";
+  const active = Boolean(cp.cashAccountsActive);
+  const bd = cp.cashBreakdown;
+  const isQe = context === "qe";
+  const presets = RetirementModel.CASH_ACCOUNT_PRESETS || [];
+  const quickPresets = [
+    { key: "dbs-multiplier", label: "+ DBS Multiplier" },
+    { key: "ocbc-360", label: "+ OCBC 360" },
+    { key: "uob-one", label: "+ UOB One" },
+    { key: "maribank", label: "+ MariBank" },
+    { key: "gxs", label: "+ GXS" },
+    { key: "ssb", label: "+ MAS SSB" },
+    { key: "tbills", label: "+ 6M T-Bills" },
+    { key: "custom", label: "+ Custom Bank" },
+  ];
+
+  const presetOptions = (selectedKey) =>
+    presets
+      .map(
+        (pr) =>
+          `<option value="${pr.key}"${pr.key === selectedKey ? " selected" : ""}>${escapeAttr(pr.name || pr.label)}</option>`,
+      )
+      .join("");
+
+  return `<div class="cash-acc-editor" data-cash-acc-context="${context}">
+    <div class="cash-acc-mode-bar">
+      <div class="cash-acc-mode-copy">
+        <h3>${isQe ? "SSB / T-Bills / High-Yield Cash Accounts" : "Multi-Account Tiered Cash &amp; SSB Breakdown"}</h3>
+        <p>${
+          isQe
+            ? "Split your cash across banks &amp; SSBs to calculate your exact tiered effective interest rate (EIR) and $100k bonus caps."
+            : "Model multiple bank accounts with realistic bonus caps (e.g. first $100k in DBS Multiplier @ 2.0% + excess @ 0.05% base). Your blended effective interest rate (EIR) feeds directly into your retirement trajectory and Tap 4 income."
+        }</p>
+      </div>
+      <div class="fin-segmented-tabs cash-acc-mode-tabs" data-seg-idx="${active ? 1 : 0}" style="--seg-idx:${active ? 1 : 0};--seg-count:2" role="group" aria-label="Cash bucket entry mode">
+        <button type="button" class="fin-seg-tab${!active ? " is-active" : ""}" data-cash-acc-mode="single" aria-pressed="${!active}">Single figure</button>
+        <button type="button" class="fin-seg-tab${active ? " is-active" : ""}" data-cash-acc-mode="itemized" aria-pressed="${active}">By account${active && bd ? ` (${bd.accountCount})` : ""}</button>
+      </div>
+    </div>
+    ${
+      !active
+        ? `<div class="cash-acc-single-prompt">
+            <div class="cash-acc-single-copy">
+              <span>Currently using a single cash / SSB figure (<strong>${m(cp.currentCash)}</strong>). Have multiple accounts or balances above a bank’s $100,000 bonus cap? Break them down to compute your exact tiered EIR and test 1-click overflow sweeps.</span>
+            </div>
+            <div class="cash-acc-quick-bar">
+              <button type="button" class="button button-small button-accent" data-cash-acc-mode="itemized">Break down accounts →</button>
+              ${quickPresets
+                .slice(0, 5)
+                .map(
+                  (qp) =>
+                    `<button type="button" class="cash-acc-chip" data-cash-acc-add="${qp.key}">${qp.label}</button>`,
+                )
+                .join("")}
+            </div>
+          </div>`
+        : `<div class="cash-acc-summary-strip" id="cash-acc-summary-${context}">
+            ${buildCashAccountsSummaryHTML(bd)}
+          </div>
+          <div class="cash-acc-alerts-wrap" id="cash-acc-alerts-${context}">
+            ${buildCashAccountsAlertsHTML(bd)}
+          </div>
+          <div class="cash-acc-list" role="region" aria-label="Itemized bank and SSB accounts">
+            ${bd.accounts
+              .map((acc, idx) => {
+                const isFlatVehicle =
+                  acc.preset === "ssb" ||
+                  acc.preset === "tbills" ||
+                  acc.preset === "mmf";
+                const isCustomPreset = acc.preset === "custom";
+                return `<div class="cash-acc-row${acc.hasOverflow ? " is-overflow" : ""}" data-cash-acc-row="${idx}">
+                  <div class="cash-acc-row-top${isCustomPreset ? " is-custom-preset" : ""}">
+                    <div class="cash-acc-col is-preset">
+                      <label for="cash-acc-preset-${context}-${idx}">Bank / Vehicle</label>
+                      <div class="input-wrap select-wrap">
+                        <select id="cash-acc-preset-${context}-${idx}" data-cash-acc-field="preset" data-cash-acc-idx="${idx}">
+                          ${presetOptions(acc.preset)}
+                        </select>
+                      </div>
+                    </div>
+                    ${
+                      isCustomPreset
+                        ? `<div class="cash-acc-col is-name">
+                            <label for="cash-acc-name-${context}-${idx}">Bank / Account Name</label>
+                            <div class="input-wrap">
+                              <input id="cash-acc-name-${context}-${idx}" type="text" maxlength="50" data-cash-acc-field="name" data-cash-acc-idx="${idx}" value="${escapeAttr(acc.name)}" placeholder="e.g. HSBC / CIMB" />
+                            </div>
+                          </div>`
+                        : ""
+                    }
+                    <div class="cash-acc-col is-balance">
+                      <label for="cash-acc-bal-${context}-${idx}">Balance ($)</label>
+                      <div class="input-wrap">
+                        <span>$</span>
+                        <input id="cash-acc-bal-${context}-${idx}" type="number" min="0" max="100000000" step="any" inputmode="decimal" data-cash-acc-field="balance" data-cash-acc-idx="${idx}" value="${acc.balance}" />
+                      </div>
+                    </div>
+                    <div class="cash-acc-col is-remove">
+                      <button type="button" class="exp-remove-btn cash-acc-remove-btn" data-cash-acc-remove="${idx}" aria-label="Remove ${escapeAttr(acc.name)}" title="Remove account">×</button>
+                    </div>
+                  </div>
+                  <div class="cash-acc-row-rules${isFlatVehicle ? " is-flat" : ""}">
+                    ${
+                      isFlatVehicle
+                        ? `<div class="cash-acc-col is-rate">
+                            <label for="cash-acc-bonus-${context}-${idx}">${acc.preset === "ssb" ? "10-Yr Avg Yield" : "Annual Yield"}</label>
+                            <div class="input-wrap">
+                              <input id="cash-acc-bonus-${context}-${idx}" type="number" min="0" max="20" step="0.05" inputmode="decimal" data-cash-acc-field="bonusRatePct" data-cash-acc-idx="${idx}" value="${acc.bonusRatePct}" />
+                              <span>%</span>
+                            </div>
+                          </div>
+                          <div class="cash-acc-flat-meta">
+                            <span>${
+                              acc.preset === "ssb"
+                                ? "AAA Singapore Gov · $200,000 MAS individual holding limit across all SSB tranches"
+                                : acc.preset === "tbills"
+                                  ? "AAA Singapore Gov · No individual holding limit · 6M / 1Y auction cut-off"
+                                  : "Institutional SGD Money Market Fund · Uncapped (non-SDIC custodian)"
+                            }</span>
+                          </div>`
+                        : `<div class="cash-acc-col is-cap">
+                            <label for="cash-acc-cap-${context}-${idx}" title="Max balance earning the bonus rate (enter 0 for uncapped)">Bonus Cap ($)</label>
+                            <div class="input-wrap">
+                              <span>$</span>
+                              <input id="cash-acc-cap-${context}-${idx}" type="number" min="0" max="100000000" step="1000" inputmode="numeric" data-cash-acc-field="bonusCap" data-cash-acc-idx="${idx}" value="${acc.bonusCap}" placeholder="0 = none" />
+                            </div>
+                          </div>
+                          <div class="cash-acc-col is-rate">
+                            <label for="cash-acc-bonus-${context}-${idx}" title="Interest rate on balance up to the bonus cap">Rate up to Cap</label>
+                            <div class="input-wrap">
+                              <input id="cash-acc-bonus-${context}-${idx}" type="number" min="0" max="20" step="0.05" inputmode="decimal" data-cash-acc-field="bonusRatePct" data-cash-acc-idx="${idx}" value="${acc.bonusRatePct}" />
+                              <span>%</span>
+                            </div>
+                          </div>
+                          <div class="cash-acc-col is-rate">
+                            <label for="cash-acc-base-${context}-${idx}" title="Base interest rate on any excess balance above the bonus cap">Rate &gt; Cap</label>
+                            <div class="input-wrap">
+                              <input id="cash-acc-base-${context}-${idx}" type="number" min="0" max="20" step="0.05" inputmode="decimal" data-cash-acc-field="baseRatePct" data-cash-acc-idx="${idx}" value="${acc.baseRatePct}" />
+                              <span>%</span>
+                            </div>
+                          </div>`
+                    }
+                  </div>
+                  <div class="cash-acc-row-readout" data-cash-acc-readout="${idx}">
+                    ${buildCashAccountReadoutHTML(acc)}
+                  </div>
+                </div>`;
+              })
+              .join("")}
+          </div>
+          <div class="cash-acc-quick-bar" aria-label="Quick-add Singapore bank or sovereign cash account">
+            <span class="cash-acc-quick-label">Add account:</span>
+            ${quickPresets
+              .map(
+                (qp) =>
+                  `<button type="button" class="cash-acc-chip" data-cash-acc-add="${qp.key}">${qp.label}</button>`,
+              )
+              .join("")}
+          </div>`
+    }
+  </div>`;
+}
+
 function buildCashPlanCardHTML(cp) {
+  const bd = cp.cashBreakdown;
   return `<section class="card-surface cash-plan-card" aria-labelledby="cash-layer-title">
     <div class="rules-card-head">
       <div>
@@ -3648,14 +4169,26 @@ function buildCashPlanCardHTML(cp) {
       <div class="tax-metric-box">
         <dt>Entered SSB / Cash Bucket</dt>
         <dd>${m(cp.currentCash, "", "cash-entered")}</dd>
-        <small>Target $150,000 SSB after buffer (max ${money(cp.ssbCap)} MAS cap · ${money(cp.sdicCap)} SDIC/bank)</small>
+        <small>${
+          cp.cashAccountsActive && bd
+            ? `${bd.accountCount} account${bd.accountCount === 1 ? "" : "s"} · <strong>${bd.effectiveRatePct.toFixed(2)}% blended EIR</strong> (~${money(bd.totalMonthlyInterest)}/mo)`
+            : `Target $150,000 SSB after buffer (max ${money(cp.ssbCap)} MAS cap · ${money(cp.sdicCap)} SDIC/bank)`
+        }</small>
       </div>
       <div class="tax-metric-box">
         <dt>Monthly Cash / Bond Slice</dt>
         <dd>${m(cp.monthlyCashSlice > 0 ? cp.monthlyCashSlice : 0, "/mo", "cash-monthly-slice")}</dd>
-        <small>${cp.hasSrs ? "Idle SRS earns 0.05% — park in T-Bills/MMFs" : "From Allocator SSB / T-Bills target"}</small>
+        <small>${
+          cp.monthlyCashSaving > 0
+            ? `${money(cp.monthlyCashSaving)}/mo planned savings + ${money(cp.monthlyBondSlice || 0)}/mo bond slice`
+            : cp.hasSrs
+              ? "Idle SRS earns 0.05% — park in T-Bills/MMFs"
+              : "From Allocator SSB / T-Bills target"
+        }</small>
       </div>
     </dl>
+
+    ${buildCashAccountsEditorHTML(cp, "page")}
 
     <div class="cash-ladder-grid" aria-label="Suggested cash parking waterfall">
       ${cp.tiers
@@ -3783,6 +4316,265 @@ function buildCashParkingSection(
   `;
 }
 
+function buildDividendResultsHTML(divModel) {
+  if (!divModel) return "";
+  const realSign = divModel.realMonthlyPayout >= 0 ? "+" : "−";
+  const realRateSign = divModel.realRatePct >= 0 ? "+" : "";
+  const realToneClass =
+    divModel.realRatePct > 0.05
+      ? "is-emerald"
+      : divModel.realRatePct < -0.05
+        ? "is-danger"
+        : "is-amber";
+  const rPct = Math.max(0, divModel.ratePct);
+  const ssbFloor = Math.min(divModel.ssbRatePct, divModel.inflationPct);
+  let pinPct = 0;
+  if (rPct < ssbFloor) {
+    pinPct = (rPct / Math.max(0.1, ssbFloor)) * 18;
+  } else if (rPct < divModel.inflationPct) {
+    pinPct = 18 + ((rPct - ssbFloor) / Math.max(0.05, divModel.inflationPct - ssbFloor)) * 14;
+  } else if (rPct < 4.0) {
+    pinPct = 32 + ((rPct - divModel.inflationPct) / Math.max(0.1, 4.0 - divModel.inflationPct)) * 17;
+  } else if (rPct <= 6.0) {
+    pinPct = 49 + ((rPct - 4.0) / 2.0) * 20;
+  } else if (rPct <= 7.5) {
+    pinPct = 69 + ((rPct - 6.0) / 1.5) * 15;
+  } else {
+    pinPct = Math.min(98, 84 + ((rPct - 7.5) / 4.5) * 16);
+  }
+  const zones = [
+    { key: "sub-floor", label: "<2.2% Bank", width: "18%" },
+    { key: "capital-preserve", label: "2.2–2.5% SSB", width: "14%" },
+    { key: "safe-floor", label: "2.5–4% CPF", width: "17%" },
+    { key: "sweet-spot", label: "4–6% SG Div", width: "20%" },
+    { key: "elevated", label: "6–7.5% High", width: "15%" },
+    { key: "yield-trap", label: ">7.5% Trap", width: "16%" },
+  ];
+
+  return `
+    <div class="div-payout-hero">
+      <div class="div-payout-main">
+        <span class="div-payout-eyebrow">Monthly Passive Income</span>
+        <strong class="div-payout-amount" id="div-monthly-readout">${centsHtml(divModel.monthlyPayout)}<span>/mo</span></strong>
+        <p class="div-payout-sub">From <strong>${m(divModel.capital)}</strong> principal at <strong>${divModel.ratePct.toFixed(2)}% p.a.</strong> (~<strong>${centsHtml(divModel.dailyPayout)}/day</strong>)</p>
+      </div>
+      <div class="div-payout-subgrid">
+        <div class="div-payout-stat">
+          <span>Annual Payout</span>
+          <strong id="div-annual-readout">${m(divModel.annualPayout, "/yr")}</strong>
+          <small>12 months gross</small>
+        </div>
+        <div class="div-payout-stat">
+          <span>Quarterly Payout</span>
+          <strong id="div-quarterly-readout">${m(divModel.quarterlyPayout, "/qtr")}</strong>
+          <small>Every 3 months</small>
+        </div>
+        <div class="div-payout-stat">
+          <span>After ${divModel.inflationPct.toFixed(1)}% Inflation</span>
+          <strong class="${realToneClass}" id="div-real-readout">${realSign}${m(Math.abs(divModel.realMonthlyPayout), "/mo")}</strong>
+          <small>${realRateSign}${divModel.realRatePct.toFixed(2)}% real purchasing power</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="div-verdict-card is-${divModel.tone}" id="div-verdict-card" role="status" aria-live="polite">
+      <div class="div-verdict-head">
+        <span class="status-pill is-${divModel.tone}" id="div-verdict-badge">${divModel.badge}</span>
+        <h3 id="div-verdict-headline">${divModel.headline}</h3>
+      </div>
+      <p class="div-verdict-summary" id="div-verdict-summary">${divModel.summary}</p>
+      <div class="div-spectrum-wrap" aria-label="Singapore yield benchmark spectrum from 0% to 10%+">
+        <div class="div-spectrum-track">
+          ${zones
+            .map(
+              (z) =>
+                `<div class="div-spectrum-zone is-${z.key}${divModel.tierKey === z.key ? " is-current" : ""}" style="width:${z.width}"><span>${z.label}</span></div>`,
+            )
+            .join("")}
+          <div class="div-spectrum-pin" style="left:${pinPct.toFixed(1)}%" title="Your rate: ${divModel.ratePct.toFixed(2)}%">
+            <span>${divModel.ratePct.toFixed(2)}%</span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function buildDividendBenchmarksHTML(divModel) {
+  if (!divModel?.benchmarks) return "";
+  return `
+    <div class="rules-card-head">
+      <div>
+        <h2 id="div-bench-title">How ${m(divModel.capital)} Performs Across Singapore Yield Tiers</h2>
+        <p>Compare each Singapore benchmark tier against your selected <strong>${divModel.ratePct.toFixed(2)}% p.a.</strong> (${centsHtml(divModel.monthlyPayout)}/mo).</p>
+      </div>
+      <span class="fin-target-pill">Capital: ${m(divModel.capital)}</span>
+    </div>
+    <div class="table-scroll">
+      <table class="ember-ledger-table div-bench-table" aria-label="Singapore yield benchmark comparison">
+        <thead>
+          <tr>
+            <th scope="col">Singapore Benchmark Tier</th>
+            <th scope="col">Assessment</th>
+            <th scope="col" class="num-col">Ref Yield</th>
+            <th scope="col" class="num-col">Monthly Payout</th>
+            <th scope="col" class="num-col">Annual Payout</th>
+            <th scope="col" class="num-col">Real Yield</th>
+            <th scope="col" class="num-col">vs Your ${divModel.ratePct.toFixed(2)}%</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${divModel.benchmarks
+            .map((b) => {
+              const isMatched = Math.abs(b.ratePct - divModel.ratePct) < 0.015;
+              const tierVsYours = b.monthlyPayout - divModel.monthlyPayout;
+              const diffStr =
+                Math.abs(tierVsYours) < 0.01 || isMatched
+                  ? `<span class="div-your-rate-pill">Your rate</span>`
+                  : tierVsYours > 0
+                    ? `+${centsHtml(tierVsYours)}/mo`
+                    : `−${centsHtml(Math.abs(tierVsYours))}/mo`;
+              const diffClass =
+                Math.abs(tierVsYours) < 0.01 || isMatched
+                  ? ""
+                  : tierVsYours > 0
+                    ? "is-emerald"
+                    : "is-muted-diff";
+              const realSign = b.realRatePct >= 0 ? "+" : "";
+              const realClass =
+                b.realRatePct > 0.05
+                  ? "is-emerald"
+                  : b.realRatePct < -0.05
+                    ? "is-danger-text"
+                    : "";
+              return `<tr class="${isMatched ? "is-selected is-active-row" : b.isClosest ? "is-closest-row" : ""}">
+                <td>
+                  <div class="div-bench-name">
+                    <strong>${b.label}</strong>
+                    <small>${b.sub}</small>
+                  </div>
+                </td>
+                <td>
+                  <span class="status-pill is-${b.tone} div-tier-pill">${b.verdictShort}</span>
+                </td>
+                <td class="num-col"><span class="div-rate-badge">${b.ratePct.toFixed(2)}%</span></td>
+                <td class="num-col"><strong class="div-mo-val">${centsHtml(b.monthlyPayout)}<span>/mo</span></strong></td>
+                <td class="num-col">${m(b.annualPayout, "/yr")}</td>
+                <td class="num-col ${realClass}">${realSign}${b.realRatePct.toFixed(2)}%</td>
+                <td class="num-col ${diffClass}">${diffStr}</td>
+              </tr>`;
+            })
+            .join("")}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function buildDividendCalculatorSection(divModel, bogle, r) {
+  if (!divModel) return "";
+  const sgDivBal = Math.round(bogle?.buckets?.sgDividends || 0);
+  const liquidBal = Math.round(r?.savings || 0);
+  const capPresets = [
+    { val: 10000, label: "$10k" },
+    { val: 50000, label: "$50k" },
+    { val: 100000, label: "$100k" },
+    { val: 250000, label: "$250k" },
+    { val: 500000, label: "$500k" },
+    { val: 1000000, label: "$1M" },
+  ];
+  if (sgDivBal > 0 && !capPresets.some((p) => p.val === sgDivBal)) {
+    capPresets.push({ val: sgDivBal, label: `My SG Sleeve (${money(sgDivBal)})` });
+  }
+  if (liquidBal > 0 && !capPresets.some((p) => p.val === liquidBal)) {
+    capPresets.push({ val: liquidBal, label: `My Liquid Portfolio (${money(liquidBal)})` });
+  }
+
+  const ratePresets = [
+    { val: 0.05, label: "0.05% Bank Base" },
+    { val: Number(divModel.ssbRatePct.toFixed(2)), label: `${divModel.ssbRatePct.toFixed(2)}% MAS SSB` },
+    { val: 2.5, label: "2.5% CPF OA" },
+    { val: 4.0, label: "4.0% CPF SA" },
+    { val: 5.0, label: "5.0% SG Banks" },
+    { val: 6.0, label: "6.0% SG REITs" },
+    { val: 8.0, label: "8.0% High Yield" },
+  ];
+
+  return `
+    <nav class="ui-breadcrumb" aria-label="Breadcrumb">
+      <button type="button" class="ui-breadcrumb-link" data-go-tab="overview">Overview</button>
+      <span class="ui-breadcrumb-sep" aria-hidden="true">/</span>
+      <span class="ui-breadcrumb-cur" aria-current="page">Dividend &amp; Yield Calculator</span>
+    </nav>
+    <header class="ember-page-header fin-page-header">
+      <div class="fin-header-copy">
+        <h1>Dividend &amp; Passive Yield Calculator</h1>
+        <p class="cash-page-sub">Enter any capital sum and interest or dividend rate to see your monthly passive income and whether that yield is good or bad against Singapore benchmarks.</p>
+      </div>
+      <div class="ember-header-meta">
+        <span class="status-pill is-${divModel.tone}" id="div-header-badge">${divModel.badge} · ${divModel.ratePct.toFixed(2)}%</span>
+      </div>
+    </header>
+
+    <section class="card-surface rules-card div-calc-card" id="dividend-calculator-card" aria-labelledby="div-calc-heading">
+      <div class="div-calc-grid">
+        <div class="div-calc-controls">
+          <div class="div-control-block">
+            <div class="div-control-label-row">
+              <label for="div-calc-capital" id="div-calc-heading">Capital / Principal Amount</label>
+              <span class="div-control-hint">Lump sum invested</span>
+            </div>
+            <div class="div-input-stepper-row">
+              <button type="button" class="div-step-btn" data-div-cap-step="-10000" aria-label="Decrease capital by $10,000">−$10k</button>
+              <div class="input-prefix div-cap-input-wrap">
+                <span>$</span>
+                <input id="div-calc-capital" type="number" inputmode="numeric" min="0" max="50000000" step="1000" value="${Math.round(divModel.capital)}" aria-label="Capital amount in SGD" />
+              </div>
+              <button type="button" class="div-step-btn" data-div-cap-step="10000" aria-label="Increase capital by $10,000">+$10k</button>
+            </div>
+            <div class="div-chip-row" role="group" aria-label="Quick capital presets">
+              ${capPresets
+                .map((cp) => {
+                  const active = Math.round(divModel.capital) === cp.val;
+                  return `<button type="button" class="div-preset-chip${active ? " is-active" : ""}" data-div-cap-pick="${cp.val}" aria-pressed="${active}">${cp.label}</button>`;
+                })
+                .join("")}
+            </div>
+          </div>
+
+          <div class="div-control-block">
+            <div class="div-control-label-row">
+              <label for="div-calc-rate">Dividend / Interest Yield (% p.a.)</label>
+              <span class="div-control-hint">Annual percentage yield</span>
+            </div>
+            <div class="div-rate-input-row">
+              <input id="div-calc-rate-slider" class="div-rate-slider" type="range" min="0" max="12" step="0.05" value="${Math.min(12, Math.max(0, divModel.ratePct))}" aria-label="Dividend or interest yield slider" />
+              <div class="input-suffix div-rate-num-wrap">
+                <input id="div-calc-rate" type="number" inputmode="decimal" min="0" max="25" step="0.05" value="${Number(divModel.ratePct.toFixed(2))}" aria-label="Annual yield percentage" />
+                <span>% p.a.</span>
+              </div>
+            </div>
+            <div class="div-chip-row" role="group" aria-label="Singapore benchmark yield presets">
+              ${ratePresets
+                .map((rp) => {
+                  const active = Math.abs(divModel.ratePct - rp.val) < 0.015;
+                  return `<button type="button" class="div-preset-chip${active ? " is-active" : ""}" data-div-rate-pick="${rp.val}" aria-pressed="${active}">${rp.label}</button>`;
+                })
+                .join("")}
+            </div>
+          </div>
+        </div>
+
+        <div class="div-calc-results" id="div-calc-results-pane">
+          ${buildDividendResultsHTML(divModel)}
+        </div>
+      </div>
+    </section>
+
+    <section class="card-surface rules-card div-bench-card" id="dividend-benchmarks-card" aria-labelledby="div-bench-title">
+      ${buildDividendBenchmarksHTML(divModel)}
+    </section>
+  `;
+}
+
 function formatDobShort(dobStr) {
   const info = RetirementModel.computeAgeFromDob(dobStr);
   if (!info.valid) return "";
@@ -3848,6 +4640,8 @@ function setupSimplePlan() {
     housingParties: "known-housing-parties",
     housing: "known-housing",
     retire: "known-retire",
+    cashSaving: "known-cash-saving",
+    cashReturnRate: "known-cash-return",
     invest: "known-invest",
     plan: "known-plan",
     returnRate: "known-return",
@@ -3858,6 +4652,7 @@ function setupSimplePlan() {
   const overviewSlot = $("#overview-slot");
   const allocatorSlot = $("#allocator-slot");
   const cashParkingSlot = $("#cash-parking-slot");
+  const dividendCalcSlot = $("#dividend-calc-slot");
   const taxSlot = $("#tax-slot");
   const cpfRulesSlot = $("#cpf-rules-slot");
   const errorBanner = $("#plan-error-banner");
@@ -3873,6 +4668,8 @@ function setupSimplePlan() {
   let currentCashPlan = null;
   let liveMasRates = null;
   let cashParkingFilter = "all";
+  let divCalcCapital = 100000;
+  let divCalcRatePct = 5.0;
   let cashParkingSearch = "";
   let cashParkingTag = "all";
   let cashAnimFrame = 0;
@@ -3903,6 +4700,19 @@ function setupSimplePlan() {
     Math.round(customExpenseItems.reduce((s, it) => s + it.amount, 0) * 100) /
     100;
   let newlyAddedExpId = null;
+  let useItemizedCashAccounts = false;
+  let customCashAccounts = [];
+  const clearCustomCashAccountsState = () => {
+    useItemizedCashAccounts = false;
+    customCashAccounts = [];
+  };
+  const sumCustomCashAccounts = () =>
+    Math.round(
+      customCashAccounts.reduce(
+        (s, acc) => s + Math.max(0, Number(acc.balance) || 0),
+        0,
+      ) * 100,
+    ) / 100;
   let hasCompletedInitialRender = false;
   let prevActivitySegIdx = 0;
   let prevExpSegIdx = null;
@@ -3925,6 +4735,173 @@ function setupSimplePlan() {
     }
   } catch (_) {}
 
+  const applyStateParams = (params, { resetFirst = false } = {}) => {
+    if (!params) return false;
+    if (
+      params.get("version") !== "2" ||
+      !["cca", "home-helper"].includes(params.get("lifestyle"))
+    ) {
+      return false;
+    }
+    if (resetFirst) {
+      clearCustomBudgetState();
+      clearCustomCashAccountsState();
+      Object.values(fields).forEach((id) => {
+        const el = $("#" + id);
+        if (el) el.value = el.defaultValue ?? "";
+      });
+      if ($("#person-dob")) $("#person-dob").value = DEFAULT_DOB;
+      selected = "salary";
+      learningTarget = "frs";
+      ["#sim-cash-saving", "#sim-invest", "#qe-cpf-extra", "#qe-cash-saving", "#qe-cash-return", "#qe-invest"].forEach((sel) => {
+        const el = $(sel);
+        if (el) el.value = "";
+      });
+    }
+    for (const [key, id] of Object.entries(fields)) {
+      if (params.has(key)) {
+        const el = $("#" + id);
+        if (el) {
+          if (key === "housingParties") {
+            const n = Math.min(
+              6,
+              Math.max(1, Math.round(Number(params.get(key) || 1))),
+            );
+            el.value = String(n);
+          } else if (
+            [
+              "annualBonus",
+              "oa",
+              "sa",
+              "ma",
+              "maSpend",
+              "saInvested",
+              "srs",
+              "srsAnnual",
+            ].includes(key) &&
+            Number(params.get(key)) === 0
+          ) {
+            el.value = "";
+          } else {
+            el.value = params.get(key);
+          }
+        }
+      } else if (resetFirst) {
+        const el = $("#" + id);
+        if (el && ["cpfExtra", "cashSaving", "cashReturnRate", "invest", "spend", "housing"].includes(key)) {
+          el.value = "";
+        }
+      }
+    }
+    if (!params.has("dob") && params.has("age") && $("#person-dob")) {
+      const legacyAge = Number(params.get("age"));
+      if (Number.isFinite(legacyAge) && legacyAge >= 1 && legacyAge <= 110) {
+        $("#person-dob").value = RetirementModel.defaultDobForAge(legacyAge);
+      }
+    }
+    if (!params.has("housingMode") && $("#known-housing-mode")) {
+      if (!params.has("housing") || params.get("housing") === "") {
+        $("#known-housing-mode").value = "all-oa";
+      } else if (Number(params.get("housing")) === 0) {
+        $("#known-housing-mode").value = "paid-up";
+      } else {
+        $("#known-housing-mode").value = "custom";
+      }
+    }
+    if (["brs", "frs", "ers"].includes(params.get("learningTarget")))
+      learningTarget = params.get("learningTarget");
+    if (["salary", "frs", "ers"].includes(params.get("selected"))) {
+      selected = params.get("selected");
+    }
+    if ($("#sim-cash-saving") && $("#known-cash-saving")) {
+      $("#sim-cash-saving").value = $("#known-cash-saving").value;
+    }
+    if ($("#sim-invest") && $("#known-invest")) {
+      $("#sim-invest").value = $("#known-invest").value;
+    }
+    if ($("#bogle-target-slider") && $("#known-target-equity")) {
+      $("#bogle-target-slider").value = $("#known-target-equity").value || "80";
+    }
+    if ($("#bogle-sg-slider") && $("#known-sg-sleeve")) {
+      $("#bogle-sg-slider").value = $("#known-sg-sleeve").value || "15";
+    }
+    if (params.get("expMode") === "itemized" && params.get("expItems")) {
+      try {
+        const parsed = JSON.parse(params.get("expItems"));
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          customExpenseItems = parsed
+            .filter((row) => Array.isArray(row) && row.length >= 3)
+            .map((row, idx) => ({
+              id: "exp-" + (idx + 1),
+              name: String(row[0] || "Expense " + (idx + 1)),
+              category: String(row[1] || "food"),
+              amount: Math.max(0, Number(row[2]) || 0),
+            }));
+          if (customExpenseItems.length > 0) {
+            customBudgetActive = true;
+            useItemizedExpenses = true;
+            const tot = sumCustomExpenseItems();
+            if ($("#known-spend")) $("#known-spend").value = String(tot);
+          }
+        }
+      } catch (_) {}
+    } else {
+      const restoredLife = params.get("lifestyle") || "cca";
+      const presetBudget =
+        RetirementModel.lifestyles[restoredLife]?.budget || 2800;
+      const rawSpend = (params.get("spend") || "").trim();
+      if (
+        params.get("expMode") === "figure" ||
+        (rawSpend !== "" &&
+          Number.isFinite(Number(rawSpend)) &&
+          Math.round(Number(rawSpend) * 100) !==
+            Math.round(presetBudget * 100))
+      ) {
+        customBudgetActive = true;
+        useItemizedExpenses = false;
+      }
+    }
+    if (params.get("cashMode") === "itemized" && params.get("cashItems")) {
+      try {
+        const parsedCash = JSON.parse(params.get("cashItems"));
+        if (Array.isArray(parsedCash) && parsedCash.length > 0) {
+          customCashAccounts = parsedCash
+            .filter((row) => Array.isArray(row) && row.length >= 3)
+            .map((row, idx) => {
+              const presetKey = String(row[0] || "custom");
+              const preset =
+                RetirementModel.resolveCashAccountPreset(presetKey);
+              return {
+                id: "cash-acc-" + (idx + 1),
+                preset: preset.key,
+                name: String(row[1] || preset.name),
+                balance: Math.max(0, Number(row[2]) || 0),
+                bonusCap:
+                  row[3] != null && Number.isFinite(Number(row[3]))
+                    ? Math.max(0, Number(row[3]))
+                    : preset.bonusCap,
+                bonusRatePct:
+                  row[4] != null && Number.isFinite(Number(row[4]))
+                    ? Math.max(0, Number(row[4]))
+                    : preset.bonusRatePct,
+                baseRatePct:
+                  row[5] != null && Number.isFinite(Number(row[5]))
+                    ? Math.max(0, Number(row[5]))
+                    : preset.baseRatePct,
+              };
+            });
+          if (customCashAccounts.length > 0) {
+            useItemizedCashAccounts = true;
+            const totCash = sumCustomCashAccounts();
+            if ($("#known-ssb-cash"))
+              $("#known-ssb-cash").value = String(totCash);
+          }
+        }
+      } catch (_) {}
+    }
+    return true;
+  };
+
   const restoreSavedState = () => {
     try {
       let params = null;
@@ -3934,6 +4911,7 @@ function setupSimplePlan() {
         location.hash.includes("=")
       ) {
         params = new URLSearchParams(location.hash.slice(1));
+        history.replaceState(history.state, "", location.pathname + location.search);
       } else {
         const saved = localStorage.getItem("rs_plan_state");
         if (saved) params = new URLSearchParams(JSON.parse(saved));
@@ -3945,90 +4923,20 @@ function setupSimplePlan() {
           params.set("sgSleevePct", "15");
         }
       }
-      if (
-        params.get("version") !== "2" ||
-        !["cca", "home-helper"].includes(params.get("lifestyle"))
-      ) {
+      if (!applyStateParams(params, { resetFirst: false })) {
         localStorage.removeItem("rs_plan_state");
         if (location.hash.includes("="))
           history.replaceState(null, "", location.pathname + location.search);
-        return;
-      }
-      for (const [key, id] of Object.entries(fields)) {
-        if (params.has(key)) {
-          const el = $("#" + id);
-          if (el) {
-            if (key === "housingParties") {
-              const n = Math.min(
-                6,
-                Math.max(1, Math.round(Number(params.get(key) || 1))),
-              );
-              el.value = String(n);
-            } else {
-              el.value = params.get(key);
-            }
-          }
-        }
-      }
-      if (!params.has("dob") && params.has("age") && $("#person-dob")) {
-        const legacyAge = Number(params.get("age"));
-        if (Number.isFinite(legacyAge) && legacyAge >= 1 && legacyAge <= 110) {
-          $("#person-dob").value = RetirementModel.defaultDobForAge(legacyAge);
-        }
-      }
-      if (!params.has("housingMode") && $("#known-housing-mode")) {
-        if (!params.has("housing") || params.get("housing") === "") {
-          $("#known-housing-mode").value = "all-oa";
-        } else if (Number(params.get("housing")) === 0) {
-          $("#known-housing-mode").value = "paid-up";
-        } else {
-          $("#known-housing-mode").value = "custom";
-        }
-      }
-      if (["brs", "frs", "ers"].includes(params.get("learningTarget")))
-        learningTarget = params.get("learningTarget");
-      if (["salary", "frs", "ers"].includes(params.get("selected"))) {
-        selected = params.get("selected");
-      }
-      if (params.get("expMode") === "itemized" && params.get("expItems")) {
-        try {
-          const parsed = JSON.parse(params.get("expItems"));
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            customExpenseItems = parsed
-              .filter((row) => Array.isArray(row) && row.length >= 3)
-              .map((row, idx) => ({
-                id: "exp-" + (idx + 1),
-                name: String(row[0] || "Expense " + (idx + 1)),
-                category: String(row[1] || "food"),
-                amount: Math.max(0, Number(row[2]) || 0),
-              }));
-            if (customExpenseItems.length > 0) {
-              customBudgetActive = true;
-              useItemizedExpenses = true;
-              const tot = sumCustomExpenseItems();
-              if ($("#known-spend")) $("#known-spend").value = String(tot);
-            }
-          }
-        } catch (_) {}
-      } else {
-        const restoredLife = params.get("lifestyle") || "cca";
-        const presetBudget =
-          RetirementModel.lifestyles[restoredLife]?.budget || 2800;
-        const rawSpend = (params.get("spend") || "").trim();
-        if (
-          params.get("expMode") === "figure" ||
-          (rawSpend !== "" &&
-            Number.isFinite(Number(rawSpend)) &&
-            Math.round(Number(rawSpend) * 100) !==
-              Math.round(presetBudget * 100))
-        ) {
-          customBudgetActive = true;
-          useItemizedExpenses = false;
-        }
       }
     } catch (_) {}
   };
   restoreSavedState();
+  window.addEventListener("hashchange", () => {
+    if (location.hash && location.hash.includes("=")) {
+      restoreSavedState();
+      render();
+    }
+  });
 
   let initialAnchorBoot = Boolean(
     location.hash && location.hash.length > 1 && !location.hash.includes("="),
@@ -4042,6 +4950,8 @@ function setupSimplePlan() {
         learningTarget,
         version: 2,
       };
+      delete data.cashAccounts;
+      delete data.cashAccountsActive;
       if (customBudgetActive) {
         if (useItemizedExpenses && customExpenseItems.length > 0) {
           data.expMode = "itemized";
@@ -4051,6 +4961,19 @@ function setupSimplePlan() {
         } else {
           data.expMode = "figure";
         }
+      }
+      if (useItemizedCashAccounts && customCashAccounts.length > 0) {
+        data.cashMode = "itemized";
+        data.cashItems = JSON.stringify(
+          customCashAccounts.map((acc) => [
+            acc.preset || "custom",
+            acc.name || "Cash Account",
+            Math.round((Number(acc.balance) || 0) * 100) / 100,
+            Math.round((Number(acc.bonusCap) || 0) * 100) / 100,
+            Math.round((Number(acc.bonusRatePct) || 0) * 100) / 100,
+            Math.round((Number(acc.baseRatePct) || 0) * 100) / 100,
+          ]),
+        );
       }
       const search = new URLSearchParams();
       for (const [k, v] of Object.entries(data)) {
@@ -4062,8 +4985,8 @@ function setupSimplePlan() {
       );
       if (initialAnchorBoot) {
         initialAnchorBoot = false;
-      } else {
-        history.replaceState(history.state, "", "#" + search.toString());
+      } else if (location.hash && location.hash.includes("=")) {
+        history.replaceState(history.state, "", location.pathname + location.search);
       }
     } catch (_) {}
   };
@@ -4085,9 +5008,14 @@ function setupSimplePlan() {
     "known-housing-years": { panel: "income", qeId: "qe-housing-years" },
     "known-housing-rate": { panel: "income", qeId: "qe-housing-rate" },
     "known-housing-parties": { panel: "income", qeId: "qe-housing-parties" },
-    "known-cpf-extra": { panel: "income", qeId: "qe-cpf-extra" },
-    "known-invest": { panel: "income", qeId: "qe-invest" },
-    "sim-invest": { panel: "income", qeId: "qe-invest" },
+    "known-cpf-extra": { panel: "cpf-extra", qeId: "qe-cpf-extra" },
+    "known-cash-saving": { panel: "cash-saving", qeId: "qe-cash-saving" },
+    "sim-cash-saving": { panel: "cash-saving", qeId: "qe-cash-saving" },
+    "known-cash-return": { panel: "cash-saving", qeId: "qe-cash-return" },
+    "known-invest": { panel: "invest", qeId: "qe-invest" },
+    "sim-invest": { panel: "invest", qeId: "qe-invest" },
+    "known-target-equity": { panel: "invest", qeId: "qe-target-equity" },
+    "known-sg-sleeve": { panel: "invest", qeId: "qe-sg-sleeve" },
     "known-oa": { panel: "balances", qeId: "qe-oa" },
     "known-sa": { panel: "balances", qeId: "qe-sa" },
     "known-ma": { panel: "balances", qeId: "qe-ma" },
@@ -4316,7 +5244,12 @@ function setupSimplePlan() {
       learningPlan?.monthly != null
     ) {
       selected = learningTarget === "brs" ? "salary" : learningTarget;
-      $("#known-cpf-extra").value = String(learningPlan.monthly);
+      const val = String(learningPlan.monthly);
+      $("#known-cpf-extra").value = val;
+      if ($("#qe-cpf-extra")) $("#qe-cpf-extra").value = val;
+      if ($("#known-invest")) $("#known-invest").value = "";
+      if ($("#sim-invest")) $("#sim-invest").value = "";
+      if ($("#qe-invest")) $("#qe-invest").value = "";
       render();
       return;
     }
@@ -4334,12 +5267,16 @@ function setupSimplePlan() {
       }
       return;
     }
-    const pathBtn = event.target.closest("button[data-path]");
+    const pathBtn = event.target.closest("[data-path]");
     if (pathBtn) {
       selected = pathBtn.dataset.path;
       $("#known-cpf-extra").value = "";
+      if ($("#qe-cpf-extra")) $("#qe-cpf-extra").value = "";
+      if ($("#known-invest")) $("#known-invest").value = "";
+      if ($("#sim-invest")) $("#sim-invest").value = "";
+      if ($("#qe-invest")) $("#qe-invest").value = "";
       render();
-      $(`button[data-path="${selected}"]`)?.focus({ preventScroll: true });
+      $(`[data-path="${selected}"]`)?.focus({ preventScroll: true });
       const label =
         selected === "frs"
           ? "FRS Target ($220.4k)"
@@ -4347,6 +5284,14 @@ function setupSimplePlan() {
             ? "ERS Maximum ($440.8k)"
             : "Salary CPF Baseline";
       showToast(`Active strategy path: ${label}`);
+    }
+  });
+  overviewSlot?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const pathRow = event.target.closest("tr.ledger-selectable-row[data-path]");
+    if (pathRow) {
+      event.preventDefault();
+      pathRow.click();
     }
   });
 
@@ -4559,10 +5504,22 @@ function setupSimplePlan() {
     $$("[aria-invalid='true']").forEach((el) =>
       el.removeAttribute("aria-invalid"),
     );
+    const activeCashBdPreview =
+      useItemizedCashAccounts && customCashAccounts.length > 0
+        ? RetirementModel.computeCashAccountsBreakdown(
+            customCashAccounts,
+            liveMasRates,
+          )
+        : null;
     syncCustomBudgetReset({
       customBudgetActive,
       useItemizedExpenses,
       itemizedCount: customExpenseItems.length,
+      useItemizedCashAccounts: Boolean(
+        useItemizedCashAccounts && customCashAccounts.length > 0,
+      ),
+      cashAccountsCount: customCashAccounts.length,
+      cashEffectiveRatePct: activeCashBdPreview?.effectiveRatePct ?? null,
     });
     const syncDobAgeUi = (dobValue) => {
       const info = RetirementModel.computeAgeFromDob(dobValue || "");
@@ -4616,9 +5573,38 @@ function setupSimplePlan() {
     };
 
     const dobAgeInfo = syncDobAgeUi($("#person-dob")?.value || "");
-    const curAgeVal = dobAgeInfo.valid ? dobAgeInfo.age : 35;
+    const curAgeVal =
+      dobAgeInfo.valid && dobAgeInfo.age >= 18 && dobAgeInfo.age <= 54
+        ? dobAgeInfo.age
+        : 35;
     const lifeMinAge = $("#known-lifestyle").value === "cca" ? 55 : 40;
-    $("#known-retire").min = String(Math.max(lifeMinAge, curAgeVal));
+    const minRetireBound = Math.max(lifeMinAge, curAgeVal);
+    $("#known-retire").min = String(minRetireBound);
+    if (
+      dobAgeInfo.valid &&
+      dobAgeInfo.age >= 18 &&
+      dobAgeInfo.age <= 54 &&
+      document.activeElement?.id !== "known-retire" &&
+      document.activeElement?.id !== "qe-retire" &&
+      !(qeDialog?.open && activeQeTab === "goal")
+    ) {
+      const retEl = $("#known-retire");
+      const rawRet = (retEl?.value || "").trim();
+      if (rawRet !== "" && !retEl.validity.valid) {
+        const numRet = Number(rawRet);
+        const clampedRet = String(
+          Math.min(
+            80,
+            Math.max(
+              minRetireBound,
+              Number.isFinite(numRet) ? Math.round(numRet) : 65,
+            ),
+          ),
+        );
+        retEl.value = clampedRet;
+        if ($("#qe-retire")) $("#qe-retire").value = clampedRet;
+      }
+    }
     const housingModeVal = $("#known-housing-mode")?.value || "all-oa";
     const p = {};
     for (const [key, id] of Object.entries(fields)) {
@@ -4705,7 +5691,11 @@ function setupSimplePlan() {
           ? val
           : key === "post55Work"
             ? val === "true"
-            : Number(val);
+            : key === "cashReturnRate"
+              ? Number(val) > 0.3
+                ? Number(val) / 100
+                : Number(val)
+              : Number(val);
     }
     syncHousingDisplay();
     if (housingModeVal === "all-oa") {
@@ -4732,6 +5722,12 @@ function setupSimplePlan() {
         p.housing = 0;
         p.housingYears = 0;
       }
+    }
+
+    if (useItemizedCashAccounts && customCashAccounts.length > 0) {
+      p.cashAccountsActive = true;
+      p.cashAccounts = customCashAccounts.map((acc) => ({ ...acc }));
+      p.ssbCash = sumCustomCashAccounts();
     }
 
     let r, simulation, fire, bogle, tax;
@@ -4783,10 +5779,10 @@ function setupSimplePlan() {
     );
     const transferDiffToday = toToday55(transferDiffNominal);
     const oaTransferSummaryTable = `<div class="timing-comparison">${[
-      ["Keep OA as-is", keepOA],
-      ["Transfer eligible OA to SA", moveOA],
+      ["Keep OA as-is", keepOA, false],
+      ["Transfer eligible OA to SA", moveOA, true],
     ]
-      .map(([label, x]) => {
+      .map(([label, x, isTransfer]) => {
         const oaLeftNom = Math.max(
           0,
           x.oaAfter55 ?? x.availableAt55 - x.cpfAt55,
@@ -4806,16 +5802,12 @@ function setupSimplePlan() {
               <div><dt>OA + SA just before 55</dt><dd>${m(toToday55(x.oa + x.sa))} <small>(${m(x.oa + x.sa)} at 55)</small></dd></div>
               <div><dt>RA funded at 55</dt><dd>${m(toToday55(x.fundedRA))} <small>(${m(x.fundedRA)} at 55)</small></dd></div>
               <div><dt>OA left after RA creation</dt><dd>${m(toToday55(oaLeftNom))} <small>(${m(oaLeftNom)} at 55)</small></dd></div>
+              <div><dt>Net interest gain at 55</dt><dd>${isTransfer && moveOA.oaTransfer > 0 ? `+${m(transferDiffToday)} <small>(+${m(transferDiffNominal)} at 55)</small>` : "$0"}</dd></div>
               <div><dt>Extra housing cash needed</dt><dd>${m(x.housingShortfallToday)} (today’s $)</dd></div>
             </dl>
           </div>`;
       })
-      .join("")}</div>
-      <p class="result-footnote">${
-        moveOA.oaTransfer > 0
-          ? `Transferring <b>${centsHtml(moveOA.oaTransfer)}</b> from OA to SA adds <b>${m(transferDiffToday)}</b> today’s $ (<b>${m(transferDiffNominal)}</b> nominal at 55) because SA compounds at 4.0%–5.0% (incl. +1% extra interest on the first $60k) vs 2.5% in OA (where monthly mortgage deductions also reduce interest-bearing OA float). Irreversible and gives $0 tax relief.`
-          : `You currently have $0 transferable OA. Any OA→SA transfer compounds at 4.0%–5.0% (incl. +1% extra interest on the first $60k combined, $20k OA cap) vs 2.5% in OA, is irreversible, and gives $0 tax relief.`
-      }</p>`;
+      .join("")}</div>`;
 
     const oaLeft55Nominal = Math.max(
       0,
@@ -4832,7 +5824,7 @@ function setupSimplePlan() {
       <div class="rules-card-head">
         <div>
           <h2 id="cpf-pos-title">CPF today → age 55, OA Interest Tap &amp; Voluntary Housing Refund</h2>
-          <p>Synced with your active ${selected === "salary" ? "Salary CPF" : selected.toUpperCase()} path${simExtraForCpf > 0 ? ` (+${m(simExtraForCpf, "/mo")} extra CPF)` : ""}, +1% extra interest tier (first $60k combined, $20k OA cap), ${rstuBracketStr}% IRAS bracket, and ${(r.inflation * 100).toFixed(1).replace(/\.0$/, "")}% inflation.</p>
+          <p>Active <strong>${selected === "salary" ? "Salary CPF" : selected.toUpperCase()}</strong> path${simExtraForCpf > 0 ? ` (+${m(simExtraForCpf, "/mo")} extra CPF)` : ""} · +1% extra interest on first $60k ($20k OA cap) · ${rstuBracketStr}% tax bracket.</p>
         </div>
         <span class="fin-target-pill">Today’s $ · Age-55 nominal</span>
       </div>
@@ -4844,21 +5836,29 @@ function setupSimplePlan() {
       </dl>
       ${oaTransferSummaryTable}
       <div class="cpf-vhr-grid">
-        <div class="cpf-vhr-box">
-          <div class="swell-tap-top">
-            <strong>Post-55 OA Interest Tap ($500k OA ≈ $1k/mo)</strong>
-            <span class="swell-slate-pill">2.5% p.a.</span>
+        <div class="timing-col cpf-vhr-box">
+          <div class="timing-col-head">
+            <h3>Post-55 OA Interest Tap</h3>
+            <span class="swell-slate-pill">2.5% p.a. liquid</span>
           </div>
-          <p>Once your Retirement Account meets cohort FRS at 55, RA already fills the $60k extra-interest cap (+2% on first $30k, +1% on next $30k). Any excess OA stays liquid and withdrawable on demand at <strong>2.5% p.a.</strong> base interest—so <strong>$500,000 OA at 55 generates $12,500/yr (~$1,042/mo ≈ $1k/mo)</strong> indefinitely without touching principal.</p>
-          <small>Your projected OA left after RA creation at 55 (${selected === "salary" ? "Salary CPF" : selected.toUpperCase()} path): <strong>${m(oaLeft55Today)}</strong> today’s $ (<strong>${m(oaLeft55Nominal)}</strong> future cash) → <strong>${m(oaInterest55Today, "/mo")}</strong> real interest (<strong>${m(oaInterest55Nominal, "/mo")}</strong> nominal).</small>
+          <dl>
+            <div><dt>Excess OA at 55 (${selected === "salary" ? "Salary CPF" : selected.toUpperCase()})</dt><dd>${m(oaLeft55Today)} <small>(${m(oaLeft55Nominal)} at 55)</small></dd></div>
+            <div><dt>Withdrawable OA interest</dt><dd>${m(oaInterest55Today, "/mo")} <small>(${m(oaInterest55Nominal, "/mo")} at 55)</small></dd></div>
+            <div><dt>$500k OA benchmark</dt><dd>$1,042/mo <small>($12,500/yr)</small></dd></div>
+            <div><dt>Withdrawal rule</dt><dd>On-demand once RA meets FRS</dd></div>
+          </dl>
         </div>
-        <div class="cpf-vhr-box">
-          <div class="swell-tap-top">
-            <strong>Voluntary Housing Refund vs. Cash RSTU ($8k)</strong>
+        <div class="timing-col cpf-vhr-box">
+          <div class="timing-col-head">
+            <h3>Voluntary Housing Refund vs. Cash RSTU</h3>
             <span class="tap-verdict-pill ${tax.maxRstu > 0 && tax.rstuTaxSaved > 0 ? "is-good" : "is-neutral"}">${tax.maxRstu > 0 && tax.rstuTaxSaved > 0 ? `RSTU Saves ${m(tax.rstuTaxSaved, "/yr")}` : "OA Liquidity"}</span>
           </div>
-          <p>If you used CPF OA for your property, you can make a <strong>Voluntary Housing Refund (VHR)</strong> in cash up to principal withdrawn + accrued 2.5% interest. At your <strong>${rstuBracketStr}%</strong> tax bracket, self Cash RSTU to SA is eligible up to <strong>${m(tax.maxRstu, "/yr")}</strong> (saving <strong>${m(tax.rstuTaxSaved, "/yr")}</strong> within your <strong>${m(tax.reliefCapRemaining)}</strong> remaining $80k relief cap).</p>
-          <small>VHR gives $0 IRAS tax relief, whereas Cash RSTU locks money in SA until 55/65. Use VHR when SA is already at FRS or when preserving post-55 OA on-demand liquidity matters most.</small>
+          <dl>
+            <div><dt>Eligible Cash RSTU (${rstuBracketStr}% bracket)</dt><dd>${m(tax.maxRstu, "/yr")} <small>(saves ${m(tax.rstuTaxSaved, "/yr")})</small></dd></div>
+            <div><dt>Remaining $80k relief cap</dt><dd>${m(tax.reliefCapRemaining)}</dd></div>
+            <div><dt>Voluntary Housing Refund (VHR)</dt><dd>2.5% OA <small>($0 tax relief)</small></dd></div>
+            <div><dt>Lock-in vs liquidity</dt><dd>RSTU locks to 55 · VHR liquid at 55</dd></div>
+          </dl>
         </div>
       </div>
     </section>`;
@@ -4893,16 +5893,24 @@ function setupSimplePlan() {
       simulation,
       p,
     );
-    const combined = simulation.cpfExtra + simulation.invest;
+    const cashSavingVal = simulation.cashSaving || 0;
+    const combined = simulation.cpfExtra + cashSavingVal + simulation.invest;
     const left = r.afterCpf - combined;
     const takeHomePct =
       r.afterCpf > 0 ? Math.round((combined / r.afterCpf) * 100) : 0;
     currentAfterCpfCap = Math.max(0, Math.floor(r.afterCpf));
     const maxStr = String(currentAfterCpfCap);
     $("#known-cpf-extra").max = maxStr;
+    if ($("#sim-cash-saving")) $("#sim-cash-saving").max = maxStr;
+    if ($("#known-cash-saving")) $("#known-cash-saving").max = maxStr;
     $("#sim-invest").max = maxStr;
     $("#known-invest").max = maxStr;
     $("#known-cpf-extra").placeholder = String(Math.ceil(simulation.cpfExtra));
+    if ($("#sim-cash-saving")) {
+      $("#sim-cash-saving").value = $("#known-cash-saving")?.value || "";
+      $("#sim-cash-saving").placeholder = "0";
+      $("#sim-cash-saving").disabled = r.retiringNow;
+    }
     $("#sim-invest").value = $("#known-invest").value;
     $("#sim-invest").placeholder = String(Math.ceil(simulation.invest));
     $("#known-cpf-extra").disabled = r.retiringNow;
@@ -4953,6 +5961,7 @@ function setupSimplePlan() {
       ...p,
       selected,
       cpfExtra: simulation.cpfExtra,
+      cashSaving: simulation.cashSaving,
       invest: simulation.invest,
     });
     const showReadiness = () => {
@@ -4999,7 +6008,7 @@ function setupSimplePlan() {
       <div class="rules-card-head">
         <div>
           <h2 id="cpf-goal-title">How to reach BRS, FRS or ERS at 55</h2>
-          <p>Personalized for your cohort (age ${r.age} → turning 55 in ${cohortYear55}, <strong>${planLabelShort}</strong> Plan, ${(r.inflation * 100).toFixed(1).replace(/\.0$/, "")}% inflation). Shown in today’s dollars with nominal age-55 sums below.</p>
+          <p>Age ${r.age} cohort (turning 55 in ${cohortYear55}) · <strong>${planLabelShort}</strong> Plan · ${(r.inflation * 100).toFixed(1).replace(/\.0$/, "")}% inflation.</p>
         </div>
         <span class="fin-target-pill">Today’s $ · Age-55 nominal</span>
       </div>
@@ -5024,12 +6033,11 @@ function setupSimplePlan() {
         <li><strong>At 55:</strong> SA closes; SA then OA fund RA up to cohort FRS (${m(lesson.cohortMilestones.frs.sumAt55)} nominal). ERS top-ups open from 55 ($0 RSTU tax relief above FRS).</li>
         ${learningTarget === "brs" ? "<li><strong>BRS property rule:</strong> Withdrawing RA above BRS requires pledging a property whose lease covers you to age 95+.</li>" : ""}
       </ul>
-      <div class="flow-actions"><button type="button" class="text-button" data-learn-apply data-go-tab="trajectory" ${lesson.monthly === null ? "disabled" : ""}>Simulate ${lesson.monthly ? m(lesson.monthly, "/mo") : "this"} CPF saving →</button></div>
     </section>`;
 
     const contribution = r.retiringNow
       ? simulation.cpfExtra + s.privateSaving
-      : simulation.cpfExtra + simulation.invest;
+      : simulation.cpfExtra + cashSavingVal + simulation.invest;
     const pctOfPay =
       r.afterCpf > 0 ? Math.round((contribution / r.afterCpf) * 100) : 0;
 
@@ -5037,6 +6045,8 @@ function setupSimplePlan() {
       const el = $("#" + id);
       if (el) lastValidFieldValues[id] = el.value;
     });
+    if ($("#sim-cash-saving"))
+      lastValidFieldValues["sim-cash-saving"] = $("#sim-cash-saving").value;
     if ($("#sim-invest"))
       lastValidFieldValues["sim-invest"] = $("#sim-invest").value;
 
@@ -5166,34 +6176,24 @@ function setupSimplePlan() {
       }
     }
 
-    if ($("#header-lifestyle-label")) {
-      $("#header-lifestyle-label").textContent =
-        `${isCustomSpend ? "Custom" : r.lifestyle === "cca" ? "Community Care" : "Home + Helper"} (${money(r.todaySpend)}/mo)`;
-    }
-    if ($("#header-lifestyle-avatar")) {
-      const av = $("#header-lifestyle-avatar");
-      av.textContent = isCustomSpend ? "$" : r.lifestyle === "cca" ? "C" : "H";
-      av.dataset.tone = isCustomSpend ? "custom" : r.lifestyle;
-    }
     $$("[data-switch-lifestyle]").forEach((item) => {
       const active =
         !isCustomSpend && item.dataset.switchLifestyle === r.lifestyle;
       item.classList.toggle("is-active", active);
-      item.setAttribute("aria-checked", String(active));
+      item.setAttribute("aria-pressed", String(active));
     });
-    const customMenuItem = $("#header-custom-item");
-    if (customMenuItem) {
-      customMenuItem.hidden = false;
-      customMenuItem.classList.toggle("is-active", isCustomSpend);
-      customMenuItem.setAttribute("aria-checked", String(isCustomSpend));
-    }
-    if ($("#header-custom-sub")) {
-      $("#header-custom-sub").textContent = isCustomSpend
-        ? `${money(r.todaySpend)}/mo · ${r.lifestyle === "cca" ? "CCA care rules" : "Home + Helper care rules"}`
-        : lastCustomSpend && lastCustomLifestyle === r.lifestyle
-          ? `${money(Number(lastCustomSpend))}/mo saved`
-          : "Set custom monthly budget…";
-    }
+    $$("[data-select-custom]").forEach((item) => {
+      item.classList.toggle("is-active", isCustomSpend);
+      item.setAttribute("aria-pressed", String(isCustomSpend));
+    });
+
+    currentCashPlan = RetirementModel.cashParkingPlan({
+      summary: r,
+      guide: simGuide,
+      params: p,
+      bogle,
+      masRates: liveMasRates,
+    });
 
     const qeErrClear = $("#qe-error");
     if (qeErrClear) {
@@ -5211,39 +6211,104 @@ function setupSimplePlan() {
     if (draggingBogleSlider) {
       const tmp = document.createElement("div");
       tmp.innerHTML = bogleHTML;
+      const newHeaderMeta = tmp.querySelector(".ember-header-meta");
+      const newHead = tmp.querySelector(".bogle-head");
       const newDonuts = tmp.querySelector(".bogle-donuts-grid");
       const newCompare = tmp.querySelector(".mix-compare-wrap");
       const newRebal = tmp.querySelector(".rebalance-directive");
+      const oldHeaderMeta = allocatorSlot.querySelector(".ember-header-meta");
+      const oldHead = allocatorSlot.querySelector(".bogle-head");
       const oldDonuts = allocatorSlot.querySelector(".bogle-donuts-grid");
       const oldCompare = allocatorSlot.querySelector(".mix-compare-wrap");
       const oldRebal = allocatorSlot.querySelector(".rebalance-directive");
+      if (newHeaderMeta && oldHeaderMeta)
+        oldHeaderMeta.replaceWith(newHeaderMeta);
+      if (newHead && oldHead) oldHead.replaceWith(newHead);
       if (newDonuts && oldDonuts) oldDonuts.replaceWith(newDonuts);
       if (newCompare && oldCompare) oldCompare.replaceWith(newCompare);
       if (newRebal && oldRebal) oldRebal.replaceWith(newRebal);
       const tRead = $("#bogle-target-readout");
       if (tRead)
-        tRead.textContent = `${bogle.holistic.targetEquityPct}% Eq / ${bogle.holistic.targetBondPct}% Bond`;
+        tRead.textContent = `${bogle.holistic.targetEquityPct}% Equity · ${bogle.holistic.targetBondPct}% Bond`;
+      if ($("#bogle-stage1-eq-bar")) $("#bogle-stage1-eq-bar").style.width = `${bogle.holistic.targetEquityPct}%`;
+      if ($("#bogle-stage1-bond-bar")) $("#bogle-stage1-bond-bar").style.width = `${bogle.holistic.targetBondPct}%`;
+      if ($("#bogle-stage2-badge")) $("#bogle-stage2-badge").textContent = `Step 2 · Inside ${bogle.holistic.targetEquityPct}% Equity`;
+      if ($("#bogle-funnel-stage-2")) $("#bogle-funnel-stage-2").classList.toggle("is-disabled-sleeve", bogle.holistic.targetEquityPct === 0);
+      if ($("#bogle-funnel-connector-text")) {
+        const eqMo = bogle.monthlyRebalance.buyGlobalMonthly + bogle.monthlyRebalance.buySgMonthly;
+        $("#bogle-funnel-connector-text").innerHTML = bogle.holistic.targetEquityPct > 0
+          ? `Subdivides your <strong>${bogle.holistic.targetEquityPct}% Equity Sleeve (${money(eqMo)}/mo)</strong> into Global vs SG Dividend`
+          : `Target Equity is <strong>0%</strong> (100% Bond) — increase Equity above 0% to activate Global / SG sleeve`;
+      }
+      const tSpan = $("#bogle-target-slider")?.parentElement?.querySelector("span");
+      if (tSpan)
+        tSpan.textContent = `% Equity (${bogle.holistic.targetBondPct}% Bond)`;
+      $$("[data-bogle-eq-preset]").forEach((btn) => {
+        const active = Number(btn.dataset.bogleEqPreset) === bogle.holistic.targetEquityPct;
+        btn.classList.toggle("is-active", active);
+        btn.setAttribute("aria-pressed", String(active));
+      });
       const sRead = $("#bogle-sg-readout");
       if (sRead)
-        sRead.textContent = `${bogle.holistic.globalEquitySplitPct}% Global / ${bogle.holistic.sgEquitySplitPct}% SG`;
+        sRead.innerHTML = `${bogle.holistic.globalEquitySplitPct}% Global / ${bogle.holistic.sgEquitySplitPct}% SG <span class="bogle-of-eq">of Eq</span>`;
+      if ($("#bogle-sg-effective-pill")) {
+        $("#bogle-sg-effective-pill").textContent = `= ${Math.round(bogle.holistic.targetGlobalPct * 10) / 10}% Global · ${Math.round(bogle.holistic.targetSgPct * 10) / 10}% SG of total`;
+      }
+      const sSpan = $("#bogle-sg-slider")?.parentElement?.querySelector("span");
+      if (sSpan)
+        sSpan.textContent = `% SG (${bogle.holistic.globalEquitySplitPct}% Global)`;
+      $$("[data-bogle-sg-preset]").forEach((btn) => {
+        const active = Number(btn.dataset.bogleSgPreset) === bogle.holistic.sgSleevePct;
+        btn.classList.toggle("is-active", active);
+        btn.setAttribute("aria-pressed", String(active));
+      });
     } else {
       allocatorSlot.innerHTML = bogleHTML;
     }
 
-    currentCashPlan = RetirementModel.cashParkingPlan({
-      summary: r,
-      guide: simGuide,
-      params: p,
-      bogle,
-      masRates: liveMasRates,
-    });
     if (cashParkingSlot) {
       const existingBar = cashParkingSlot.querySelector(".cash-filter-bar");
       const existingWrap = cashParkingSlot.querySelector(".cash-cards-wrap");
       const existingPlanSlot = cashParkingSlot.querySelector(".cash-plan-slot");
       const syncPill = cashParkingSlot.querySelector(".cash-sync-pill");
+      const activeCashEl = document.activeElement;
+      const editingCashAccInPage =
+        activeCashEl &&
+        existingPlanSlot?.contains(activeCashEl) &&
+        activeCashEl.matches?.("input[data-cash-acc-field]");
       if (existingBar && existingWrap && existingPlanSlot) {
-        existingPlanSlot.innerHTML = buildCashPlanCardHTML(currentCashPlan);
+        if (editingCashAccInPage && currentCashPlan.cashBreakdown) {
+          const bd = currentCashPlan.cashBreakdown;
+          const tmp = document.createElement("div");
+          tmp.innerHTML = buildCashPlanCardHTML(currentCashPlan);
+          for (const sel of [
+            ".rules-card-head",
+            ".cash-kpi-grid",
+            ".cash-ladder-grid",
+            "#cash-acc-summary-page",
+            "#cash-acc-alerts-page",
+          ]) {
+            const oldNode = existingPlanSlot.querySelector(sel);
+            const newNode = tmp.querySelector(sel);
+            if (oldNode && newNode) oldNode.replaceWith(newNode);
+          }
+          bd.accounts.forEach((acc, idx) => {
+            const rowEl = existingPlanSlot.querySelector(
+              `[data-cash-acc-row="${idx}"]`,
+            );
+            if (rowEl) {
+              rowEl.classList.toggle("is-overflow", Boolean(acc.hasOverflow));
+            }
+            const readoutEl = existingPlanSlot.querySelector(
+              `[data-cash-acc-readout="${idx}"]`,
+            );
+            if (readoutEl) {
+              readoutEl.innerHTML = buildCashAccountReadoutHTML(acc);
+            }
+          });
+        } else {
+          existingPlanSlot.innerHTML = buildCashPlanCardHTML(currentCashPlan);
+        }
         if (syncPill && currentCashPlan.masSyncLabel) {
           syncPill.textContent = currentCashPlan.masSyncLabel;
         }
@@ -5270,6 +6335,72 @@ function setupSimplePlan() {
     }
 
     const marginalTaxPct = `${(tax.taxBefore.marginalRate * 100).toFixed(1).replace(/\.0$/, "")}%`;
+    const ssbRefPct = liveMasRates?.ssb?.tenYearAvgReturn;
+    const divModel = RetirementModel.evaluateDividendYield({
+      capital: divCalcCapital,
+      ratePct: divCalcRatePct,
+      inflationRate: r.inflation,
+      ssbRatePct: ssbRefPct,
+    });
+    if (dividendCalcSlot) {
+      const activeDivEl = document.activeElement;
+      const editingDivControl =
+        activeDivEl &&
+        dividendCalcSlot.contains(activeDivEl) &&
+        ["div-calc-capital", "div-calc-rate", "div-calc-rate-slider"].includes(
+          activeDivEl.id,
+        );
+      const resPane = dividendCalcSlot.querySelector("#div-calc-results-pane");
+      const benchCard = dividendCalcSlot.querySelector(
+        "#dividend-benchmarks-card",
+      );
+      if (editingDivControl && resPane && benchCard) {
+        resPane.innerHTML = buildDividendResultsHTML(divModel);
+        benchCard.innerHTML = buildDividendBenchmarksHTML(divModel);
+        const hdrBadge = dividendCalcSlot.querySelector("#div-header-badge");
+        if (hdrBadge) {
+          hdrBadge.className = `status-pill is-${divModel.tone}`;
+          hdrBadge.textContent = `${divModel.badge} · ${divModel.ratePct.toFixed(2)}%`;
+        }
+        if (activeDivEl.id !== "div-calc-capital") {
+          const capInp = dividendCalcSlot.querySelector("#div-calc-capital");
+          if (capInp) capInp.value = String(Math.round(divModel.capital));
+        }
+        if (activeDivEl.id !== "div-calc-rate") {
+          const rateInp = dividendCalcSlot.querySelector("#div-calc-rate");
+          if (rateInp) rateInp.value = String(Number(divModel.ratePct.toFixed(2)));
+        }
+        if (activeDivEl.id !== "div-calc-rate-slider") {
+          const rateSlider = dividendCalcSlot.querySelector(
+            "#div-calc-rate-slider",
+          );
+          if (rateSlider) {
+            rateSlider.value = String(Math.min(12, Math.max(0, divModel.ratePct)));
+          }
+        }
+        dividendCalcSlot.querySelectorAll("[data-div-cap-pick]").forEach((btn) => {
+          const active =
+            Math.round(divModel.capital) === Number(btn.dataset.divCapPick);
+          btn.classList.toggle("is-active", active);
+          btn.setAttribute("aria-pressed", String(active));
+        });
+        dividendCalcSlot.querySelectorAll("[data-div-rate-pick]").forEach((btn) => {
+          const active =
+            Math.abs(divModel.ratePct - Number(btn.dataset.divRatePick)) < 0.015;
+          btn.classList.toggle("is-active", active);
+          btn.setAttribute("aria-pressed", String(active));
+        });
+      } else {
+        dividendCalcSlot.innerHTML = buildDividendCalculatorSection(
+          divModel,
+          bogle,
+          r,
+        );
+      }
+    }
+    if ($("#nav-badge-dividend")) {
+      $("#nav-badge-dividend").textContent = `${divModel.ratePct.toFixed(1)}%`;
+    }
     taxSlot.innerHTML = `
       <header class="ember-page-header fin-page-header">
         <div class="fin-header-copy">
@@ -5476,7 +6607,14 @@ function setupSimplePlan() {
     const val = anyBucketSet ? String(Math.round(sum * 100) / 100) : "";
     if ($("#known-savings")) $("#known-savings").value = val;
   };
+  const syncCashAccountsToBucket = () => {
+    const tot = sumCustomCashAccounts();
+    if ($("#known-ssb-cash")) $("#known-ssb-cash").value = String(tot);
+    if ($("#qe-ssb-cash")) $("#qe-ssb-cash").value = String(tot);
+    syncBucketsToTotal();
+  };
   const clearBucketsOnDirectTotalEdit = () => {
+    clearCustomCashAccountsState();
     bucketIds.forEach((id) => {
       if ($("#" + id)) $("#" + id).value = "";
     });
@@ -5486,7 +6624,29 @@ function setupSimplePlan() {
     const el = $("#" + id);
     if (el) {
       el.addEventListener("input", () => {
-        if (id === "person-dob" && el.validity.badInput) return;
+        if (id === "person-dob") {
+          if (el.validity.badInput) return;
+          const dobInfo = RetirementModel.computeAgeFromDob(el.value);
+          if (dobInfo.valid && dobInfo.age >= 18 && dobInfo.age <= 54) {
+            const minR = getMinRetireAge();
+            const retEl = $("#known-retire");
+            const curR = Number(retEl?.value);
+            if (
+              retEl &&
+              retEl.value.trim() !== "" &&
+              (!Number.isFinite(curR) || curR < minR || curR > 80)
+            ) {
+              const clampedR = String(
+                Math.min(
+                  80,
+                  Math.max(minR, Number.isFinite(curR) ? Math.round(curR) : 65),
+                ),
+              );
+              retEl.value = clampedR;
+              if ($("#qe-retire")) $("#qe-retire").value = clampedR;
+            }
+          }
+        }
         if (id === "known-spend") {
           const trimmed = el.value.trim();
           if (trimmed === "") {
@@ -5498,12 +6658,18 @@ function setupSimplePlan() {
         } else if (id === "known-lifestyle") {
           clearCustomBudgetState();
         }
+        if (id === "known-ssb-cash") {
+          useItemizedCashAccounts = false;
+        }
         if (bucketIds.includes(id)) {
           syncBucketsToTotal();
         } else if (id === "known-savings") {
           clearBucketsOnDirectTotalEdit();
         } else if (id === "known-cpf-extra") {
-          const clamped = clampSavingToTakeHome(el, $("#known-invest"));
+          const clamped = clampSavingToTakeHome(el, [
+            $("#known-cash-saving"),
+            $("#known-invest"),
+          ]);
           const help = $("#cpf-extra-help");
           if (help) {
             help.textContent =
@@ -5520,6 +6686,16 @@ function setupSimplePlan() {
     }
   });
 
+  const zeroPlaceholderKeys = new Set([
+    "annualBonus",
+    "oa",
+    "sa",
+    "ma",
+    "maSpend",
+    "saInvested",
+    "srs",
+    "srsAnnual",
+  ]);
   const applyPlanObject = (planObj) => {
     if (!planObj || typeof planObj !== "object")
       throw new Error("Invalid plan format.");
@@ -5527,6 +6703,10 @@ function setupSimplePlan() {
     for (const [key, id] of Object.entries(fields)) {
       const el = $("#" + id);
       if (!el || planObj[key] == null) continue;
+      if (zeroPlaceholderKeys.has(key) && Number(planObj[key]) === 0) {
+        el.value = "";
+        continue;
+      }
       el.value = String(planObj[key]);
     }
     if (planObj.dob == null && planObj.age != null && $("#person-dob")) {
@@ -5568,6 +6748,7 @@ function setupSimplePlan() {
     lastCustomSpend = "";
     lastCustomLifestyle = "";
     clearCustomBudgetState();
+    clearCustomCashAccountsState();
     applyPlanObject(SG_DEFAULT_PLAN);
     selected = "salary";
     learningTarget = "frs";
@@ -5679,6 +6860,11 @@ function setupSimplePlan() {
     const goalPathBtn = event.target.closest("[data-goal-path]");
     if (goalPathBtn) {
       selected = goalPathBtn.dataset.goalPath;
+      $("#known-cpf-extra").value = "";
+      if ($("#qe-cpf-extra")) $("#qe-cpf-extra").value = "";
+      if ($("#known-invest")) $("#known-invest").value = "";
+      if ($("#sim-invest")) $("#sim-invest").value = "";
+      if ($("#qe-invest")) $("#qe-invest").value = "";
       render();
       return;
     }
@@ -5845,21 +7031,239 @@ function setupSimplePlan() {
       }
       return;
     }
+    const divCapPickBtn = event.target.closest("[data-div-cap-pick]");
+    if (divCapPickBtn) {
+      divCalcCapital = Math.min(
+        50000000,
+        Math.max(0, Math.round(Number(divCapPickBtn.dataset.divCapPick) || 0)),
+      );
+      render();
+      return;
+    }
+    const divCapStepBtn = event.target.closest("[data-div-cap-step]");
+    if (divCapStepBtn) {
+      const delta = Number(divCapStepBtn.dataset.divCapStep || 0);
+      divCalcCapital = Math.min(
+        50000000,
+        Math.max(0, Math.round(divCalcCapital + delta)),
+      );
+      render();
+      return;
+    }
+    const divRatePickBtn = event.target.closest("[data-div-rate-pick]");
+    if (divRatePickBtn) {
+      divCalcRatePct = Math.min(
+        25,
+        Math.max(
+          0,
+          Math.round((Number(divRatePickBtn.dataset.divRatePick) || 0) * 100) /
+            100,
+        ),
+      );
+      render();
+      return;
+    }
     const cashSyncBtn = event.target.closest("[data-cash-sync]");
     if (cashSyncBtn) {
       loadMasRates(true, cashSyncBtn);
       showToast("Checked latest MAS SSB & T-Bill reference yields");
       return;
     }
+    const openCashBdBtn = event.target.closest("[data-open-cash-breakdown]");
+    if (openCashBdBtn) {
+      event.preventDefault();
+      if (!customCashAccounts.length) {
+        const curCash = Math.max(
+          0,
+          Number($("#known-ssb-cash")?.value || 20000),
+        );
+        customCashAccounts = RetirementModel.defaultCashAccounts(
+          curCash,
+          liveMasRates,
+        );
+      }
+      useItemizedCashAccounts = true;
+      syncCashAccountsToBucket();
+      if (qeDialog && typeof qeDialog.showModal === "function") {
+        lastQeInvoker = openCashBdBtn;
+        setQuickEditPanel("balances", false);
+        if (!qeDialog.open) qeDialog.showModal();
+        render();
+        requestAnimationFrame(() => {
+          $("#qe-cash-accounts-slot")?.scrollIntoView({
+            behavior: "smooth",
+            block: "nearest",
+          });
+        });
+      } else {
+        render();
+      }
+      return;
+    }
+    const cashToggleQeBtn = event.target.closest("[data-cash-acc-toggle-qe]");
+    if (cashToggleQeBtn) {
+      if (useItemizedCashAccounts && customCashAccounts.length > 0) {
+        const tot = sumCustomCashAccounts();
+        useItemizedCashAccounts = false;
+        if ($("#known-ssb-cash")) $("#known-ssb-cash").value = String(tot);
+        if ($("#qe-ssb-cash")) $("#qe-ssb-cash").value = String(tot);
+        syncBucketsToTotal();
+        render();
+      } else {
+        if (!customCashAccounts.length) {
+          const curCash = Math.max(
+            0,
+            Number($("#known-ssb-cash")?.value || 20000),
+          );
+          customCashAccounts = RetirementModel.defaultCashAccounts(
+            curCash,
+            liveMasRates,
+          );
+        }
+        useItemizedCashAccounts = true;
+        syncCashAccountsToBucket();
+        render();
+        requestAnimationFrame(() => {
+          $("#qe-cash-accounts-slot")?.scrollIntoView({
+            behavior: "smooth",
+            block: "nearest",
+          });
+        });
+      }
+      return;
+    }
+    const cashModeBtn = event.target.closest("[data-cash-acc-mode]");
+    if (cashModeBtn) {
+      const nextMode = cashModeBtn.dataset.cashAccMode;
+      if (nextMode === "itemized") {
+        if (!customCashAccounts.length) {
+          const curCash = Math.max(
+            0,
+            Number($("#known-ssb-cash")?.value || 20000),
+          );
+          customCashAccounts = RetirementModel.defaultCashAccounts(
+            curCash,
+            liveMasRates,
+          );
+        }
+        useItemizedCashAccounts = true;
+        syncCashAccountsToBucket();
+        render();
+      } else {
+        const curTot =
+          useItemizedCashAccounts && customCashAccounts.length
+            ? sumCustomCashAccounts()
+            : Math.max(0, Number($("#known-ssb-cash")?.value || 0));
+        useItemizedCashAccounts = false;
+        if ($("#known-ssb-cash")) $("#known-ssb-cash").value = String(curTot);
+        if ($("#qe-ssb-cash")) $("#qe-ssb-cash").value = String(curTot);
+        syncBucketsToTotal();
+        render();
+      }
+      return;
+    }
+    const cashAddBtn = event.target.closest("[data-cash-acc-add]");
+    if (cashAddBtn) {
+      const presetKey = cashAddBtn.dataset.cashAccAdd || "custom";
+      const preset = RetirementModel.resolveCashAccountPreset(
+        presetKey,
+        liveMasRates,
+      );
+      if (!useItemizedCashAccounts || !customCashAccounts.length) {
+        const curCash = Math.max(0, Number($("#known-ssb-cash")?.value || 0));
+        customCashAccounts = [
+          {
+            id: "cash-acc-" + Date.now(),
+            preset: preset.key,
+            name: preset.name,
+            balance: curCash > 0 ? curCash : 10000,
+            bonusCap: preset.bonusCap,
+            bonusRatePct: preset.bonusRatePct,
+            baseRatePct: preset.baseRatePct,
+          },
+        ];
+      } else {
+        customCashAccounts.push({
+          id: "cash-acc-" + Date.now(),
+          preset: preset.key,
+          name: preset.name,
+          balance: 10000,
+          bonusCap: preset.bonusCap,
+          bonusRatePct: preset.bonusRatePct,
+          baseRatePct: preset.baseRatePct,
+        });
+      }
+      useItemizedCashAccounts = true;
+      syncCashAccountsToBucket();
+      render();
+      showToast(`Added ${preset.name}`);
+      return;
+    }
+    const cashRemBtn = event.target.closest("[data-cash-acc-remove]");
+    if (cashRemBtn) {
+      const idx = Number(cashRemBtn.dataset.cashAccRemove);
+      if (
+        Number.isInteger(idx) &&
+        idx >= 0 &&
+        idx < customCashAccounts.length
+      ) {
+        const removed = customCashAccounts[idx];
+        customCashAccounts.splice(idx, 1);
+        if (customCashAccounts.length > 0) {
+          useItemizedCashAccounts = true;
+          syncCashAccountsToBucket();
+        } else {
+          useItemizedCashAccounts = false;
+          if ($("#known-ssb-cash"))
+            $("#known-ssb-cash").value = String(removed?.balance || 0);
+          if ($("#qe-ssb-cash"))
+            $("#qe-ssb-cash").value = String(removed?.balance || 0);
+          syncBucketsToTotal();
+        }
+        render();
+      }
+      return;
+    }
+    const cashSweepBtn = event.target.closest("[data-cash-acc-sweep]");
+    if (cashSweepBtn) {
+      if (customCashAccounts.length > 0) {
+        const beforeBd = RetirementModel.computeCashAccountsBreakdown(
+          customCashAccounts,
+          liveMasRates,
+        );
+        customCashAccounts = RetirementModel.sweepCashAccountsOverflow(
+          customCashAccounts,
+          liveMasRates,
+        );
+        useItemizedCashAccounts = true;
+        syncCashAccountsToBucket();
+        render();
+        showToast(
+          `Swept ${money(beforeBd.totalOverflowBalance)} overflow to MAS SSB (+${money(beforeBd.sweepAnnualGain)}/yr → ${beforeBd.sweptEffectiveRatePct.toFixed(2)}% EIR)`,
+        );
+      }
+      return;
+    }
+    const toggleExpBodyBtn = event.target.closest("[data-toggle-exp-body]");
+    if (toggleExpBodyBtn) {
+      expCardExpanded = !expCardExpanded;
+      const bodyEl = $("#exp-card-body");
+      if (bodyEl) bodyEl.hidden = !expCardExpanded;
+      const miniRowEl = $("#exp-mini-row");
+      if (miniRowEl) miniRowEl.hidden = expCardExpanded;
+      toggleExpBodyBtn.setAttribute("aria-expanded", String(expCardExpanded));
+      const lbl = toggleExpBodyBtn.querySelector("span");
+      if (lbl) lbl.textContent = expCardExpanded ? "Hide" : "Breakdown";
+      const caret = toggleExpBodyBtn.querySelector(".exp-expand-caret");
+      if (caret) caret.classList.toggle("is-open", expCardExpanded);
+      return;
+    }
     const openExpModalBtn = event.target.closest("[data-open-expense-modal]");
     if (openExpModalBtn) {
       event.preventDefault();
-      const invoker = event.target.closest("#header-lifestyle-menu")
-        ? $("#header-lifestyle-pill") || openExpModalBtn
-        : openExpModalBtn;
       openExpenseModal(
         openExpModalBtn.dataset.openExpenseModal || "auto",
-        invoker,
+        openExpModalBtn,
       );
       return;
     }
@@ -5991,25 +7395,19 @@ function setupSimplePlan() {
       render();
       return;
     }
-    const lifePill = event.target.closest("#header-lifestyle-pill");
-    const lifeMenu = $("#header-lifestyle-menu");
-    if (lifePill && lifeMenu) {
-      const nextOpen = lifeMenu.hidden;
-      lifeMenu.hidden = !nextOpen;
-      lifePill.setAttribute("aria-expanded", String(nextOpen));
-      if (nextOpen) {
-        requestAnimationFrame(() => {
-          const activeItem =
-            lifeMenu.querySelector('[aria-checked="true"]') ||
-            lifeMenu.querySelector('[role="menuitemradio"], [role="menuitem"]');
-          activeItem?.focus({ preventScroll: true });
-        });
-      }
+    const expDropBtn = event.target.closest("#exp-card-dropdown-btn");
+    const expDropMenu = $("#exp-card-dropdown-menu");
+    if (expDropBtn && expDropMenu) {
+      const nextOpen = expDropMenu.hidden;
+      expDropMenu.hidden = !nextOpen;
+      expDropBtn.setAttribute("aria-expanded", String(nextOpen));
       return;
     }
     const selectCustomBtn = event.target.closest("[data-select-custom]");
     if (selectCustomBtn) {
-      enterCustomExpenseMode($("#header-lifestyle-pill") || selectCustomBtn);
+      if (expDropMenu) expDropMenu.hidden = true;
+      $("#exp-card-dropdown-btn")?.setAttribute("aria-expanded", "false");
+      enterCustomExpenseMode($("#exp-card-dropdown-btn") || selectCustomBtn);
       return;
     }
     const switchLifeBtn = event.target.closest("[data-switch-lifestyle]");
@@ -6029,8 +7427,8 @@ function setupSimplePlan() {
           if ($("#qe-retire")) $("#qe-retire").value = "55";
         }
       }
-      if (lifeMenu) lifeMenu.hidden = true;
-      $("#header-lifestyle-pill")?.setAttribute("aria-expanded", "false");
+      if (expDropMenu) expDropMenu.hidden = true;
+      $("#exp-card-dropdown-btn")?.setAttribute("aria-expanded", "false");
       render();
       showToast(
         nextVal === "cca"
@@ -6040,74 +7438,17 @@ function setupSimplePlan() {
       return;
     }
     if (
-      lifeMenu &&
-      !lifeMenu.hidden &&
-      !event.target.closest("#header-lifestyle-wrap")
+      expDropMenu &&
+      !expDropMenu.hidden &&
+      !event.target.closest("#exp-card-dropdown-wrap")
     ) {
-      lifeMenu.hidden = true;
-      $("#header-lifestyle-pill")?.setAttribute("aria-expanded", "false");
-    }
-  });
-
-  document.addEventListener("keydown", (event) => {
-    const lifeMenu = $("#header-lifestyle-menu");
-    const lifePill = $("#header-lifestyle-pill");
-    if (
-      event.key === "ArrowDown" &&
-      document.activeElement === lifePill &&
-      lifeMenu
-    ) {
-      event.preventDefault();
-      lifeMenu.hidden = false;
-      lifePill.setAttribute("aria-expanded", "true");
-      const first =
-        lifeMenu.querySelector('[aria-checked="true"]') ||
-        lifeMenu.querySelector('[role="menuitemradio"], [role="menuitem"]');
-      first?.focus({ preventScroll: true });
-      return;
-    }
-    if (
-      lifeMenu &&
-      !lifeMenu.hidden &&
-      lifeMenu.contains(document.activeElement)
-    ) {
-      const items = [
-        ...lifeMenu.querySelectorAll(
-          '[role="menuitemradio"]:not([hidden]), [role="menuitem"]:not([hidden])',
-        ),
-      ];
-      const idx = items.indexOf(document.activeElement);
-      if (
-        ["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key) &&
-        items.length
-      ) {
-        event.preventDefault();
-        let nextIdx = idx === -1 ? 0 : idx;
-        if (event.key === "ArrowDown") nextIdx = (idx + 1) % items.length;
-        else if (event.key === "ArrowUp")
-          nextIdx = (idx - 1 + items.length) % items.length;
-        else if (event.key === "Home") nextIdx = 0;
-        else if (event.key === "End") nextIdx = items.length - 1;
-        items[nextIdx]?.focus({ preventScroll: true });
-        return;
-      }
-    }
-    if (event.key !== "Escape") return;
-    if (lifeMenu && !lifeMenu.hidden) {
-      const wasInside = lifeMenu.contains(document.activeElement);
-      lifeMenu.hidden = true;
-      lifePill?.setAttribute("aria-expanded", "false");
-      if (wasInside) lifePill?.focus({ preventScroll: true });
+      expDropMenu.hidden = true;
+      $("#exp-card-dropdown-btn")?.setAttribute("aria-expanded", "false");
     }
   });
 
   function openExpenseModal(mode = "auto", invoker = null) {
     if (!expDialog) return;
-    const lifeMenu = $("#header-lifestyle-menu");
-    if (lifeMenu && !lifeMenu.hidden) {
-      lifeMenu.hidden = true;
-      $("#header-lifestyle-pill")?.setAttribute("aria-expanded", "false");
-    }
     if (invoker) lastExpInvoker = invoker;
     else if (!expDialog.open) lastExpInvoker = document.activeElement;
     if (!expDialog.open) {
@@ -6362,6 +7703,68 @@ function setupSimplePlan() {
     if (pill) pill.hidden = true;
   });
 
+  const handleCashAccountFieldEvent = (event) => {
+    const field = event.target?.dataset?.cashAccField;
+    if (!field) return false;
+    const idx = Number(event.target.dataset.cashAccIdx);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= customCashAccounts.length) {
+      return false;
+    }
+    const acc = customCashAccounts[idx];
+    if (field === "preset") {
+      const preset = RetirementModel.resolveCashAccountPreset(
+        event.target.value,
+        liveMasRates,
+      );
+      acc.preset = preset.key;
+      acc.name = preset.name;
+      acc.bonusCap = preset.bonusCap;
+      acc.bonusRatePct = preset.bonusRatePct;
+      acc.baseRatePct = preset.baseRatePct;
+      useItemizedCashAccounts = true;
+      syncCashAccountsToBucket();
+      render();
+      return true;
+    }
+    if (field === "name") {
+      acc.name = event.target.value;
+    } else if (field === "balance") {
+      const raw = event.target.value.trim();
+      acc.balance =
+        raw === "" ? 0 : Math.round(Math.max(0, Number(raw) || 0) * 100) / 100;
+    } else if (field === "bonusCap") {
+      const raw = event.target.value.trim();
+      acc.bonusCap =
+        raw === "" ? 0 : Math.round(Math.max(0, Number(raw) || 0) * 100) / 100;
+    } else if (field === "bonusRatePct") {
+      const raw = event.target.value.trim();
+      acc.bonusRatePct =
+        raw === ""
+          ? 0
+          : Math.round(Math.min(20, Math.max(0, Number(raw) || 0)) * 100) / 100;
+    } else if (field === "baseRatePct") {
+      const raw = event.target.value.trim();
+      acc.baseRatePct =
+        raw === ""
+          ? 0
+          : Math.round(Math.min(20, Math.max(0, Number(raw) || 0)) * 100) / 100;
+    }
+    useItemizedCashAccounts = true;
+    syncCashAccountsToBucket();
+    if (event.type === "change") {
+      render();
+    } else {
+      scheduleRender();
+    }
+    return true;
+  };
+  document.addEventListener("change", (event) => {
+    handleCashAccountFieldEvent(event);
+  });
+  document.addEventListener("input", (event) => {
+    handleCashAccountFieldEvent(event);
+  });
+
   planRoot.addEventListener("input", (event) => {
     if (event.target.id === "cash-search-input") {
       cashParkingSearch = event.target.value || "";
@@ -6381,27 +7784,56 @@ function setupSimplePlan() {
       }
       return;
     }
+    if (event.target.id === "div-calc-capital") {
+      const raw = event.target.value.trim();
+      divCalcCapital =
+        raw === ""
+          ? 0
+          : Math.min(50000000, Math.max(0, Math.round(Number(raw) || 0)));
+      scheduleRender();
+      return;
+    }
+    if (
+      event.target.id === "div-calc-rate" ||
+      event.target.id === "div-calc-rate-slider"
+    ) {
+      const raw = event.target.value.trim();
+      divCalcRatePct =
+        raw === ""
+          ? 0
+          : Math.min(
+              25,
+              Math.max(0, Math.round((Number(raw) || 0) * 100) / 100),
+            );
+      scheduleRender();
+      return;
+    }
     if (event.target.id === "bogle-target-slider") {
-      const val = Number(event.target.value);
+      const raw = event.target.value.trim();
+      if (raw === "") return;
+      const val = Math.min(100, Math.max(0, Math.round(Number(raw) || 0)));
       $("#known-target-equity").value = String(val);
       scheduleRender();
     } else if (event.target.id === "bogle-sg-slider") {
-      const val = Number(event.target.value);
+      const raw = event.target.value.trim();
+      if (raw === "") return;
+      const val = Math.min(100, Math.max(0, Math.round(Number(raw) || 0)));
       $("#known-sg-sleeve").value = String(val);
       scheduleRender();
     }
   });
 
-  const clampSavingToTakeHome = (input, otherInput) => {
+  const clampSavingToTakeHome = (input, otherInputs) => {
     const raw = input.value.trim();
     if (raw === "") return false;
     const val = Number(raw);
     if (!Number.isFinite(val) || val < 0) return false;
-    const otherManual = Math.max(
+    const list = Array.isArray(otherInputs) ? otherInputs : [otherInputs];
+    const otherManual = list.reduce(
+      (sum, el) =>
+        sum +
+        Math.max(0, el && el.value.trim() !== "" ? Number(el.value) || 0 : 0),
       0,
-      otherInput && otherInput.value.trim() !== ""
-        ? Number(otherInput.value) || 0
-        : 0,
     );
     const maxAllowed = Math.max(0, currentAfterCpfCap - otherManual);
     if (val > maxAllowed) {
@@ -6411,11 +7843,35 @@ function setupSimplePlan() {
     return false;
   };
 
+  if ($("#sim-cash-saving")) {
+    $("#sim-cash-saving").addEventListener("input", () => {
+      const clamped = clampSavingToTakeHome($("#sim-cash-saving"), [
+        $("#known-cpf-extra"),
+        $("#known-invest"),
+      ]);
+      if (clamped === false && !$("#sim-cash-saving").validity.valid) {
+        setError(
+          "Enter a monthly cash savings amount within your take-home pay, without commas or dollar signs.",
+        );
+        return;
+      }
+      if ($("#known-cash-saving")) {
+        $("#known-cash-saving").value = $("#sim-cash-saving").value;
+      }
+      render();
+      if (clamped !== false) {
+        const help = $("#sim-cash-saving-help");
+        if (help) {
+          help.textContent = `Capped at ${money(clamped)}/mo (within your ${money(currentAfterCpfCap)}/mo take-home pay).`;
+        }
+      }
+    });
+  }
   $("#sim-invest").addEventListener("input", () => {
-    const clamped = clampSavingToTakeHome(
-      $("#sim-invest"),
+    const clamped = clampSavingToTakeHome($("#sim-invest"), [
       $("#known-cpf-extra"),
-    );
+      $("#known-cash-saving"),
+    ]);
     if (clamped === false && !$("#sim-invest").validity.valid) {
       setError(
         "Enter a monthly investment amount within your take-home pay, without commas or dollar signs.",
@@ -6431,16 +7887,56 @@ function setupSimplePlan() {
       }
     }
   });
+  allocatorSlot.addEventListener("click", (event) => {
+    const eqPreset = event.target.closest("[data-bogle-eq-preset]");
+    if (eqPreset) {
+      const val = Number(eqPreset.dataset.bogleEqPreset);
+      $("#known-target-equity").value = String(val);
+      if ($("#bogle-target-slider")) $("#bogle-target-slider").value = String(val);
+      render();
+      return;
+    }
+    const sgPreset = event.target.closest("[data-bogle-sg-preset]");
+    if (sgPreset) {
+      const val = Number(sgPreset.dataset.bogleSgPreset);
+      $("#known-sg-sleeve").value = String(val);
+      if ($("#bogle-sg-slider")) $("#bogle-sg-slider").value = String(val);
+      render();
+      return;
+    }
+    const stepBtn = event.target.closest("[data-bogle-step]");
+    if (stepBtn) {
+      const targetId = stepBtn.dataset.bogleStep;
+      const delta = Number(stepBtn.dataset.delta || 0);
+      if (targetId === "bogle-target-slider") {
+        const cur = Number($("#known-target-equity").value || 80);
+        const next = Math.min(100, Math.max(0, cur + delta));
+        $("#known-target-equity").value = String(next);
+        if ($("#bogle-target-slider")) $("#bogle-target-slider").value = String(next);
+        render();
+      } else if (targetId === "bogle-sg-slider") {
+        const cur = Number($("#known-sg-sleeve").value || 15);
+        const next = Math.min(100, Math.max(0, cur + delta));
+        $("#known-sg-sleeve").value = String(next);
+        if ($("#bogle-sg-slider")) $("#bogle-sg-slider").value = String(next);
+        render();
+      }
+    }
+  });
   $("#savings-simulator").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-adjust]");
     if (!button) return;
     const input = $("#" + button.dataset.adjust);
-    const other =
-      input.id === "sim-invest" ? $("#known-cpf-extra") : $("#sim-invest");
-    const otherManual =
-      other && other.value.trim() !== ""
-        ? Math.max(0, Number(other.value) || 0)
-        : 0;
+    const others = [
+      $("#known-cpf-extra"),
+      $("#sim-cash-saving"),
+      $("#sim-invest"),
+    ].filter((el) => el && el.id !== input.id);
+    const otherManual = others.reduce(
+      (sum, el) =>
+        sum + (el.value.trim() !== "" ? Math.max(0, Number(el.value) || 0) : 0),
+      0,
+    );
     const maxAllowed = Math.max(0, currentAfterCpfCap - otherManual);
     const current =
       input.value === "" ? Number(input.placeholder) : Number(input.value);
@@ -6454,10 +7950,15 @@ function setupSimplePlan() {
       ),
     );
     if (input.id === "sim-invest") $("#known-invest").value = input.value;
+    if (input.id === "sim-cash-saving" && $("#known-cash-saving")) {
+      $("#known-cash-saving").value = input.value;
+    }
     render();
   });
   $("#sim-use-target").addEventListener("click", (event) => {
     $("#known-cpf-extra").value = "";
+    if ($("#known-cash-saving")) $("#known-cash-saving").value = "";
+    if ($("#sim-cash-saving")) $("#sim-cash-saving").value = "";
     $("#known-invest").value = "";
     render();
     flashConfirmButton(event.currentTarget, "✓ Reset to suggested");
@@ -6550,6 +8051,101 @@ function setupSimplePlan() {
     }
   });
   $("#print-plan-btn")?.addEventListener("click", triggerPrintPoster);
+
+  const exportPlanJson = (btn) => {
+    if (rafHandle != null) {
+      cancelAnimationFrame(rafHandle);
+      rafHandle = null;
+      render();
+    }
+    try {
+      const savedRaw = localStorage.getItem("rs_plan_state");
+      const stateObj = savedRaw ? JSON.parse(savedRaw) : {};
+      const jsonText = JSON.stringify(stateObj, null, 2);
+      const blob = new Blob([jsonText], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const now = new Date();
+      const dateStamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `retirement-shield-plan-${dateStamp}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      if (btn) {
+        const labelSpan = btn.querySelector("span");
+        flashConfirmButton(labelSpan || btn, "✓ Exported");
+      }
+      showToast("Exported retirement plan JSON");
+    } catch (_) {
+      showToast("Could not export retirement plan JSON");
+    }
+  };
+
+  $("#export-json-btn")?.addEventListener("click", (event) => {
+    exportPlanJson(event.currentTarget);
+  });
+
+  const importJsonInput = $("#import-json-file");
+  $("#import-json-btn")?.addEventListener("click", () => {
+    if (importJsonInput) {
+      importJsonInput.value = "";
+      importJsonInput.click();
+    }
+  });
+
+  importJsonInput?.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const rawText = await file.text();
+      const parsed = JSON.parse(rawText);
+      const rawObj =
+        parsed && typeof parsed === "object" && !Array.isArray(parsed)
+          ? parsed.state && typeof parsed.state === "object"
+            ? parsed.state
+            : parsed
+          : null;
+      if (!rawObj) throw new Error("Invalid JSON object");
+      const normalized = {};
+      for (const [k, v] of Object.entries(rawObj)) {
+        if (v == null || v === "") continue;
+        if ((k === "expItems" || k === "cashItems") && Array.isArray(v)) {
+          normalized[k] = JSON.stringify(v);
+        } else {
+          normalized[k] = String(v);
+        }
+      }
+      if (!normalized.version) normalized.version = "2";
+      if (!normalized.lifestyle) normalized.lifestyle = "cca";
+      const params = new URLSearchParams(normalized);
+      if (!applyStateParams(params, { resetFirst: true })) {
+        throw new Error("Unsupported plan format");
+      }
+      localStorage.setItem("rs_plan_version", "2");
+      localStorage.setItem(
+        "rs_plan_state",
+        JSON.stringify(Object.fromEntries(params.entries())),
+      );
+      if (! bucketIds.some((id) => ($("#" + id)?.value || "").trim() !== "") && ($("#known-savings")?.value || "").trim() !== "") {
+        // Direct total savings preserved
+      } else {
+        syncBucketsToTotal();
+      }
+      render();
+      const importBtn = $("#import-json-btn");
+      if (importBtn) {
+        const labelSpan = importBtn.querySelector("span");
+        flashConfirmButton(labelSpan || importBtn, "✓ Imported");
+      }
+      showToast("Imported retirement plan into local storage");
+    } catch (_) {
+      showToast("Invalid retirement plan JSON file");
+    } finally {
+      event.target.value = "";
+    }
+  });
   document.addEventListener("click", (event) => {
     if (event.target.closest("[data-print-trigger]")) {
       triggerPrintPoster();
@@ -6600,7 +8196,11 @@ function setupSimplePlan() {
     ["qe-housing-parties", "known-housing-parties"],
     ["qe-housing", "known-housing"],
     ["qe-cpf-extra", "known-cpf-extra"],
+    ["qe-cash-saving", "known-cash-saving"],
+    ["qe-cash-return", "known-cash-return"],
     ["qe-invest", "known-invest"],
+    ["qe-target-equity", "known-target-equity"],
+    ["qe-sg-sleeve", "known-sg-sleeve"],
     ["qe-oa", "known-oa"],
     ["qe-sa", "known-sa"],
     ["qe-ma", "known-ma"],
@@ -6618,7 +8218,10 @@ function setupSimplePlan() {
     const dobInfo = RetirementModel.computeAgeFromDob(
       $("#person-dob")?.value || "",
     );
-    const curAge = dobInfo.valid ? dobInfo.age : 35;
+    const curAge =
+      dobInfo.valid && dobInfo.age >= 18 && dobInfo.age <= 54
+        ? dobInfo.age
+        : 35;
     const lifeMin = $("#known-lifestyle")?.value === "cca" ? 55 : 40;
     return Math.max(lifeMin, curAge);
   }
@@ -6671,6 +8274,16 @@ function setupSimplePlan() {
         $("#qe-cpf-extra").placeholder = String(Math.ceil(simulation.cpfExtra));
         $("#qe-cpf-extra").disabled = r.retiringNow;
       }
+      if ($("#qe-cash-saving")) {
+        $("#qe-cash-saving").max = capStr;
+        $("#qe-cash-saving").placeholder = "0";
+        $("#qe-cash-saving").disabled = r.retiringNow;
+      }
+      if ($("#qe-cash-return") && fire) {
+        $("#qe-cash-return").placeholder = String(
+          Number(((fire.cashReturnRate ?? 0.0239) * 100).toFixed(2)),
+        );
+      }
       if ($("#qe-invest")) {
         $("#qe-invest").max = capStr;
         $("#qe-invest").placeholder = String(Math.ceil(simulation.invest));
@@ -6679,6 +8292,212 @@ function setupSimplePlan() {
       $$("[data-qe-step]").forEach((btn) => {
         btn.disabled = r.retiringNow;
       });
+
+      const rawCpfExtra = ($("#known-cpf-extra")?.value || "").trim();
+      $$("[data-qe-pick-cpf-extra]").forEach((chip) => {
+        const pick = chip.dataset.qePickCpfExtra;
+        const active =
+          pick === ""
+            ? rawCpfExtra === ""
+            : rawCpfExtra !== "" && Math.round(Number(rawCpfExtra)) === Number(pick);
+        chip.classList.toggle("is-active", active);
+        chip.setAttribute("aria-pressed", String(active));
+      });
+
+      const rawCashSaving = ($("#known-cash-saving")?.value || "").trim();
+      const curCashSaving = rawCashSaving === "" ? 0 : Math.round(Number(rawCashSaving) || 0);
+      $$("[data-qe-pick-cash-saving]").forEach((chip) => {
+        const pick = Number(chip.dataset.qePickCashSaving || 0);
+        const active = curCashSaving === pick;
+        chip.classList.toggle("is-active", active);
+        chip.setAttribute("aria-pressed", String(active));
+      });
+
+      const rawCashRate = ($("#known-cash-return")?.value || "").trim();
+      $$("[data-qe-pick-cash-rate]").forEach((chip) => {
+        const pick = chip.dataset.qePickCashRate;
+        const active =
+          pick === ""
+            ? rawCashRate === ""
+            : rawCashRate !== "" && Math.abs(Number(rawCashRate) - Number(pick)) < 0.01;
+        chip.classList.toggle("is-active", active);
+        chip.setAttribute("aria-pressed", String(active));
+      });
+
+      const rawInvest = ($("#known-invest")?.value || "").trim();
+      $$("[data-qe-pick-invest]").forEach((chip) => {
+        const pick = chip.dataset.qePickInvest;
+        const active =
+          pick === ""
+            ? rawInvest === ""
+            : rawInvest !== "" && Math.round(Number(rawInvest)) === Number(pick);
+        chip.classList.toggle("is-active", active);
+        chip.setAttribute("aria-pressed", String(active));
+      });
+
+      const rawEqVal = $("#known-target-equity")?.value;
+      const curEqPct = Math.min(100, Math.max(0, Number(rawEqVal !== undefined && rawEqVal !== "" ? rawEqVal : 80)));
+      const rawSgVal = $("#known-sg-sleeve")?.value;
+      const curSgPct = Math.min(100, Math.max(0, Number(rawSgVal !== undefined && rawSgVal !== "" ? rawSgVal : 15)));
+      const effGlobalPct = Math.round(curEqPct * (100 - curSgPct)) / 100;
+      const effSgPct = Math.round(curEqPct * curSgPct) / 100;
+      if ($("#qe-target-equity-readout")) {
+        $("#qe-target-equity-readout").textContent = `${curEqPct}% Equity · ${100 - curEqPct}% Bond`;
+      }
+      if ($("#qe-stage1-eq-bar")) {
+        $("#qe-stage1-eq-bar").style.width = `${curEqPct}%`;
+      }
+      if ($("#qe-stage1-bond-bar")) {
+        $("#qe-stage1-bond-bar").style.width = `${100 - curEqPct}%`;
+      }
+      if ($("#qe-target-equity-suffix")) {
+        $("#qe-target-equity-suffix").textContent = `% Equity (${100 - curEqPct}% Bond)`;
+      }
+      if ($("#qe-stage2-badge")) {
+        $("#qe-stage2-badge").textContent = `Step 2 · Inside ${curEqPct}% Equity`;
+      }
+      if ($("#qe-funnel-stage-2")) {
+        $("#qe-funnel-stage-2").classList.toggle("is-disabled-sleeve", curEqPct === 0);
+      }
+      if ($("#qe-sg-sleeve-readout")) {
+        $("#qe-sg-sleeve-readout").innerHTML = `${100 - curSgPct}% Global / ${curSgPct}% SG <span class="bogle-of-eq">of Eq</span>`;
+      }
+      if ($("#qe-sg-effective-pill")) {
+        $("#qe-sg-effective-pill").textContent = `= ${effGlobalPct}% Global · ${effSgPct}% SG of total`;
+      }
+      if ($("#qe-sg-sleeve-suffix")) {
+        $("#qe-sg-sleeve-suffix").textContent = `% SG (${100 - curSgPct}% Global)`;
+      }
+      $$("#quick-edit-modal [data-bogle-preset]").forEach((chip) => {
+        const field = chip.dataset.boglePreset;
+        const val = Number(chip.dataset.val);
+        const active =
+          field === "known-target-equity" ? curEqPct === val : curSgPct === val;
+        chip.classList.toggle("is-active", active);
+        chip.setAttribute("aria-pressed", String(active));
+      });
+
+      const cpfResetBtn = $("#qe-cpf-extra-reset");
+      if (cpfResetBtn) {
+        cpfResetBtn.disabled = rawCpfExtra === "";
+      }
+      const cashResetBtn = $("#qe-cash-saving-reset");
+      if (cashResetBtn) {
+        cashResetBtn.disabled = (rawCashSaving === "" || curCashSaving === 0) && rawCashRate === "";
+      }
+      const invResetBtn = $("#qe-invest-reset");
+      if (invResetBtn) {
+        invResetBtn.disabled = rawInvest === "" && curEqPct === 80 && curSgPct === 15;
+      }
+
+      const cpfSumEl = $("#qe-cpf-extra-summary");
+      if (cpfSumEl && fire) {
+        const sPath = simulation.selectedScenario
+          ? RetirementModel.todayPlan({
+              ...simulation.summary,
+              scenarios: [simulation.selectedScenario],
+            }).scenarios[0]
+          : r.scenarios.find((sc) => sc.key === selected) || r.scenarios[0];
+        const cpfExtraMo = simulation.cpfExtra || 0;
+        const annualTopUp = Math.round(cpfExtraMo * 12);
+        const rstuAnnual = Math.min(8000, annualTopUp);
+        const rstuPct = Math.min(100, Math.round((rstuAnnual / 8000) * 100));
+        cpfSumEl.innerHTML = `
+          <div class="qe-rstu-head">
+            <span>IRAS RSTU Tax Relief</span>
+            <strong>${money(rstuAnnual)} / $8,000 (${rstuPct}%)</strong>
+          </div>
+          <div class="qe-split-bar qe-rstu-bar" role="progressbar" aria-valuenow="${rstuAnnual}" aria-valuemin="0" aria-valuemax="8000" aria-label="IRAS RSTU tax relief ${money(rstuAnnual)} of $8,000 annual cap">
+            <span style="width:${rstuPct}%;background:var(--sem-cpf);"></span>
+          </div>
+          <div class="qe-rstu-scale" aria-hidden="true">
+            <span>$0</span>
+            <span>$4,000</span>
+            <span>$8,000</span>
+          </div>
+          <div class="qe-split-legend">
+            <span><i style="background:var(--sem-cpf);"></i><span>Max CPF tax relief is <strong>$8,000/yr</strong> ($667/mo) for cash top-ups to SA / RA (up to FRS).</span></span>
+            <span><i style="background:var(--primary);"></i><span>Age-55 CPF <strong>${money(sPath.balance)}</strong> · CPF LIFE (65+) <strong>${money(sPath.payout)}/mo</strong></span></span>
+          </div>`;
+      }
+
+      const cashSumEl = $("#qe-cash-saving-summary");
+      if (cashSumEl && fire) {
+        const hysaRateAnnual = fire.cashReturnRate ?? 0.0239;
+        const hysaRatePct = Number((hysaRateAnnual * 100).toFixed(2));
+        const curCash = fire.points?.[0]?.ssbCash ?? Number($("#known-ssb")?.value || 0);
+        const monthsToRet = Math.max(0, Math.round((fire.retire - fire.age) * 12));
+        const mRateCash = Math.pow(1 + hysaRateAnnual, 1 / 12) - 1;
+        const fvCashNominal =
+          mRateCash > 0
+            ? curCash * Math.pow(1 + mRateCash, monthsToRet) +
+              (simulation.cashSaving || 0) *
+                ((Math.pow(1 + mRateCash, monthsToRet) - 1) / mRateCash)
+            : curCash + (simulation.cashSaving || 0) * monthsToRet;
+        const infDisc = Math.pow(1 + (r.inflation || 0.025), Math.max(0, fire.retire - fire.age));
+        const projCash = Math.round(fvCashNominal / infDisc);
+        cashSumEl.innerHTML = `
+          <div class="qe-cash-proj-grid">
+            <div class="qe-cash-proj-item">
+              <span>Today's HYSA / SSB</span>
+              <strong>${money(curCash)}</strong>
+            </div>
+            <div class="qe-cash-proj-item">
+              <span>Monthly Addition</span>
+              <strong>+${money(simulation.cashSaving || 0)}/mo</strong>
+            </div>
+            <div class="qe-cash-proj-item is-highlight">
+              <span>Age ${fire.retire} Projection (${hysaRatePct}% p.a.)</span>
+              <strong>${money(projCash)}</strong>
+            </div>
+          </div>`;
+      }
+
+      const invSumEl = $("#qe-invest-summary");
+      if (invSumEl) {
+        const invMo = simulation.invest || 0;
+        const eqShare = Math.max(0, Math.min(100, curEqPct)) / 100;
+        const sgShare = Math.max(0, Math.min(100, curSgPct)) / 100;
+        const eqPool = invMo * eqShare;
+        const buySg = Math.round(eqPool * sgShare);
+        const buyGlobal = Math.max(0, Math.round(eqPool) - buySg);
+        const buyBond = Math.max(0, Math.round(invMo) - buyGlobal - buySg);
+        const glBarPct = Math.round(eqShare * (1 - sgShare) * 100);
+        const sgBarPct = Math.round(eqShare * sgShare * 100);
+        const bdBarPct = Math.max(0, 100 - glBarPct - sgBarPct);
+        if ($("#qe-funnel-connector-text")) {
+          $("#qe-funnel-connector-text").innerHTML = curEqPct > 0
+            ? `Subdivides your <strong>${curEqPct}% Equity Sleeve (${money(buyGlobal + buySg)}/mo)</strong> into Global vs SG Dividend`
+            : `Target Equity is <strong>0%</strong> (100% Bond) — increase Equity above 0% to activate Global / SG sleeve`;
+        }
+        invSumEl.innerHTML = `
+          <div class="qe-rstu-head">
+            <span>Final 3-Way Monthly Routing</span>
+            <strong>${money(invMo)}/mo total</strong>
+          </div>
+          <div class="qe-split-bar" aria-hidden="true">
+            <span style="width:${glBarPct}%;background:var(--primary);"></span>
+            <span style="width:${sgBarPct}%;background:#38bdf8;"></span>
+            <span style="width:${bdBarPct}%;background:var(--sem-cpf);"></span>
+          </div>
+          <div class="qe-cash-proj-grid qe-invest-route-grid">
+            <div class="qe-cash-proj-item">
+              <span><i class="qe-route-dot" style="background:var(--primary);"></i>Global Equity (${glBarPct}%)</span>
+              <strong>${money(buyGlobal)}/mo</strong>
+              <small class="qe-route-formula">${curEqPct}% Eq × ${100 - curSgPct}% Global</small>
+            </div>
+            <div class="qe-cash-proj-item">
+              <span><i class="qe-route-dot" style="background:#38bdf8;"></i>SG Dividend (${sgBarPct}%)</span>
+              <strong>${money(buySg)}/mo</strong>
+              <small class="qe-route-formula">${curEqPct}% Eq × ${curSgPct}% SG</small>
+            </div>
+            <div class="qe-cash-proj-item">
+              <span><i class="qe-route-dot" style="background:var(--sem-cpf);"></i>Bond / SSB (${bdBarPct}%)</span>
+              <strong>${money(buyBond)}/mo</strong>
+              <small class="qe-route-formula">Step 1 Bond floor</small>
+            </div>
+          </div>`;
+      }
     }
 
     if (r && fire) {
@@ -6693,6 +8512,7 @@ function setupSimplePlan() {
         readyBtn.hidden = !showReady;
         if (showReady) {
           readyBtn.dataset.readyAge = String(fn.projectedFireAge);
+          readyBtn.dataset.readyInvest = String(Math.round(simulation?.invest || 0));
           readyBtn.textContent = `Use ready age ${fn.projectedFireAge}`;
         }
       }
@@ -6741,6 +8561,51 @@ function setupSimplePlan() {
             <div><span>Outside (${m(outTot)})</span><small>${outDetail}</small></div>
           </div>`;
       }
+      const activeCashInQe =
+        useItemizedCashAccounts && customCashAccounts.length > 0;
+      const qeSingleWrap = $("#qe-cash-single-wrap");
+      if (qeSingleWrap) {
+        qeSingleWrap.hidden = activeCashInQe;
+      }
+      const qeCashBtn = $("#qe-cash-breakdown-btn");
+      if (qeCashBtn) {
+        qeCashBtn.textContent = "Break down by bank & SSB accounts →";
+      }
+      const qeCashSlot = $("#qe-cash-accounts-slot");
+      if (qeCashSlot && currentCashPlan) {
+        const activeCash =
+          useItemizedCashAccounts && customCashAccounts.length > 0;
+        const activeEl = document.activeElement;
+        const editingCashAccInQe =
+          activeEl &&
+          qeCashSlot.contains(activeEl) &&
+          activeEl.matches?.("input[data-cash-acc-field]");
+        if (editingCashAccInQe && currentCashPlan.cashBreakdown) {
+          const bd = currentCashPlan.cashBreakdown;
+          const summaryEl = qeCashSlot.querySelector("#cash-acc-summary-qe");
+          if (summaryEl) summaryEl.innerHTML = buildCashAccountsSummaryHTML(bd);
+          const alertsEl = qeCashSlot.querySelector("#cash-acc-alerts-qe");
+          if (alertsEl) alertsEl.innerHTML = buildCashAccountsAlertsHTML(bd);
+          bd.accounts.forEach((acc, idx) => {
+            const rowEl = qeCashSlot.querySelector(
+              `[data-cash-acc-row="${idx}"]`,
+            );
+            if (rowEl) {
+              rowEl.classList.toggle("is-overflow", Boolean(acc.hasOverflow));
+            }
+            const readoutEl = qeCashSlot.querySelector(
+              `[data-cash-acc-readout="${idx}"]`,
+            );
+            if (readoutEl) {
+              readoutEl.innerHTML = buildCashAccountReadoutHTML(acc);
+            }
+          });
+        } else {
+          qeCashSlot.innerHTML = activeCash
+            ? buildCashAccountsEditorHTML(currentCashPlan, "qe")
+            : "";
+        }
+      }
       const qeSummary = $("#qe-live-summary");
       if (qeSummary) {
         const funded =
@@ -6759,7 +8624,16 @@ function setupSimplePlan() {
     age: { title: "Date of Birth & Age", focus: "#qe-dob" },
     goal: { title: "Target Retirement Age", focus: "#qe-retire" },
     salary: { title: "Monthly Salary & Take-Home", focus: "#qe-salary" },
-    income: { title: "Monthly Savings & Housing", focus: "#qe-invest" },
+    "cpf-extra": { title: "Extra CPF Saving", focus: "#qe-cpf-extra" },
+    "cash-saving": {
+      title: "Monthly Planned Savings (HYSA / SSB)",
+      focus: "#qe-cash-saving",
+    },
+    invest: {
+      title: "Monthly Planned Investment (Outside Investment)",
+      focus: "#qe-invest",
+    },
+    income: { title: "CPF OA Housing Loan", focus: "#qe-housing-mode" },
     balances: { title: "CPF & Investment Balances", focus: "#qe-oa" },
   };
 
@@ -6792,14 +8666,7 @@ function setupSimplePlan() {
         openExpenseModal("auto", trigger);
         return;
       }
-      const lifeMenu = $("#header-lifestyle-menu");
-      if (lifeMenu && !lifeMenu.hidden) {
-        lifeMenu.hidden = true;
-        $("#header-lifestyle-pill")?.setAttribute("aria-expanded", "false");
-      }
-      lastQeInvoker = lifeMenu?.contains(trigger)
-        ? $("#header-lifestyle-pill") || trigger
-        : trigger;
+      lastQeInvoker = trigger;
       syncQuickEditState(null, currentFirePlan, null);
       setQuickEditPanel(
         trigger.dataset.quickEdit || "goal",
@@ -6825,6 +8692,12 @@ function setupSimplePlan() {
             Math.round(cur + Number(deltaBtn.dataset.qeRetireDelta)),
           ),
         );
+        if (qeDialog.dataset.investAutoLocked === "true") {
+          delete qeDialog.dataset.investAutoLocked;
+          if ($("#known-invest")) $("#known-invest").value = "";
+          if ($("#qe-invest")) $("#qe-invest").value = "";
+          if ($("#sim-invest")) $("#sim-invest").value = "";
+        }
         $("#known-retire").value = String(next);
         if ($("#qe-retire")) $("#qe-retire").value = String(next);
         render();
@@ -6837,6 +8710,12 @@ function setupSimplePlan() {
           80,
           Math.max(minRetire, Number(pickAgeBtn.dataset.qePickAge || 65)),
         );
+        if (qeDialog.dataset.investAutoLocked === "true") {
+          delete qeDialog.dataset.investAutoLocked;
+          if ($("#known-invest")) $("#known-invest").value = "";
+          if ($("#qe-invest")) $("#qe-invest").value = "";
+          if ($("#sim-invest")) $("#sim-invest").value = "";
+        }
         $("#known-retire").value = String(next);
         if ($("#qe-retire")) $("#qe-retire").value = String(next);
         render();
@@ -6869,8 +8748,21 @@ function setupSimplePlan() {
         return;
       }
       if (event.target.closest("#qe-use-ready-age")) {
-        const age = $("#qe-use-ready-age")?.dataset.readyAge;
+        const readyBtn = $("#qe-use-ready-age");
+        const age = readyBtn?.dataset.readyAge;
+        const readyInvest = readyBtn?.dataset.readyInvest;
         if (age) {
+          if (
+            readyInvest &&
+            Number(readyInvest) > 0 &&
+            (($("#known-invest")?.value || "").trim() === "" ||
+              qeDialog.dataset.investAutoLocked === "true")
+          ) {
+            qeDialog.dataset.investAutoLocked = "true";
+            $("#known-invest").value = readyInvest;
+            if ($("#qe-invest")) $("#qe-invest").value = readyInvest;
+            if ($("#sim-invest")) $("#sim-invest").value = readyInvest;
+          }
           $("#known-retire").value = age;
           if ($("#qe-retire")) $("#qe-retire").value = age;
           render();
@@ -6882,15 +8774,25 @@ function setupSimplePlan() {
       if (stepBtn) {
         const qeId = stepBtn.dataset.qeStep;
         const qeEl = $("#" + qeId);
-        const srcId = qeId === "qe-invest" ? "known-invest" : "known-cpf-extra";
+        const srcId =
+          qeId === "qe-invest"
+            ? "known-invest"
+            : qeId === "qe-cash-saving"
+              ? "known-cash-saving"
+              : "known-cpf-extra";
         const srcEl = $("#" + srcId);
-        const otherQe =
-          qeId === "qe-invest" ? $("#qe-cpf-extra") : $("#qe-invest");
+        const otherQes = [
+          $("#qe-cpf-extra"),
+          $("#qe-cash-saving"),
+          $("#qe-invest"),
+        ].filter((el) => el && el.id !== qeId);
         if (qeEl && srcEl) {
-          const otherVal =
-            otherQe && otherQe.value.trim() !== ""
-              ? Math.max(0, Number(otherQe.value) || 0)
-              : 0;
+          const otherVal = otherQes.reduce(
+            (sum, el) =>
+              sum +
+              (el.value.trim() !== "" ? Math.max(0, Number(el.value) || 0) : 0),
+            0,
+          );
           const maxAllowed = Math.max(0, currentAfterCpfCap - otherVal);
           const base =
             qeEl.value.trim() === ""
@@ -6910,13 +8812,137 @@ function setupSimplePlan() {
         }
         return;
       }
-      if (event.target.closest("#qe-income-reset")) {
-        if ($("#known-invest")) $("#known-invest").value = "";
+      const pickCpfBtn = event.target.closest("[data-qe-pick-cpf-extra]");
+      if (pickCpfBtn) {
+        const raw = pickCpfBtn.dataset.qePickCpfExtra;
+        const val =
+          raw === ""
+            ? ""
+            : String(Math.min(currentAfterCpfCap, Math.max(0, Number(raw) || 0)));
+        if ($("#known-cpf-extra")) $("#known-cpf-extra").value = val;
+        if ($("#qe-cpf-extra")) $("#qe-cpf-extra").value = val;
+        render();
+        return;
+      }
+      const pickCashBtn = event.target.closest("[data-qe-pick-cash-saving]");
+      if (pickCashBtn) {
+        const raw = pickCashBtn.dataset.qePickCashSaving;
+        const val = String(
+          Math.min(currentAfterCpfCap, Math.max(0, Number(raw) || 0)),
+        );
+        if ($("#known-cash-saving")) $("#known-cash-saving").value = val;
+        if ($("#sim-cash-saving")) $("#sim-cash-saving").value = val;
+        if ($("#qe-cash-saving")) $("#qe-cash-saving").value = val;
+        render();
+        return;
+      }
+      const pickCashRateBtn = event.target.closest("[data-qe-pick-cash-rate]");
+      if (pickCashRateBtn) {
+        const val = pickCashRateBtn.dataset.qePickCashRate || "";
+        if ($("#known-cash-return")) $("#known-cash-return").value = val;
+        if ($("#qe-cash-return")) $("#qe-cash-return").value = val;
+        render();
+        return;
+      }
+      const cashRateDeltaBtn = event.target.closest("[data-qe-cash-rate-delta]");
+      if (cashRateDeltaBtn) {
+        const qeEl = $("#qe-cash-return");
+        const srcEl = $("#known-cash-return");
+        if (qeEl && srcEl) {
+          const base =
+            qeEl.value.trim() === ""
+              ? Number(qeEl.placeholder || 2.39)
+              : Number(qeEl.value || 0);
+          const next = Math.min(
+            15,
+            Math.max(
+              0,
+              Math.round((base + Number(cashRateDeltaBtn.dataset.qeCashRateDelta || 0)) * 100) / 100,
+            ),
+          );
+          qeEl.value = String(next);
+          srcEl.value = String(next);
+          render();
+        }
+        return;
+      }
+      const pickInvestBtn = event.target.closest("[data-qe-pick-invest]");
+      if (pickInvestBtn) {
+        const raw = pickInvestBtn.dataset.qePickInvest;
+        const val =
+          raw === ""
+            ? ""
+            : String(Math.min(currentAfterCpfCap, Math.max(0, Number(raw) || 0)));
+        if ($("#known-invest")) $("#known-invest").value = val;
+        if ($("#sim-invest")) $("#sim-invest").value = val;
+        if ($("#qe-invest")) $("#qe-invest").value = val;
+        render();
+        return;
+      }
+      const boglePresetBtn = event.target.closest("[data-bogle-preset]");
+      if (boglePresetBtn) {
+        const field = boglePresetBtn.dataset.boglePreset;
+        const val = String(Number(boglePresetBtn.dataset.val || 0));
+        if ($("#" + field)) $("#" + field).value = val;
+        if (field === "known-target-equity" && $("#qe-target-equity")) {
+          $("#qe-target-equity").value = val;
+        }
+        if (field === "known-sg-sleeve" && $("#qe-sg-sleeve")) {
+          $("#qe-sg-sleeve").value = val;
+        }
+        render();
+        return;
+      }
+      const bogleStepBtn = event.target.closest("[data-bogle-step]");
+      if (bogleStepBtn) {
+        const field = bogleStepBtn.dataset.bogleStep;
+        const delta = Number(bogleStepBtn.dataset.delta || 0);
+        if (field === "known-target-equity") {
+          const rawCur = $("#known-target-equity")?.value; const cur = Number(rawCur !== undefined && rawCur !== "" ? rawCur : 80);
+          const next = Math.min(100, Math.max(0, cur + delta));
+          if ($("#known-target-equity")) $("#known-target-equity").value = String(next);
+          if ($("#qe-target-equity")) $("#qe-target-equity").value = String(next);
+          render();
+        } else if (field === "known-sg-sleeve") {
+          const rawCur = $("#known-sg-sleeve")?.value; const cur = Number(rawCur !== undefined && rawCur !== "" ? rawCur : 15);
+          const next = Math.min(100, Math.max(0, cur + delta));
+          if ($("#known-sg-sleeve")) $("#known-sg-sleeve").value = String(next);
+          if ($("#qe-sg-sleeve")) $("#qe-sg-sleeve").value = String(next);
+          render();
+        }
+        return;
+      }
+      if (event.target.closest("#qe-cpf-extra-reset")) {
         if ($("#known-cpf-extra")) $("#known-cpf-extra").value = "";
-        if ($("#qe-invest")) $("#qe-invest").value = "";
         if ($("#qe-cpf-extra")) $("#qe-cpf-extra").value = "";
         render();
-        flashConfirmButton($("#qe-income-reset"), "✓ Reset to suggested");
+        showToast("Extra CPF saving reset to path suggestion");
+        return;
+      }
+      if (event.target.closest("#qe-cash-saving-reset")) {
+        if ($("#known-cash-saving")) $("#known-cash-saving").value = "";
+        if ($("#sim-cash-saving")) $("#sim-cash-saving").value = "";
+        if ($("#known-cash-return")) $("#known-cash-return").value = "";
+        if ($("#qe-cash-saving")) $("#qe-cash-saving").value = "";
+        if ($("#qe-cash-return")) $("#qe-cash-return").value = "";
+        render();
+        showToast("Monthly planned savings & HYSA rate reset to default");
+        return;
+      }
+      if (event.target.closest("#qe-invest-reset")) {
+        const defEq = String(SG_DEFAULT_PLAN.targetEquityPct ?? 80);
+        const defSg = String(SG_DEFAULT_PLAN.sgSleevePct ?? 15);
+        if ($("#known-invest")) $("#known-invest").value = "";
+        if ($("#sim-invest")) $("#sim-invest").value = "";
+        if ($("#qe-invest")) $("#qe-invest").value = "";
+        if ($("#known-target-equity")) $("#known-target-equity").value = defEq;
+        if ($("#qe-target-equity")) $("#qe-target-equity").value = defEq;
+        if ($("#bogle-target-slider")) $("#bogle-target-slider").value = defEq;
+        if ($("#known-sg-sleeve")) $("#known-sg-sleeve").value = defSg;
+        if ($("#qe-sg-sleeve")) $("#qe-sg-sleeve").value = defSg;
+        if ($("#bogle-sg-slider")) $("#bogle-sg-slider").value = defSg;
+        render();
+        showToast("Outside investment & split reset to default");
         return;
       }
       if (event.target.closest("#qe-open-full-settings")) {
@@ -6938,12 +8964,23 @@ function setupSimplePlan() {
         if (qeId === "qe-dob" && qeEl.validity.badInput) {
           return;
         }
-        if (qeId === "qe-invest" || qeId === "qe-cpf-extra") {
-          const otherQe =
-            qeId === "qe-invest" ? $("#qe-cpf-extra") : $("#qe-invest");
-          const capped = clampSavingToTakeHome(qeEl, otherQe);
+        if (
+          qeId === "qe-invest" ||
+          qeId === "qe-cash-saving" ||
+          qeId === "qe-cpf-extra"
+        ) {
+          const otherQes = [
+            $("#qe-cpf-extra"),
+            $("#qe-cash-saving"),
+            $("#qe-invest"),
+          ].filter((el) => el && el.id !== qeId);
+          const capped = clampSavingToTakeHome(qeEl, otherQes);
           const hintEl = $(
-            qeId === "qe-invest" ? "#qe-invest-hint" : "#qe-cpf-extra-hint",
+            qeId === "qe-invest"
+              ? "#qe-invest-hint"
+              : qeId === "qe-cash-saving"
+                ? "#qe-cash-saving-hint"
+                : "#qe-cpf-extra-hint",
           );
           if (hintEl) {
             hintEl.textContent =
@@ -6951,7 +8988,9 @@ function setupSimplePlan() {
                 ? `Capped at ${money(capped)}/mo (within your ${money(currentAfterCpfCap)}/mo take-home pay).`
                 : qeId === "qe-invest"
                   ? "Leave blank for suggested saving target."
-                  : "Leave blank for target path suggestion.";
+                  : qeId === "qe-cash-saving"
+                    ? "Stays in cash / SSB. Separate from outside investments."
+                    : "Leave blank for target path suggestion.";
             hintEl.classList.toggle("is-capped", capped !== false);
           }
         }
@@ -6968,14 +9007,28 @@ function setupSimplePlan() {
         }
         if (qeId === "qe-dob") {
           const dobInfo = RetirementModel.computeAgeFromDob(qeEl.value);
-          if (
-            dobInfo.valid &&
-            Number($("#known-retire")?.value || 65) < getMinRetireAge()
-          ) {
-            const minR = String(getMinRetireAge());
-            $("#known-retire").value = minR;
-            if ($("#qe-retire")) $("#qe-retire").value = minR;
+          if (dobInfo.valid && dobInfo.age >= 18 && dobInfo.age <= 54) {
+            const minR = getMinRetireAge();
+            const retEl = $("#known-retire");
+            const curR = Number(retEl?.value);
+            if (
+              retEl &&
+              retEl.value.trim() !== "" &&
+              (!Number.isFinite(curR) || curR < minR || curR > 80)
+            ) {
+              const clampedR = String(
+                Math.min(
+                  80,
+                  Math.max(minR, Number.isFinite(curR) ? Math.round(curR) : 65),
+                ),
+              );
+              retEl.value = clampedR;
+              if ($("#qe-retire")) $("#qe-retire").value = clampedR;
+            }
           }
+        }
+        if (srcId === "known-ssb-cash") {
+          useItemizedCashAccounts = false;
         }
         if (bucketIds.includes(srcId)) {
           syncBucketsToTotal();
@@ -7116,6 +9169,7 @@ function setupGuidedFlow() {
     "trajectory",
     "allocator",
     "cash-parking",
+    "dividend-calc",
     "tax",
     "cpf-rules",
   ];
@@ -7124,6 +9178,7 @@ function setupGuidedFlow() {
     trajectory: "Trajectory",
     allocator: "Allocator",
     "cash-parking": "Cash Parking",
+    "dividend-calc": "Dividend & Yield",
     tax: "Tax Relief",
     "cpf-rules": "CPF Milestones",
   };
@@ -7370,6 +9425,18 @@ function setupGuidedFlow() {
     if (["cash-parking", "tab-panel-cash-parking"].includes(id)) {
       profileOpen = false;
       activeTab = "cash-parking";
+      applyViewState(false, false);
+      return;
+    }
+    if (
+      [
+        "dividend-calc",
+        "tab-panel-dividend-calc",
+        "dividend-calculator-card",
+      ].includes(id)
+    ) {
+      profileOpen = false;
+      activeTab = "dividend-calc";
       applyViewState(false, false);
       return;
     }

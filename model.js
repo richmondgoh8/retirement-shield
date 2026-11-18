@@ -1361,6 +1361,7 @@
       standardPayout * (r.plan === "escalating" ? C.escalatingRatio : 1);
     const actual = {
       ...s,
+      balance: cpfResult.fundedRA ?? s.balance,
       payout,
       standardPayout,
       payout75: payout * (r.plan === "escalating" ? 1.02 ** 10 : 1),
@@ -1389,14 +1390,20 @@
       rate,
       monthsToRetire,
     );
+    const cashSaving = r.retiringNow ? 0 : Math.max(0, Number(p.cashSaving || 0));
+    const cashRate = monthlyRate(resolveCashReturnRate(p));
     const invest = r.retiringNow ? 0 : (p.invest ?? requiredInvestment);
     actual.privateSaving = requiredInvestment;
-    actual.contributionShortfall = Math.max(0, requiredInvestment - invest);
+    actual.contributionShortfall = Math.max(
+      0,
+      requiredInvestment - invest - cashSaving,
+    );
     actual.firstShortfallAge = null;
     actual.chosenInvest = invest;
     const points = [],
       monthly = [];
     let portfolio = Number(p.savings || 0),
+      cashAccum = 0,
       depletionAge = null,
       portfolioAtRetire = portfolio;
     const retirementMonth = monthsToRetire,
@@ -1427,7 +1434,8 @@
         actual.firstShortfallAge == null
       )
         actual.firstShortfallAge = age;
-      if (m === retirementMonth) portfolioAtRetire = portfolio;
+      const totalPortfolio = portfolio + cashAccum;
+      if (m === retirementMonth) portfolioAtRetire = totalPortfolio;
       if (m % 12 === 0)
         points.push({
           age,
@@ -1436,14 +1444,32 @@
           monthlySpend,
           monthlyCPF,
           monthlyGap,
-          portfolioBalance: portfolio,
+          portfolioBalance: totalPortfolio,
         });
       if (options.monthly)
-        monthly.push({ age, portfolio, monthlySpend, monthlyCPF, monthlyGap });
+        monthly.push({
+          age,
+          portfolio: totalPortfolio,
+          monthlySpend,
+          monthlyCPF,
+          monthlyGap,
+        });
       if (m === endMonth) break;
       if (!retired) {
         portfolio = portfolio * (1 + rate) + invest;
-        investmentDeposits += invest;
+        if (cashSaving > 0) {
+          cashAccum = cashAccum * (1 + cashRate) + cashSaving;
+        }
+        investmentDeposits += invest + cashSaving;
+      } else if (cashAccum > 0) {
+        cashAccum = cashAccum * (1 + cashRate);
+        portfolio = portfolio * (1 + rate);
+        const cashDraw = Math.min(cashAccum, monthlyGap);
+        cashAccum = Math.max(0, cashAccum - cashDraw);
+        const remaining = portfolio - (monthlyGap - cashDraw);
+        if (remaining < -0.005 && depletionAge === null)
+          depletionAge = age + 1 / 12;
+        portfolio = Math.max(0, remaining);
       } else {
         const remaining = portfolio * (1 + rate) - monthlyGap;
         if (remaining < -0.005 && depletionAge === null)
@@ -1457,7 +1483,7 @@
       actual.privateTarget - portfolioAtRetire,
     );
     actual.totalFunding = s.cpfFunding + requiredInvestment;
-    actual.chosenTotal = cpfExtra + invest;
+    actual.chosenTotal = cpfExtra + cashSaving + invest;
     // An additional level cash withdrawal, not a CPF annuity or safe withdrawal rule.
     const drawMonths = Math.round((C.endAge - r.retire) * 12);
     const monthlyPortfolioIncome = drawMonths
@@ -1471,6 +1497,7 @@
       monthly,
       cpfResult,
       cpfExtra,
+      cashSaving,
       invest,
       portfolioAtRetire,
       depletionAge,
@@ -1480,7 +1507,10 @@
         portfolioAtRetire - Number(p.savings || 0) - investmentDeposits,
       payoutCapped: cpfResult.ra65 > 650100 * scale,
       cpfGoalAge: cpfResult.goalAge,
-      fullyFunded: portfolioAtRetire + 0.005 >= actual.privateTarget,
+      fullyFunded:
+        cashSaving > 0
+          ? depletionAge === null && portfolioAtRetire + 0.005 >= actual.privateTarget
+          : portfolioAtRetire + 0.005 >= actual.privateTarget,
     };
   }
 
@@ -1769,8 +1799,9 @@
     const tax = residentTax(chargeableIncome);
     const netTakeHome = Math.max(0, afterCpf - tax.monthlyTax);
     const cpfExtra = simulation.cpfExtra || 0;
+    const cashSaving = simulation.cashSaving || 0;
     const outsideMonthly = simulation.invest || 0;
-    const totalSaving = cpfExtra + outsideMonthly;
+    const totalSaving = cpfExtra + cashSaving + outsideMonthly;
     const pctAfterCpf =
       afterCpf > 0 ? Math.round((totalSaving / afterCpf) * 100) : 0;
     const pctNet =
@@ -1782,30 +1813,35 @@
       state = {
         key: "retired",
         label: "Retiring now",
+        name: "Retiring now",
         tone: "good",
       };
     } else if (totalSaving > afterCpf || pctAfterCpf > 85) {
       state = {
         key: "critical",
         label: "Critical (>85% of take-home)",
+        name: "Critical (>85% of take-home)",
         tone: "danger",
       };
     } else if (pctAfterCpf > 50) {
       state = {
         key: "stretched",
         label: "Stretched (>50% of take-home)",
+        name: "Stretched (>50% of take-home)",
         tone: "warn",
       };
     } else if (pctAfterCpf > 30) {
       state = {
         key: "ambitious",
         label: "Ambitious (31–50% of take-home)",
+        name: "Ambitious (31–50% of take-home)",
         tone: "good",
       };
     } else {
       state = {
         key: "comfortable",
         label: "Comfortable (≤30% of take-home)",
+        name: "Comfortable (≤30% of take-home)",
         tone: "good",
       };
     }
@@ -1954,7 +1990,13 @@
   };
 
   function resolvePortfolioBuckets(p) {
+    const hasCashAccounts = Boolean(
+      p?.cashAccountsActive &&
+      Array.isArray(p?.cashAccounts) &&
+      p.cashAccounts.length > 0,
+    );
     const hasBuckets =
+      hasCashAccounts ||
       p.equities != null ||
       p.sgDividends != null ||
       p.ssbCash != null ||
@@ -1962,10 +2004,23 @@
     if (hasBuckets) {
       const equities = Math.max(0, Number(p.equities || 0));
       const sgDividends = Math.max(0, Number(p.sgDividends || 0));
-      const ssbCash = Math.max(0, Number(p.ssbCash || 0));
+      const cashBreakdown = hasCashAccounts
+        ? computeCashAccountsBreakdown(p.cashAccounts, p.masRates)
+        : null;
+      const ssbCash = cashBreakdown
+        ? cashBreakdown.totalBalance
+        : Math.max(0, Number(p.ssbCash || 0));
       const srs = Math.max(0, Number(p.srs || 0));
       return {
         hasBuckets: true,
+        cashAccountsActive: hasCashAccounts,
+        cashBreakdown,
+        cashEffectiveRatePct: cashBreakdown
+          ? cashBreakdown.effectiveRatePct
+          : null,
+        cashAnnualInterest: cashBreakdown
+          ? cashBreakdown.totalAnnualInterest
+          : null,
         equities,
         sgDividends,
         ssbCash,
@@ -2013,6 +2068,31 @@
     if (mode === "ssb") return ssbRate;
     if (mode === "balanced") return 0.6 * baseReturnRate + 0.4 * ssbRate;
     return baseReturnRate;
+  }
+
+  function resolveCashReturnRate(p, fallbackRate = 0.0239) {
+    if (p?.cashReturnRate != null && p?.cashReturnRate !== "") {
+      const explicit = Number(p.cashReturnRate);
+      if (Number.isFinite(explicit) && explicit >= 0)
+        return explicit > 0.3 ? explicit / 100 : explicit;
+    }
+    if (
+      p?.cashAccountsActive &&
+      Array.isArray(p?.cashAccounts) &&
+      p.cashAccounts.length > 0
+    ) {
+      const bd = computeCashAccountsBreakdown(p.cashAccounts, p.masRates);
+      return bd.totalBalance > 0 ? bd.effectiveRate : bd.ssbBenchmarkPct / 100;
+    }
+    const rawSsbPct =
+      p?.masRates?.ssb?.year10Return ??
+      (typeof DEFAULT_MAS_LIVE_RATES !== "undefined"
+        ? DEFAULT_MAS_LIVE_RATES.ssb?.year10Return
+        : undefined);
+    if (rawSsbPct != null && Number.isFinite(Number(rawSsbPct))) {
+      return Math.max(0, Number(rawSsbPct) / 100);
+    }
+    return fallbackRate;
   }
 
   // 2026 IRAS CPF RSTU vs SRS Tax Sweet-Spot Calculator
@@ -2287,11 +2367,11 @@
     const totalNetWorth = totalEquities + totalBonds;
 
     const targetEquityPct = Math.min(
-      95,
-      Math.max(20, Number(p.targetEquityPct ?? 80)),
+      100,
+      Math.max(0, Number(p.targetEquityPct ?? 80)),
     );
     const sgSleevePct = Math.min(
-      30,
+      100,
       Math.max(0, Number(p.sgSleevePct ?? C.defaultSgDividendSplitPct)),
     );
     const sgEquitySplitPct = sgSleevePct;
@@ -2340,33 +2420,19 @@
       buyBondMonthly = 0,
       rebalanceNote = "";
 
-    const eqSplitGlobalShare =
-      eqPosSum > 0 ? globalGap / eqPosSum : globalTargetShareOfEquities;
-
     if (investPool <= 0.5) {
       rebalanceNote =
         equityGap > 500
-          ? `Total portfolio is ${Math.round(effectiveEquityPct)}% equities vs ${targetEquityPct}% target (${bondSourceLabel} in fixed income). Direct new cash into equities.`
-          : "Set monthly outside savings in Trajectory to see exact monthly buy orders.";
-    } else if (equityGap > investPool) {
-      // Underweight equities overall: direct 100% of new monthly cash to underweight equity buckets.
-      buySgMonthly = Math.round(investPool * (1 - eqSplitGlobalShare));
-      buyGlobalMonthly = Math.max(0, Math.round(investPool) - buySgMonthly);
-      const sgOverweightNote =
-        sgGap <= 0 && sgDividends > targetSgAmt + 50
-          ? ` (SG Dividends are already above your ${sgSleevePct}% target, so 100% goes to Global UCITS)`
-          : "";
-      rebalanceNote = `Because ${bondSourceLabel} of net worth in fixed income, route 100% of monthly liquid cash into equities${sgOverweightNote} until holistic ratio hits ${targetEquityPct}/${100 - targetEquityPct}.`;
-    } else if (equityGap < -investPool) {
-      buyBondMonthly = Math.round(investPool);
-      rebalanceNote = `Your equities exceed your ${targetEquityPct}% holistic target by $${Math.round(-equityGap).toLocaleString("en-SG")}. Route new monthly cash into SSB / T-Bills or CPF to restore balance.`;
+          ? `Total portfolio is ${Math.round(effectiveEquityPct)}% equities vs ${targetEquityPct}% target (${bondSourceLabel} in fixed income). Set monthly outside investment to see exact buy orders.`
+          : "Set monthly outside investment in Trajectory or Quick Edit to see exact monthly buy orders.";
     } else {
+      // Direct proportional split: outside investment always follows the user-chosen Equity/Bond & Global/SG sliders.
       const eqShare = targetEquityPct / 100;
       const totalEqBuy = Math.round(investPool * eqShare);
-      buySgMonthly = Math.round(totalEqBuy * (1 - eqSplitGlobalShare));
+      buySgMonthly = Math.round(totalEqBuy * sgTargetShareOfEquities);
       buyGlobalMonthly = Math.max(0, totalEqBuy - buySgMonthly);
       buyBondMonthly = Math.max(0, Math.round(investPool) - totalEqBuy);
-      rebalanceNote = `Holistic Stock/Bond ratio is near your ${targetEquityPct}/${100 - targetEquityPct} target. Split monthly cash proportionally across Global UCITS, SG sleeve, and SSB/T-Bills.`;
+      rebalanceNote = `Monthly outside investment follows your chosen ${targetEquityPct}/${100 - targetEquityPct} Equity/Bond split (${globalEquitySplitPct}% Global / ${sgEquitySplitPct}% SG).${Math.abs(equityGap) > 500 ? ` Current holistic mix is ${Math.round(effectiveEquityPct)}% equities (${bondSourceLabel} in fixed income).` : ""}`;
     }
 
     return {
@@ -2437,6 +2503,8 @@
     const plan = summary.plan;
     const todaySpend = summary.todaySpend;
     const rate = monthlyRate(investmentReturn);
+    const cashReturnAnnual = resolveCashReturnRate(p);
+    const cashRate = monthlyRate(cashReturnAnnual);
     const srsWithdrawalAge = Number(p.srsAge) === 64 ? 64 : 63;
     const srsRate = monthlyRate(resolveSrsReturnRate(p, investmentReturn));
 
@@ -2520,26 +2588,41 @@
     );
     const monthlySrsContrib = srsAnnualPlanned / 12;
     const targetEqShare = Math.min(
-      0.95,
-      Math.max(0.2, Number(p.targetEquityPct ?? 80) / 100),
+      1,
+      Math.max(0, Number(p.targetEquityPct ?? 80) / 100),
+    );
+    const monthlyCashSaving = Math.max(
+      0,
+      Number(sim.cashSaving ?? p.cashSaving ?? 0),
     );
     const totalMonthlyOutside = sim.invest;
     const monthlyLiquidContrib = Math.max(
       0,
       totalMonthlyOutside - monthlySrsContrib,
     );
+    const srsMode = p.srsInvestedIn || "global";
+    const srsEqShare =
+      srsMode === "global" ? 1 : srsMode === "balanced" ? 0.6 : 0;
+    const splitDirectLiquidContrib = (contrib, cashSav = 0) => ({
+      eqBuy: contrib * targetEqShare,
+      cashBuy: cashSav + contrib * (1 - targetEqShare),
+    });
 
     let liquidEquities = buckets.equities + buckets.sgDividends;
     let ssbCash = buckets.ssbCash;
     let srs = buckets.srs;
 
+    const oaMonthlyRate = monthlyRate(C.oaRate);
     let cpfOA = Number(p.oa || 0);
     let cpfSARA = Number(p.sa || 0);
     let cpfMA = Number(p.ma || 0);
     let cpfAnnuity = 0;
+    let oaWithdrawnPost55 = 0;
 
     let outsideAtRetire = buckets.total;
+    let spendableAtRetire = buckets.total;
     let depletionAge = null;
+    let shortfallPvAtRetire = 0;
     const points = [];
 
     for (let m = 0; m <= endMonth; m++) {
@@ -2560,7 +2643,32 @@
         { insuranceCurve: true },
       );
 
+      if (m % 12 === 0) {
+        const intAge = Math.round(curAge);
+        if (intAge <= 65 && cpfByAge.has(intAge)) {
+          const row = cpfByAge.get(intAge);
+          if (intAge > 55 && oaWithdrawnPost55 > 0) {
+            oaWithdrawnPost55 *= 1 + C.oaRate;
+          }
+          cpfOA = Math.max(0, row.oa - oaWithdrawnPost55);
+          cpfSARA = intAge < 55 ? row.sa : row.ra;
+          cpfMA = row.ma;
+          cpfAnnuity = intAge === 65 ? row.ra : 0;
+        } else if (intAge > 65) {
+          if (!retired) cpfOA = cpfOA * (1 + C.oaRate);
+          cpfMA = cpfMA * (1 + C.saRate);
+          cpfAnnuity = Math.max(
+            0,
+            cpfAnnuity * (1 + C.saRate) - monthlyCpfLife * 12,
+          );
+          cpfSARA = cpfAnnuity;
+        }
+      }
+
       let monthlySrsDraw = 0;
+      let monthlyCashDraw = 0;
+      let monthlyOaDraw = 0;
+      let monthlyEqDraw = 0;
       let monthlyLiquidDraw = 0;
       let monthlyShortfall = 0;
       if (retired) {
@@ -2584,36 +2692,46 @@
           );
         }
         const needAfterSrs = Math.max(0, need - monthlySrsDraw);
-        const totalLiquid = liquidEquities + ssbCash;
-        monthlyLiquidDraw = Math.min(totalLiquid, needAfterSrs);
+        const oaAvailable = curAge >= 55 ? Math.max(0, cpfOA) : 0;
+        if (cashRate < rate) {
+          monthlyCashDraw = Math.min(ssbCash, needAfterSrs);
+          const remAfterCash = Math.max(0, needAfterSrs - monthlyCashDraw);
+          if (C.oaRate < investmentReturn && oaAvailable > 0) {
+            monthlyOaDraw = Math.min(oaAvailable, remAfterCash);
+            const remAfterOa = Math.max(0, remAfterCash - monthlyOaDraw);
+            monthlyEqDraw = Math.min(liquidEquities, remAfterOa);
+          } else {
+            monthlyEqDraw = Math.min(liquidEquities, remAfterCash);
+            const remAfterEq = Math.max(0, remAfterCash - monthlyEqDraw);
+            monthlyOaDraw = Math.min(oaAvailable, remAfterEq);
+          }
+        } else {
+          const totalOut = liquidEquities + ssbCash;
+          const outDraw = Math.min(totalOut, needAfterSrs);
+          const eqRatio = totalOut > 0 ? liquidEquities / totalOut : 0;
+          monthlyEqDraw = outDraw * eqRatio;
+          monthlyCashDraw = outDraw - monthlyEqDraw;
+          const remAfterOut = Math.max(0, needAfterSrs - outDraw);
+          monthlyOaDraw = Math.min(oaAvailable, remAfterOut);
+        }
+        monthlyLiquidDraw = monthlyCashDraw + monthlyOaDraw + monthlyEqDraw;
         monthlyShortfall = Math.max(0, needAfterSrs - monthlyLiquidDraw);
-        if (monthlyShortfall > 0.05 && depletionAge === null) {
-          depletionAge = curAge;
+        if (monthlyShortfall > 0.05) {
+          if (depletionAge === null) depletionAge = curAge;
+          shortfallPvAtRetire +=
+            monthlyShortfall / (1 + rate) ** Math.max(1, m - retireMonth + 1);
         }
       }
 
       if (m === retireMonth) {
         outsideAtRetire = liquidEquities + ssbCash + srs;
+        spendableAtRetire =
+          outsideAtRetire + (curAge >= 55 ? Math.max(0, cpfOA) : 0);
       }
 
       if (m % 12 === 0) {
         const intAge = Math.round(curAge);
         const year = C.year + Math.floor((C.startMonth + m) / 12);
-        if (intAge <= 65 && cpfByAge.has(intAge)) {
-          const row = cpfByAge.get(intAge);
-          cpfOA = row.oa;
-          cpfSARA = intAge < 55 ? row.sa : row.ra;
-          cpfMA = row.ma;
-          cpfAnnuity = intAge === 65 ? row.ra : 0;
-        } else if (intAge > 65) {
-          cpfOA = cpfOA * (1 + C.oaRate);
-          cpfMA = cpfMA * (1 + C.saRate);
-          cpfAnnuity = Math.max(
-            0,
-            cpfAnnuity * (1 + C.saRate) - monthlyCpfLife * 12,
-          );
-          cpfSARA = cpfAnnuity;
-        }
         const cpfTotal = cpfOA + cpfSARA + cpfMA;
         const totalOutside = liquidEquities + ssbCash + srs;
         const totalNetWorth = totalOutside + cpfTotal;
@@ -2667,19 +2785,26 @@
 
       if (m === endMonth) break;
       if (!retired) {
-        liquidEquities =
-          liquidEquities * (1 + rate) + monthlyLiquidContrib * targetEqShare;
-        ssbCash =
-          ssbCash * (1 + rate) + monthlyLiquidContrib * (1 - targetEqShare);
+        const { eqBuy, cashBuy } = splitDirectLiquidContrib(
+          monthlyLiquidContrib,
+          monthlyCashSaving,
+        );
+        liquidEquities = liquidEquities * (1 + rate) + eqBuy;
+        ssbCash = ssbCash * (1 + cashRate) + cashBuy;
         srs = srs * (1 + srsRate) + monthlySrsContrib;
       } else {
-        const totalLiquid = liquidEquities + ssbCash;
-        const eqRatio = totalLiquid > 0 ? liquidEquities / totalLiquid : 0;
-        const eqDraw = monthlyLiquidDraw * eqRatio;
-        const cashDraw = monthlyLiquidDraw - eqDraw;
-        liquidEquities = Math.max(0, liquidEquities * (1 + rate) - eqDraw);
-        ssbCash = Math.max(0, ssbCash * (1 + rate) - cashDraw);
+        liquidEquities = Math.max(
+          0,
+          liquidEquities * (1 + rate) - monthlyEqDraw,
+        );
+        ssbCash = Math.max(0, ssbCash * (1 + cashRate) - monthlyCashDraw);
         srs = Math.max(0, srs * (1 + srsRate) - monthlySrsDraw);
+        if (curAge >= 65) {
+          cpfOA = Math.max(0, cpfOA * (1 + oaMonthlyRate) - monthlyOaDraw);
+        } else if (monthlyOaDraw > 0) {
+          cpfOA = Math.max(0, cpfOA - monthlyOaDraw);
+          oaWithdrawnPost55 += monthlyOaDraw;
+        }
       }
     }
 
@@ -2691,74 +2816,172 @@
       age,
       inflation,
     );
-    const pctFunded =
-      fireNumberToday > 0
-        ? Math.round((outsideAtRetireToday / fireNumberToday) * 100)
+    const spendableAtRetireToday = todayValue(
+      spendableAtRetire,
+      retire,
+      age,
+      inflation,
+    );
+    const effectiveFireNumberAtRetire =
+      depletionAge !== null
+        ? Math.max(fireNumberAtRetire, spendableAtRetire + shortfallPvAtRetire)
+        : fireNumberAtRetire;
+    const effectiveFireNumberToday = todayValue(
+      effectiveFireNumberAtRetire,
+      retire,
+      age,
+      inflation,
+    );
+    const rawPctFunded =
+      effectiveFireNumberToday > 0
+        ? Math.round((spendableAtRetireToday / effectiveFireNumberToday) * 100)
         : 100;
+    const pctFunded =
+      depletionAge !== null
+        ? Math.min(99, rawPctFunded)
+        : Math.max(100, rawPctFunded);
     const currentFirePct =
-      fireNumberToday > 0
-        ? Math.min(100, Math.round((buckets.total / fireNumberToday) * 100))
+      effectiveFireNumberToday > 0
+        ? Math.min(
+            100,
+            Math.round((buckets.total / effectiveFireNumberToday) * 100),
+          )
         : 100;
 
-    // Earliest FIRE age where accumulated outside pot (saving until candidate age) funds Phase 1 + Phase 2 to 95
-    let projectedFireAge = null;
-    const minFireAge = Math.max(age, lifestyle === "cca" ? 55 : 40);
-    const liquidStart =
-      buckets.equities + buckets.sgDividends + buckets.ssbCash;
-    for (let cand = minFireAge; cand <= 80; cand++) {
-      const candMonths = Math.round((cand - age) * 12);
-      const liquidAtCand =
-        liquidStart * (1 + rate) ** candMonths +
-        monthlyLiquidContrib * annuityFactor(rate, candMonths);
-      const srsAtCand =
-        buckets.srs * (1 + srsRate) ** candMonths +
-        monthlySrsContrib * annuityFactor(srsRate, candMonths);
-      const potAtCand = liquidAtCand + srsAtCand;
-      let reqBridge = 0;
-      if (cand < 65) {
-        for (let m = 1; m <= (65 - cand) * 12; m++) {
-          const sp = expenseAt(
-            todaySpend,
-            age,
-            cand - age + (m - 1) / 12,
-            inflation,
-            lifestyle,
-            { insuranceCurve: true },
+    // Earliest FIRE age where accumulated outside + post-55 excess OA pot (saving until candidate age) funds Phase 1 + Phase 2 to 95
+    const survivesDrawdownFromAge = (
+      candAge,
+      startEq,
+      startCash,
+      startSrs,
+      startOa,
+    ) => {
+      let dEq = startEq;
+      let dCash = startCash;
+      let dSrs = startSrs;
+      let dOa = startOa;
+      let dOaWithdrawnPost55 = 0;
+      const startM = Math.round((candAge - age) * 12);
+      for (let dm = startM; dm <= endMonth; dm++) {
+        const cAge = age + dm / 12;
+        if (dm > startM && dm % 12 === 0) {
+          const intA = Math.round(cAge);
+          if (intA <= 65 && cpfByAge.has(intA)) {
+            const rRow = cpfByAge.get(intA);
+            if (intA > 55 && dOaWithdrawnPost55 > 0) {
+              dOaWithdrawnPost55 *= 1 + C.oaRate;
+            }
+            dOa = Math.max(0, rRow.oa - dOaWithdrawnPost55);
+          }
+        }
+        const cEl = cAge >= 65 ? Math.floor(cAge - 65 + 1e-9) : 0;
+        const cP =
+          cAge < 65
+            ? 0
+            : payout65 *
+              (plan === "escalating" ? (1 + C.escalatingRate) ** cEl : 1);
+        const sp = expenseAt(todaySpend, age, dm / 12, inflation, lifestyle, {
+          insuranceCurve: true,
+        });
+        const need = Math.max(0, sp - cP);
+        let srsDraw = 0;
+        if (
+          cAge >= srsWithdrawalAge &&
+          cAge < srsWithdrawalAge + 10 &&
+          dSrs > 0
+        ) {
+          const remSrsMonths = Math.max(
+            1,
+            Math.round((srsWithdrawalAge + 10 - cAge) * 12),
           );
-          reqBridge += sp / (1 + rate) ** m;
+          const sched = dSrs / remSrsMonths;
+          const boost = cAge < 65 ? C.srsTaxFreeAnnual / 12 : sched;
+          srsDraw = Math.min(dSrs, need, Math.max(sched, boost));
+        }
+        const needAfterSrs = Math.max(0, need - srsDraw);
+        const oaAvail = cAge >= 55 ? Math.max(0, dOa) : 0;
+        let cashDraw = 0;
+        let oaDraw = 0;
+        let eqDraw = 0;
+        if (cashRate < rate) {
+          cashDraw = Math.min(dCash, needAfterSrs);
+          const remAfterCash = Math.max(0, needAfterSrs - cashDraw);
+          if (C.oaRate < investmentReturn && oaAvail > 0) {
+            oaDraw = Math.min(oaAvail, remAfterCash);
+            const remAfterOa = Math.max(0, remAfterCash - oaDraw);
+            eqDraw = Math.min(dEq, remAfterOa);
+          } else {
+            eqDraw = Math.min(dEq, remAfterCash);
+            const remAfterEq = Math.max(0, remAfterCash - eqDraw);
+            oaDraw = Math.min(oaAvail, remAfterEq);
+          }
+        } else {
+          const totOut = dEq + dCash;
+          const outDraw = Math.min(totOut, needAfterSrs);
+          const eqRatio = totOut > 0 ? dEq / totOut : 0;
+          eqDraw = outDraw * eqRatio;
+          cashDraw = outDraw - eqDraw;
+          const remAfterOut = Math.max(0, needAfterSrs - outDraw);
+          oaDraw = Math.min(oaAvail, remAfterOut);
+        }
+        const liqDraw = cashDraw + oaDraw + eqDraw;
+        if (needAfterSrs - liqDraw > 0.05) return false;
+        if (dm === endMonth) break;
+        dEq = Math.max(0, dEq * (1 + rate) - eqDraw);
+        dCash = Math.max(0, dCash * (1 + cashRate) - cashDraw);
+        dSrs = Math.max(0, dSrs * (1 + srsRate) - srsDraw);
+        if (cAge >= 65) {
+          dOa = Math.max(0, dOa * (1 + oaMonthlyRate) - oaDraw);
+        } else if (oaDraw > 0) {
+          dOa = Math.max(0, dOa - oaDraw);
+          dOaWithdrawnPost55 += oaDraw;
         }
       }
-      const p2Start = Math.max(cand, 65);
-      let reqP2 = 0;
-      for (let m = 1; m <= (endAge - p2Start) * 12; m++) {
-        const curA = p2Start + (m - 1) / 12;
-        const sp = expenseAt(
-          todaySpend,
-          age,
-          curA - age,
-          inflation,
-          lifestyle,
-          {
-            insuranceCurve: true,
-          },
-        );
-        const cEl = Math.floor(curA - 65 + 1e-9);
-        const cP =
-          plan === "escalating"
-            ? payout65 * (1 + C.escalatingRate) ** cEl
-            : payout65;
-        reqP2 += Math.max(0, sp - cP) / (1 + rate) ** m;
+      return true;
+    };
+
+    let projectedFireAge = null;
+    const minFireAge = Math.max(age, lifestyle === "cca" ? 55 : 40);
+    let candEq = buckets.equities + buckets.sgDividends;
+    let candCash = buckets.ssbCash;
+    let candSrs = buckets.srs;
+    const candStateByAge = new Map();
+    const maxCandMonths = Math.max(0, Math.round((80 - age) * 12));
+    for (let cm = 0; cm <= maxCandMonths; cm++) {
+      if (cm % 12 === 0) {
+        const cAge = age + cm / 12;
+        let oaAtCand = 0;
+        if (cAge <= 65 && cpfByAge.has(cAge)) {
+          oaAtCand = cpfByAge.get(cAge).oa;
+        } else if (cAge > 65) {
+          oaAtCand = (cpfByAge.get(65)?.oa || 0) * (1 + C.oaRate) ** (cAge - 65);
+        }
+        candStateByAge.set(cAge, {
+          eq: candEq,
+          cash: candCash,
+          srs: candSrs,
+          oa: oaAtCand,
+        });
       }
-      const reqTotal =
-        reqBridge + reqP2 / (1 + rate) ** Math.max(0, (65 - cand) * 12);
-      if (potAtCand + 1 >= reqTotal) {
+      if (cm === maxCandMonths) break;
+      const { eqBuy, cashBuy } = splitDirectLiquidContrib(
+        monthlyLiquidContrib,
+        monthlyCashSaving,
+      );
+      candEq = candEq * (1 + rate) + eqBuy;
+      candCash = candCash * (1 + cashRate) + cashBuy;
+      candSrs = candSrs * (1 + srsRate) + monthlySrsContrib;
+    }
+    for (let cand = minFireAge; cand <= 80; cand++) {
+      const st = candStateByAge.get(cand);
+      if (st && survivesDrawdownFromAge(cand, st.eq, st.cash, st.srs, st.oa)) {
         projectedFireAge = cand;
         break;
       }
     }
 
     const requiredMonthlyTo95 = requiredSaving(
-      fireNumberAtRetire,
+      effectiveFireNumberAtRetire,
       buckets.total,
       rate,
       retireMonth,
@@ -2773,6 +2996,8 @@
       retire,
       endAge,
       srsWithdrawalAge,
+      buckets,
+      cashReturnRate: cashReturnAnnual,
       bridge: {
         years: Math.max(0, 65 - retire),
         requiredAtRetire: bridgeCorpusAtRetire,
@@ -2788,12 +3013,15 @@
         projectedCpfAt65Today: ptAt65 ? ptAt65.today.cpfTotal : 0,
       },
       fireNumber: {
-        totalRequiredAtRetire: fireNumberAtRetire,
-        totalRequiredToday: fireNumberToday,
+        totalRequiredAtRetire: effectiveFireNumberAtRetire,
+        totalRequiredToday: effectiveFireNumberToday,
         requiredMonthlyTo95,
         projectedOutsideAtRetireNominal: outsideAtRetire,
         projectedOutsideAtRetireToday: outsideAtRetireToday,
-        shortfallToday: Math.max(0, fireNumberToday - outsideAtRetireToday),
+        shortfallToday: Math.max(
+          0,
+          effectiveFireNumberToday - spendableAtRetireToday,
+        ),
         pctFunded,
         currentFirePct,
         projectedFireAge,
@@ -2975,6 +3203,7 @@
     const mandatoryCpf = Math.round(employeeCpf + employerCpf);
 
     let cpfExtraMo = 0;
+    let cashSavingMo = 0;
     let srsMo = 0;
     let globalEqMo = 0;
     let sgEqMo = 0;
@@ -3035,8 +3264,9 @@
       }
 
       cpfExtraMo = Math.round(Math.max(0, Number(simulation?.cpfExtra || 0)));
+      cashSavingMo = Math.round(Math.max(0, Number(simulation?.cashSaving || 0)));
       const totalCashSavings =
-        cpfExtraMo + Math.max(investPool, srsMonthlyPlanned);
+        cpfExtraMo + cashSavingMo + Math.max(investPool, srsMonthlyPlanned);
       livingAndTax = Math.max(0, Math.round(afterCpf - totalCashSavings));
       overspendMo = Math.max(0, Math.round(totalCashSavings - afterCpf));
     }
@@ -3046,6 +3276,7 @@
     const rows = [
       { label: "Living & IRAS Tax", amt: livingAndTax, color: "#64748B" },
       { label: "Mandatory CPF", amt: mandatoryCpf, color: "#059669" },
+      { label: "Cash Savings (HYSA / SSB)", amt: cashSavingMo, color: "#0891B2" },
       {
         label: "Equities (Global + SG)",
         amt: eqMo,
@@ -3053,14 +3284,9 @@
         sgAmt: sgEqMo,
         color: "#2563EB",
       },
-      { label: "SSB / T-Bills", amt: ssbMo, color: "#D97706" },
-      {
-        label: "Extra CPF / SRS",
-        amt: extraTaxMo,
-        cpfExtraAmt: cpfExtraMo,
-        srsAmt: srsMo,
-        color: "#7C3AED",
-      },
+      { label: "SSB / T-Bills (Alloc.)", amt: ssbMo, color: "#D97706" },
+      { label: "Extra CPF Saving", amt: cpfExtraMo, color: "#10B981" },
+      { label: "SRS Contribution", amt: srsMo, color: "#7C3AED" },
     ];
 
     return {
@@ -3068,6 +3294,7 @@
       afterCpf,
       mandatoryCpf,
       cpfExtraMo,
+      cashSavingMo,
       srsMo,
       globalEqMo,
       sgEqMo,
@@ -3167,10 +3394,17 @@
     const builtTodayPct = Math.min(100, Math.max(0, fn.currentFirePct ?? 0));
 
     const hasCustomSaving =
-      !r.retiringNow && (params?.invest != null || params?.cpfExtra != null);
+      !r.retiringNow &&
+      (params?.invest != null ||
+        params?.cpfExtra != null ||
+        (params?.cashSaving != null && Number(params.cashSaving) > 0));
     const monthlySave = r.retiringNow
       ? Math.round(s.privateSaving || 0)
-      : Math.round((simulation?.cpfExtra || 0) + (simulation?.invest || 0));
+      : Math.round(
+          (simulation?.cpfExtra || 0) +
+            (simulation?.cashSaving || 0) +
+            (simulation?.invest || 0),
+        );
     const pctOfPay = r.retiringNow
       ? null
       : r.afterCpf > 0
@@ -3196,15 +3430,17 @@
     const targetBondPct = Math.round(hol.targetBondPct ?? 20);
     const effEqPct = Math.round(hol.effectiveEquityPct ?? 0);
     const effBondPct = Math.round(hol.effectiveBondPct ?? 0);
-    const eqGapPct = Math.round(
-      (hol.targetEquityPct ?? 80) - (hol.effectiveEquityPct ?? 0),
-    );
+    const eqDeltaPct = effEqPct - targetEqPct;
     const mixDeltaText =
-      Math.abs(eqGapPct) <= 3
-        ? "On target"
-        : eqGapPct > 0
-          ? "+" + eqGapPct + "% Eq needed"
-          : "+" + -eqGapPct + "% Bond needed";
+      Math.abs(eqDeltaPct) <= 3
+        ? effEqPct + "% Eq · On target"
+        : effEqPct +
+          "% vs " +
+          targetEqPct +
+          "% (" +
+          (eqDeltaPct > 0 ? "+" : "") +
+          eqDeltaPct +
+          "% Eq)";
 
     const marginalPct = tax?.taxBefore
       ? (tax.taxBefore.marginalRate * 100).toFixed(1).replace(/\.0$/, "") + "%"
@@ -3225,12 +3461,18 @@
     let monthlySplitValue = "$0/mo";
     if (r.retiringNow) {
       monthlySplitValue = "Paused (retiring now)";
-    } else if (paycheck.liquidPool > 0 || paycheck.srsMo > 0) {
+    } else if (
+      paycheck.liquidPool > 0 ||
+      paycheck.cashSavingMo > 0 ||
+      paycheck.srsMo > 0
+    ) {
       const parts = [];
       if (paycheck.globalEqMo > 0)
         parts.push(fmtSgd(paycheck.globalEqMo) + " Global");
       if (paycheck.sgEqMo > 0) parts.push(fmtSgd(paycheck.sgEqMo) + " SG");
       if (paycheck.ssbMo > 0) parts.push(fmtSgd(paycheck.ssbMo) + " SSB");
+      if (paycheck.cashSavingMo > 0)
+        parts.push(fmtSgd(paycheck.cashSavingMo) + " Cash");
       if (paycheck.srsMo > 0) parts.push(fmtSgd(paycheck.srsMo) + " SRS");
       monthlySplitValue = parts.join(" · ") || fmtSgd(0) + "/mo";
     }
@@ -3435,6 +3677,8 @@
         ? "Custom input active: " +
           fmtSgd(simulation?.cpfExtra || 0) +
           " extra CPF + " +
+          fmtSgd(simulation?.cashSaving || 0) +
+          " cash savings + " +
           fmtSgd(simulation?.invest || 0) +
           " outside/mo."
         : null,
@@ -4335,6 +4579,483 @@
 
   const CASH_PARKING_CATALOG = resolveCashParkingCatalog();
 
+  const CASH_ACCOUNT_PRESETS = [
+    {
+      key: "dbs-multiplier",
+      label: "DBS Multiplier",
+      name: "DBS Multiplier",
+      bankGroup: "dbs-posb",
+      bankGroupLabel: "DBS / POSB",
+      sdicCovered: true,
+      sovereignBacked: false,
+      bonusCap: 100000,
+      bonusRatePct: 2.0,
+      baseRatePct: 0.05,
+      note: "First $100k earns bonus rate (1.8%–4.1%); excess >$100k earns 0.05% base & shares DBS/POSB $100k SDIC cap.",
+    },
+    {
+      key: "posb-say",
+      label: "POSB / DBS Savings",
+      name: "POSB / DBS Savings",
+      bankGroup: "dbs-posb",
+      bankGroupLabel: "DBS / POSB",
+      sdicCovered: true,
+      sovereignBacked: false,
+      bonusCap: 100000,
+      bonusRatePct: 2.0,
+      baseRatePct: 0.05,
+      note: "Aggregated with DBS under a single $100,000 SDIC deposit insurance limit.",
+    },
+    {
+      key: "ocbc-360",
+      label: "OCBC 360",
+      name: "OCBC 360",
+      bankGroup: "ocbc",
+      bankGroupLabel: "OCBC Bank",
+      sdicCovered: true,
+      sovereignBacked: false,
+      bonusCap: 100000,
+      bonusRatePct: 2.45,
+      baseRatePct: 0.05,
+      note: "First $100k earns Salary + Save bonus (~2.45%–3.30%); balances >$100k drop to 0.05% base rate.",
+    },
+    {
+      key: "uob-one",
+      label: "UOB One",
+      name: "UOB One",
+      bankGroup: "uob",
+      bankGroupLabel: "UOB",
+      sdicCovered: true,
+      sovereignBacked: false,
+      bonusCap: 150000,
+      bonusRatePct: 1.9,
+      baseRatePct: 0.05,
+      note: "Tiered bonus up to $150k (~1.90% EIR with $500 card spend + GIRO/Salary); SDIC cap remains $100k.",
+    },
+    {
+      key: "maribank",
+      label: "MariBank Savings",
+      name: "MariBank Savings",
+      bankGroup: "maribank",
+      bankGroupLabel: "MariBank",
+      sdicCovered: true,
+      sovereignBacked: false,
+      bonusCap: 100000,
+      bonusRatePct: 1.88,
+      baseRatePct: 0.05,
+      note: "Flat daily interest up to $100k with zero hoops; SDIC-insured up to $100k.",
+    },
+    {
+      key: "gxs",
+      label: "GXS Savings / Boost",
+      name: "GXS Savings / Boost",
+      bankGroup: "gxs",
+      bankGroupLabel: "GXS Bank",
+      sdicCovered: true,
+      sovereignBacked: false,
+      bonusCap: 95000,
+      bonusRatePct: 1.38,
+      baseRatePct: 0.05,
+      note: "Up to $95k across Main + Boost Pockets; SDIC-insured up to $100k.",
+    },
+    {
+      key: "trust-bank",
+      label: "Trust Bank Savings",
+      name: "Trust Bank Savings",
+      bankGroup: "trust",
+      bankGroupLabel: "Trust Bank",
+      sdicCovered: true,
+      sovereignBacked: false,
+      bonusCap: 100000,
+      bonusRatePct: 1.75,
+      baseRatePct: 0.05,
+      note: "Bonus rate with card spend; SDIC-insured up to $100k per depositor.",
+    },
+    {
+      key: "ssb",
+      label: "MAS Singapore Savings Bonds (SSB)",
+      name: "MAS Singapore Savings Bonds (SSB)",
+      bankGroup: "mas-gov",
+      bankGroupLabel: "Singapore Gov (MAS)",
+      sdicCovered: false,
+      sovereignBacked: true,
+      bonusCap: 200000,
+      bonusRatePct: 2.39,
+      baseRatePct: 0,
+      note: "AAA Singapore Government bond; $200k individual cap (Cash + SRS), monthly par redemption.",
+    },
+    {
+      key: "tbills",
+      label: "MAS 6M / 1Y T-Bills",
+      name: "MAS 6M / 1Y T-Bills",
+      bankGroup: "mas-gov",
+      bankGroupLabel: "Singapore Gov (MAS)",
+      sdicCovered: false,
+      sovereignBacked: true,
+      bonusCap: 0,
+      bonusRatePct: 1.86,
+      baseRatePct: 1.86,
+      note: "AAA Singapore Government treasury bills; no individual cap, locked until maturity.",
+    },
+    {
+      key: "mmf",
+      label: "SGD Money Market Fund (Fullerton / Mari Invest)",
+      name: "SGD Money Market Fund (Fullerton / Mari Invest)",
+      bankGroup: "mmf",
+      bankGroupLabel: "Custodian MMF (Non-SDIC)",
+      sdicCovered: false,
+      sovereignBacked: false,
+      bonusCap: 0,
+      bonusRatePct: 1.8,
+      baseRatePct: 1.8,
+      note: "Uncapped institutional SGD money market fund (T+1 liquidity; non-SDIC).",
+    },
+    {
+      key: "custom",
+      label: "Custom Bank / Cash Account",
+      name: "Custom Bank / Cash Account",
+      bankGroup: "custom",
+      bankGroupLabel: "Custom Bank (SDIC $100k)",
+      sdicCovered: true,
+      sovereignBacked: false,
+      bonusCap: 100000,
+      bonusRatePct: 2.0,
+      baseRatePct: 0.05,
+      note: "Custom tiered bank or fixed deposit account.",
+    },
+  ];
+
+  function resolveCashAccountPreset(
+    presetKey = "dbs-multiplier",
+    masRates = null,
+  ) {
+    const resolvedMas = masRates || DEFAULT_MAS_LIVE_RATES;
+    const ssb10YrPct = Number(
+      resolvedMas?.ssb?.year10Return ??
+        DEFAULT_MAS_LIVE_RATES.ssb?.year10Return ??
+        2.39,
+    );
+    const tbill6mPct = Number(
+      resolvedMas?.tbills?.sixMonth?.cutoffYield ??
+        DEFAULT_MAS_LIVE_RATES.tbills?.sixMonth?.cutoffYield ??
+        1.86,
+    );
+    const found =
+      CASH_ACCOUNT_PRESETS.find((p) => p.key === presetKey) ||
+      CASH_ACCOUNT_PRESETS.find((p) => p.key === "custom");
+    if (found.key === "ssb") {
+      return { ...found, bonusRatePct: ssb10YrPct };
+    }
+    if (found.key === "tbills") {
+      return { ...found, bonusRatePct: tbill6mPct, baseRatePct: tbill6mPct };
+    }
+    return { ...found };
+  }
+
+  function defaultCashAccounts(totalCash = 20000, masRates = null) {
+    const safeTotal = Math.max(0, Math.round(Number(totalCash) || 0));
+    const dbs = resolveCashAccountPreset("dbs-multiplier", masRates);
+    const ssb = resolveCashAccountPreset("ssb", masRates);
+    return [
+      {
+        id: "cash-1",
+        preset: "dbs-multiplier",
+        name: dbs.label,
+        balance: safeTotal,
+        bonusCap: dbs.bonusCap,
+        bonusRatePct: dbs.bonusRatePct,
+        baseRatePct: dbs.baseRatePct,
+      },
+      {
+        id: "cash-2",
+        preset: "ssb",
+        name: "MAS SSB",
+        balance: 0,
+        bonusCap: ssb.bonusCap,
+        bonusRatePct: ssb.bonusRatePct,
+        baseRatePct: ssb.baseRatePct,
+      },
+    ];
+  }
+
+  function computeCashAccountsBreakdown(accounts = [], masRates = null) {
+    const resolvedMas = masRates || DEFAULT_MAS_LIVE_RATES;
+    const ssbBenchmarkPct = Number(
+      resolvedMas?.ssb?.year10Return ??
+        DEFAULT_MAS_LIVE_RATES.ssb?.year10Return ??
+        2.39,
+    );
+    const list = Array.isArray(accounts) ? accounts : [];
+    const sdicMap = new Map();
+    let totalBalance = 0;
+    let totalTier1Balance = 0;
+    let totalOverflowBalance = 0;
+    let totalTier1Interest = 0;
+    let totalOverflowInterest = 0;
+    let totalAnnualInterest = 0;
+    let potentialExtraAnnualInterest = 0;
+    let totalSovereignBacked = 0;
+    let totalNonSdicMmf = 0;
+    let ssbTotalBalance = 0;
+
+    const computedRows = list.map((acc, idx) => {
+      const preset = resolveCashAccountPreset(
+        acc?.preset || "custom",
+        masRates,
+      );
+      const id = String(acc?.id || "cash-" + (idx + 1));
+      const name = String(acc?.name ?? preset.label).trim() || preset.label;
+      const balance = Math.max(0, Number(acc?.balance) || 0);
+      const bonusCap =
+        acc?.bonusCap != null && acc?.bonusCap !== ""
+          ? Math.max(0, Number(acc.bonusCap) || 0)
+          : preset.bonusCap;
+      const bonusRatePct =
+        acc?.bonusRatePct != null && acc?.bonusRatePct !== ""
+          ? Math.max(0, Math.min(25, Number(acc.bonusRatePct) || 0))
+          : preset.bonusRatePct;
+      const baseRatePct =
+        acc?.baseRatePct != null && acc?.baseRatePct !== ""
+          ? Math.max(0, Math.min(25, Number(acc.baseRatePct) || 0))
+          : preset.baseRatePct;
+      const hasCap = bonusCap > 0;
+      const tier1Balance = hasCap ? Math.min(balance, bonusCap) : balance;
+      const overflowBalance = hasCap ? Math.max(0, balance - bonusCap) : 0;
+      const tier1AnnualInterest = tier1Balance * (bonusRatePct / 100);
+      const overflowAnnualInterest = overflowBalance * (baseRatePct / 100);
+      const annualInterest = tier1AnnualInterest + overflowAnnualInterest;
+      const monthlyInterest = annualInterest / 12;
+      const effectiveRatePct =
+        balance > 0 ? (annualInterest / balance) * 100 : bonusRatePct;
+      const effectiveRate = effectiveRatePct / 100;
+      const hasOverflow = overflowBalance > 0;
+      const rateDragPct =
+        balance > 0 && hasOverflow
+          ? Math.round(Math.max(0, bonusRatePct - effectiveRatePct) * 100) / 100
+          : 0;
+      const redeployRatePct = Math.max(ssbBenchmarkPct, 2.0);
+      const potentialOverflowGainAnnual =
+        hasOverflow && redeployRatePct > baseRatePct
+          ? overflowBalance * ((redeployRatePct - baseRatePct) / 100)
+          : 0;
+
+      totalBalance += balance;
+      totalTier1Balance += tier1Balance;
+      totalOverflowBalance += overflowBalance;
+      totalTier1Interest += tier1AnnualInterest;
+      totalOverflowInterest += overflowAnnualInterest;
+      totalAnnualInterest += annualInterest;
+      potentialExtraAnnualInterest += potentialOverflowGainAnnual;
+
+      if (preset.sovereignBacked) {
+        totalSovereignBacked += balance;
+        if (preset.key === "ssb") {
+          ssbTotalBalance += balance;
+        }
+      } else if (preset.sdicCovered) {
+        const groupKey =
+          preset.key === "custom"
+            ? "custom:" + name.toLowerCase()
+            : preset.bankGroup;
+        const groupLabel =
+          preset.key === "custom" ? name : preset.bankGroupLabel;
+        if (!sdicMap.has(groupKey)) {
+          sdicMap.set(groupKey, {
+            bankGroupKey: groupKey,
+            label: groupLabel,
+            totalBalance: 0,
+            insuredBalance: 0,
+            uninsuredBalance: 0,
+            accountNames: [],
+          });
+        }
+        const g = sdicMap.get(groupKey);
+        g.totalBalance += balance;
+        if (!g.accountNames.includes(name)) g.accountNames.push(name);
+      } else {
+        totalNonSdicMmf += balance;
+      }
+
+      return {
+        id,
+        preset: preset.key,
+        presetLabel: preset.label,
+        bankGroup: preset.bankGroup,
+        bankGroupLabel: preset.bankGroupLabel,
+        sdicCovered: preset.sdicCovered,
+        sovereignBacked: preset.sovereignBacked,
+        name,
+        balance,
+        bonusCap,
+        hasCap,
+        hasOverflow,
+        bonusRatePct,
+        baseRatePct,
+        tier1Balance,
+        overflowBalance,
+        tier1AnnualInterest,
+        overflowAnnualInterest,
+        annualInterest,
+        monthlyInterest,
+        effectiveRatePct,
+        effectiveRate,
+        rateDragPct,
+        potentialOverflowGainAnnual,
+        note: preset.note,
+      };
+    });
+
+    let totalSdicInsured = 0;
+    let totalSdicUninsured = 0;
+    const sdicGroups = [];
+    for (const g of sdicMap.values()) {
+      g.insuredBalance = Math.min(g.totalBalance, C.sdicCap);
+      g.uninsuredBalance = Math.max(0, g.totalBalance - C.sdicCap);
+      totalSdicInsured += g.insuredBalance;
+      totalSdicUninsured += g.uninsuredBalance;
+      sdicGroups.push(g);
+    }
+
+    const effectiveRatePct =
+      totalBalance > 0
+        ? (totalAnnualInterest / totalBalance) * 100
+        : ssbBenchmarkPct;
+    const effectiveRate = effectiveRatePct / 100;
+    const totalMonthlyInterest = totalAnnualInterest / 12;
+    const potentialExtraMonthlyInterest = potentialExtraAnnualInterest / 12;
+    const overflowAccounts = computedRows.filter((r) => r.overflowBalance > 0);
+    const sdicBreachGroups = sdicGroups.filter((g) => g.uninsuredBalance > 0);
+    const sdicExceededBanks = sdicBreachGroups.map((g) => ({
+      bankGroup: g.bankGroupKey,
+      bankLabel: g.label,
+      balance: g.totalBalance,
+      uninsured: g.uninsuredBalance,
+    }));
+    const ssbCapExcess = Math.max(0, ssbTotalBalance - C.ssbCap);
+    const overflowAvgBaseRatePct =
+      totalOverflowBalance > 0
+        ? (totalOverflowInterest / totalOverflowBalance) * 100
+        : 0;
+    const sweptAnnualInterest =
+      totalAnnualInterest + potentialExtraAnnualInterest;
+    const sweptEffectiveRatePct =
+      totalBalance > 0
+        ? (sweptAnnualInterest / totalBalance) * 100
+        : ssbBenchmarkPct;
+
+    return {
+      accounts: computedRows,
+      accountCount: computedRows.length,
+      totalBalance,
+      totalTier1Balance,
+      totalOverflowBalance,
+      totalAnnualInterest,
+      totalMonthlyInterest,
+      effectiveRatePct,
+      effectiveRate,
+      ssbBenchmarkPct,
+      ssb10YrPct: ssbBenchmarkPct,
+      overflowAvgBaseRatePct,
+      potentialExtraAnnualInterest,
+      potentialExtraMonthlyInterest,
+      sweepAnnualGain: potentialExtraAnnualInterest,
+      sweptEffectiveRatePct,
+      overflowAccounts,
+      sdicGroups,
+      sdicBreachGroups,
+      sdicExceededBanks,
+      totalSdicInsured,
+      totalSdicUninsured,
+      sdicOverflowTotal: totalSdicUninsured,
+      totalSovereignBacked,
+      totalNonSdicMmf,
+      ssbTotalBalance,
+      ssbTotal: ssbTotalBalance,
+      ssbCap: C.ssbCap,
+      ssbCapExcess,
+      ssbOverflow: ssbCapExcess,
+    };
+  }
+
+  function sweepCashAccountsOverflow(accounts = [], masRates = null) {
+    const bd = computeCashAccountsBreakdown(accounts, masRates);
+    if (bd.totalOverflowBalance <= 0) {
+      return bd.accounts.map((a) => ({
+        id: a.id,
+        preset: a.preset,
+        name: a.name,
+        balance: a.balance,
+        bonusCap: a.bonusCap,
+        bonusRatePct: a.bonusRatePct,
+        baseRatePct: a.baseRatePct,
+      }));
+    }
+    let sweptPool = 0;
+    const nextRows = bd.accounts.map((a) => {
+      if (a.hasCap && a.overflowBalance > 0 && a.preset !== "ssb") {
+        sweptPool += a.overflowBalance;
+        return {
+          id: a.id,
+          preset: a.preset,
+          name: a.name,
+          balance: a.tier1Balance,
+          bonusCap: a.bonusCap,
+          bonusRatePct: a.bonusRatePct,
+          baseRatePct: a.baseRatePct,
+        };
+      }
+      return {
+        id: a.id,
+        preset: a.preset,
+        name: a.name,
+        balance: a.balance,
+        bonusCap: a.bonusCap,
+        bonusRatePct: a.bonusRatePct,
+        baseRatePct: a.baseRatePct,
+      };
+    });
+
+    if (sweptPool > 0) {
+      const ssbPreset = resolveCashAccountPreset("ssb", masRates);
+      let ssbRow = nextRows.find((r) => r.preset === "ssb");
+      if (!ssbRow) {
+        ssbRow = {
+          id: "cash-" + (nextRows.length + 1),
+          preset: "ssb",
+          name: "MAS SSB",
+          balance: 0,
+          bonusCap: ssbPreset.bonusCap,
+          bonusRatePct: ssbPreset.bonusRatePct,
+          baseRatePct: ssbPreset.baseRatePct,
+        };
+        nextRows.push(ssbRow);
+      }
+      const ssbRoom = Math.max(0, C.ssbCap - ssbRow.balance);
+      const addToSsb = Math.min(sweptPool, ssbRoom);
+      ssbRow.balance += addToSsb;
+      sweptPool -= addToSsb;
+
+      if (sweptPool > 0) {
+        const tbillPreset = resolveCashAccountPreset("tbills", masRates);
+        let tbillRow = nextRows.find((r) => r.preset === "tbills");
+        if (!tbillRow) {
+          tbillRow = {
+            id: "cash-" + (nextRows.length + 1),
+            preset: "tbills",
+            name: "MAS 6M T-Bills",
+            balance: 0,
+            bonusCap: 0,
+            bonusRatePct: tbillPreset.bonusRatePct,
+            baseRatePct: tbillPreset.baseRatePct,
+          };
+          nextRows.push(tbillRow);
+        }
+        tbillRow.balance += sweptPool;
+      }
+    }
+    return nextRows;
+  }
+
   function cashParkingPlan({
     summary,
     guide,
@@ -4354,12 +5075,30 @@
       guide?.emergencyMax ?? emergencyMonthlyBase * 12,
     );
     const buckets = resolvePortfolioBuckets(params);
-    const currentCash = Math.round(Math.max(0, buckets.ssbCash || 0));
-    const monthlyCashSlice = summary?.retiringNow
+    const cashAccountsActive = Boolean(
+      params?.cashAccountsActive &&
+      Array.isArray(params?.cashAccounts) &&
+      params.cashAccounts.length > 0,
+    );
+    const rawCurrentCash = Math.round(Math.max(0, buckets.ssbCash || 0));
+    const cashBreakdown = computeCashAccountsBreakdown(
+      cashAccountsActive
+        ? params.cashAccounts
+        : defaultCashAccounts(rawCurrentCash, masRates || params?.masRates),
+      masRates || params?.masRates,
+    );
+    const currentCash = cashAccountsActive
+      ? Math.round(cashBreakdown.totalBalance)
+      : rawCurrentCash;
+    const monthlyCashSaving = summary?.retiringNow
+      ? 0
+      : Math.round(Math.max(0, Number(params?.cashSaving || 0)));
+    const monthlyBondSlice = summary?.retiringNow
       ? 0
       : Math.round(
           Math.max(0, Number(bogle?.monthlyRebalance?.buyBondMonthly || 0)),
         );
+    const monthlyCashSlice = monthlyCashSaving + monthlyBondSlice;
     const hasSrs =
       Number(params?.srs || 0) > 0 || Number(params?.srsAnnual || 0) > 0;
 
@@ -4368,7 +5107,18 @@
     let positionNote =
       "Your current cash fits comfortably within one bank’s $100k SDIC insurance limit.";
 
-    if (currentCash <= 0) {
+    const fmtCash = (v) =>
+      "$" + Math.round(Math.max(0, v || 0)).toLocaleString("en-SG");
+
+    if (cashAccountsActive && cashBreakdown.totalOverflowBalance > 0) {
+      positionTone = "warn";
+      positionHeadline = `${fmtCash(cashBreakdown.totalOverflowBalance)} Over Bonus Cap (0.05%)`;
+      positionNote = `${cashBreakdown.overflowAccounts.map((a) => a.name).join(", ")} exceed bonus caps by ${fmtCash(cashBreakdown.totalOverflowBalance)}, dragging your blended cash rate to ${cashBreakdown.effectiveRatePct.toFixed(2)}% p.a. (${fmtCash(cashBreakdown.totalMonthlyInterest)}/mo). Sweep the overflow to MAS SSB (${cashBreakdown.ssbBenchmarkPct.toFixed(2)}%) or a 2nd bank for +${fmtCash(cashBreakdown.potentialExtraAnnualInterest)}/yr.`;
+    } else if (cashAccountsActive && cashBreakdown.totalSdicUninsured > 0) {
+      positionTone = "warn";
+      positionHeadline = `${fmtCash(cashBreakdown.totalSdicUninsured)} Above $100k SDIC Cap`;
+      positionNote = `Combined deposits at ${cashBreakdown.sdicBreachGroups.map((g) => g.label).join(", ")} exceed the $100k per-bank SDIC insurance cap by ${fmtCash(cashBreakdown.totalSdicUninsured)} (blended yield ${cashBreakdown.effectiveRatePct.toFixed(2)}% p.a. · ${fmtCash(cashBreakdown.totalMonthlyInterest)}/mo).`;
+    } else if (currentCash <= 0) {
       positionTone = "warn";
       positionHeadline = "Build Tier 1 buffer first";
       positionNote =
@@ -4380,19 +5130,25 @@
         "Keep 100% instant in an SDIC-insured HYSA or digital bank until your 6-month buffer is filled.";
     } else if (currentCash <= C.sdicCap) {
       positionTone = "good";
-      positionHeadline = "Fits inside 1 HYSA ($100k SDIC)";
+      positionHeadline = cashAccountsActive
+        ? `${cashBreakdown.effectiveRatePct.toFixed(2)}% Blended · SDIC Covered`
+        : "Fits inside 1 HYSA ($100k SDIC)";
       positionNote =
         currentCash > emergencyMax
           ? "Emergency buffer covered; any surplus above 12 months can shift into SSB ($200k cap) or T-Bills."
           : "Emergency buffer covered inside a single $100k SDIC-insured bank.";
     } else if (currentCash <= C.sdicCap + C.ssbCap) {
-      positionTone = "info";
-      positionHeadline = "Split across HYSA + SSB ($200k cap)";
+      positionTone = cashAccountsActive ? "good" : "info";
+      positionHeadline = cashAccountsActive
+        ? `${cashBreakdown.effectiveRatePct.toFixed(2)}% Blended · Cap Optimized`
+        : "Split across HYSA + SSB ($200k cap)";
       positionNote =
         "Cash exceeds one $100k SDIC bank cap. Keep emergency cash in HYSA/digital ($100k/bank) and park surplus in SSB (up to $200k) or T-Bills.";
     } else {
-      positionTone = "info";
-      positionHeadline = "Layer Multi-Bank + SSB + T-Bills/MMF";
+      positionTone = cashAccountsActive ? "good" : "info";
+      positionHeadline = cashAccountsActive
+        ? `${cashBreakdown.effectiveRatePct.toFixed(2)}% Blended · Multi-Account`
+        : "Layer Multi-Bank + SSB + T-Bills/MMF";
       positionNote =
         "Cash exceeds 1 bank ($100k SDIC) + full SSB ($200k). Split across multiple SDIC banks, MAS T-Bills, or SGD MMFs.";
     }
@@ -4426,11 +5182,15 @@
       emergencyMin,
       emergencyMax,
       currentCash,
+      monthlyCashSaving,
+      monthlyBondSlice,
       monthlyCashSlice,
       hasSrs,
       positionTone,
       positionHeadline,
       positionNote,
+      cashAccountsActive,
+      cashBreakdown,
       tiers: [
         {
           step: "Tier 1 · Instant Buffer",
@@ -4504,20 +5264,6 @@
       (C.oaInterestRefBalance * C.oaRate) / 12,
     );
 
-    const portAtRetireToday = todayValue(
-      sim.portfolioAtRetire || 0,
-      sum.retire,
-      sum.age,
-      sum.inflation,
-    );
-    const fundingRatio =
-      scen.privateTarget > 0
-        ? Math.min(2, portAtRetireToday / scen.privateTarget)
-        : 1;
-    const portDrawToday =
-      scen.gap65 > 0
-        ? scen.gap65 * fundingRatio
-        : (portAtRetireToday * 0.04) / 12;
     const resolvedMas = masRates || params?.masRates || DEFAULT_MAS_LIVE_RATES;
     const ssb10YrPct = Number(
       resolvedMas?.ssb?.year10Return ??
@@ -4533,6 +5279,106 @@
     const ssb150kMonthlyYield = Math.round(
       (C.ssbTargetBuffer * ssb10YrRate) / 12,
     );
+    const cashAccountsActive = Boolean(
+      params?.cashAccountsActive &&
+      Array.isArray(params?.cashAccounts) &&
+      params.cashAccounts.length > 0,
+    );
+    const cashBreakdown = cashAccountsActive
+      ? computeCashAccountsBreakdown(params.cashAccounts, resolvedMas)
+      : null;
+    const hasCustomCashRate =
+      params?.cashReturnRate != null &&
+      params.cashReturnRate !== "" &&
+      Number.isFinite(Number(params.cashReturnRate)) &&
+      Number(params.cashReturnRate) >= 0;
+    const customCashRateVal = hasCustomCashRate
+      ? Number(params.cashReturnRate) > 0.3
+        ? Number(params.cashReturnRate) / 100
+        : Number(params.cashReturnRate)
+      : null;
+    const effectiveCashAnnualRate = hasCustomCashRate
+      ? customCashRateVal
+      : cashBreakdown
+        ? cashBreakdown.effectiveRatePct / 100
+        : fp?.cashReturnRate ?? ssb10YrRate;
+    const effectiveCashRatePct = hasCustomCashRate
+      ? Number((customCashRateVal * 100).toFixed(2))
+      : cashBreakdown
+        ? cashBreakdown.effectiveRatePct
+        : ssb10YrPct;
+    const currentSsbMonthlyYield = hasCustomCashRate
+      ? Math.round((bg.buckets.ssbCash * effectiveCashAnnualRate) / 12)
+      : cashBreakdown
+        ? Math.round(cashBreakdown.totalMonthlyInterest)
+        : Math.round((bg.buckets.ssbCash * ssb10YrRate) / 12);
+    const monthlyCashSaving = sum.retiringNow
+      ? 0
+      : Math.round(Math.max(0, Number(sim.cashSaving ?? effP.cashSaving ?? 0)));
+    const monthlyExtraCpf = sum.retiringNow
+      ? 0
+      : Math.round(Math.max(0, Number(sim.cpfExtra ?? effP.cpfExtra ?? 0)));
+    const monthsToRet = Math.max(0, Math.round((sum.retire - sum.age) * 12));
+    const mRateCash = monthlyRate(effectiveCashAnnualRate);
+    const fvCashOnlyNominal =
+      mRateCash > 0
+        ? bg.buckets.ssbCash * (1 + mRateCash) ** monthsToRet +
+          monthlyCashSaving * (((1 + mRateCash) ** monthsToRet - 1) / mRateCash)
+        : bg.buckets.ssbCash + monthlyCashSaving * monthsToRet;
+    const projectedCashOnlyAtRetireToday = Math.round(
+      todayValue(fvCashOnlyNominal, sum.retire, sum.age, sum.inflation),
+    );
+    const projectedCashMonthlyYieldToday = Math.round(
+      (projectedCashOnlyAtRetireToday * effectiveCashAnnualRate) / 12,
+    );
+    const ptAtRetire =
+      fp?.points?.find((pt) => pt.age === fp.retire) ||
+      fp?.points?.[fp.points.length - 1] ||
+      null;
+    const currentLiquidEquities = Math.round(
+      (bg.buckets.equities || 0) + (bg.buckets.sgDividends || 0),
+    );
+    const projectedEquitiesAtRetireToday = Math.round(
+      ptAtRetire?.today?.liquidEquities ?? currentLiquidEquities,
+    );
+    const projTotalLiquidToday =
+      (ptAtRetire?.today?.liquidEquities ?? 0) +
+      (ptAtRetire?.today?.ssbCash ?? 0);
+    const projectedInvestAtRetireToday = ptAtRetire
+      ? Math.max(
+          projectedEquitiesAtRetireToday,
+          Math.round(projTotalLiquidToday - projectedCashOnlyAtRetireToday),
+        )
+      : Math.round(
+          todayValue(
+            sim.portfolioAtRetire || 0,
+            sum.retire,
+            sum.age,
+            sum.inflation,
+          ),
+        );
+    const portAtRetireToday = Math.round(
+      fp?.fireNumber?.projectedOutsideAtRetireToday ??
+        todayValue(
+          sim.portfolioAtRetire || 0,
+          sum.retire,
+          sum.age,
+          sum.inflation,
+        ),
+    );
+    const firePctFunded = Math.max(
+      0,
+      Number(
+        fp?.fireNumber?.pctFunded ??
+          (scen.privateTarget > 0
+            ? (portAtRetireToday / scen.privateTarget) * 100
+            : 100),
+      ),
+    );
+    const portDrawToday =
+      scen.gap65 > 0
+        ? Math.round(scen.gap65 * (Math.min(100, firePctFunded) / 100))
+        : Math.round((projectedInvestAtRetireToday * 0.04) / 12);
     const srsProjectedAt63Today = todayValue(
       tx.srsProjectedAt63,
       tx.srsLockInAge,
@@ -4579,14 +5425,9 @@
       Math.round((scen.payout / Math.max(1, todaySum.spend65)) * 100),
     );
     const eqGapCovPct =
-      scen.gap65 > 0
-        ? Math.min(100, Math.round((portDrawToday / scen.gap65) * 100))
-        : 100;
+      scen.gap65 > 0 ? Math.min(100, Math.round(firePctFunded)) : 100;
     const emergencyMin = Math.round(todaySum.todaySpend * 6);
     const emergencyMax = Math.round(todaySum.todaySpend * 12);
-    const currentSsbMonthlyYield = Math.round(
-      (bg.buckets.ssbCash * ssb10YrRate) / 12,
-    );
 
     return {
       tap1Cpf: {
@@ -4594,6 +5435,8 @@
         selectedPathKey: scen.key,
         selectedPathLabel: scen.label,
         monthlyPayoutToday: scen.payout,
+        monthlyExtraCpf,
+        projectedCpf55Today: Math.round(scen.balance || 0),
         standardMonthlyToday: scen.standardPayout,
         escalatingMonthlyToday: scen.standardPayout * C.escalatingRatio,
         spend65Today: todaySum.spend65,
@@ -4650,19 +5493,40 @@
         verdictLabel: srsVerdictLabel,
       },
       tap3Equities: {
+        targetEquityPct: bg.holistic.targetEquityPct,
+        targetBondPct: bg.holistic.targetBondPct,
         globalSplitPct: bg.holistic.globalEquitySplitPct,
         sgDividendSplitPct: bg.holistic.sgEquitySplitPct,
-        currentEquities: bg.holistic.totalEquities,
-        monthlyInvest: sim.invest,
+        currentEquities: currentLiquidEquities,
+        holisticTotalEquities: bg.holistic.totalEquities,
+        monthlyInvest: sum.retiringNow ? 0 : Math.round(sim.invest || 0),
+        monthlyGlobalBuy: sum.retiringNow
+          ? 0
+          : Math.round(bg.monthlyRebalance?.buyGlobalMonthly || 0),
+        monthlySgBuy: sum.retiringNow
+          ? 0
+          : Math.round(bg.monthlyRebalance?.buySgMonthly || 0),
+        monthlyBondBuy: sum.retiringNow
+          ? 0
+          : Math.round(bg.monthlyRebalance?.buyBondMonthly || 0),
+        projectedEquitiesAtRetireToday,
+        projectedInvestAtRetireToday,
         portfolioAtRetireToday: portAtRetireToday,
         postCpfGap65Today: scen.gap65,
         gapCoveragePct: eqGapCovPct,
+        firePctFunded: Math.round(firePctFunded),
         projectedMonthlyDrawToday: portDrawToday,
         benchmarkMinMonthly: C.equityTapMinRef,
         benchmarkMaxMonthly: C.equityTapMaxRef,
       },
       tap4Ssb: {
         currentSsbCash: bg.buckets.ssbCash,
+        monthlyCashSaving,
+        projectedCashOnlyAtRetireToday,
+        projectedSsbCashAtRetireToday: Math.round(
+          ptAtRetire?.today?.ssbCash ?? projectedCashOnlyAtRetireToday,
+        ),
+        projectedMonthlyYieldToday: projectedCashMonthlyYieldToday,
         emergencyMin,
         emergencyMax,
         currentMonthlyYield: currentSsbMonthlyYield,
@@ -4671,6 +5535,15 @@
         monthlyYieldAt150k: ssb150kMonthlyYield,
         ssb10YrPct,
         ssb1YrPct,
+        cashAccountsActive,
+        hasCustomCashRate,
+        effectiveRatePct: effectiveCashRatePct,
+        accountCount: cashBreakdown ? cashBreakdown.accounts.length : 1,
+        overflowBalance: cashBreakdown ? cashBreakdown.totalOverflowBalance : 0,
+        potentialExtraMonthlyInterest: cashBreakdown
+          ? Math.round(cashBreakdown.potentialExtraMonthlyInterest)
+          : 0,
+        sdicUninsured: cashBreakdown ? cashBreakdown.totalSdicUninsured : 0,
       },
       vhr: {
         oaRate: C.oaRate,
@@ -4681,6 +5554,174 @@
         oaAt55Today,
         oaInterestMonthlyToday,
       },
+    };
+  }
+
+  function evaluateDividendYield(opts = {}) {
+    const capital = Math.max(0, Number(opts.capital ?? 100000) || 0);
+    const ratePct = Math.min(
+      100,
+      Math.max(0, Math.round((Number(opts.ratePct ?? 5) || 0) * 100) / 100),
+    );
+    const inflationRate = Number(opts.inflationRate ?? C.defaultInflation ?? 0.025);
+    const inflationPct = Math.round(inflationRate * 10000) / 100;
+    const ssbRatePct =
+      Math.round((Number(opts.ssbRatePct ?? DEFAULT_MAS_LIVE_RATES.ssb10YAvgPct ?? 2.16) || 2.16) * 100) / 100;
+
+    const annualPayout = Math.round(capital * (ratePct / 100) * 100) / 100;
+    const monthlyPayout = Math.round((annualPayout / 12) * 100) / 100;
+    const quarterlyPayout = Math.round((annualPayout / 4) * 100) / 100;
+    const dailyPayout = Math.round((annualPayout / 365) * 100) / 100;
+
+    const realRatePct = Math.round((ratePct - inflationPct) * 100) / 100;
+    const realAnnualPayout = Math.round(capital * (realRatePct / 100) * 100) / 100;
+    const realMonthlyPayout = Math.round((realAnnualPayout / 12) * 100) / 100;
+
+    let tierKey = "sweet-spot";
+    let tone = "good";
+    let badge = "Strong · SG Dividend Sweet Spot";
+    let headline = `Sustainable Income Tier (+${realRatePct.toFixed(2)}% Real)`;
+    let summary = `Beats both 4.00% CPF SA/RA and ${inflationPct.toFixed(1)}% inflation. Aligns with STI ETFs (~4.5%), SG local banks (DBS/OCBC/UOB ~5.0%–5.5%), and blue-chip SG REITs (5.0%–6.0%) with 0% SG dividend withholding tax.`;
+
+    if (ratePct < 1.5) {
+      tierKey = "sub-floor";
+      tone = "danger";
+      badge = "Bad · Losing Purchasing Power";
+      headline = "Below Safe Floor — Erodes Real Principal";
+      summary = `Trails Singapore’s ${inflationPct.toFixed(1)}% inflation and ${ssbRatePct.toFixed(2)}% MAS 10Y SSB. At ${ratePct.toFixed(2)}%, inflation erodes ${Math.abs(realRatePct).toFixed(2)}%/yr of real purchasing power.`;
+    } else if (ratePct < inflationPct) {
+      tierKey = "capital-preserve";
+      tone = "warn";
+      badge = "Fair for Cash · Trails Inflation";
+      headline = "Liquid Parking Tier — Slightly Behind Inflation";
+      summary = `Comparable to MAS T-Bills / 10Y SSB (${ssbRatePct.toFixed(2)}%) and base HYSA tiers. Safe for emergency liquidity, but trails ${inflationPct.toFixed(1)}% inflation and 2.50% CPF OA.`;
+    } else if (ratePct < 4.0) {
+      tierKey = "safe-floor";
+      tone = "info";
+      badge = "Good · Beats Inflation & CPF OA";
+      headline = `Inflation-Beating Safe Yield (+${realRatePct.toFixed(2)}% Real)`;
+      summary = `Outpaces ${inflationPct.toFixed(1)}% inflation and 2.50% CPF OA while approaching the 4.00% CPF SA/RA floor. Typical of promotional HYSAs, money market funds, and SGD investment-grade bonds.`;
+    } else if (ratePct <= 6.2) {
+      tierKey = "sweet-spot";
+      tone = "good";
+      badge = "Strong · SG Dividend Sweet Spot";
+      headline = `Sustainable Income Tier (+${realRatePct.toFixed(2)}% Real)`;
+      summary = `Beats both 4.00% CPF SA/RA and ${inflationPct.toFixed(1)}% inflation. Aligns with STI ETFs (~4.5%), SG local banks (DBS/OCBC/UOB ~5.0%–5.5%), and blue-chip SG REITs (5.0%–6.0%) with 0% SG dividend withholding tax.`;
+    } else if (ratePct <= 7.5) {
+      tierKey = "elevated";
+      tone = "warn";
+      badge = "Elevated · Verify Payout Quality";
+      headline = "High Yield — Check Free Cash Flow & Gearing";
+      summary = "Above typical SG blue-chip bank and REIT averages (4.5%–6.0%). Confirm distributions are backed by recurring operating cash flow rather than high debt gearing (>40%) or capital return.";
+    } else {
+      tierKey = "yield-trap";
+      tone = "danger";
+      badge = "Caution · High Yield-Trap Risk";
+      headline = "Unsustainable SGD Yield Zone — Watch for NAV Erosion";
+      summary = "In SGD terms, yields above 7.5% rarely sustain without share price / NAV decay, DPU cuts, FX depreciation, or covered-call upside drag. Check 5-year total return before committing capital.";
+    }
+
+    const rawBenchmarks = [
+      {
+        key: "bank-base",
+        label: "Idle Bank Base Rate",
+        sub: "POSB / DBS / OCBC base tier (SDIC $100k)",
+        ratePct: 0.05,
+        tone: "danger",
+        verdictShort: "Severe inflation drag",
+      },
+      {
+        key: "mas-ssb",
+        label: "MAS 10Y SSB",
+        sub: "Sovereign AAA floor · $200k individual cap",
+        ratePct: ssbRatePct,
+        tone: "warn",
+        verdictShort: "Liquid cash floor",
+      },
+      {
+        key: "cpf-oa",
+        label: "CPF OA / SG Inflation",
+        sub: "2.5% statutory OA floor & core inflation benchmark",
+        ratePct: 2.5,
+        tone: "info",
+        verdictShort: "Real purchasing power parity",
+      },
+      {
+        key: "cpf-sa",
+        label: "CPF SA / RA Floor",
+        sub: "4.0% risk-free long-term CPF benchmark",
+        ratePct: 4.0,
+        tone: "info",
+        verdictShort: "Risk-free hurdle rate",
+      },
+      {
+        key: "sg-banks",
+        label: "STI ETF / SG Local Banks",
+        sub: "DBS · OCBC · UOB · 0% SG dividend tax",
+        ratePct: 5.0,
+        tone: "good",
+        verdictShort: "Core SG dividend sweet spot",
+      },
+      {
+        key: "sg-reits",
+        label: "SG Blue-Chip REITs",
+        sub: "Industrial / Retail / Parkway · <40% gearing",
+        ratePct: 6.0,
+        tone: "good",
+        verdictShort: "Upper sustainable income tier",
+      },
+      {
+        key: "yield-trap",
+        label: "Yield-Trap Warning Zone",
+        sub: "High-leverage REITs / FX debt / option-cap ETFs",
+        ratePct: 8.0,
+        tone: "danger",
+        verdictShort: "High NAV decay & DPU cut risk",
+      },
+    ];
+
+    let closestIdx = 0;
+    let minDiff = Infinity;
+    rawBenchmarks.forEach((b, idx) => {
+      const d = Math.abs(b.ratePct - ratePct);
+      if (d < minDiff) {
+        minDiff = d;
+        closestIdx = idx;
+      }
+    });
+
+    const benchmarks = rawBenchmarks.map((b, idx) => {
+      const bAnnual = Math.round(capital * (b.ratePct / 100) * 100) / 100;
+      const bMonthly = Math.round((bAnnual / 12) * 100) / 100;
+      const bRealRatePct = Math.round((b.ratePct - inflationPct) * 100) / 100;
+      return {
+        ...b,
+        annualPayout: bAnnual,
+        monthlyPayout: bMonthly,
+        realRatePct: bRealRatePct,
+        monthlyDelta: Math.round((bMonthly - monthlyPayout) * 100) / 100,
+        isClosest: idx === closestIdx && minDiff <= 0.35,
+      };
+    });
+
+    return {
+      capital,
+      ratePct,
+      inflationPct,
+      ssbRatePct,
+      annualPayout,
+      monthlyPayout,
+      quarterlyPayout,
+      dailyPayout,
+      realRatePct,
+      realAnnualPayout,
+      realMonthlyPayout,
+      tierKey,
+      tone,
+      badge,
+      headline,
+      summary,
+      benchmarks,
     };
   }
 
@@ -4732,10 +5773,17 @@
     paycheckAllocation,
     DEFAULT_MAS_LIVE_RATES,
     CASH_PARKING_CATALOG,
+    CASH_ACCOUNT_PRESETS,
+    resolveCashAccountPreset,
+    defaultCashAccounts,
+    computeCashAccountsBreakdown,
+    sweepCashAccountsOverflow,
+    resolveCashReturnRate,
     resolveCashParkingCatalog,
     cashParkingPlan,
     retirementTapsPlan,
     buildPrintReportModel,
+    evaluateDividendYield,
     generateTrajectory,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

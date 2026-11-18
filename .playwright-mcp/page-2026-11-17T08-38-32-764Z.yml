@@ -1,0 +1,834 @@
+- generic [ref=f4e1]:
+  - link "Skip to content":
+    - /url: "#main-content"
+  - generic [ref=f4e2]:
+    - complementary "Workspace navigation" [ref=f4e3]:
+      - generic [ref=f4e4]:
+        - generic [ref=f4e5]:
+          - link "Retirement Shield home" [ref=f4e6] [cursor=pointer]:
+            - /url: "#retirement-plan"
+            - generic [ref=f4e11]:
+              - text: Retirement
+              - strong [ref=f4e12]: Shield
+          - button "Collapse sidebar" [expanded] [ref=f4e13] [cursor=pointer]
+        - tablist "Core views" [ref=f4e16]:
+          - generic [ref=f4e17]:
+            - tab "Overview" [selected] [ref=f4e18] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f4e25]: 76%
+            - tab "Trajectory" [ref=f4e26] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f4e31]: Age 65
+            - tab "Allocator" [ref=f4e32] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f4e37]: 67/33
+            - tab "Cash Parking" [ref=f4e38] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f4e43]: "18"
+            - generic [ref=f4e44]:
+              - generic [ref=f4e45]: Tax & Rules
+              - tab "Tax Relief" [ref=f4e46] [cursor=pointer]:
+                - generic [aria-hidden] [ref=f4e50]: 7%
+              - tab "CPF Milestones" [ref=f4e51] [cursor=pointer]:
+                - generic [aria-hidden] [ref=f4e56]: Sal
+          - generic [ref=f4e58]:
+            - button "My Settings" [ref=f4e59] [cursor=pointer]
+            - button "Reset defaults" [ref=f4e64] [cursor=pointer]
+    - generic [ref=f4e69]:
+      - banner [ref=f4e70]:
+        - generic [ref=f4e71]:
+          - generic [ref=f4e72]:
+            - button "Community Care ($2,800/mo)" [ref=f4e73] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f4e74]: C
+            - text: ✓
+          - generic [ref=f4e78]:
+            - button "Assumptions" [ref=f4e79] [cursor=pointer]
+            - button "Print Poster" [ref=f4e85] [cursor=pointer]
+      - main [ref=f4e91]:
+        - region "Your retirement estimate and savings" [ref=f4e92]:
+          - generic [ref=f4e93]:
+            - status [ref=f4e94]: Estimated CPF income $693 a month from 65. Outside retirement pot $830,106. Gap after CPF $2,270 a month.
+            - tabpanel "Overview" [ref=f4e95]:
+              - generic [ref=f4e96]:
+                - generic [ref=f4e99]:
+                  - heading "Retirement Readiness Overview" [level=1] [ref=f4e100]
+                  - generic [ref=f4e101]: Shortfall Detected
+                - region "Plan snapshot key metrics" [ref=f4e105]:
+                  - generic [ref=f4e106]:
+                    - heading "Plan Snapshot" [level=2] [ref=f4e107]
+                    - generic [ref=f4e108] [cursor=pointer]: Today’s Dollars · 2026 CPF
+                  - region "Key plan inputs" [ref=f4e109]:
+                    - button "Edit your current age 35, born 1 Jan 1991" [ref=f4e110] [cursor=pointer]:
+                      - generic [ref=f4e111]: Your Age
+                      - strong [ref=f4e117]: 35 yrs
+                      - generic [ref=f4e118]: Current · DOB 1 Jan 1991
+                    - button "Edit target retirement age 65" [ref=f4e119] [cursor=pointer]:
+                      - generic [ref=f4e120]: Target Retire Age
+                      - strong [ref=f4e127]: Age 65
+                      - generic [ref=f4e128]: 30 yrs · Standard CPF LIFE
+                    - button "Edit monthly salary. Take-home $4,400 per month on $5,500 gross" [ref=f4e129] [cursor=pointer]:
+                      - generic [ref=f4e130]: Take-Home Pay
+                      - strong [ref=f4e137]:
+                        - generic [ref=f4e138]:
+                          - generic [ref=f4e139]: $
+                          - generic [ref=f4e140]: 4,400
+                          - generic [ref=f4e141]: /mo
+                      - generic [ref=f4e142]:
+                        - text: 80% net on
+                        - generic [ref=f4e143]:
+                          - generic [ref=f4e144]: $
+                          - generic [ref=f4e145]: 5,500
+                        - text: /mo
+                    - button "Edit total assets $60,000" [ref=f4e146] [cursor=pointer]:
+                      - generic [ref=f4e147]: Total Assets
+                      - strong [ref=f4e152]:
+                        - generic [ref=f4e153]:
+                          - generic [ref=f4e154]: $
+                          - generic [ref=f4e155]: 60,000
+                      - generic [ref=f4e156]:
+                        - generic [ref=f4e157]:
+                          - generic [ref=f4e158]:
+                            - generic [ref=f4e159]: $
+                            - generic [ref=f4e160]: "0"
+                          - text: CPF
+                        - text: ·
+                        - generic [ref=f4e161]:
+                          - generic [ref=f4e162]: $
+                          - generic [ref=f4e163]: 60,000
+                        - text: liquid
+                    - button "Edit retirement budget Community Care ($2,800/mo)" [ref=f4e164] [cursor=pointer]:
+                      - generic [ref=f4e165]: Retire Budget
+                      - strong [ref=f4e172]:
+                        - generic [ref=f4e173]:
+                          - generic [ref=f4e174]: $
+                          - generic [ref=f4e175]: 2,800
+                          - generic [ref=f4e176]: /mo
+                      - generic [ref=f4e177]: Salary CPF · CCA preset
+                - region "Monthly CPF, savings, and investment plan" [ref=f4e178]:
+                  - generic [ref=f4e179]:
+                    - heading "Monthly Savings & Investment Plan" [level=2] [ref=f4e180]
+                    - generic [ref=f4e181] [cursor=pointer]: Drives Trajectory & Readiness
+                  - region "Monthly CPF, savings, and investment plan" [ref=f4e182]:
+                    - region "Extra CPF saving each month" [ref=f4e183]:
+                      - generic [ref=f4e184]:
+                        - generic [ref=f4e185]: Extra CPF saving
+                        - generic [ref=f4e186]: 4.0% p.a. SA / RA
+                      - generic [ref=f4e187]:
+                        - strong [ref=f4e188]:
+                          - generic [ref=f4e189]:
+                            - generic [ref=f4e190]: $
+                            - generic [ref=f4e191]: "0"
+                        - generic [ref=f4e192]: SGD/mo
+                        - button "Edit CPF" [ref=f4e193] [cursor=pointer]
+                      - generic [ref=f4e194]:
+                        - generic [ref=f4e195]:
+                          - text: "Age-55 CPF:"
+                          - strong [ref=f4e196]:
+                            - generic [ref=f4e197]:
+                              - generic [ref=f4e198]: $
+                              - generic [ref=f4e199]: 101,014
+                          - text: "· CPF LIFE (65+):"
+                          - strong [ref=f4e200]:
+                            - generic [ref=f4e201]:
+                              - generic [ref=f4e202]: $
+                              - generic [ref=f4e203]: "693"
+                              - generic [ref=f4e204]: /mo
+                        - generic [ref=f4e205]:
+                          - text: "IRAS RSTU tax relief:"
+                          - strong [ref=f4e206]:
+                            - generic [ref=f4e207]:
+                              - generic [ref=f4e208]: $
+                              - generic [ref=f4e209]: "0"
+                              - generic [ref=f4e210]: /yr
+                          - text: of $8,000/yr max cap
+                      - generic [ref=f4e211]:
+                        - button "RSTU tax relief →" [ref=f4e212] [cursor=pointer]
+                        - button "BRS / FRS / ERS rules →" [ref=f4e213] [cursor=pointer]
+                    - region "Monthly planned savings (HYSA / SSB)" [ref=f4e214]:
+                      - generic [ref=f4e215]:
+                        - generic [ref=f4e216]: Monthly planned savings
+                        - generic [ref=f4e217]: 2.39% p.a. HYSA / SSB
+                      - generic [ref=f4e218]:
+                        - strong [ref=f4e219]:
+                          - generic [ref=f4e220]:
+                            - generic [ref=f4e221]: $
+                            - generic [ref=f4e222]: "0"
+                        - generic [ref=f4e223]: SGD/mo
+                        - button "Edit savings" [ref=f4e224] [cursor=pointer]
+                      - generic [ref=f4e225]:
+                        - generic [ref=f4e226]:
+                          - text: "Today:"
+                          - strong [ref=f4e227]:
+                            - generic [ref=f4e228]:
+                              - generic [ref=f4e229]: $
+                              - generic [ref=f4e230]: 20,000
+                          - text: "HYSA / SSB · Age 65:"
+                          - strong [ref=f4e231]:
+                            - generic [ref=f4e232]:
+                              - generic [ref=f4e233]: $
+                              - generic [ref=f4e234]: 19,366
+                        - generic [ref=f4e235]:
+                          - text: Compounds at
+                          - strong [ref=f4e236]: 2.39% p.a.
+                          - text: projected HYSA / SSB interest rate
+                      - generic [ref=f4e237]:
+                        - button "Set HYSA rate (2.39%) →" [ref=f4e238] [cursor=pointer]
+                        - button "Bank & SSB tiers →" [ref=f4e239] [cursor=pointer]
+                    - region "Monthly planned investment (Outside investment)" [ref=f4e240]:
+                      - generic [ref=f4e241]:
+                        - generic [ref=f4e242]: Monthly planned investment
+                        - generic [ref=f4e243]: 80% Eq / 20% Bond
+                      - generic [ref=f4e244]:
+                        - strong [ref=f4e245]:
+                          - generic [ref=f4e246]:
+                            - generic [ref=f4e247]: $
+                            - generic [ref=f4e248]: 1,817
+                        - generic [ref=f4e249]: SGD/mo
+                        - button "Edit investment" [ref=f4e250] [cursor=pointer]
+                      - generic [ref=f4e251]:
+                        - generic [ref=f4e252]:
+                          - text: "Today:"
+                          - strong [ref=f4e253]:
+                            - generic [ref=f4e254]:
+                              - generic [ref=f4e255]: $
+                              - generic [ref=f4e256]: 40,000
+                          - text: "Outside · Age 65:"
+                          - strong [ref=f4e257]:
+                            - generic [ref=f4e258]:
+                              - generic [ref=f4e259]: $
+                              - generic [ref=f4e260]: 738,291
+                        - generic [ref=f4e261]:
+                          - text: "Outside split (85/15 G/SG):"
+                          - strong [ref=f4e262]:
+                            - generic [ref=f4e263]:
+                              - generic [ref=f4e264]: $
+                              - generic [ref=f4e265]: 1,236
+                          - text: Global ·
+                          - strong [ref=f4e266]:
+                            - generic [ref=f4e267]:
+                              - generic [ref=f4e268]: $
+                              - generic [ref=f4e269]: "218"
+                          - text: SG ·
+                          - strong [ref=f4e270]:
+                            - generic [ref=f4e271]:
+                              - generic [ref=f4e272]: $
+                              - generic [ref=f4e273]: "363"
+                          - text: Bond
+                      - generic [ref=f4e274]:
+                        - button "Adjust split (80/20) →" [ref=f4e275] [cursor=pointer]
+                        - button "Portfolio allocator →" [ref=f4e276] [cursor=pointer]
+                  - region "Monthly take-home saving health" [ref=f4e277]:
+                    - generic [ref=f4e278]:
+                      - generic [ref=f4e279]:
+                        - generic [ref=f4e280]: Monthly Take-Home Saving Health
+                        - generic [ref=f4e281]: Healthy · 41% of take-home
+                      - paragraph [ref=f4e282]:
+                        - text: Total planned saving
+                        - strong [ref=f4e283]:
+                          - generic [ref=f4e284]:
+                            - generic [ref=f4e285]: $
+                            - generic [ref=f4e286]: 1,817
+                            - generic [ref=f4e287]: /mo
+                        - text: (
+                        - generic [ref=f4e288]:
+                          - generic [ref=f4e289]: $
+                          - generic [ref=f4e290]: "0"
+                        - text: CPF ·
+                        - generic [ref=f4e291]:
+                          - generic [ref=f4e292]: $
+                          - generic [ref=f4e293]: "0"
+                        - text: Savings ·
+                        - generic [ref=f4e294]:
+                          - generic [ref=f4e295]: $
+                          - generic [ref=f4e296]: 1,817
+                        - text: Investment) leaves
+                        - strong [ref=f4e297]:
+                          - generic [ref=f4e298]:
+                            - generic [ref=f4e299]: $
+                            - generic [ref=f4e300]: 2,583
+                            - generic [ref=f4e301]: /mo
+                        - text: of
+                        - generic [ref=f4e302]:
+                          - generic [ref=f4e303]: $
+                          - generic [ref=f4e304]: 4,400
+                        - text: take-home
+                      - paragraph [ref=f4e306]:
+                        - text: Within the
+                        - strong [ref=f4e307]: ≤50%
+                        - text: healthy threshold — leaves
+                        - strong [ref=f4e308]:
+                          - generic [ref=f4e309]:
+                            - generic [ref=f4e310]: $
+                            - generic [ref=f4e311]: 2,583
+                            - generic [ref=f4e312]: /mo
+                        - text: (59%) for living & tax.
+                    - generic [ref=f4e314]:
+                      - 'img "Monthly saving takes 41% of take-home pay. Thresholds: up to 50% healthy, 51 to 85% stretched, over 85% critical." [ref=f4e315]'
+                      - generic [aria-hidden] [ref=f4e321]:
+                        - generic [ref=f4e322]: 0%
+                        - generic [ref=f4e323]: 50%
+                        - generic [ref=f4e324]: 85%
+                        - generic [ref=f4e325]: 100%
+                      - generic [ref=f4e326]:
+                        - generic [ref=f4e327]: ≤50% Healthy
+                        - generic [ref=f4e329]: 51–85% Stretched
+                        - generic [ref=f4e331]: ">85% Critical"
+                - region "Wealth trajectory, income taps, and retirement readiness" [ref=f4e333]:
+                  - heading "Trajectory & Readiness" [level=2] [ref=f4e335]
+                  - generic [ref=f4e336]:
+                    - region "Net Worth at Age 65" [ref=f4e337]:
+                      - generic [ref=f4e338]:
+                        - generic [ref=f4e339]:
+                          - generic [ref=f4e340]: Net Worth at Age 65
+                          - strong [ref=f4e342]:
+                            - generic [ref=f4e343]:
+                              - generic [ref=f4e344]: $
+                              - generic [ref=f4e345]: 1,010,570
+                          - generic [ref=f4e346]: 76% funded to age 95
+                        - generic [ref=f4e347]:
+                          - generic [ref=f4e348]: Monthly Saving
+                          - strong [ref=f4e349]:
+                            - generic [ref=f4e350]:
+                              - generic [ref=f4e351]: $
+                              - generic [ref=f4e352]: 1,817
+                              - generic [ref=f4e353]: /mo
+                          - generic [ref=f4e354]: 41% of take-home
+                        - generic [ref=f4e355]:
+                          - generic [ref=f4e356]: CPF LIFE from 65
+                          - strong [ref=f4e357]:
+                            - generic [ref=f4e358]:
+                              - generic [ref=f4e359]: $
+                              - generic [ref=f4e360]: "693"
+                              - generic [ref=f4e361]: /mo
+                          - generic [ref=f4e362]: 23% of budget
+                      - generic [ref=f4e363]:
+                        - generic [aria-hidden] [ref=f4e364]:
+                          - generic [ref=f4e365]: 55+ Wealth
+                          - generic [ref=f4e367]: Pre-55 Base
+                          - generic [ref=f4e369]: Net Worth Trend
+                        - button "Edit balances" [ref=f4e371] [cursor=pointer]
+                      - img "Stacked net worth trajectory from age 35 to 95" [ref=f4e373]:
+                        - img [ref=f4e374]:
+                          - generic [ref=f4e375]: $0
+                          - generic [ref=f4e376]: $500k
+                          - generic [ref=f4e377]: $1M
+                          - generic [ref=f4e378]: $1.5M
+                          - generic [ref=f4e379]: "35"
+                          - generic [ref=f4e380]: "45"
+                          - generic [ref=f4e381]: "55"
+                          - generic [ref=f4e382]: "65"
+                          - generic [ref=f4e383]: "75"
+                          - generic [ref=f4e384]: "85"
+                          - generic [ref=f4e385]: "90"
+                          - generic [ref=f4e386]: "95"
+                          - generic [ref=f4e387] [cursor=pointer]
+                          - generic [ref=f4e390] [cursor=pointer]
+                          - generic [ref=f4e393] [cursor=pointer]
+                          - generic [ref=f4e396] [cursor=pointer]
+                          - generic [ref=f4e428]: 55 SA Closure
+                          - generic [ref=f4e429]: 65 Retire · CPF LIFE
+                          - generic [ref=f4e431]: $1.01M
+                          - generic [ref=f4e435]: $203k
+                      - generic [ref=f4e438]:
+                        - button "All Layers" [pressed] [ref=f4e439] [cursor=pointer]
+                        - button "Global & SG Equities" [ref=f4e440] [cursor=pointer]
+                        - button "SSB / T-Bills / Cash" [ref=f4e443] [cursor=pointer]
+                        - button "SRS" [ref=f4e446] [cursor=pointer]
+                        - button "CPF (OA + SA/RA + MA)" [ref=f4e449] [cursor=pointer]
+                    - region "Top funding sources, paycheck allocation, and milestones" [ref=f4e452]:
+                      - generic [ref=f4e453]:
+                        - heading "Top Funding Sources" [level=2] [ref=f4e454]
+                        - button "Edit budget" [ref=f4e455] [cursor=pointer]
+                      - tablist "Cashflow views" [ref=f4e456]:
+                        - tab "Coverage" [selected] [ref=f4e457] [cursor=pointer]
+                        - tab "Paycheck" [ref=f4e458] [cursor=pointer]
+                        - tab "Milestones" [ref=f4e459] [cursor=pointer]
+                      - generic [ref=f4e460]:
+                        - list "Key retirement funding and asset sources" [ref=f4e461]:
+                          - listitem [ref=f4e462]:
+                            - generic [aria-hidden] [ref=f4e463]: "1"
+                            - generic [ref=f4e464]:
+                              - strong [ref=f4e465]: Tap 1 · CPF LIFE (Std)
+                              - generic [ref=f4e466]: $693/mo of $2,963 need
+                            - generic [ref=f4e467]: 23%
+                          - listitem [ref=f4e468]:
+                            - generic [aria-hidden] [ref=f4e469]: "2"
+                            - generic [ref=f4e470]:
+                              - strong [ref=f4e471]: Tap 2 · SRS Bridge
+                              - generic [ref=f4e472]: Age 63–73 · 7% tax · Top up SA 1st
+                            - generic [ref=f4e473]: RSTU 1st
+                          - listitem [ref=f4e474]:
+                            - generic [aria-hidden] [ref=f4e475]: "3"
+                            - generic [ref=f4e476]:
+                              - strong [ref=f4e477]: Tap 3 · Equity & Dividend
+                              - generic [ref=f4e478]: $2,270/mo vs $2,270 gap
+                            - generic [ref=f4e479]: 85/15
+                          - listitem [ref=f4e480]:
+                            - generic [aria-hidden] [ref=f4e481]: "4"
+                            - generic [ref=f4e482]:
+                              - strong [ref=f4e483]: Tap 4 · SSB Buffer
+                              - generic [ref=f4e484]: $20k of $150k · ~$40/mo
+                            - generic [ref=f4e485]: 13%
+                          - listitem [ref=f4e486]:
+                            - generic [aria-hidden] [ref=f4e487]: "55"
+                            - generic [ref=f4e488]:
+                              - strong [ref=f4e489]: Age-55 OA Interest Tap
+                              - generic [ref=f4e490]: $0 excess OA at 55
+                            - generic [ref=f4e491]: 2.5% p.a.
+                        - generic [ref=f4e492]:
+                          - generic [ref=f4e493]:
+                            - generic [ref=f4e494]: Age-65 income split
+                            - strong [ref=f4e495]: $2,963/mo need
+                          - generic [ref=f4e499]:
+                            - generic [ref=f4e500]:
+                              - generic [ref=f4e502]: $693/mo
+                              - text: CPF LIFE (23%)
+                            - generic [ref=f4e503]:
+                              - generic [ref=f4e505]: $2,270/mo
+                              - text: savings (77%)
+                    - button "Edit target retirement age. Earliest safe age Age 72, Lasts to age 87" [ref=f4e506] [cursor=pointer]:
+                      - generic [ref=f4e507]:
+                        - heading "Retirement Readiness" [level=2] [ref=f4e508]
+                        - generic [ref=f4e509]: "Goal: Age 65"
+                      - generic [ref=f4e510]:
+                        - generic [ref=f4e520]: Building Up
+                        - generic [ref=f4e521]:
+                          - strong [ref=f4e522]: Age 72
+                          - generic [ref=f4e523]: Earliest Safe Retirement Age
+                          - generic [ref=f4e524]: 76% of age-95 goal
+                      - generic [ref=f4e525]:
+                        - generic [ref=f4e526]:
+                          - generic [ref=f4e527]: Retiring at 65
+                          - strong [ref=f4e528]: Lasts to age 87
+                        - generic [ref=f4e529]:
+                          - generic [ref=f4e530]: Safe age (to 95)
+                          - strong [ref=f4e531]: Age 72 (+7 yrs)
+                - region "Strategy paths and living budget" [ref=f4e532]:
+                  - heading "Strategy Paths & Living Budget" [level=2] [ref=f4e534]
+                  - region "CPF Retirement Path" [ref=f4e535]:
+                    - generic [ref=f4e536]:
+                      - generic [ref=f4e537]:
+                        - heading "CPF Retirement Path" [level=2] [ref=f4e538]
+                        - paragraph [ref=f4e539]: Compare relying on mandatory salary CPF versus funding FRS or ERS for higher lifelong CPF LIFE income.
+                      - generic [ref=f4e540]:
+                        - group "CPF LIFE payout plan" [ref=f4e541]:
+                          - button "Standard" [pressed] [ref=f4e542] [cursor=pointer]
+                          - button "Escalating +2%/yr" [ref=f4e543] [cursor=pointer]
+                        - button "Open Simulator →" [ref=f4e544] [cursor=pointer]
+                    - table [ref=f4e546]:
+                      - rowgroup [ref=f4e547]:
+                        - row [ref=f4e548]:
+                          - columnheader "Strategy Path" [ref=f4e549]
+                          - columnheader "Age-55 CPF" [ref=f4e550]
+                          - columnheader "Extra CPF" [ref=f4e551]
+                          - columnheader "Outside Save" [ref=f4e552]
+                          - columnheader "CPF LIFE (65+)" [ref=f4e553]
+                          - columnheader "Selection" [ref=f4e554]
+                      - rowgroup [ref=f4e555]:
+                        - row [ref=f4e556]:
+                          - cell "Salary CPF Baseline Uses mandatory salary CPF only; highest liquid monthly cashflow." [ref=f4e557]:
+                            - generic [ref=f4e563]:
+                              - generic [ref=f4e564]:
+                                - strong [ref=f4e565]: Salary CPF
+                                - generic [ref=f4e566]: Baseline
+                              - generic [ref=f4e567]: Uses mandatory salary CPF only; highest liquid monthly cashflow.
+                          - cell "$ 101,014" [ref=f4e568]:
+                            - generic [ref=f4e569]:
+                              - generic [ref=f4e570]: $
+                              - generic [ref=f4e571]: 101,014
+                          - cell "$ 0 /mo" [ref=f4e572]:
+                            - generic [ref=f4e573]:
+                              - generic [ref=f4e574]: $
+                              - generic [ref=f4e575]: "0"
+                              - generic [ref=f4e576]: /mo
+                          - cell "$ 1,817 /mo" [ref=f4e577]:
+                            - generic [ref=f4e578]:
+                              - generic [ref=f4e579]: $
+                              - generic [ref=f4e580]: 1,817
+                              - generic [ref=f4e581]: /mo
+                          - cell "$ 693 /mo" [ref=f4e582]:
+                            - strong [ref=f4e583]:
+                              - generic [ref=f4e584]:
+                                - generic [ref=f4e585]: $
+                                - generic [ref=f4e586]: "693"
+                                - generic [ref=f4e587]: /mo
+                          - cell [ref=f4e588]:
+                            - button "Selected" [pressed] [ref=f4e589] [cursor=pointer]
+                        - row [ref=f4e590]:
+                          - cell "FRS Target Standard Sum Targets $268k cohort FRS (today’s $) by 55 for steady baseline CPF LIFE." [ref=f4e591]:
+                            - generic [ref=f4e597]:
+                              - generic [ref=f4e598]:
+                                - strong [ref=f4e599]: FRS Target
+                                - generic [ref=f4e600]: Standard Sum
+                              - generic [ref=f4e601]: Targets $268k cohort FRS (today’s $) by 55 for steady baseline CPF LIFE.
+                          - cell "$ 267,735" [ref=f4e602]:
+                            - generic [ref=f4e603]:
+                              - generic [ref=f4e604]: $
+                              - generic [ref=f4e605]: 267,735
+                          - cell "$ 768 /mo" [ref=f4e606]:
+                            - generic [ref=f4e607]:
+                              - generic [ref=f4e608]: $
+                              - generic [ref=f4e609]: "768"
+                              - generic [ref=f4e610]: /mo
+                          - cell "$ 1,397 /mo" [ref=f4e611]:
+                            - generic [ref=f4e612]:
+                              - generic [ref=f4e613]: $
+                              - generic [ref=f4e614]: 1,397
+                              - generic [ref=f4e615]: /mo
+                          - cell "$ 1,637 /mo" [ref=f4e616]:
+                            - strong [ref=f4e617]:
+                              - generic [ref=f4e618]:
+                                - generic [ref=f4e619]: $
+                                - generic [ref=f4e620]: 1,637
+                                - generic [ref=f4e621]: /mo
+                          - cell [ref=f4e622]:
+                            - button "Select" [ref=f4e623] [cursor=pointer]
+                        - row [ref=f4e624]:
+                          - cell "ERS Maximum Max Floor Voluntary RA top-ups toward $535k ERS (today’s $); highest lifelong income." [ref=f4e625]:
+                            - generic [ref=f4e631]:
+                              - generic [ref=f4e632]:
+                                - strong [ref=f4e633]: ERS Maximum
+                                - generic [ref=f4e634]: Max Floor
+                              - generic [ref=f4e635]: Voluntary RA top-ups toward $535k ERS (today’s $); highest lifelong income.
+                          - cell "$ 535,470" [ref=f4e636]:
+                            - generic [ref=f4e637]:
+                              - generic [ref=f4e638]: $
+                              - generic [ref=f4e639]: 535,470
+                          - cell "$ 2,220 /mo" [ref=f4e640]:
+                            - generic [ref=f4e641]:
+                              - generic [ref=f4e642]: $
+                              - generic [ref=f4e643]: 2,220
+                              - generic [ref=f4e644]: /mo
+                          - cell "$ 708 /mo" [ref=f4e645]:
+                            - generic [ref=f4e646]:
+                              - generic [ref=f4e647]: $
+                              - generic [ref=f4e648]: "708"
+                              - generic [ref=f4e649]: /mo
+                          - cell "$ 3,187 /mo" [ref=f4e650]:
+                            - strong [ref=f4e651]:
+                              - generic [ref=f4e652]:
+                                - generic [ref=f4e653]: $
+                                - generic [ref=f4e654]: 3,187
+                                - generic [ref=f4e655]: /mo
+                          - cell [ref=f4e656]:
+                            - button "Select" [ref=f4e657] [cursor=pointer]
+                    - group [ref=f4e658]:
+                      - generic "2026 CPF & IRAS Today’s dollars · 2.5% inflation · 5% outside return" [ref=f4e659] [cursor=pointer]:
+                        - generic [ref=f4e660]: 2026 CPF & IRAS
+                        - generic [ref=f4e661]: Today’s dollars · 2.5% inflation · 5% outside return
+                        - generic [ref=f4e663]: Details
+                  - region "Retirement Living Budget" [ref=f4e665]:
+                    - generic [ref=f4e666]:
+                      - generic [ref=f4e667]:
+                        - generic [ref=f4e668]:
+                          - heading "Retirement Living Budget" [level=2] [ref=f4e669]
+                          - generic [ref=f4e670]: Community Care Apartments preset · Fixed
+                        - paragraph [ref=f4e671]:
+                          - text: Models what you need per month in retirement (
+                          - strong [ref=f4e672]:
+                            - generic [ref=f4e673]:
+                              - generic [ref=f4e674]: $
+                              - generic [ref=f4e675]: 2,800
+                              - generic [ref=f4e676]: /mo
+                          - text: today’s $). Separate from today’s take-home pay.
+                      - generic [ref=f4e677]:
+                        - generic [ref=f4e678]: "Age 65 est: $2,963/mo"
+                        - button "View preset items" [ref=f4e679] [cursor=pointer]
+                        - button "Switch to Custom" [ref=f4e680] [cursor=pointer]
+                    - generic [ref=f4e681]:
+                      - generic [ref=f4e683]:
+                        - img "Monthly living expense breakdown pie chart totaling $2,800 per month" [ref=f4e684]:
+                          - 'img "Home & Utilities: $150 per month (5%)" [ref=f4e685] [cursor=pointer]'
+                          - 'img "Food & Dining: $800 per month (29%)" [ref=f4e686] [cursor=pointer]'
+                          - 'img "Telco, WiFi & Subscriptions: $72 per month (3%)" [ref=f4e687] [cursor=pointer]'
+                          - 'img "Transport & Rides: $115 per month (4%)" [ref=f4e688] [cursor=pointer]'
+                          - 'img "Healthcare, Insurance & Care: $953 per month (34%)" [ref=f4e689] [cursor=pointer]'
+                          - 'img "Lifestyle, Travel & Buffer: $710 per month (25%)" [ref=f4e690] [cursor=pointer]'
+                        - generic [aria-hidden]:
+                          - generic: Retire Need
+                          - strong:
+                            - generic:
+                              - generic: $
+                              - generic: 2,800
+                          - generic: per month
+                      - generic [ref=f4e691]:
+                        - generic [ref=f4e692]:
+                          - generic [ref=f4e694]:
+                            - generic [ref=f4e695]:
+                              - text: Home & Utilities
+                              - generic [ref=f4e697]: (2)
+                            - strong [ref=f4e698]:
+                              - generic [ref=f4e699]:
+                                - generic [ref=f4e700]: $
+                                - generic [ref=f4e701]: "150"
+                                - generic [ref=f4e702]: /mo
+                              - text: 5%
+                          - generic [ref=f4e706]:
+                            - generic [ref=f4e707]:
+                              - text: Food & Dining
+                              - generic [ref=f4e709]: (2)
+                            - strong [ref=f4e710]:
+                              - generic [ref=f4e711]:
+                                - generic [ref=f4e712]: $
+                                - generic [ref=f4e713]: "800"
+                                - generic [ref=f4e714]: /mo
+                              - text: 29%
+                          - generic [ref=f4e718]:
+                            - generic [ref=f4e719]:
+                              - text: Telco, WiFi & Subscriptions
+                              - generic [ref=f4e721]: (2)
+                            - strong [ref=f4e722]:
+                              - generic [ref=f4e723]:
+                                - generic [ref=f4e724]: $
+                                - generic [ref=f4e725]: "72"
+                                - generic [ref=f4e726]: /mo
+                              - text: 3%
+                          - generic [ref=f4e730]:
+                            - generic [ref=f4e731]:
+                              - text: Transport & Rides
+                              - generic [ref=f4e733]: (1)
+                            - strong [ref=f4e734]:
+                              - generic [ref=f4e735]:
+                                - generic [ref=f4e736]: $
+                                - generic [ref=f4e737]: "115"
+                                - generic [ref=f4e738]: /mo
+                              - text: 4%
+                          - generic [ref=f4e742]:
+                            - generic [ref=f4e743]:
+                              - text: Healthcare, Insurance & Care
+                              - generic [ref=f4e745]: (6)
+                            - strong [ref=f4e746]:
+                              - generic [ref=f4e747]:
+                                - generic [ref=f4e748]: $
+                                - generic [ref=f4e749]: "953"
+                                - generic [ref=f4e750]: /mo
+                              - text: 34%
+                          - generic [ref=f4e754]:
+                            - generic [ref=f4e755]:
+                              - text: Lifestyle, Travel & Buffer
+                              - generic [ref=f4e757]: (3)
+                            - strong [ref=f4e758]:
+                              - generic [ref=f4e759]:
+                                - generic [ref=f4e760]: $
+                                - generic [ref=f4e761]: "710"
+                                - generic [ref=f4e762]: /mo
+                              - text: 25%
+                        - generic [ref=f4e765]:
+                          - generic [ref=f4e766]: "Top items:"
+                          - generic [ref=f4e767]:
+                            - text: Groceries & household essentials ·
+                            - generic [ref=f4e768]: $420
+                          - generic [ref=f4e769]:
+                            - text: Annual travel fund & contingency buffer ·
+                            - generic [ref=f4e770]: $410
+                          - generic [ref=f4e771]:
+                            - text: Hawker meals, cafés & dining out ·
+                            - generic [ref=f4e772]: $380
+                          - generic [ref=f4e773]:
+                            - text: Extra care & ad-hoc home help ·
+                            - generic [ref=f4e774]: $285
+                  - region "4-Tap Retirement Income Architecture & Guardrails" [ref=f4e775]:
+                    - generic [ref=f4e776]:
+                      - generic [ref=f4e777]:
+                        - heading "4-Tap Retirement Income Architecture & Guardrails" [level=2] [ref=f4e778]
+                        - paragraph [ref=f4e779]: How your CPF LIFE floor, SRS 10-year tax-concession bridge, 85/15 Global & SG Dividend portfolio, and $150k SSB buffer stack together.
+                      - generic [ref=f4e780]: 4 Income Taps
+                    - generic [ref=f4e781]:
+                      - article [ref=f4e782]:
+                        - generic [ref=f4e783]:
+                          - generic [ref=f4e784]: Tap 1 · Age 55 & 65+
+                          - generic [ref=f4e786]:
+                            - generic [ref=f4e787]: $
+                            - generic [ref=f4e788]: "693"
+                            - generic [ref=f4e789]: /mo
+                        - heading "CPF LIFE (Standard) & OA Interest" [level=3] [ref=f4e790]
+                        - generic [ref=f4e791]:
+                          - generic [ref=f4e792]:
+                            - generic [ref=f4e793]:
+                              - text: Covers 23% of
+                              - generic [ref=f4e794]:
+                                - generic [ref=f4e795]: $
+                                - generic [ref=f4e796]: 2,963
+                                - generic [ref=f4e797]: /mo
+                              - text: age-65 need
+                            - strong [ref=f4e798]: 23%
+                          - progressbar "Tap 1 CPF LIFE coverage of age-65 retirement budget" [ref=f4e799]
+                        - paragraph [ref=f4e801]:
+                          - text: Your
+                          - strong [ref=f4e802]: Salary CPF
+                          - text: projects
+                          - strong [ref=f4e803]:
+                            - generic [ref=f4e804]:
+                              - generic [ref=f4e805]: $
+                              - generic [ref=f4e806]: "693"
+                              - generic [ref=f4e807]: /mo
+                          - text: from 65, covering
+                          - strong [ref=f4e808]: 23%
+                          - text: of your
+                          - strong [ref=f4e809]:
+                            - generic [ref=f4e810]:
+                              - generic [ref=f4e811]: $
+                              - generic [ref=f4e812]: 2,963
+                              - generic [ref=f4e813]: /mo
+                          - text: "age-65 budget (2026 anchors: BRS $950 · FRS $1,780 · ERS $3,440/mo)."
+                        - group [ref=f4e814]:
+                          - generic "Age-55 OA interest & statutory rules" [ref=f4e815] [cursor=pointer]:
+                            - generic [aria-hidden] [ref=f4e817]: ▾
+                      - article [ref=f4e818]:
+                        - generic [ref=f4e819]:
+                          - generic [ref=f4e820]: Tap 2 · Age 63–73
+                          - generic [ref=f4e821]: RSTU First · 7% Tax
+                        - heading "SRS 10-Year Tax-Concession Bridge" [level=3] [ref=f4e822]
+                        - generic [ref=f4e823]:
+                          - generic [ref=f4e824]:
+                            - generic [ref=f4e825]: 7% tax bracket · $0 SRS pot planned
+                            - strong [ref=f4e826]: 0%
+                          - progressbar "Tap 2 SRS pot toward $400,000 soft cap" [ref=f4e827]
+                        - paragraph [ref=f4e828]:
+                          - text: At your
+                          - strong [ref=f4e829]: 7%
+                          - text: IRAS bracket,
+                          - strong [ref=f4e830]: prioritize CPF RSTU first
+                          - text: (up to
+                          - strong [ref=f4e831]:
+                            - generic [ref=f4e832]:
+                              - generic [ref=f4e833]: $
+                              - generic [ref=f4e834]: 8,000
+                              - generic [ref=f4e835]: /yr
+                          - text: → saves
+                          - strong [ref=f4e836]:
+                            - generic [ref=f4e837]:
+                              - generic [ref=f4e838]: $
+                              - generic [ref=f4e839]: "560"
+                              - generic [ref=f4e840]: /yr
+                          - text: + 4% floor) before locking cash in SRS.
+                        - group [ref=f4e841]:
+                          - generic "Ballooning trap guardrail ($450k–$500k)" [ref=f4e842] [cursor=pointer]:
+                            - generic [aria-hidden] [ref=f4e844]: ▾
+                      - article [ref=f4e845]:
+                        - generic [ref=f4e846]:
+                          - generic [ref=f4e847]: Tap 3 · Brokerage
+                          - generic [ref=f4e848]: 85% Global / 15% SG
+                        - heading "Global Growth & SG Dividend Equities" [level=3] [ref=f4e849]
+                        - generic [ref=f4e850]:
+                          - generic [ref=f4e851]:
+                            - generic [ref=f4e852]:
+                              - text: Covers 100% of
+                              - generic [ref=f4e853]:
+                                - generic [ref=f4e854]: $
+                                - generic [ref=f4e855]: 2,270
+                                - generic [ref=f4e856]: /mo
+                              - text: post-CPF gap
+                            - strong [ref=f4e857]: 100%
+                          - progressbar "Tap 3 monthly equity drawdown coverage" [ref=f4e858]
+                        - paragraph [ref=f4e860]:
+                          - text: With
+                          - strong [ref=f4e861]:
+                            - generic [ref=f4e862]:
+                              - generic [ref=f4e863]: $
+                              - generic [ref=f4e864]: 40,000
+                          - text: today +
+                          - strong [ref=f4e865]:
+                            - generic [ref=f4e866]:
+                              - generic [ref=f4e867]: $
+                              - generic [ref=f4e868]: 1,817
+                              - generic [ref=f4e869]: /mo
+                          - text: outside saving, your
+                          - strong [ref=f4e870]: 85/15
+                          - text: sleeve projects
+                          - strong [ref=f4e871]:
+                            - generic [ref=f4e872]:
+                              - generic [ref=f4e873]: $
+                              - generic [ref=f4e874]: 2,270
+                              - generic [ref=f4e875]: /mo
+                          - text: sustainable drawdown vs your
+                          - strong [ref=f4e876]:
+                            - generic [ref=f4e877]:
+                              - generic [ref=f4e878]: $
+                              - generic [ref=f4e879]: 2,270
+                              - generic [ref=f4e880]: /mo
+                          - text: post-CPF gap.
+                        - group [ref=f4e881]:
+                          - generic "Overflow & rebalancing rules" [ref=f4e882] [cursor=pointer]:
+                            - generic [aria-hidden] [ref=f4e884]: ▾
+                      - article [ref=f4e885]:
+                        - generic [ref=f4e886]:
+                          - generic [ref=f4e887]: Tap 4 · Sovereign Buffer
+                          - generic [ref=f4e888]:
+                            - generic [ref=f4e889]:
+                              - generic [ref=f4e890]: $
+                              - generic [ref=f4e891]: 20,000
+                            - text: / $150k
+                        - heading "SSB After All Done & $150k Buffer" [level=3] [ref=f4e892]
+                        - generic [ref=f4e893]:
+                          - generic [ref=f4e894]:
+                            - generic [ref=f4e895]: Current SSB & cash vs $150k target
+                            - strong [ref=f4e896]: 13%
+                          - progressbar "Tap 4 SSB buffer progress toward $150,000 target" [ref=f4e897]
+                        - paragraph [ref=f4e899]:
+                          - text: Your 6–12m emergency floor is
+                          - strong [ref=f4e900]:
+                            - generic [ref=f4e901]:
+                              - generic [ref=f4e902]: $
+                              - generic [ref=f4e903]: 16,800
+                            - text: –
+                            - generic [ref=f4e904]:
+                              - generic [ref=f4e905]: $
+                              - generic [ref=f4e906]: 33,600
+                          - text: . Current cash/SSB (
+                          - strong [ref=f4e907]:
+                            - generic [ref=f4e908]:
+                              - generic [ref=f4e909]: $
+                              - generic [ref=f4e910]: 20,000
+                          - text: ) earns ~
+                          - strong [ref=f4e911]:
+                            - generic [ref=f4e912]:
+                              - generic [ref=f4e913]: $
+                              - generic [ref=f4e914]: "40"
+                              - generic [ref=f4e915]: /mo
+                          - text: at live
+                          - strong [ref=f4e916]: 2.39%
+                          - text: 10Y SSB yield (~
+                          - strong [ref=f4e917]: $299/mo
+                          - text: at $150k).
+                        - group [ref=f4e918]:
+                          - generic "Redemption & MAS cap mechanics" [ref=f4e919] [cursor=pointer]:
+                            - generic [aria-hidden] [ref=f4e921]: ▾
+            - text: + +
+  - dialog "Extra CPF Saving" [ref=f4e922]:
+    - generic [ref=f4e923]:
+      - heading "Extra CPF Saving" [level=2] [ref=f4e925]
+      - button "Close quick edit" [ref=f4e926] [cursor=pointer]: ×
+    - generic [ref=f4e929]:
+      - generic [ref=f4e930]:
+        - generic [ref=f4e931]: Extra CPF saving / month
+        - generic [ref=f4e932]:
+          - button "Decrease extra CPF saving by 50 dollars" [ref=f4e933] [cursor=pointer]: −
+          - generic [ref=f4e934]:
+            - generic [ref=f4e935]: $
+            - spinbutton "Extra CPF saving / month" [active] [ref=f4e936]
+          - button "Increase extra CPF saving by 50 dollars" [ref=f4e937] [cursor=pointer]: +
+        - group "Quick extra CPF presets" [ref=f4e938]:
+          - button "Path target" [pressed] [ref=f4e939] [cursor=pointer]
+          - button "$0 / mo" [ref=f4e940] [cursor=pointer]
+          - button "$300 / mo" [ref=f4e941] [cursor=pointer]
+          - button "$667 · $8k/yr RSTU" [ref=f4e942] [cursor=pointer]
+        - paragraph [ref=f4e943]: Leave blank for target path suggestion. Compounds at 4.0% p.a. in SA / RA.
+        - generic [ref=f4e944]:
+          - generic [ref=f4e945]:
+            - generic [ref=f4e946]: IRAS RSTU Tax Relief ($8,000/yr max)
+            - strong [ref=f4e947]: $0 / $8,000 yr (0%)
+          - progressbar "IRAS RSTU tax relief $0 of $8,000 annual cap" [ref=f4e948]
+          - generic [aria-hidden] [ref=f4e949]:
+            - generic [ref=f4e950]: $0/yr
+            - generic [ref=f4e951]: $4,000/yr ($333/mo)
+            - generic [ref=f4e952]: $8,000/yr max ($667/mo)
+          - generic [ref=f4e953]:
+            - generic [ref=f4e954]: Add up to $667/mo ($8,000/yr) for dollar-for-dollar IRAS RSTU tax deduction (up to FRS).
+            - generic [ref=f4e956]:
+              - text: Age-55 CPF
+              - strong [ref=f4e958]: $101,014
+              - text: · CPF LIFE (65+)
+              - strong [ref=f4e959]: $693/mo
+      - button "Reset to path suggestion" [ref=f4e961] [cursor=pointer]
+    - generic [ref=f4e962]:
+      - status [ref=f4e963]: 76% Funded · Funded to 87
+      - generic [ref=f4e964]:
+        - button "All settings →" [ref=f4e965] [cursor=pointer]
+        - button "Done" [ref=f4e966] [cursor=pointer]

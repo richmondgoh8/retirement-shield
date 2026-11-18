@@ -281,6 +281,40 @@
                   >
                 </button>
               </div>
+              <div class="sidebar-subgroup">
+                <span class="sidebar-group-heading">Utility</span>
+                <button
+                  type="button"
+                  class="sidebar-tab is-child"
+                  data-tab="dividend-calc"
+                  role="tab"
+                  aria-selected="false"
+                  title="Dividend &amp; Yield Calculator"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="17"
+                    height="17"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.75"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <line x1="19" y1="5" x2="5" y2="19" />
+                    <circle cx="6.5" cy="6.5" r="2.5" />
+                    <circle cx="17.5" cy="17.5" r="2.5" />
+                  </svg>
+                  <span class="sidebar-tab-label">Dividend &amp; Yield</span
+                  ><span
+                    class="sidebar-badge"
+                    id="nav-badge-dividend"
+                    aria-hidden="true"
+                    >5.0%</span
+                  >
+                </button>
+              </div>
             </div>
             <div class="sidebar-divider" aria-hidden="true"></div>
             <div class="sidebar-group">
@@ -363,96 +397,6 @@
               <span>Retirement<strong>Shield</strong></span>
             </a>
 
-            <div class="header-lifestyle-wrap" id="header-lifestyle-wrap">
-              <button
-                type="button"
-                class="header-account-pill"
-                id="header-lifestyle-pill"
-                aria-haspopup="menu"
-                aria-expanded="false"
-                aria-controls="header-lifestyle-menu"
-              >
-                <span
-                  class="header-account-avatar"
-                  id="header-lifestyle-avatar"
-                  aria-hidden="true"
-                  >C</span
-                >
-                <span id="header-lifestyle-label"
-                  >Community Care ($2,800/mo)</span
-                >
-                <svg
-                  class="header-account-caret"
-                  viewBox="0 0 24 24"
-                  width="14"
-                  height="14"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2.2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
-              </button>
-              <div
-                class="header-account-menu"
-                id="header-lifestyle-menu"
-                role="menu"
-                hidden
-              >
-                <button
-                  type="button"
-                  role="menuitemradio"
-                  class="header-menu-item"
-                  data-switch-lifestyle="cca"
-                  aria-checked="true"
-                >
-                  <div>
-                    <strong>Community Care Apartments</strong>
-                    <small>$2,800/mo baseline · assisted living from 55</small>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  role="menuitemradio"
-                  class="header-menu-item"
-                  data-switch-lifestyle="home-helper"
-                  aria-checked="false"
-                >
-                  <div>
-                    <strong>Home + Helper</strong>
-                    <small>$3,900/mo baseline · ageing in place</small>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  role="menuitemradio"
-                  class="header-menu-item"
-                  id="header-custom-item"
-                  data-select-custom
-                  aria-checked="false"
-                >
-                  <div>
-                    <strong>Custom</strong>
-                    <small id="header-custom-sub"
-                      >Set custom monthly budget…</small
-                    >
-                  </div>
-                </button>
-                <div class="header-menu-divider" aria-hidden="true"></div>
-                <button
-                  type="button"
-                  role="menuitem"
-                  class="header-menu-item is-action"
-                  data-open-expense-modal="auto"
-                >
-                  <span>Manage living expenses &amp; CPF LIFE…</span>
-                </button>
-              </div>
-            </div>
-
             <div class="header-actions">
               <button
                 class="button button-small update-ready-button"
@@ -499,7 +443,7 @@
                 type="button"
                 id="print-plan-btn"
                 aria-label="Print Poster"
-                title="Print or save 1-page A4 infographic poster"
+                title="Print or save 1-page A4 landscape infographic poster"
               >
                 <svg
                   class="btn-icon"
@@ -562,11 +506,58 @@
                 <div class="ember-header-actions">
                   <button
                     type="button"
-                    class="button button-small button-rose-soft"
-                    data-print-trigger
+                    class="button button-small"
+                    id="export-json-btn"
+                    title="Download your retirement plan as a JSON file"
                   >
-                    Print A4 Poster
+                    <svg
+                      class="btn-icon"
+                      viewBox="0 0 24 24"
+                      width="15"
+                      height="15"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    <span>Export JSON</span>
                   </button>
+                  <button
+                    type="button"
+                    class="button button-small"
+                    id="import-json-btn"
+                    title="Import a saved JSON retirement plan into local storage (no page reload)"
+                  >
+                    <svg
+                      class="btn-icon"
+                      viewBox="0 0 24 24"
+                      width="15"
+                      height="15"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" />
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    <span>Import JSON</span>
+                  </button>
+                  <input
+                    type="file"
+                    id="import-json-file"
+                    accept=".json,application/json"
+                    hidden
+                  />
                   <button
                     type="button"
                     class="button button-small"
@@ -674,7 +665,6 @@
                           min="0"
                           max="1000000000"
                           step="any"
-                          value="0"
                           placeholder="0"
                           inputmode="decimal"
                         />
@@ -752,7 +742,6 @@
                           min="0"
                           max="1000000000"
                           step="any"
-                          value="0"
                           placeholder="0"
                           inputmode="decimal"
                         />
@@ -768,7 +757,6 @@
                           min="0"
                           max="1000000000"
                           step="any"
-                          value="0"
                           placeholder="0"
                           inputmode="decimal"
                         />
@@ -784,7 +772,6 @@
                           min="0"
                           max="1000000000"
                           step="any"
-                          value="0"
                           placeholder="0"
                           inputmode="decimal"
                         />
@@ -1030,6 +1017,21 @@
                         Sovereign bonds &amp; liquid buffer counted toward your
                         bond floor.
                       </small>
+                      <div
+                        id="settings-cash-accounts-note"
+                        class="settings-itemized-note"
+                        hidden
+                      >
+                        <span></span>
+                      </div>
+                      <button
+                        type="button"
+                        id="open-cash-breakdown-settings"
+                        class="text-button settings-inline-action"
+                        data-open-cash-breakdown
+                      >
+                        Break down bank accounts &amp; $100k caps →
+                      </button>
                     </div>
                     <div class="field">
                       <label for="known-srs">SRS balance today</label>
@@ -1041,7 +1043,6 @@
                           min="0"
                           max="1000000000"
                           step="any"
-                          value="0"
                           placeholder="0"
                           inputmode="decimal"
                         />
@@ -1061,7 +1062,6 @@
                           min="0"
                           max="15300"
                           step="any"
-                          value="0"
                           placeholder="0"
                           inputmode="decimal"
                         />
@@ -1264,8 +1264,49 @@
                         >
                       </div>
                       <div class="field">
+                        <label for="sim-cash-saving"
+                          >Monthly planned savings (HYSA / SSB)</label
+                        >
+                        <div class="saving-stepper">
+                          <button
+                            type="button"
+                            data-adjust="sim-cash-saving"
+                            data-delta="-50"
+                            aria-label="Decrease monthly planned savings by 50 dollars"
+                          >
+                            −
+                          </button>
+                          <div class="input-wrap">
+                            <span>$</span
+                            ><input
+                              id="sim-cash-saving"
+                              name="cashSavingSimulation"
+                              type="number"
+                              min="0"
+                              max="1000000"
+                              step="any"
+                              inputmode="decimal"
+                              placeholder="0"
+                              aria-describedby="sim-cash-saving-help"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            data-adjust="sim-cash-saving"
+                            data-delta="50"
+                            aria-label="Increase monthly planned savings by 50 dollars"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <small id="sim-cash-saving-help"
+                          >Compounds at your projected HYSA / SSB interest
+                          rate.</small
+                        >
+                      </div>
+                      <div class="field">
                         <label for="sim-invest"
-                          >Outside investments each month</label
+                          >Monthly planned investment (Outside investments)</label
                         >
                         <div class="saving-stepper">
                           <button
@@ -1450,6 +1491,16 @@
                 hidden
               >
                 <div id="cash-parking-slot"></div>
+              </section>
+
+              <section
+                id="tab-panel-dividend-calc"
+                class="tab-panel"
+                role="tabpanel"
+                aria-label="Dividend &amp; Yield Calculator"
+                hidden
+              >
+                <div id="dividend-calc-slot"></div>
               </section>
 
               <section
@@ -1829,6 +1880,8 @@
             </p>
           </div>
         </div>
+        <input id="known-cash-saving" type="hidden" value="" />
+        <input id="known-cash-return" type="hidden" value="" />
         <input id="known-invest" type="hidden" value="" />
         <input id="known-savings" type="hidden" value="" />
         <p id="settings-error" class="settings-error" role="status"></p>
@@ -2076,8 +2129,8 @@
           </div>
         </div>
 
-        <div id="qe-panel-income" class="qe-panel" hidden>
-          <div class="field-grid">
+        <div id="qe-panel-cpf-extra" class="qe-panel" hidden>
+          <div class="qe-stack">
             <div class="qe-field">
               <label for="qe-cpf-extra">Extra CPF saving / month</label>
               <div class="saving-stepper">
@@ -2110,12 +2163,221 @@
                   +
                 </button>
               </div>
+              <div
+                class="qe-picker-chips"
+                role="group"
+                aria-label="Quick extra CPF presets"
+              >
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-cpf-extra=""
+                >
+                  Path target
+                </button>
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-cpf-extra="0"
+                >
+                  $0 / mo
+                </button>
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-cpf-extra="300"
+                >
+                  $300 / mo
+                </button>
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-cpf-extra="667"
+                >
+                  $667 · $8k/yr RSTU
+                </button>
+              </div>
               <p class="qe-hint" id="qe-cpf-extra-hint">
-                Leave blank for target path suggestion.
+                Leave blank for target path suggestion. Compounds at 4.0% p.a. in SA / RA.
+              </p>
+              <div
+                class="qe-salary-split"
+                id="qe-cpf-extra-summary"
+                aria-live="polite"
+              ></div>
+            </div>
+            <div class="qe-income-actions">
+              <button type="button" id="qe-cpf-extra-reset" class="fin-link-pill qe-reset-pill">
+                Reset to path suggestion
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="qe-panel-cash-saving" class="qe-panel" hidden>
+          <div class="qe-stack">
+            <div class="qe-field">
+              <label for="qe-cash-saving">Monthly planned savings (HYSA / SSB)</label>
+              <div class="saving-stepper">
+                <button
+                  type="button"
+                  data-qe-step="qe-cash-saving"
+                  data-delta="-50"
+                  aria-label="Decrease monthly planned savings by 50 dollars"
+                >
+                  −
+                </button>
+                <div class="input-wrap">
+                  <span>$</span>
+                  <input
+                    id="qe-cash-saving"
+                    type="number"
+                    min="0"
+                    max="1000000"
+                    step="any"
+                    placeholder="0"
+                    inputmode="decimal"
+                  />
+                </div>
+                <button
+                  type="button"
+                  data-qe-step="qe-cash-saving"
+                  data-delta="50"
+                  aria-label="Increase monthly planned savings by 50 dollars"
+                >
+                  +
+                </button>
+              </div>
+              <div
+                class="qe-picker-chips"
+                role="group"
+                aria-label="Quick monthly savings presets"
+              >
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-cash-saving="0"
+                >
+                  $0 / mo
+                </button>
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-cash-saving="250"
+                >
+                  $250 / mo
+                </button>
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-cash-saving="500"
+                >
+                  $500 / mo
+                </button>
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-cash-saving="1000"
+                >
+                  $1,000 / mo
+                </button>
+              </div>
+              <p class="qe-hint" id="qe-cash-saving-hint">
+                Stays in cash / SSB. Separate from outside investments.
               </p>
             </div>
             <div class="qe-field">
-              <label for="qe-invest">Outside investments / month</label>
+              <label for="qe-cash-return">Projected HYSA / SSB interest rate (% p.a.)</label>
+              <div class="saving-stepper">
+                <button
+                  type="button"
+                  data-qe-cash-rate-delta="-0.1"
+                  aria-label="Decrease HYSA interest rate by 0.1 percent"
+                >
+                  −
+                </button>
+                <div class="input-wrap">
+                  <input
+                    id="qe-cash-return"
+                    type="number"
+                    min="0"
+                    max="15"
+                    step="0.05"
+                    placeholder="2.39"
+                    inputmode="decimal"
+                  />
+                  <span>% p.a.</span>
+                </div>
+                <button
+                  type="button"
+                  data-qe-cash-rate-delta="0.1"
+                  aria-label="Increase HYSA interest rate by 0.1 percent"
+                >
+                  +
+                </button>
+              </div>
+              <div
+                class="qe-picker-chips"
+                role="group"
+                aria-label="Quick HYSA interest rate presets"
+              >
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-cash-rate=""
+                >
+                  Auto (SSB / Bank)
+                </button>
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-cash-rate="2"
+                >
+                  2.00%
+                </button>
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-cash-rate="2.39"
+                >
+                  2.39% · SSB 10Y
+                </button>
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-cash-rate="3"
+                >
+                  3.00%
+                </button>
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-cash-rate="3.5"
+                >
+                  3.50%
+                </button>
+              </div>
+              <p class="qe-hint" id="qe-cash-return-hint">
+                Leave blank for live SSB / tiered bank EIR.
+              </p>
+              <div
+                class="qe-salary-split"
+                id="qe-cash-saving-summary"
+                aria-live="polite"
+              ></div>
+            </div>
+            <div class="qe-income-actions">
+              <button type="button" id="qe-cash-saving-reset" class="fin-link-pill qe-reset-pill">
+                Reset savings &amp; rate to default
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="qe-panel-invest" class="qe-panel" hidden>
+          <div class="qe-stack">
+            <div class="qe-field">
+              <label for="qe-invest">Monthly planned investment (Outside investments)</label>
               <div class="saving-stepper">
                 <button
                   type="button"
@@ -2146,16 +2408,183 @@
                   +
                 </button>
               </div>
+              <div
+                class="qe-picker-chips"
+                role="group"
+                aria-label="Quick monthly investment presets"
+              >
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-invest=""
+                >
+                  Suggested target
+                </button>
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-invest="500"
+                >
+                  $500 / mo
+                </button>
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-invest="1000"
+                >
+                  $1,000 / mo
+                </button>
+                <button
+                  type="button"
+                  class="qe-picker-chip"
+                  data-qe-pick-invest="2000"
+                >
+                  $2,000 / mo
+                </button>
+              </div>
               <p class="qe-hint" id="qe-invest-hint">
                 Leave blank for suggested saving target.
               </p>
             </div>
-            <div class="qe-income-actions qe-span-full">
-              <button type="button" id="qe-income-reset" class="text-button">
-                Reset to suggested amounts
+            <div class="bogle-funnel qe-invest-funnel">
+              <div class="bogle-funnel-stage is-stage-1">
+                <div class="bogle-funnel-head">
+                  <div class="bogle-funnel-title-wrap">
+                    <span class="bogle-step-badge">Step 1 · Total Split</span>
+                    <label for="qe-target-equity">Target Equity / Bond Split</label>
+                  </div>
+                  <strong class="bogle-funnel-readout" id="qe-target-equity-readout">80% Equity · 20% Bond</strong>
+                </div>
+                <div class="bogle-stage1-bar" aria-hidden="true">
+                  <span id="qe-stage1-eq-bar" style="width:80%;background:var(--primary);"></span>
+                  <span id="qe-stage1-bond-bar" style="width:20%;background:var(--sem-cpf);"></span>
+                </div>
+                <div class="bogle-funnel-controls">
+                  <div class="saving-stepper bogle-stepper">
+                    <button
+                      type="button"
+                      data-bogle-step="known-target-equity"
+                      data-delta="-5"
+                      aria-label="Decrease target equity by 5 percent"
+                    >
+                      −
+                    </button>
+                    <div class="input-wrap">
+                      <input
+                        id="qe-target-equity"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value="80"
+                        inputmode="numeric"
+                      />
+                      <span id="qe-target-equity-suffix">% Equity (20% Bond)</span>
+                    </div>
+                    <button
+                      type="button"
+                      data-bogle-step="known-target-equity"
+                      data-delta="5"
+                      aria-label="Increase target equity by 5 percent"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <div
+                    class="qe-picker-chips bogle-funnel-chips"
+                    role="group"
+                    aria-label="Target equity and bond split presets"
+                  >
+                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-target-equity" data-val="0">0/100</button>
+                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-target-equity" data-val="50">50/50</button>
+                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-target-equity" data-val="60">60/40</button>
+                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-target-equity" data-val="70">70/30</button>
+                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-target-equity" data-val="80">80/20</button>
+                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-target-equity" data-val="90">90/10</button>
+                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-target-equity" data-val="100">100/0</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bogle-funnel-connector" aria-hidden="true">
+                <span class="bogle-connector-elbow"></span>
+                <span class="bogle-connector-badge" id="qe-funnel-connector-text">Subdivides your <strong>80% Equity Sleeve</strong> into Global vs SG Dividend</span>
+              </div>
+
+              <div class="bogle-funnel-stage is-stage-2" id="qe-funnel-stage-2">
+                <div class="bogle-funnel-head">
+                  <div class="bogle-funnel-title-wrap">
+                    <span class="bogle-step-badge is-sub" id="qe-stage2-badge">Step 2 · Inside 80% Equity</span>
+                    <label for="qe-sg-sleeve">Equity Sleeve Split (Global / SG Dividend)</label>
+                  </div>
+                  <div class="bogle-funnel-readout-group">
+                    <strong class="bogle-funnel-readout" id="qe-sg-sleeve-readout">85% Global / 15% SG <span class="bogle-of-eq">of Eq</span></strong>
+                    <span class="bogle-effective-pill" id="qe-sg-effective-pill">= 68% Global · 12% SG of total</span>
+                  </div>
+                </div>
+                <div class="bogle-funnel-controls">
+                  <div class="saving-stepper bogle-stepper">
+                    <button
+                      type="button"
+                      data-bogle-step="known-sg-sleeve"
+                      data-delta="-5"
+                      aria-label="Decrease SG dividend sleeve by 5 percent"
+                    >
+                      −
+                    </button>
+                    <div class="input-wrap">
+                      <input
+                        id="qe-sg-sleeve"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value="15"
+                        inputmode="numeric"
+                      />
+                      <span id="qe-sg-sleeve-suffix">% SG (85% Global)</span>
+                    </div>
+                    <button
+                      type="button"
+                      data-bogle-step="known-sg-sleeve"
+                      data-delta="5"
+                      aria-label="Increase SG dividend sleeve by 5 percent"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <div
+                    class="qe-picker-chips bogle-funnel-chips"
+                    role="group"
+                    aria-label="Global vs SG equity sleeve presets"
+                  >
+                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-sg-sleeve" data-val="0">100/0</button>
+                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-sg-sleeve" data-val="10">90/10</button>
+                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-sg-sleeve" data-val="15">85/15</button>
+                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-sg-sleeve" data-val="20">80/20</button>
+                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-sg-sleeve" data-val="30">70/30</button>
+                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-sg-sleeve" data-val="50">50/50</button>
+                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-sg-sleeve" data-val="100">0/100</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div
+              class="qe-salary-split"
+              id="qe-invest-summary"
+              aria-live="polite"
+            ></div>
+            <div class="qe-income-actions">
+              <button type="button" id="qe-invest-reset" class="fin-link-pill qe-reset-pill">
+                Reset to suggested investment &amp; split
               </button>
             </div>
-            <div class="qe-field qe-span-full housing-calc-box is-compact">
+          </div>
+        </div>
+
+        <div id="qe-panel-income" class="qe-panel" hidden>
+          <div class="qe-stack">
+            <div class="qe-field housing-calc-box is-compact">
               <label for="qe-housing-mode">Housing loan (from CPF OA)</label>
               <div class="input-wrap select-wrap">
                 <select id="qe-housing-mode">
@@ -2350,21 +2779,6 @@
               </div>
             </div>
             <div class="qe-field">
-              <label for="qe-ssb-cash">SSB / T-Bills / Cash</label>
-              <div class="input-wrap">
-                <span>$</span>
-                <input
-                  id="qe-ssb-cash"
-                  type="number"
-                  min="0"
-                  max="1000000000"
-                  step="any"
-                  placeholder="0"
-                  inputmode="decimal"
-                />
-              </div>
-            </div>
-            <div class="qe-field">
               <label for="qe-srs">SRS balance today</label>
               <div class="input-wrap">
                 <span>$</span>
@@ -2391,6 +2805,36 @@
                   <option value="cash">Uninvested Cash (0.05% p.a.)</option>
                 </select>
               </div>
+            </div>
+            <div class="qe-field qe-span-full qe-cash-section">
+              <div class="qe-cash-single-wrap" id="qe-cash-single-wrap">
+                <div class="qe-cash-head-row">
+                  <label for="qe-ssb-cash"
+                    >SSB / T-Bills / High-Yield Cash</label
+                  >
+                  <button
+                    type="button"
+                    class="text-button settings-inline-action"
+                    id="qe-cash-breakdown-btn"
+                    data-cash-acc-toggle-qe
+                  >
+                    Break down by bank &amp; SSB accounts →
+                  </button>
+                </div>
+                <div class="input-wrap">
+                  <span>$</span>
+                  <input
+                    id="qe-ssb-cash"
+                    type="number"
+                    min="0"
+                    max="1000000000"
+                    step="any"
+                    placeholder="0"
+                    inputmode="decimal"
+                  />
+                </div>
+              </div>
+              <div id="qe-cash-accounts-slot"></div>
             </div>
           </div>
         </div>

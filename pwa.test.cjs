@@ -151,4 +151,72 @@ test("4-Tap semantic asset colors, spinbutton reset, and clean page headers foll
   assert.match(srcCss, /::-webkit-inner-spin-button/);
   assert.equal(srcApp.includes("swell-kicker"), false);
   assert.equal(srcHtml.includes("swell-kicker"), false);
+
+  // Zero undefined CSS variables (excluding inline runtime custom properties)
+  const definedVars = new Set(
+    [...srcCss.matchAll(/(--[a-zA-Z0-9-]+)\s*:/g)].map((m) => m[1]),
+  );
+  const runtimeVars = new Set([
+    "--seg-idx",
+    "--seg-count",
+    "--item-idx",
+    "--glider-w",
+    "--glider-x",
+    "--src-bg",
+    "--stagger",
+  ]);
+  const usedVars = [...srcCss.matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g)].map(
+    (m) => m[1],
+  );
+  const undefinedVars = usedVars.filter(
+    (v) => !definedVars.has(v) && !runtimeVars.has(v),
+  );
+  assert.deepEqual(undefinedVars, []);
+
+  // Zero legacy palette hexes across source files
+  for (const hex of ["#0a1829", "#111827", "#f6f8f5", "#faf3e5", "#fdfbfa"]) {
+    assert.equal(
+      srcCss.toLowerCase().includes(hex),
+      false,
+      `styles.css must not contain ${hex}`,
+    );
+    assert.equal(
+      srcApp.toLowerCase().includes(hex),
+      false,
+      `app.js must not contain ${hex}`,
+    );
+    assert.equal(
+      srcHtml.toLowerCase().includes(hex),
+      false,
+      `index.html must not contain ${hex}`,
+    );
+  }
+
+  // Zero deprecated legacy CSS variable aliases in :root
+  for (const legacyVar of [
+    "--navy-950",
+    "--navy-900",
+    "--paper",
+    "--teal-deep",
+  ]) {
+    assert.equal(
+      srcCss.includes(legacyVar),
+      false,
+      `styles.css must not contain retired alias ${legacyVar}`,
+    );
+  }
+
+  // Accessible soft-tint ink tokens per DESIGN.md Named Rules
+  assert.match(
+    srcCss,
+    /\.tap-verdict-pill\.is-danger\s*\{[\s\S]*?background:\s*var\(--sem-alert-soft\)/,
+  );
+  assert.match(
+    srcCss,
+    /\.cash-safety-pill\.is-gov\s*\{[\s\S]*?color:\s*var\(--sem-cpf-ink\)/,
+  );
+  assert.match(
+    srcCss,
+    /\.cash-sync-tag\s*\{[\s\S]*?color:\s*var\(--sem-cpf-ink\)/,
+  );
 });
