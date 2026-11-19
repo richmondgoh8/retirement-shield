@@ -1,5 +1,7 @@
 /* Fixed, disclosed planning assumptions; no personal data leaves the browser. */
 (function (root) {
+  const fmtSgd = (v) =>
+    `$${Math.round(Math.max(0, Number(v) || 0)).toLocaleString("en-SG")}`;
   const C = {
     year: 2026,
     startMonth: 11, // First full projection month: December 2026.
@@ -18,6 +20,7 @@
     saRate: 0.04,
     wageCap: 8000,
     annualWageCap: 102000,
+    cpfAnnualLimit: 37740,
     escalatingRate: 0.02,
     escalatingRatio: 0.8,
     sdicCap: 100000,
@@ -26,6 +29,7 @@
     srsIdleRate: 0.0005,
     srsTaxFreeAnnual: 40000,
     rstuReliefCap: 8000,
+    familyRstuReliefCap: 8000,
     personalReliefCap: 80000,
     ssbTargetBuffer: 150000,
     srsSoftCapAt63: 400000,
@@ -197,53 +201,6 @@
     cca: { label: "Community Care Apartments", budget: 2800 },
     "home-helper": { label: "Home + Helper", budget: 3900 },
   };
-
-  function budgetBreakdown(
-    lifestyle = "cca",
-    total = lifestyles[lifestyle]?.budget,
-  ) {
-    if (
-      !Object.hasOwn(lifestyles, lifestyle) ||
-      !Number.isFinite(total) ||
-      total < 0
-    )
-      throw new Error("Choose a preset and a non-negative monthly budget.");
-    const source =
-      lifestyle === "cca"
-        ? ccaRows.map((row, i) => ({
-            name: row.name,
-            amount: row.now,
-            group: [0, 1, 2, 6].includes(i)
-              ? "living"
-              : i === 7
-                ? "buffer"
-                : "care",
-          }))
-        : [
-            ...careRows.map((row, i) => ({
-              name: row.name,
-              amount: (row.now[0] + row.now[1]) / 2,
-              group: [3, 4].includes(i) ? "care" : "living",
-            })),
-            { name: "Planning cushion", amount: 410, group: "buffer" },
-          ];
-    const sourceTotal = source.reduce((sum, row) => sum + row.amount, 0);
-    const rows = source.map((row) => ({
-      ...row,
-      amount: sourceTotal > 0 ? (row.amount * total) / sourceTotal : 0,
-    }));
-    const groups = [
-      { key: "living", label: "Daily living" },
-      { key: "care", label: "Health & help" },
-      { key: "buffer", label: "Cushion" },
-    ].map((group) => ({
-      ...group,
-      amount: rows
-        .filter((row) => row.group === group.key)
-        .reduce((sum, row) => sum + row.amount, 0),
-    }));
-    return { total, rows, groups };
-  }
 
   const EXPENSE_CATEGORIES = [
     { key: "housing", label: "Home & Utilities", color: "#0891B2" },
@@ -597,13 +554,6 @@
     };
   }
 
-  function careTotals(key = "now") {
-    return careRows.reduce(
-      (s, row) => [s[0] + row[key][0], s[1] + row[key][1]],
-      [0, 0],
-    );
-  }
-
   // Match the supplied category midpoints at 65 and ten years later at 75.
   // Keep the $300 levy fixed; model general prices and an additional care-age allowance.
   const careAgeFactor = (age) =>
@@ -731,6 +681,10 @@
     const insuranceCurve = Boolean(
       typeof opts === "object" && opts.insuranceCurve,
     );
+    const bridgeIncomeAtRetire =
+      typeof opts === "object" && Number.isFinite(opts.bridgeIncomeAtRetire)
+        ? Math.max(0, Number(opts.bridgeIncomeAtRetire))
+        : 0;
     const expOpts = { insuranceCurve };
     const rate = monthlyRate(investmentReturn);
     let target = 0;
@@ -746,11 +700,16 @@
             ? income * C.escalatingRatio * (1 + C.escalatingRate) ** cpfElapsed
             : income;
       }
+      const bridge =
+        currentAge < 65 && bridgeIncomeAtRetire > 0
+          ? bridgeIncomeAtRetire * (1 + inflation) ** t
+          : 0;
       target +=
         Math.max(
           0,
           expenseAt(spend, retirementAge, t, inflation, lifestyle, expOpts) -
-            cpf,
+            cpf -
+            bridge,
         ) /
         (1 + rate) ** m;
     }
@@ -770,9 +729,21 @@
               ? year >= 2027
                 ? [0.3382, 0.3661, 0.355]
                 : [0.353, 0.3382, 0.34]
-              : year >= 2027
-                ? [0.1347, 0.4615, 0.26]
-                : [0.14, 0.44, 0.25];
+              : age <= 65
+                ? year >= 2027
+                  ? [0.1347, 0.4615, 0.26]
+                  : [0.14, 0.44, 0.25]
+                : age <= 70
+                  ? [0.0607, 0.303, 0.165]
+                  : [0.08, 0.08, 0.125];
+  }
+
+  function employeeCpfRate(age, year = C.year) {
+    if (age <= 55) return 0.2;
+    if (age <= 60) return year >= 2027 ? 0.19 : 0.18;
+    if (age <= 65) return year >= 2027 ? 0.13 : 0.125;
+    if (age <= 70) return 0.075;
+    return 0.05;
   }
 
   function extraInterest(balances, age) {
@@ -781,7 +752,7 @@
     for (const key of ["ra", "oa", "sa", "ma"]) {
       const eligible = Math.min(
         key === "oa" ? 20000 : Infinity,
-        balances[key] || 0,
+        Math.max(0, balances[key] || 0),
       );
       const first = Math.min(eligible, Math.max(0, 30000 - used));
       const total = Math.min(eligible, Math.max(0, 60000 - used));
@@ -838,7 +809,9 @@
       extraPost55CPF = 0;
     let snapshot55,
       goalAge = null,
-      reserveDeposits = 0;
+      reserveDeposits = 0,
+      raSweepAt65 = 0,
+      bhs65 = C.bhs * (1 + C.bhsGrowth) ** (65 - age);
     const ledger = [];
     const reserveRate = monthlyRate(Number(p.reserveReturn || 0));
 
@@ -861,10 +834,12 @@
       const year = C.year + Math.floor((C.startMonth + m) / 12);
       const currentFRS = retirementSum(year);
       const bhs = C.bhs * (1 + C.bhsGrowth) ** (year - C.year);
+      const post55RaCap = goal === "brs" ? 0.5 * frs : frs;
       if (m === months55) {
         const originalOA = b.oa,
           originalSA = b.sa;
-        const initial = Math.min(frs, b.sa + b.oa);
+        const initialCap = goal === "brs" ? 0.5 * frs : frs;
+        const initial = Math.min(initialCap, b.sa + b.oa);
         const fromSA = Math.min(b.sa, initial);
         b.sa -= fromSA;
         b.oa -= initial - fromSA;
@@ -872,19 +847,20 @@
         principal = initial;
         b.oa += b.sa;
         b.sa = 0;
-        // Pre-closure SA interest is credited at year end, up to FRS in RA, then OA.
+        // Pre-closure SA interest is credited at year end, up to post55RaCap in RA, then OA.
         closedSAInterest = pending.sa;
         pending.sa = 0;
         snapshot55 = {
           ...b,
           oa: originalOA,
           sa: originalSA,
-          cpfAt55: initial,
+          cpfAt55: Math.min(frs, originalOA + originalSA),
           availableAt55: originalOA + originalSA,
           reserve,
         };
-        const limit = goal === "ers" ? 2 * frs : frs;
-        if (goal !== "salary") {
+        const limit =
+          goal === "ers" ? 2 * frs : goal === "brs" ? 0.5 * frs : frs;
+        if (goal !== "salary" && goal !== "brs") {
           b.oa -= creditRA(b.oa, limit);
         }
         const reserveTransfer = creditRA(reserve, limit);
@@ -900,7 +876,8 @@
         snapshot55.oaAfter55 = b.oa;
         snapshot55.remainingReserve = reserve;
       }
-      const target = goal === "ers" ? 2 * frs : frs;
+      const target =
+        goal === "ers" ? 2 * frs : goal === "brs" ? 0.5 * frs : frs;
       if (
         goalAge === null &&
         (currentAge < 55 ? b.sa + b.oa + reserve : principal) >= target - 0.005
@@ -916,8 +893,23 @@
           totalInterest,
         });
       if (m === months65) {
-        // For these birth cohorts, OA is transferred up to FRS when payouts start.
-        b.oa -= creditRA(b.oa, frs);
+        bhs65 = bhs;
+        for (const key of Object.keys(b)) {
+          b[key] += pending[key];
+          pending[key] = 0;
+        }
+        if (closedSAInterest > 0) {
+          addRetirement(closedSAInterest, post55RaCap, false);
+          closedSAInterest = 0;
+        }
+        const overflow65 = Math.max(0, b.ma - bhs);
+        if (overflow65 > 0) {
+          b.ma -= overflow65;
+          addRetirement(overflow65, post55RaCap, false);
+        }
+        // For these birth cohorts, OA is transferred up to RA requirement when payouts start.
+        raSweepAt65 = creditRA(b.oa, post55RaCap);
+        b.oa -= raSweepAt65;
         if (goalAge === null && principal >= target - 0.005)
           goalAge = currentAge;
         if (ledger.at(-1)?.age === currentAge) Object.assign(ledger.at(-1), b);
@@ -946,7 +938,11 @@
       };
       if (before55) incoming.sa = contribution * r;
       else {
-        incoming.ra = creditRA(contribution * r, frs);
+        // Compute capped RA addition without mutating b.ra before interest eligibility is snapshotted.
+        incoming.ra = Math.min(
+          contribution * r,
+          Math.max(0, post55RaCap - principal),
+        );
         incoming.oa += contribution * r - incoming.ra;
         post55RAContributions += incoming.ra;
         post55RAContributionsToday += todayValue(
@@ -1001,11 +997,12 @@
       b.ma = Math.max(0, b.ma - maSpend);
       b.sa += incoming.sa;
       b.ra += incoming.ra;
+      principal += incoming.ra;
       const maAddition = Math.min(incoming.ma, Math.max(0, bhs - b.ma));
       b.ma += maAddition;
       addRetirement(
         incoming.ma - maAddition,
-        before55 ? currentFRS : frs,
+        before55 ? currentFRS : post55RaCap,
         before55,
       );
       // New cash earns from the following month.
@@ -1024,7 +1021,7 @@
       if (!before55 && reserve > 0 && goal !== "salary") {
         const transfer = creditRA(
           reserve,
-          goal === "ers" ? 2 * currentFRS : frs,
+          goal === "ers" ? 2 * currentFRS : post55RaCap,
         );
         reserve -= transfer;
         totalTopups += transfer;
@@ -1035,18 +1032,29 @@
           pending[key] = 0;
         }
         if (!before55 && closedSAInterest > 0) {
-          addRetirement(closedSAInterest, frs, false);
+          addRetirement(closedSAInterest, post55RaCap, false);
           closedSAInterest = 0;
         }
         const overflow = Math.max(0, b.ma - bhs);
         b.ma -= overflow;
-        addRetirement(overflow, before55 ? currentFRS : frs, before55);
+        addRetirement(overflow, before55 ? currentFRS : post55RaCap, before55);
       }
     }
+    const owAnnualNow =
+      Math.min(Math.max(0, Number(p.salary || 0)), C.wageCap) * 12;
+    const awSubjectNow = Math.min(
+      Math.max(0, Number(p.annualBonus || 0)),
+      Math.max(0, C.annualWageCap - owAnnualNow),
+    );
+    const currentTotalCpfRate = allocation(age, C.year)[2];
+    const mandatoryAnnualCpfNow =
+      (owAnnualNow + awSubjectNow) * currentTotalCpfRate;
     return {
       ...snapshot55,
       oaTransfer,
       ra65: b.ra,
+      raSweepAt65,
+      bhs65,
       pendingRA65: pending.ra,
       ma65: b.ma,
       post55OA: b.oa,
@@ -1064,6 +1072,7 @@
       post55RAContributionsToday,
       extraPost55CPF,
       currentTopupRoom: Math.max(0, C.frs - Number(p.sa || 0) - saInvested),
+      vc3aAnnualRoom: Math.max(0, C.cpfAnnualLimit - mandatoryAnnualCpfNow),
     };
   }
 
@@ -1098,6 +1107,8 @@
       "srsAnnual",
       "annualBonus",
       "existingReliefs",
+      "bridgeIncome",
+      "familyRstuAnnual",
     ])
       if (
         p[key] != null &&
@@ -1123,9 +1134,26 @@
       throw new Error(
         "Retirement must be between your current age and 80, from 55 for CCA or 40 for Home + Helper.",
       );
+    if (p.longevityAge != null && p.longevityAge !== "") {
+      const lon = Number(p.longevityAge);
+      if (!Number.isInteger(lon) || lon < 80 || lon > 105 || lon <= retire) {
+        throw new Error(
+          "Planning horizon must be an age from 80 to 105 and above your target retirement age.",
+        );
+      }
+    }
   }
 
-  function calculate(p) {
+  function resolveLongevityAge(p, fallback) {
+    if (p && p.longevityAge != null && p.longevityAge !== "") {
+      const v = Math.round(Number(p.longevityAge));
+      if (Number.isFinite(v) && v >= 80 && v <= 105) return v;
+    }
+    return fallback;
+  }
+
+  function calculate(rawP) {
+    const p = withEffectiveSavings(rawP);
     validate(p);
     const age = Number(p.age),
       salary = Number(p.salary),
@@ -1135,9 +1163,12 @@
       investmentReturn = p.returnRate ?? C.investmentReturn;
     const plan = p.plan === "escalating" ? "escalating" : "standard",
       post55Work = Boolean(p.post55Work);
+    const simEndAge = resolveLongevityAge(p, C.endAge);
+    const bridgeIncome = Math.max(0, Number(p.bridgeIncome || 0));
     const base = projectCPF(p),
       years55 = 55 - age,
       frs = retirementSum(C.year + years55),
+      brs = 0.5 * frs,
       scale = frs / C.frs,
       ers = 2 * frs;
     const cpfAt55 = base.availableAt55,
@@ -1146,6 +1177,10 @@
     const years = retire - age,
       months = Math.round(years * 12),
       rate = monthlyRate(investmentReturn);
+    const bridgeIncomeAtRetire =
+      retire < 65 && bridgeIncome > 0
+        ? bridgeIncome * (1 + inflation) ** years
+        : 0;
     const factor = annuityFactor(rate, months),
       savings = Number(p.savings || 0),
       futureAssets = savings * (1 + rate) ** months;
@@ -1155,6 +1190,7 @@
       plan,
       lifestyle,
       insuranceCurve: true,
+      bridgeIncomeAtRetire,
     };
     const futureSpend = expenseAt(
       todaySpend,
@@ -1192,7 +1228,7 @@
         futureSpend,
         standardPayout,
         retire,
-        C.endAge,
+        simEndAge,
         calcOpts,
       );
       const privateSaving = requiredSaving(
@@ -1220,7 +1256,8 @@
       const chosenInvest = p.invest ?? privateSaving;
       const illustratedPortfolio = futureAssets + chosenInvest * factor;
       let firstShortfallAge = null;
-      for (let m = 0; m < 300; m++) {
+      const post65ScanMonths = Math.max(0, Math.round((simEndAge - 65) * 12));
+      for (let m = 0; m < post65ScanMonths; m++) {
         const a = 65 + m / 12;
         const income =
           payout * (plan === "escalating" ? 1.02 ** Math.floor(m / 12) : 1);
@@ -1234,7 +1271,12 @@
       }
       return {
         key,
-        label: key === "salary" ? "Salary path" : key.toUpperCase(),
+        label:
+          key === "salary"
+            ? "Salary path"
+            : key === "brs"
+              ? "BRS (Pledge)"
+              : key.toUpperCase(),
         balance,
         payout,
         payout75,
@@ -1262,6 +1304,7 @@
       makeScenario("frs", frs),
       makeScenario("ers", ers),
     ];
+    const brsScenario = makeScenario("brs", brs);
     const topup = Math.min(1000, base.currentTopupRoom),
       delay = Math.min(10, years55),
       wage = Math.min(salary, C.wageCap),
@@ -1271,13 +1314,18 @@
         Math.max(0, C.annualWageCap - wage * 12),
       ),
       [oaShare, saShare, totalCpfRate] = allocation(age),
-      contribution = wage * 0.37,
-      annualBonusEmployeeCpf = awSubjectAnnual * 0.2,
+      empCpfRate = employeeCpfRate(age),
+      contribution = wage * totalCpfRate,
+      annualBonusEmployeeCpf = awSubjectAnnual * empCpfRate,
       annualBonusEmployerCpf =
-        awSubjectAnnual * Math.max(0, totalCpfRate - 0.2),
+        awSubjectAnnual * Math.max(0, totalCpfRate - empCpfRate),
       annualBonusTotalCpf = awSubjectAnnual * totalCpfRate;
     return {
       scenarios,
+      brsScenario,
+      endAge: simEndAge,
+      bridgeIncome,
+      bridgeIncomeAtRetire,
       lifestyle,
       lifestyleLabel: lifestyles[lifestyle].label,
       age,
@@ -1297,13 +1345,14 @@
       cpfAt55,
       oa: base.oa,
       sa: base.sa,
+      brs,
       frs,
       ers,
       income: scenarios[0].payout,
       target: scenarios[0].privateTarget,
       saving: scenarios[0].privateSaving,
       savingNoCpf: requiredSaving(
-        portfolioTarget(futureSpend, 0, retire, 90, calcOpts),
+        portfolioTarget(futureSpend, 0, retire, simEndAge, calcOpts),
         savings,
         rate,
         months,
@@ -1340,6 +1389,7 @@
       post55RAContributions: base.post55RAContributions,
       post55RAContributionsToday: base.post55RAContributionsToday,
       currentTopupRoom: base.currentTopupRoom,
+      vc3aAnnualRoom: base.vc3aAnnualRoom,
       topup,
       early: topup * 1.04 ** years55,
       later: topup * 1.04 ** (years55 - delay),
@@ -1350,11 +1400,26 @@
   }
 
   // Actual contributions have their own outcome, independent of fully funded comparisons.
-  function simulate(p, selectedKey = "salary", options = {}) {
+  function simulate(rawP, selectedKey = "salary", options = {}) {
+    const p = withEffectiveSavings(rawP);
     const r = options.summary || calculate(p),
-      s = r.scenarios.find((x) => x.key === selectedKey) || r.scenarios[0];
+      s =
+        selectedKey === "brs" && r.brsScenario
+          ? r.brsScenario
+          : r.scenarios.find((x) => x.key === selectedKey) || r.scenarios[0];
+    const simEndAge = resolveLongevityAge(p, r.endAge ?? C.endAge);
+    const todayBridge = Math.max(
+      0,
+      Number(p.bridgeIncome ?? r.bridgeIncome ?? 0),
+    );
+    const bridgeIncomeAtRetire =
+      r.retire < 65 && todayBridge > 0
+        ? todayBridge * (1 + r.inflation) ** (r.retire - r.age)
+        : 0;
     const cpfExtra = r.retiringNow ? 0 : (p.cpfExtra ?? s.cpfFunding);
-    const cpfResult = projectCPF(p, r.retiringNow ? 0 : cpfExtra, selectedKey);
+    const cpfResult =
+      options.cpfResult ||
+      projectCPF(p, r.retiringNow ? 0 : cpfExtra, selectedKey);
     const scale = retirementSum(C.year + 55 - r.age) / C.frs;
     const standardPayout = payoutFrom65(cpfResult.ra65, scale);
     const payout =
@@ -1373,13 +1438,14 @@
       r.futureSpend,
       standardPayout,
       r.retire,
-      C.endAge,
+      simEndAge,
       {
         investmentReturn: r.investmentReturn,
         inflation: r.inflation,
         plan: r.plan,
         lifestyle: r.lifestyle,
         insuranceCurve: true,
+        bridgeIncomeAtRetire,
       },
     );
     const rate = monthlyRate(r.investmentReturn);
@@ -1390,9 +1456,14 @@
       rate,
       monthsToRetire,
     );
-    const cashSaving = r.retiringNow ? 0 : Math.max(0, Number(p.cashSaving || 0));
+    const cashSaving = r.retiringNow
+      ? 0
+      : Math.max(0, Number(p.cashSaving || 0));
     const cashRate = monthlyRate(resolveCashReturnRate(p));
-    const invest = r.retiringNow ? 0 : (p.invest ?? requiredInvestment);
+    const defaultInvest = Math.max(0, requiredInvestment - cashSaving);
+    const invest = r.retiringNow
+      ? 0
+      : Math.max(0, Number(p.invest ?? defaultInvest));
     actual.privateSaving = requiredInvestment;
     actual.contributionShortfall = Math.max(
       0,
@@ -1407,7 +1478,7 @@
       depletionAge = null,
       portfolioAtRetire = portfolio;
     const retirementMonth = monthsToRetire,
-      endMonth = (C.endAge - r.age) * 12;
+      endMonth = (simEndAge - r.age) * 12;
     let investmentDeposits = 0;
     for (let m = 0; m <= endMonth; m++) {
       const age = r.age + m / 12,
@@ -1419,6 +1490,10 @@
             (r.plan === "escalating"
               ? 1.02 ** Math.floor((m - (65 - r.age) * 12) / 12 + 1e-9)
               : 1);
+      const monthlyBridge =
+        retired && age < 65 && todayBridge > 0
+          ? todayBridge * (1 + r.inflation) ** (m / 12)
+          : 0;
       const monthlySpend = expenseAt(
         r.todaySpend,
         r.age,
@@ -1427,7 +1502,9 @@
         r.lifestyle,
         { insuranceCurve: true },
       );
-      const monthlyGap = retired ? Math.max(0, monthlySpend - monthlyCPF) : 0;
+      const monthlyGap = retired
+        ? Math.max(0, monthlySpend - monthlyCPF - monthlyBridge)
+        : 0;
       if (
         age >= 65 &&
         monthlySpend > monthlyCPF + 0.005 &&
@@ -1443,6 +1520,7 @@
           phase: !retired ? "accumulating" : age < 65 ? "bridge" : "drawdown",
           monthlySpend,
           monthlyCPF,
+          monthlyBridge,
           monthlyGap,
           portfolioBalance: totalPortfolio,
         });
@@ -1485,13 +1563,15 @@
     actual.totalFunding = s.cpfFunding + requiredInvestment;
     actual.chosenTotal = cpfExtra + cashSaving + invest;
     // An additional level cash withdrawal, not a CPF annuity or safe withdrawal rule.
-    const drawMonths = Math.round((C.endAge - r.retire) * 12);
+    const drawMonths = Math.round((simEndAge - r.retire) * 12);
     const monthlyPortfolioIncome = drawMonths
       ? (portfolioAtRetire / annuityFactor(rate, drawMonths)) *
         (1 + rate) ** drawMonths
       : 0;
     return {
       summary: r,
+      endAge: simEndAge,
+      bridgeIncome: todayBridge,
       selectedScenario: actual,
       points,
       monthly,
@@ -1509,7 +1589,8 @@
       cpfGoalAge: cpfResult.goalAge,
       fullyFunded:
         cashSaving > 0
-          ? depletionAge === null && portfolioAtRetire + 0.005 >= actual.privateTarget
+          ? depletionAge === null &&
+            portfolioAtRetire + 0.005 >= actual.privateTarget
           : portfolioAtRetire + 0.005 >= actual.privateTarget,
     };
   }
@@ -1541,7 +1622,7 @@
         if (projectCPF(p, mid, goal).fundedRA >= target - 0.001) high = mid;
         else low = mid;
       }
-      monthly = Math.ceil(high);
+      monthly = Math.round(high);
       projection = projectCPF(p, monthly, goal);
     }
     const plannedCpfExtra =
@@ -1565,8 +1646,9 @@
       const sum2026 = C.frs * mult;
       const sumAt55 = frs * mult;
       const sumToday = todayValue(sumAt55, 55, age, inflation);
-      const stdNominal = referencePayout(sum2026, "standard") * scale;
-      const escNominal = referencePayout(sum2026, "escalating") * scale;
+      const fundedAt65 = projectCPF(p, 0, mKey, sumAt55);
+      const stdNominal = payoutFrom65(fundedAt65.ra65, scale);
+      const escNominal = stdNominal * C.escalatingRatio;
       const activeNominal = plan === "escalating" ? escNominal : stdNominal;
       cohortMilestones[mKey] = {
         sum2026,
@@ -1618,63 +1700,6 @@
     };
   }
 
-  function earliestRetirement(p, selectedKey, monthlyCPF, monthlyInvestment) {
-    validate(p);
-    const minimum = Math.max(
-      Number(p.age),
-      (p.lifestyle ?? "cca") === "cca" ? 55 : 40,
-    );
-    for (let m = Math.ceil(minimum * 12); m <= 80 * 12; m++) {
-      const candidate = {
-        ...p,
-        retire: m / 12,
-        cpfExtra: monthlyCPF,
-        invest: monthlyInvestment,
-      };
-      // Avoid target-solving during the monthly search: simulate needs baseline metadata only.
-      const age = Number(p.age),
-        retire = m / 12,
-        inflation = p.inflationRate ?? C.inflation,
-        investmentReturn = p.returnRate ?? C.investmentReturn;
-      const lifestyle = p.lifestyle ?? "cca",
-        todaySpend = p.spend ?? lifestyles[lifestyle].budget;
-      const summary = {
-        age,
-        retire,
-        inflation,
-        investmentReturn,
-        lifestyle,
-        todaySpend,
-        plan: p.plan === "escalating" ? "escalating" : "standard",
-        retiringNow: retire === age,
-        futureSpend: expenseAt(
-          todaySpend,
-          age,
-          retire - age,
-          inflation,
-          lifestyle,
-          { insuranceCurve: true },
-        ),
-        spend65: expenseAt(todaySpend, age, 65 - age, inflation, lifestyle, {
-          insuranceCurve: true,
-        }),
-        spend75: expenseAt(todaySpend, age, 75 - age, inflation, lifestyle, {
-          insuranceCurve: true,
-        }),
-        scenarios: [
-          {
-            key: selectedKey,
-            cpfFunding: monthlyCPF,
-            privateSaving: monthlyInvestment,
-          },
-        ],
-      };
-      const t = simulate(candidate, selectedKey, { summary });
-      if (t.fullyFunded) return retire;
-    }
-    return null;
-  }
-
   // Presentation only: financial calculations retain nominal cash flows.
   function todayValue(value, atAge, currentAge, inflation = C.inflation) {
     return value / (1 + inflation) ** (atAge - currentAge);
@@ -1688,13 +1713,14 @@
       "cpfAt55",
       "oa",
       "sa",
+      "brs",
       "frs",
       "ers",
       "extraPost55CPF",
       "early",
       "later",
     ])
-      result[key] = at(r[key], 55);
+      if (r[key] != null) result[key] = at(r[key], 55);
     for (const key of ["futureSpend", "target"])
       result[key] = at(r[key], r.retire);
     result.income = at(r.income, 65);
@@ -1706,7 +1732,7 @@
     result.housingShortfall = r.housingShortfallToday;
     result.maShortfallToday = r.maShortfallToday;
     result.post55OA = at(r.post55OA, 65);
-    result.scenarios = r.scenarios.map((s) => ({
+    const convertScenario = (s) => ({
       ...s,
       balance: at(s.balance, 55),
       cpfGap: at(s.cpfGap, 55),
@@ -1718,7 +1744,11 @@
       privateTarget: at(s.privateTarget, r.retire),
       illustratedPortfolio: at(s.illustratedPortfolio, r.retire),
       remainingPortfolioGap: at(s.remainingPortfolioGap, r.retire),
-    }));
+    });
+    result.scenarios = r.scenarios.map(convertScenario);
+    if (r.brsScenario) {
+      result.brsScenario = convertScenario(r.brsScenario);
+    }
     return result;
   }
 
@@ -1732,40 +1762,140 @@
           ...point,
           monthlySpend: at(point.monthlySpend),
           monthlyCPF: at(point.monthlyCPF),
+          monthlyBridge: at(point.monthlyBridge || 0),
           monthlyGap: at(point.monthlyGap),
           portfolioBalance: at(point.portfolioBalance),
+          ...(point.outsideBalance != null
+            ? { outsideBalance: at(point.outsideBalance) }
+            : {}),
         };
       }),
     };
   }
 
-  function drawdownToday(r, s) {
-    const income =
-      r.retire < 65
-        ? 0
-        : s.payout *
-          (r.plan === "escalating"
-            ? (1 + C.escalatingRate) ** Math.floor(r.retire - 65)
-            : 1);
-    const gap = Math.max(0, r.futureSpend - income);
-    // All slices share the retirement date; never allocate more than the pot.
-    const available = Math.min(
-      s.privateTarget,
-      s.illustratedPortfolio ?? s.privateTarget,
+  function computeTaxSummary(p = {}, simulation = null) {
+    const salary = Math.max(0, Number(p.salary || 0));
+    const annualBonus = Math.max(0, Number(p.annualBonus || 0));
+    const regularGross = salary * 12;
+    const annualGross = regularGross + annualBonus;
+    const owAnnual = Math.min(salary, C.wageCap) * 12;
+    const awSubject = Math.min(
+      annualBonus,
+      Math.max(0, C.annualWageCap - owAnnual),
     );
-    const cashReserve = Math.min(available, gap * 24);
-    const ssbLadder = Math.min(
-      Math.max(0, available - cashReserve),
-      C.ssbCap,
-      gap * 60,
+    const curAge = Math.max(18, Math.min(100, Number(p.age ?? 35)));
+    const empCpfRate = employeeCpfRate(curAge, C.year);
+    const regularEmployeeCpf = owAnnual * empCpfRate;
+    const bonusEmployeeCpf = awSubject * empCpfRate;
+    const annualEmployeeCpf = regularEmployeeCpf + bonusEmployeeCpf;
+    const existingReliefs = Math.max(0, Number(p.existingReliefs ?? 1000));
+    const totalBaseReliefs = Math.min(
+      C.personalReliefCap,
+      annualEmployeeCpf + existingReliefs,
     );
-    const equityCore = Math.max(0, available - cashReserve - ssbLadder);
-    const at = (value) => todayValue(value, r.retire, r.age, r.inflation);
+    const reliefCapRemaining = Math.max(
+      0,
+      C.personalReliefCap - totalBaseReliefs,
+    );
+    const baselineChargeableIncome = Math.max(
+      0,
+      annualGross - totalBaseReliefs,
+    );
+    const baselineTax = residentTax(baselineChargeableIncome);
+    // IRAS cash RSTU tax relief is capped at the current Full Retirement Sum (FRS) for all ages;
+    // age 55+ RA top-ups between FRS and ERS are permitted by CPF but receive $0 tax relief.
+    const saRoom =
+      curAge >= 55
+        ? Math.max(0, C.frs - Number(p.ra ?? p.sa ?? 0))
+        : Math.max(0, C.frs - Number(p.sa || 0) - Number(p.saInvested || 0));
+    const plannedCpfExtraMonthly = Math.max(
+      0,
+      Number(simulation?.cpfExtra ?? p.cpfExtra ?? 0),
+    );
+    const activeSelfRstu = Math.min(
+      C.rstuReliefCap,
+      saRoom,
+      plannedCpfExtraMonthly * 12,
+      reliefCapRemaining,
+    );
+    const activeFamilyRstu = Math.min(
+      C.familyRstuReliefCap,
+      Math.max(0, Number(p.familyRstuAnnual || 0)),
+      Math.max(0, reliefCapRemaining - activeSelfRstu),
+    );
+    const activeSrs = Math.min(
+      C.srsCap,
+      Math.max(0, Number(p.srsAnnual || 0)),
+      Math.max(0, reliefCapRemaining - activeSelfRstu - activeFamilyRstu),
+    );
+    const activeVoluntaryReliefs =
+      activeSelfRstu + activeFamilyRstu + activeSrs;
+    const activeChargeableIncome = Math.max(
+      0,
+      baselineChargeableIncome - activeVoluntaryReliefs,
+    );
+    const activeTax = residentTax(activeChargeableIncome);
+    const activeTaxSavedAnnual = Math.max(
+      0,
+      baselineTax.annualTax - activeTax.annualTax,
+    );
+
+    const regularBaseReliefs = Math.min(
+      C.personalReliefCap,
+      regularEmployeeCpf + existingReliefs,
+    );
+    const regularReliefRoom = Math.max(
+      0,
+      C.personalReliefCap - regularBaseReliefs,
+    );
+    const regularVoluntaryReliefs = Math.min(
+      regularReliefRoom,
+      activeVoluntaryReliefs,
+    );
+    const regularBaselineTax = residentTax(
+      Math.max(0, regularGross - regularBaseReliefs),
+    );
+    const regularChargeableIncome = Math.max(
+      0,
+      regularGross - regularBaseReliefs - regularVoluntaryReliefs,
+    );
+    const regularActiveTax = residentTax(regularChargeableIncome);
+    const bonusTaxAnnual = Math.max(
+      0,
+      activeTax.annualTax - regularActiveTax.annualTax,
+    );
+    const netAnnualBonus = Math.max(
+      0,
+      annualBonus - bonusEmployeeCpf - bonusTaxAnnual,
+    );
+
     return {
-      gap: at(gap),
-      cashReserve: at(cashReserve),
-      ssbLadder: at(ssbLadder),
-      equityCore: at(equityCore),
+      salary,
+      annualBonus,
+      regularGross,
+      annualGross,
+      owAnnual,
+      awSubject,
+      regularEmployeeCpf,
+      bonusEmployeeCpf,
+      annualEmployeeCpf,
+      existingReliefs,
+      totalBaseReliefs,
+      reliefCapRemaining,
+      saRoom,
+      baselineChargeableIncome,
+      baselineTax,
+      regularBaselineTax,
+      activeSelfRstu,
+      activeFamilyRstu,
+      activeSrs,
+      activeVoluntaryReliefs,
+      activeChargeableIncome,
+      activeTax,
+      activeTaxSavedAnnual,
+      regularActiveTax,
+      bonusTaxAnnual,
+      netAnnualBonus,
     };
   }
 
@@ -1775,29 +1905,34 @@
     const salary = Math.max(0, Number(summary.salary || 0));
     const annualBonus = Math.max(
       0,
-      Number(params?.annualBonus ?? summary.annualBonus ?? 0),
+      Number(params?.annualBonus ?? summary.awBonusAnnual ?? 0),
     );
-    const annualGross = salary * 12 + annualBonus;
-    const owAnnual = Math.min(salary, C.wageCap) * 12;
-    const awSubject = Math.min(
-      annualBonus,
-      Math.max(0, C.annualWageCap - owAnnual),
+    const hasExplicitParams = params != null && Object.keys(params).length > 0;
+    const taxSum = computeTaxSummary(
+      {
+        ...params,
+        age: params?.age ?? summary.age ?? 35,
+        salary,
+        annualBonus,
+        existingReliefs:
+          params?.existingReliefs ?? summary.existingReliefs ?? 1000,
+        sa:
+          params?.sa ??
+          (summary.currentTopupRoom != null
+            ? Math.max(0, C.frs - summary.currentTopupRoom)
+            : 0),
+      },
+      hasExplicitParams ? simulation : { cpfExtra: 0 },
     );
-    const annualEmployeeCpf =
-      annualBonus > 0
-        ? (owAnnual + awSubject) * 0.2
-        : (summary.employeeCpf || 0) * 12;
-    const existingReliefs = Math.max(
-      0,
-      Number(params?.existingReliefs ?? summary.existingReliefs ?? 1000),
-    );
-    const totalBaseReliefs = Math.min(
-      C.personalReliefCap,
-      annualEmployeeCpf + existingReliefs,
-    );
-    const chargeableIncome = Math.max(0, annualGross - totalBaseReliefs);
-    const tax = residentTax(chargeableIncome);
-    const netTakeHome = Math.max(0, afterCpf - tax.monthlyTax);
+    const totalBaseReliefs = taxSum.totalBaseReliefs;
+    const chargeableIncome = taxSum.baselineChargeableIncome;
+    const baselineTax = taxSum.baselineTax;
+    const tax = hasExplicitParams ? taxSum.activeTax : baselineTax;
+    // Regular monthly take-home deducts regular salary tax (excluding annual bonus tax).
+    const regularMonthlyTax = hasExplicitParams
+      ? (taxSum.regularActiveTax?.monthlyTax ?? tax.monthlyTax)
+      : (taxSum.regularBaselineTax?.monthlyTax ?? baselineTax.monthlyTax);
+    const netTakeHome = Math.max(0, afterCpf - regularMonthlyTax);
     const cpfExtra = simulation.cpfExtra || 0;
     const cashSaving = simulation.cashSaving || 0;
     const outsideMonthly = simulation.invest || 0;
@@ -1871,13 +2006,16 @@
     const srsEligible = Math.min(C.srsCap, remainingReliefCap);
     const rstuTaxSaved = Math.max(
       0,
-      tax.annualTax - residentTax(chargeableIncome - rstuEligible).annualTax,
+      baselineTax.annualTax -
+        residentTax(chargeableIncome - rstuEligible).annualTax,
     );
     const srsTaxSaved = Math.max(
       0,
-      tax.annualTax - residentTax(chargeableIncome - srsEligible).annualTax,
+      baselineTax.annualTax -
+        residentTax(chargeableIncome - srsEligible).annualTax,
     );
-    const taxWorthIt = tax.marginalRate >= 0.07 && remainingReliefCap > 0;
+    const taxWorthIt =
+      baselineTax.marginalRate >= 0.07 && remainingReliefCap > 0;
 
     let safeShare, srsShare;
     if (horizon >= 12) {
@@ -1891,7 +2029,7 @@
       srsShare = 0;
     }
 
-    const srsMonthlyCap = C.srsCap / 12;
+    const srsMonthlyCap = srsEligible / 12;
     const srsMonthly = Math.min(
       Math.round(allocPool * srsShare),
       srsMonthlyCap,
@@ -1902,6 +2040,12 @@
     return {
       afterCpf,
       tax,
+      baselineTax,
+      activeTax: taxSum.activeTax,
+      activeTaxSavedAnnual: taxSum.activeTaxSavedAnnual,
+      regularActiveTax: taxSum.regularActiveTax,
+      bonusTaxAnnual: taxSum.bonusTaxAnnual,
+      netAnnualBonus: taxSum.netAnnualBonus,
       netTakeHome,
       cpfExtra,
       outsideMonthly,
@@ -1929,33 +2073,6 @@
       },
     };
   }
-
-  const DEMO_PLAN = {
-    lifestyle: "home-helper",
-    age: 35,
-    salary: 8500,
-    annualBonus: 17000,
-    retire: 55,
-    spend: 3900,
-    oa: 75000,
-    sa: 55000,
-    ma: 45000,
-    housing: 0,
-    equities: 120000,
-    sgDividends: 20000,
-    ssbCash: 35000,
-    srs: 25000,
-    srsAge: 63,
-    srsAnnual: 6000,
-    srsInvestedIn: "global",
-    existingReliefs: 1000,
-    targetEquityPct: 80,
-    sgSleevePct: 15,
-    plan: "standard",
-    returnRate: 0.05,
-    inflationRate: 0.03,
-    post55Work: false,
-  };
 
   const SG_DEFAULT_PLAN = {
     lifestyle: "cca",
@@ -1988,6 +2105,169 @@
     housingRate: 2.6,
     housingParties: 1,
   };
+
+  const SG_PERSONA_PRESETS = [
+    {
+      id: "fresh-grad",
+      label: "Fresh Grad",
+      badge: "Age 25 · $4.5k/mo",
+      summary:
+        "Starting career, low CPF base, long 35-year compounding runway.",
+      params: {
+        lifestyle: "cca",
+        age: 25,
+        salary: 4500,
+        retire: 60,
+        oa: 8000,
+        sa: 3000,
+        ma: 3500,
+        equities: 10000,
+        sgDividends: 2000,
+        ssbCash: 8000,
+        srs: 0,
+        srsAge: 63,
+        srsAnnual: 0,
+        srsInvestedIn: "global",
+        annualBonus: 4500,
+        existingReliefs: 1000,
+        familyRstuAnnual: 0,
+        bridgeIncome: 0,
+        targetEquityPct: 90,
+        sgSleevePct: 15,
+        plan: "standard",
+        returnRate: 0.055,
+        inflationRate: 0.025,
+        post55Work: false,
+        housingMode: "all-oa",
+        housingBalance: "",
+        housingYears: 25,
+        housingRate: 2.6,
+        housingParties: 1,
+        invest: 1100,
+        cpfExtra: 0,
+      },
+    },
+    {
+      id: "hdb-family",
+      label: "HDB Dual-Income",
+      badge: "Age 35 · $6.8k/mo",
+      summary:
+        "Servicing split 4-room HDB mortgage from CPF OA with core family reserves.",
+      params: {
+        lifestyle: "home-helper",
+        age: 35,
+        salary: 6800,
+        retire: 62,
+        oa: 45000,
+        sa: 32000,
+        ma: 28000,
+        equities: 55000,
+        sgDividends: 15000,
+        ssbCash: 30000,
+        srs: 0,
+        srsAge: 63,
+        srsAnnual: 0,
+        srsInvestedIn: "global",
+        annualBonus: 10000,
+        existingReliefs: 5000,
+        familyRstuAnnual: 0,
+        bridgeIncome: 0,
+        targetEquityPct: 80,
+        sgSleevePct: 15,
+        plan: "standard",
+        returnRate: 0.05,
+        inflationRate: 0.025,
+        post55Work: false,
+        housingMode: "hdb",
+        housingBalance: 360000,
+        housingYears: 22,
+        housingRate: 2.6,
+        housingParties: 2,
+        invest: 1600,
+        cpfExtra: 0,
+      },
+    },
+    {
+      id: "henry-srs",
+      label: "HENRY Above Cap",
+      badge: "Age 42 · $14k/mo",
+      summary:
+        "Above $8k CPF OW cap, optimizing SRS ($15.3k/yr) + Family Cash RSTU ($8k/yr).",
+      params: {
+        lifestyle: "home-helper",
+        age: 42,
+        salary: 14000,
+        retire: 58,
+        oa: 110000,
+        sa: 145000,
+        ma: 68000,
+        equities: 240000,
+        sgDividends: 45000,
+        ssbCash: 65000,
+        srs: 60000,
+        srsAge: 63,
+        srsAnnual: 15300,
+        srsInvestedIn: "global",
+        annualBonus: 36000,
+        existingReliefs: 4000,
+        familyRstuAnnual: 8000,
+        bridgeIncome: 0,
+        targetEquityPct: 80,
+        sgSleevePct: 20,
+        plan: "escalating",
+        returnRate: 0.05,
+        inflationRate: 0.025,
+        post55Work: false,
+        housingMode: "bank",
+        housingBalance: 550000,
+        housingYears: 18,
+        housingRate: 2.8,
+        housingParties: 2,
+        invest: 4500,
+        cpfExtra: 667,
+      },
+    },
+    {
+      id: "barista-fire-50",
+      label: "Barista FIRE 55",
+      badge: "Age 50 · Retire 55",
+      summary:
+        "Paid-up flat, retiring at 55 with $1,500/mo consulting bridge until CPF LIFE at 65.",
+      params: {
+        lifestyle: "cca",
+        age: 50,
+        salary: 9500,
+        retire: 55,
+        oa: 165000,
+        sa: 205000,
+        ma: 79000,
+        equities: 310000,
+        sgDividends: 75000,
+        ssbCash: 85000,
+        srs: 95000,
+        srsAge: 63,
+        srsAnnual: 12000,
+        srsInvestedIn: "balanced",
+        annualBonus: 15000,
+        existingReliefs: 2000,
+        familyRstuAnnual: 0,
+        bridgeIncome: 1500,
+        targetEquityPct: 70,
+        sgSleevePct: 25,
+        plan: "standard",
+        returnRate: 0.05,
+        inflationRate: 0.025,
+        post55Work: false,
+        housingMode: "paid-up",
+        housingBalance: "",
+        housingYears: null,
+        housingRate: 0,
+        housingParties: 1,
+        invest: 3200,
+        cpfExtra: 0,
+      },
+    },
+  ];
 
   function resolvePortfolioBuckets(p) {
     const hasCashAccounts = Boolean(
@@ -2046,9 +2326,7 @@
 
   function withEffectiveSavings(p) {
     const buckets = resolvePortfolioBuckets(p);
-    return buckets.hasBuckets && p.savings == null
-      ? { ...p, savings: buckets.total }
-      : p;
+    return buckets.hasBuckets ? { ...p, savings: buckets.total } : p;
   }
 
   function resolveSrsReturnRate(p, baseReturnRate = C.investmentReturn) {
@@ -2096,7 +2374,8 @@
   }
 
   // 2026 IRAS CPF RSTU vs SRS Tax Sweet-Spot Calculator
-  function taxSweetSpot(p) {
+  function taxSweetSpot(p, options = {}) {
+    const curAge = Math.max(18, Math.min(100, Number(p.age ?? 35)));
     const salary = Math.max(0, Number(p.salary || 0));
     const annualBonus = Math.max(0, Number(p.annualBonus || 0));
     const annualGross = salary * 12 + annualBonus;
@@ -2105,7 +2384,8 @@
       annualBonus,
       Math.max(0, C.annualWageCap - owAnnual),
     );
-    const annualEmployeeCpf = (owAnnual + awSubject) * 0.2;
+    const empCpfRate = employeeCpfRate(curAge, C.year);
+    const annualEmployeeCpf = (owAnnual + awSubject) * empCpfRate;
     const existingReliefs = Math.max(0, Number(p.existingReliefs ?? 1000));
     const totalBaseReliefs = Math.min(
       C.personalReliefCap,
@@ -2117,27 +2397,54 @@
     );
     const chargeableIncome = Math.max(0, annualGross - totalBaseReliefs);
     const taxBefore = residentTax(chargeableIncome);
-    const saRoom = Math.max(
-      0,
-      C.frs - Number(p.sa || 0) - Number(p.saInvested || 0),
-    );
+    // IRAS cash RSTU tax relief is capped at the current Full Retirement Sum (FRS) for all ages;
+    // age 55+ RA top-ups between FRS and ERS are permitted by CPF but receive $0 tax relief.
+    const saRoom =
+      curAge >= 55
+        ? Math.max(0, C.frs - Number(p.ra ?? p.sa ?? 0))
+        : Math.max(0, C.frs - Number(p.sa || 0) - Number(p.saInvested || 0));
     const maxRstu = Math.min(C.rstuReliefCap, saRoom, reliefCapRemaining);
     const taxAfterRstu = residentTax(Math.max(0, chargeableIncome - maxRstu));
     const rstuTaxSaved = Math.max(
       0,
       taxBefore.annualTax - taxAfterRstu.annualTax,
     );
+    const maxFamilyRstuRoom = Math.min(
+      C.familyRstuReliefCap,
+      Math.max(0, reliefCapRemaining - maxRstu),
+    );
+    const familyRstuPlanned = Math.min(
+      C.familyRstuReliefCap,
+      Math.max(0, Number(p.familyRstuAnnual || 0)),
+    );
+    const eligibleFamilyRstu = Math.min(familyRstuPlanned, maxFamilyRstuRoom);
+    const taxAfterRstuAndFamily = residentTax(
+      Math.max(0, chargeableIncome - maxRstu - eligibleFamilyRstu),
+    );
+    const familyRstuTaxSaved = Math.max(
+      0,
+      taxAfterRstu.annualTax - taxAfterRstuAndFamily.annualTax,
+    );
+    const potentialFamilyRstuTaxSaved = Math.max(
+      0,
+      taxAfterRstu.annualTax -
+        residentTax(Math.max(0, chargeableIncome - maxRstu - maxFamilyRstuRoom))
+          .annualTax,
+    );
     const maxSrsAfterRstu = Math.min(
       C.srsCap,
-      Math.max(0, reliefCapRemaining - maxRstu),
+      Math.max(0, reliefCapRemaining - maxRstu - eligibleFamilyRstu),
     );
     const maxSrsStandalone = Math.min(C.srsCap, reliefCapRemaining);
     const taxAfterBoth = residentTax(
-      Math.max(0, chargeableIncome - maxRstu - maxSrsAfterRstu),
+      Math.max(
+        0,
+        chargeableIncome - maxRstu - eligibleFamilyRstu - maxSrsAfterRstu,
+      ),
     );
     const srsTaxSavedAfterRstu = Math.max(
       0,
-      taxAfterRstu.annualTax - taxAfterBoth.annualTax,
+      taxAfterRstuAndFamily.annualTax - taxAfterBoth.annualTax,
     );
     const srsStandaloneTaxSaved = Math.max(
       0,
@@ -2149,7 +2456,6 @@
       taxBefore.annualTax - taxAfterBoth.annualTax,
     );
     const srsLockInAge = Number(p.srsAge) === 64 ? 64 : 63;
-    const curAge = Math.max(18, Math.min(100, Number(p.age ?? 35)));
     const srsBalanceToday = Math.max(0, Number(p.srs || 0));
     const srsAnnualPlanned = Math.min(
       C.srsCap,
@@ -2164,23 +2470,43 @@
       0,
       Math.round((srsLockInAge - curAge) * 12),
     );
+    const retireAge =
+      p.retire != null && Number.isFinite(Number(p.retire))
+        ? Number(p.retire)
+        : srsLockInAge;
+    // IRAS allows SRS contributions up to retirement (before first penalty-free withdrawal starts the 10-yr clock).
+    const srsWithdrawalStartAge = Math.max(srsLockInAge, retireAge);
+    const srsMonthsToStart = Math.max(
+      0,
+      Math.round((srsWithdrawalStartAge - curAge) * 12),
+    );
+    const srsContribMonths = Math.min(
+      srsMonthsToStart,
+      Math.max(0, Math.round((retireAge - curAge) * 12)),
+    );
+    const srsCoastMonths = Math.max(0, srsMonthsToStart - srsContribMonths);
     const srsMonthlyRate = monthlyRate(srsReturnRate);
-    const srsAnnuity = annuityFactor(srsMonthlyRate, srsMonthsToLockIn);
+    // Effective annuity factor at withdrawal start age accounting for coasting after early retirement.
+    const srsAnnuity =
+      annuityFactor(srsMonthlyRate, srsContribMonths) *
+      (1 + srsMonthlyRate) ** srsCoastMonths;
     const srsCoastAt63 =
-      srsBalanceToday * (1 + srsMonthlyRate) ** srsMonthsToLockIn;
+      srsBalanceToday * (1 + srsMonthlyRate) ** srsMonthsToStart;
     const srsProjectedAt63 =
       srsCoastAt63 + (srsAnnualPlanned / 12) * srsAnnuity;
     const srsFullCapProjectedAt63 = srsCoastAt63 + (C.srsCap / 12) * srsAnnuity;
     const srsMaxSafeAnnualTo400k =
-      srsMonthsToLockIn > 0 && srsAnnuity > 0
+      srsContribMonths > 0 && srsAnnuity > 0
         ? Math.min(
             C.srsCap,
             Math.max(0, ((C.srsSoftCapAt63 - srsCoastAt63) / srsAnnuity) * 12),
           )
-        : srsCoastAt63 < C.srsSoftCapAt63
-          ? Math.min(C.srsCap, C.srsSoftCapAt63 - srsCoastAt63)
-          : 0;
-    const srsTenYearAnnualDraw = srsProjectedAt63 / 10;
+        : 0;
+    // Account for ongoing SRS investment returns during the 10-year drawdown window (amortizing PMT).
+    const srsTenYearAnnualDraw =
+      srsReturnRate > 0
+        ? srsProjectedAt63 * (srsReturnRate / (1 - (1 + srsReturnRate) ** -10))
+        : srsProjectedAt63 / 10;
     const srsTenYearMonthlyDraw = srsTenYearAnnualDraw / 12;
     const srsTaxableAnnualAt63 = srsTenYearAnnualDraw * 0.5;
     const srsWithdrawalTaxAt63 = residentTax(srsTaxableAnnualAt63);
@@ -2295,6 +2621,7 @@
                 "/yr safe pace";
     }
 
+    const activeTaxInfo = computeTaxSummary(p, options?.simulation || null);
     return {
       annualGross,
       annualEmployeeCpf,
@@ -2304,9 +2631,21 @@
       reliefCapRemaining,
       chargeableIncome,
       taxBefore,
+      activeSelfRstu: activeTaxInfo.activeSelfRstu,
+      activeFamilyRstu: activeTaxInfo.activeFamilyRstu,
+      activeSrs: activeTaxInfo.activeSrs,
+      activeVoluntaryReliefs: activeTaxInfo.activeVoluntaryReliefs,
+      activeChargeableIncome: activeTaxInfo.activeChargeableIncome,
+      activeTax: activeTaxInfo.activeTax,
+      activeTaxSavedAnnual: activeTaxInfo.activeTaxSavedAnnual,
       saRoom,
       maxRstu,
       rstuTaxSaved,
+      maxFamilyRstuRoom,
+      familyRstuPlanned,
+      eligibleFamilyRstu,
+      familyRstuTaxSaved,
+      potentialFamilyRstuTaxSaved,
       maxSrsAfterRstu,
       maxSrsStandalone,
       srsTaxSavedAfterRstu,
@@ -2403,9 +2742,6 @@
     const targetSgPct =
       Math.round((targetEquityPct - targetGlobalPct) * 10) / 10;
     const equityGap = targetEquityAmt - totalEquities;
-    const globalGap = Math.max(0, targetGlobalAmt - globalEquities);
-    const sgGap = Math.max(0, targetSgAmt - sgDividends);
-    const eqPosSum = globalGap + sgGap;
 
     const bondSourceLabel =
       cpfTotal > 0 && liquidBonds > 0
@@ -2496,12 +2832,16 @@
 
     const age = summary.age;
     const retire = summary.retire;
-    const endAge = C.fireEndAge;
+    const endAge = resolveLongevityAge(p, C.fireEndAge);
     const inflation = summary.inflation;
     const investmentReturn = summary.investmentReturn;
     const lifestyle = summary.lifestyle;
     const plan = summary.plan;
     const todaySpend = summary.todaySpend;
+    const todayBridge = Math.max(
+      0,
+      Number(p.bridgeIncome ?? summary.bridgeIncome ?? 0),
+    );
     const rate = monthlyRate(investmentReturn);
     const cashReturnAnnual = resolveCashReturnRate(p);
     const cashRate = monthlyRate(cashReturnAnnual);
@@ -2526,7 +2866,11 @@
           lifestyle,
           { insuranceCurve: true },
         );
-        bridgeCorpusAtRetire += spendM / (1 + rate) ** m;
+        const bridgeM =
+          todayBridge > 0
+            ? todayBridge * (1 + inflation) ** (retire - age + t)
+            : 0;
+        bridgeCorpusAtRetire += Math.max(0, spendM - bridgeM) / (1 + rate) ** m;
       }
     }
     const bridgeCorpusToday = todayValue(
@@ -2595,14 +2939,16 @@
       0,
       Number(sim.cashSaving ?? p.cashSaving ?? 0),
     );
-    const totalMonthlyOutside = sim.invest;
+    const totalMonthlyOutside = Math.max(0, sim.invest);
+    const effectiveMonthlySrs = Math.min(
+      monthlySrsContrib,
+      totalMonthlyOutside,
+    );
     const monthlyLiquidContrib = Math.max(
       0,
-      totalMonthlyOutside - monthlySrsContrib,
+      totalMonthlyOutside - effectiveMonthlySrs,
     );
-    const srsMode = p.srsInvestedIn || "global";
-    const srsEqShare =
-      srsMode === "global" ? 1 : srsMode === "balanced" ? 0.6 : 0;
+    const srsWindowStart = Math.max(srsWithdrawalAge, retire);
     const splitDirectLiquidContrib = (contrib, cashSav = 0) => ({
       eqBuy: contrib * targetEqShare,
       cashBuy: cashSav + contrib * (1 - targetEqShare),
@@ -2613,6 +2959,11 @@
     let srs = buckets.srs;
 
     const oaMonthlyRate = monthlyRate(C.oaRate);
+    const raSweepPlanned65 = sim.cpfResult.raSweepAt65 || 0;
+    const cohortBhs65 =
+      sim.cpfResult.bhs65 ?? C.bhs * (1 + C.bhsGrowth) ** (65 - age);
+    const scale55 = retirementSum(C.year + 55 - age) / C.frs;
+    let effectivePayout65 = payout65;
     let cpfOA = Number(p.oa || 0);
     let cpfSARA = Number(p.sa || 0);
     let cpfMA = Number(p.ma || 0);
@@ -2621,18 +2972,205 @@
 
     let outsideAtRetire = buckets.total;
     let spendableAtRetire = buckets.total;
+    let atRetirePoint = null;
     let depletionAge = null;
     let shortfallPvAtRetire = 0;
     const points = [];
 
+    // Shared monthly retirement drawdown step used by both the main firePlan
+    // trajectory loop and survivesDrawdownFromAge() so growth-before-withdrawal,
+    // IRAS SRS 10-year withdrawal tax, deemed withdrawal, and bucket priority
+    // stay 100% consistent.
+    const stepRetirementDrawdown = (
+      st,
+      curAge,
+      srsStart,
+      monthlySpend,
+      monthlyCpfLife,
+      monthlyBridge,
+    ) => {
+      let eq = st.eq;
+      let cash = st.cash;
+      let srsBal = st.srs;
+      let oa = st.oa;
+      // Under IRAS SRS rules, the 10-year penalty-free window begins on first withdrawal
+      // (max of statutory withdrawal age and retirement age); any residual at year 10 is
+      // deemed withdrawn (50% taxable) and becomes liquid spendable cash.
+      if (curAge >= srsStart + 10 && srsBal > 0) {
+        const deemedTax = residentTax(srsBal * 0.5).annualTax;
+        cash += Math.max(0, srsBal - deemedTax);
+        srsBal = 0;
+      }
+      // Credit 1 month of growth before end-of-month withdrawal, matching
+      // simulate(), portfolioTarget(), and bridge/phase2 PV formulas.
+      const grownEq = eq * (1 + rate);
+      const grownCash = cash * (1 + cashRate);
+      const grownSrs = srsBal * (1 + srsRate);
+      const grownOa = curAge >= 65 ? oa * (1 + oaMonthlyRate) : oa;
+
+      const need = Math.max(0, monthlySpend - monthlyCpfLife - monthlyBridge);
+      let monthlySrsDraw = 0;
+      let netSrsDraw = 0;
+      if (curAge >= srsStart && curAge < srsStart + 10 && grownSrs > 0) {
+        const remSrsMonths = Math.max(
+          1,
+          Math.round((srsStart + 10 - curAge) * 12),
+        );
+        const scheduledSrs = grownSrs / remSrsMonths;
+        const bridgeBoost =
+          curAge < 65 ? C.srsTaxFreeAnnual / 12 : scheduledSrs;
+        monthlySrsDraw = Math.min(
+          grownSrs,
+          need,
+          Math.max(scheduledSrs, bridgeBoost),
+        );
+        // 50% of SRS withdrawal is taxable under IRAS alongside any taxable bridge income.
+        const bridgeAnnual = monthlyBridge * 12;
+        const srsTaxMonthly = Math.max(
+          0,
+          residentTax(bridgeAnnual + monthlySrsDraw * 12 * 0.5).monthlyTax -
+            residentTax(bridgeAnnual).monthlyTax,
+        );
+        netSrsDraw = Math.max(0, monthlySrsDraw - srsTaxMonthly);
+      }
+      const needAfterSrs = Math.max(0, need - netSrsDraw);
+      const oaAvailable = curAge >= 55 ? Math.max(0, grownOa) : 0;
+      let monthlyCashDraw = 0;
+      let monthlyOaDraw = 0;
+      let monthlyEqDraw = 0;
+      if (cashRate < rate) {
+        monthlyCashDraw = Math.min(grownCash, needAfterSrs);
+        const remAfterCash = Math.max(0, needAfterSrs - monthlyCashDraw);
+        if (C.oaRate < investmentReturn && oaAvailable > 0) {
+          monthlyOaDraw = Math.min(oaAvailable, remAfterCash);
+          const remAfterOa = Math.max(0, remAfterCash - monthlyOaDraw);
+          monthlyEqDraw = Math.min(grownEq, remAfterOa);
+        } else {
+          monthlyEqDraw = Math.min(grownEq, remAfterCash);
+          const remAfterEq = Math.max(0, remAfterCash - monthlyEqDraw);
+          monthlyOaDraw = Math.min(oaAvailable, remAfterEq);
+        }
+      } else {
+        const totalOut = grownEq + grownCash;
+        const outDraw = Math.min(totalOut, needAfterSrs);
+        const eqRatio = totalOut > 0 ? grownEq / totalOut : 0;
+        monthlyEqDraw = outDraw * eqRatio;
+        monthlyCashDraw = outDraw - monthlyEqDraw;
+        const remAfterOut = Math.max(0, needAfterSrs - outDraw);
+        monthlyOaDraw = Math.min(oaAvailable, remAfterOut);
+      }
+      const monthlyLiquidDraw = monthlyCashDraw + monthlyOaDraw + monthlyEqDraw;
+      const monthlyShortfall = Math.max(0, needAfterSrs - monthlyLiquidDraw);
+      return {
+        monthlySrsDraw,
+        netSrsDraw,
+        monthlyCashDraw,
+        monthlyOaDraw,
+        monthlyEqDraw,
+        monthlyLiquidDraw,
+        monthlyShortfall,
+        nextEq: Math.max(0, grownEq - monthlyEqDraw),
+        nextCash: Math.max(0, grownCash - monthlyCashDraw),
+        nextSrs: Math.max(0, grownSrs - monthlySrsDraw),
+        nextOa: Math.max(0, grownOa - monthlyOaDraw),
+        oaWithdrawnDelta: curAge < 65 ? monthlyOaDraw : 0,
+      };
+    };
+
+      const oaWithdrawnTotal = () =>
+        oaWithdrawnPost55 + oaWithdrawnYtd + oaLostIntYtd;
+      const syncAnnualCpfBalances = (
+        intAge,
+        cpfMap,
+        raSweepPlanned,
+        curOa,
+        curPayout65,
+        state,
+      ) => {
+        const row = cpfMap.get(intAge);
+        if (intAge > 55) {
+          state.prior =
+            state.prior * (1 + C.oaRate) + state.ytd + state.lostIntYtd;
+          state.ytd = 0;
+          state.lostIntYtd = 0;
+        }
+        const totalWithdrawn = state.prior;
+        if (intAge === 65 && totalWithdrawn > 0 && raSweepPlanned > 0) {
+          const preSweepOa65 = row.oa + raSweepPlanned;
+          const actualPreSweepOa65 = Math.max(0, preSweepOa65 - totalWithdrawn);
+          const actualSweep65 = Math.min(actualPreSweepOa65, raSweepPlanned);
+          const sweepShortfall = Math.max(0, raSweepPlanned - actualSweep65);
+          const nextOa = Math.max(0, actualPreSweepOa65 - actualSweep65);
+          const effectiveRa65 = Math.max(0, row.ra - sweepShortfall);
+          const nextPayout65 =
+            sweepShortfall > 0.01
+              ? payoutFrom65(effectiveRa65, scale55) *
+                (plan === "escalating" ? C.escalatingRatio : 1)
+              : curPayout65;
+          return {
+            oa: nextOa,
+            sara: effectiveRa65,
+            ma: Math.min(row.ma, cohortBhs65),
+            annuity: effectiveRa65,
+            payout65: nextPayout65,
+          };
+        }
+        return {
+          oa: Math.max(0, row.oa - totalWithdrawn),
+          sara: intAge < 55 ? row.sa : row.ra,
+          ma: intAge === 65 ? Math.min(row.ma, cohortBhs65) : row.ma,
+          annuity: intAge === 65 ? row.ra : 0,
+          payout65: curPayout65,
+        };
+      };
+      const recordOaWithdrawal = (state, delta, monthIdx) => {
+        if (delta <= 0) return;
+        const remMonths = 12 - (monthIdx % 12);
+        state.ytd += delta;
+        state.lostIntYtd += delta * C.oaRate * (remMonths / 12);
+      };
+      const mainOaState = { prior: 0, ytd: 0, lostIntYtd: 0 };
+
     for (let m = 0; m <= endMonth; m++) {
       const curAge = age + m / 12;
       const retired = m >= retireMonth;
+      if (m % 12 === 0) {
+        const intAge = Math.round(curAge);
+        if (intAge <= 65 && cpfByAge.has(intAge)) {
+          const synced = syncAnnualCpfBalances(
+            intAge,
+            cpfByAge,
+            raSweepPlanned65,
+            cpfOA,
+            effectivePayout65,
+            mainOaState,
+          );
+          cpfOA = synced.oa;
+          cpfSARA = synced.sara;
+          cpfMA = synced.ma;
+          cpfAnnuity = synced.annuity;
+          effectivePayout65 = synced.payout65;
+          oaWithdrawnPost55 = mainOaState.prior;
+        } else if (intAge > 65) {
+          // Post-65 OA compounds monthly below whether working or retired.
+          // BHS is fixed for life at age 65; post-65 MediSave healthcare draws prevent runaway compounding above cohort BHS.
+          cpfMA = Math.min(cpfMA * (1 + C.saRate), cohortBhs65);
+          // CPF LIFE Standard/Escalating bequest = initial RA premium committed at 65 minus cumulative payouts received.
+          const prevYearPayout =
+            effectivePayout65 *
+            (plan === "escalating"
+              ? (1 + C.escalatingRate) ** Math.max(0, intAge - 66)
+              : 1) *
+            12;
+          cpfAnnuity = Math.max(0, cpfAnnuity - prevYearPayout);
+          cpfSARA = cpfAnnuity;
+        }
+      }
       const cpfElapsed = curAge >= 65 ? Math.floor(curAge - 65 + 1e-9) : 0;
       const monthlyCpfLife =
         curAge < 65
           ? 0
-          : payout65 *
+          : effectivePayout65 *
             (plan === "escalating" ? (1 + C.escalatingRate) ** cpfElapsed : 1);
       const monthlySpend = expenseAt(
         todaySpend,
@@ -2643,79 +3181,34 @@
         { insuranceCurve: true },
       );
 
-      if (m % 12 === 0) {
-        const intAge = Math.round(curAge);
-        if (intAge <= 65 && cpfByAge.has(intAge)) {
-          const row = cpfByAge.get(intAge);
-          if (intAge > 55 && oaWithdrawnPost55 > 0) {
-            oaWithdrawnPost55 *= 1 + C.oaRate;
-          }
-          cpfOA = Math.max(0, row.oa - oaWithdrawnPost55);
-          cpfSARA = intAge < 55 ? row.sa : row.ra;
-          cpfMA = row.ma;
-          cpfAnnuity = intAge === 65 ? row.ra : 0;
-        } else if (intAge > 65) {
-          if (!retired) cpfOA = cpfOA * (1 + C.oaRate);
-          cpfMA = cpfMA * (1 + C.saRate);
-          cpfAnnuity = Math.max(
-            0,
-            cpfAnnuity * (1 + C.saRate) - monthlyCpfLife * 12,
-          );
-          cpfSARA = cpfAnnuity;
-        }
-      }
-
+      const monthlyBridge =
+        retired && curAge < 65 && todayBridge > 0
+          ? todayBridge * (1 + inflation) ** (m / 12)
+          : 0;
       let monthlySrsDraw = 0;
+      let netSrsDraw = 0;
       let monthlyCashDraw = 0;
       let monthlyOaDraw = 0;
       let monthlyEqDraw = 0;
       let monthlyLiquidDraw = 0;
       let monthlyShortfall = 0;
-      if (retired) {
-        const need = Math.max(0, monthlySpend - monthlyCpfLife);
-        if (
-          curAge >= srsWithdrawalAge &&
-          curAge < srsWithdrawalAge + 10 &&
-          srs > 0
-        ) {
-          const remSrsMonths = Math.max(
-            1,
-            Math.round((srsWithdrawalAge + 10 - curAge) * 12),
-          );
-          const scheduledSrs = srs / remSrsMonths;
-          const bridgeBoost =
-            curAge < 65 ? C.srsTaxFreeAnnual / 12 : scheduledSrs;
-          monthlySrsDraw = Math.min(
-            srs,
-            need,
-            Math.max(scheduledSrs, bridgeBoost),
-          );
-        }
-        const needAfterSrs = Math.max(0, need - monthlySrsDraw);
-        const oaAvailable = curAge >= 55 ? Math.max(0, cpfOA) : 0;
-        if (cashRate < rate) {
-          monthlyCashDraw = Math.min(ssbCash, needAfterSrs);
-          const remAfterCash = Math.max(0, needAfterSrs - monthlyCashDraw);
-          if (C.oaRate < investmentReturn && oaAvailable > 0) {
-            monthlyOaDraw = Math.min(oaAvailable, remAfterCash);
-            const remAfterOa = Math.max(0, remAfterCash - monthlyOaDraw);
-            monthlyEqDraw = Math.min(liquidEquities, remAfterOa);
-          } else {
-            monthlyEqDraw = Math.min(liquidEquities, remAfterCash);
-            const remAfterEq = Math.max(0, remAfterCash - monthlyEqDraw);
-            monthlyOaDraw = Math.min(oaAvailable, remAfterEq);
-          }
-        } else {
-          const totalOut = liquidEquities + ssbCash;
-          const outDraw = Math.min(totalOut, needAfterSrs);
-          const eqRatio = totalOut > 0 ? liquidEquities / totalOut : 0;
-          monthlyEqDraw = outDraw * eqRatio;
-          monthlyCashDraw = outDraw - monthlyEqDraw;
-          const remAfterOut = Math.max(0, needAfterSrs - outDraw);
-          monthlyOaDraw = Math.min(oaAvailable, remAfterOut);
-        }
-        monthlyLiquidDraw = monthlyCashDraw + monthlyOaDraw + monthlyEqDraw;
-        monthlyShortfall = Math.max(0, needAfterSrs - monthlyLiquidDraw);
+      let drawStep = null;
+      if (retired && m < endMonth) {
+        drawStep = stepRetirementDrawdown(
+          { eq: liquidEquities, cash: ssbCash, srs, oa: cpfOA },
+          curAge,
+          srsWindowStart,
+          monthlySpend,
+          monthlyCpfLife,
+          monthlyBridge,
+        );
+        monthlySrsDraw = drawStep.monthlySrsDraw;
+        netSrsDraw = drawStep.netSrsDraw;
+        monthlyCashDraw = drawStep.monthlyCashDraw;
+        monthlyOaDraw = drawStep.monthlyOaDraw;
+        monthlyEqDraw = drawStep.monthlyEqDraw;
+        monthlyLiquidDraw = drawStep.monthlyLiquidDraw;
+        monthlyShortfall = drawStep.monthlyShortfall;
         if (monthlyShortfall > 0.05) {
           if (depletionAge === null) depletionAge = curAge;
           shortfallPvAtRetire +=
@@ -2723,34 +3216,36 @@
         }
       }
 
-      if (m === retireMonth) {
-        outsideAtRetire = liquidEquities + ssbCash + srs;
-        spendableAtRetire =
-          outsideAtRetire + (curAge >= 55 ? Math.max(0, cpfOA) : 0);
-      }
-
-      if (m % 12 === 0) {
-        const intAge = Math.round(curAge);
+      const buildPointSnapshot = (snapAge) => {
         const year = C.year + Math.floor((C.startMonth + m) / 12);
         const cpfTotal = cpfOA + cpfSARA + cpfMA;
         const totalOutside = liquidEquities + ssbCash + srs;
+        const spendableNetWorth =
+          totalOutside + (snapAge >= 55 ? Math.max(0, cpfOA) : 0);
         const totalNetWorth = totalOutside + cpfTotal;
-        const disc = (val) => todayValue(val, intAge, age, inflation);
-        points.push({
-          age: intAge,
+        const monthlySrsTax = Math.max(0, monthlySrsDraw - netSrsDraw);
+        const monthlyTotalIncome =
+          monthlyCpfLife + monthlyBridge + netSrsDraw + monthlyLiquidDraw;
+        const disc = (val) => todayValue(val, snapAge, age, inflation);
+        return {
+          age: snapAge,
           year,
           phase:
-            intAge < retire
+            snapAge < retire
               ? "accumulating"
-              : intAge < 65
+              : snapAge < 65
                 ? "bridge"
                 : "phase2",
           monthlySpend,
           monthlyCpfLife,
+          monthlyBridge,
           monthlySrsDraw,
+          monthlySrsTax,
+          monthlyCashDraw,
+          monthlyOaDraw,
+          monthlyEqDraw,
           monthlyLiquidDraw,
-          monthlyTotalIncome:
-            monthlyCpfLife + monthlySrsDraw + monthlyLiquidDraw,
+          monthlyTotalIncome,
           monthlyShortfall,
           liquidEquities,
           ssbCash,
@@ -2760,15 +3255,19 @@
           cpfMA,
           cpfTotal,
           totalOutside,
+          spendableNetWorth,
           totalNetWorth,
           today: {
             monthlySpend: disc(monthlySpend),
             monthlyCpfLife: disc(monthlyCpfLife),
+            monthlyBridge: disc(monthlyBridge),
             monthlySrsDraw: disc(monthlySrsDraw),
+            monthlySrsTax: disc(monthlySrsTax),
+            monthlyCashDraw: disc(monthlyCashDraw),
+            monthlyOaDraw: disc(monthlyOaDraw),
+            monthlyEqDraw: disc(monthlyEqDraw),
             monthlyLiquidDraw: disc(monthlyLiquidDraw),
-            monthlyTotalIncome: disc(
-              monthlyCpfLife + monthlySrsDraw + monthlyLiquidDraw,
-            ),
+            monthlyTotalIncome: disc(monthlyTotalIncome),
             monthlyShortfall: disc(monthlyShortfall),
             liquidEquities: disc(liquidEquities),
             ssbCash: disc(ssbCash),
@@ -2778,9 +3277,21 @@
             cpfMA: disc(cpfMA),
             cpfTotal: disc(cpfTotal),
             totalOutside: disc(totalOutside),
+            spendableNetWorth: disc(spendableNetWorth),
             totalNetWorth: disc(totalNetWorth),
           },
-        });
+        };
+      };
+
+      if (m === retireMonth) {
+        outsideAtRetire = liquidEquities + ssbCash + srs;
+        spendableAtRetire =
+          outsideAtRetire + (curAge >= 55 ? Math.max(0, cpfOA) : 0);
+        atRetirePoint = buildPointSnapshot(retire);
+      }
+
+      if (m % 12 === 0) {
+        points.push(buildPointSnapshot(Math.round(curAge)));
       }
 
       if (m === endMonth) break;
@@ -2790,20 +3301,24 @@
           monthlyCashSaving,
         );
         liquidEquities = liquidEquities * (1 + rate) + eqBuy;
-        ssbCash = ssbCash * (1 + cashRate) + cashBuy;
-        srs = srs * (1 + srsRate) + monthlySrsContrib;
-      } else {
-        liquidEquities = Math.max(
-          0,
-          liquidEquities * (1 + rate) - monthlyEqDraw,
-        );
-        ssbCash = Math.max(0, ssbCash * (1 + cashRate) - monthlyCashDraw);
-        srs = Math.max(0, srs * (1 + srsRate) - monthlySrsDraw);
+        // If working past age 65, CPF LIFE payouts already commenced at 65 are retained in cash.
+        ssbCash =
+          ssbCash * (1 + cashRate) +
+          cashBuy +
+          (curAge >= 65 ? monthlyCpfLife : 0);
+        srs = srs * (1 + srsRate) + effectiveMonthlySrs;
         if (curAge >= 65) {
-          cpfOA = Math.max(0, cpfOA * (1 + oaMonthlyRate) - monthlyOaDraw);
-        } else if (monthlyOaDraw > 0) {
-          cpfOA = Math.max(0, cpfOA - monthlyOaDraw);
-          oaWithdrawnPost55 += monthlyOaDraw;
+          cpfOA = cpfOA * (1 + oaMonthlyRate);
+        }
+      } else if (drawStep) {
+        liquidEquities = drawStep.nextEq;
+        ssbCash = drawStep.nextCash;
+        srs = drawStep.nextSrs;
+        cpfOA = drawStep.nextOa;
+        if (drawStep.oaWithdrawnDelta > 0) {
+          recordOaWithdrawal(mainOaState, drawStep.oaWithdrawnDelta, m);
+          oaWithdrawnPost55 =
+            mainOaState.prior + mainOaState.ytd + mainOaState.lostIntYtd;
         }
       }
     }
@@ -2848,93 +3363,106 @@
           )
         : 100;
 
-    // Earliest FIRE age where accumulated outside + post-55 excess OA pot (saving until candidate age) funds Phase 1 + Phase 2 to 95
+    // Earliest FIRE age where accumulated outside + post-55 excess OA pot (saving until candidate age) funds Phase 1 + Phase 2 to endAge
+    const candCpfCache = new Map();
+    const getCandCpfContext = (candAge) => {
+      const workCap = p.post55Work ? 65 : 55;
+      const effCandWork = Math.min(candAge, workCap);
+      const effRetWork = Math.min(retire, workCap);
+      if (Math.abs(effCandWork - effRetWork) < 1e-6) {
+        return {
+          map: cpfByAge,
+          payout65: payout65,
+          raSweep65: raSweepPlanned65,
+        };
+      }
+      if (candCpfCache.has(candAge)) return candCpfCache.get(candAge);
+      const cCpf = projectCPF(
+        { ...p, retire: candAge },
+        sim.cpfExtra || 0,
+        selectedKey,
+      );
+      const cMap = new Map();
+      for (const row of cCpf.ledger) cMap.set(Math.round(row.age), row);
+      const cPayout65 =
+        payoutFrom65(cCpf.ra65, scale55) *
+        (plan === "escalating" ? C.escalatingRatio : 1);
+      const ctx = {
+        map: cMap,
+        payout65: cPayout65,
+        raSweep65: cCpf.raSweepAt65 || 0,
+      };
+      candCpfCache.set(candAge, ctx);
+      return ctx;
+    };
+
     const survivesDrawdownFromAge = (
       candAge,
       startEq,
       startCash,
       startSrs,
       startOa,
+      cpfCtx = null,
     ) => {
+      const activeCpf = cpfCtx || {
+        map: cpfByAge,
+        payout65,
+        raSweep65: raSweepPlanned65,
+      };
       let dEq = startEq;
       let dCash = startCash;
       let dSrs = startSrs;
       let dOa = startOa;
       let dOaWithdrawnPost55 = 0;
+      let dPayout65 = activeCpf.payout65;
+      const candOaState = { prior: 0, ytd: 0, lostIntYtd: 0 };
       const startM = Math.round((candAge - age) * 12);
-      for (let dm = startM; dm <= endMonth; dm++) {
+      for (let dm = startM; dm < endMonth; dm++) {
         const cAge = age + dm / 12;
         if (dm > startM && dm % 12 === 0) {
           const intA = Math.round(cAge);
-          if (intA <= 65 && cpfByAge.has(intA)) {
-            const rRow = cpfByAge.get(intA);
-            if (intA > 55 && dOaWithdrawnPost55 > 0) {
-              dOaWithdrawnPost55 *= 1 + C.oaRate;
-            }
-            dOa = Math.max(0, rRow.oa - dOaWithdrawnPost55);
+          if (intA <= 65 && activeCpf.map.has(intA)) {
+            const synced = syncAnnualCpfBalances(
+              intA,
+              activeCpf.map,
+              activeCpf.raSweep65,
+              dOa,
+              dPayout65,
+              candOaState,
+            );
+            dOa = synced.oa;
+            dPayout65 = synced.payout65;
           }
         }
         const cEl = cAge >= 65 ? Math.floor(cAge - 65 + 1e-9) : 0;
         const cP =
           cAge < 65
             ? 0
-            : payout65 *
+            : dPayout65 *
               (plan === "escalating" ? (1 + C.escalatingRate) ** cEl : 1);
         const sp = expenseAt(todaySpend, age, dm / 12, inflation, lifestyle, {
           insuranceCurve: true,
         });
-        const need = Math.max(0, sp - cP);
-        let srsDraw = 0;
-        if (
-          cAge >= srsWithdrawalAge &&
-          cAge < srsWithdrawalAge + 10 &&
-          dSrs > 0
-        ) {
-          const remSrsMonths = Math.max(
-            1,
-            Math.round((srsWithdrawalAge + 10 - cAge) * 12),
-          );
-          const sched = dSrs / remSrsMonths;
-          const boost = cAge < 65 ? C.srsTaxFreeAnnual / 12 : sched;
-          srsDraw = Math.min(dSrs, need, Math.max(sched, boost));
-        }
-        const needAfterSrs = Math.max(0, need - srsDraw);
-        const oaAvail = cAge >= 55 ? Math.max(0, dOa) : 0;
-        let cashDraw = 0;
-        let oaDraw = 0;
-        let eqDraw = 0;
-        if (cashRate < rate) {
-          cashDraw = Math.min(dCash, needAfterSrs);
-          const remAfterCash = Math.max(0, needAfterSrs - cashDraw);
-          if (C.oaRate < investmentReturn && oaAvail > 0) {
-            oaDraw = Math.min(oaAvail, remAfterCash);
-            const remAfterOa = Math.max(0, remAfterCash - oaDraw);
-            eqDraw = Math.min(dEq, remAfterOa);
-          } else {
-            eqDraw = Math.min(dEq, remAfterCash);
-            const remAfterEq = Math.max(0, remAfterCash - eqDraw);
-            oaDraw = Math.min(oaAvail, remAfterEq);
-          }
-        } else {
-          const totOut = dEq + dCash;
-          const outDraw = Math.min(totOut, needAfterSrs);
-          const eqRatio = totOut > 0 ? dEq / totOut : 0;
-          eqDraw = outDraw * eqRatio;
-          cashDraw = outDraw - eqDraw;
-          const remAfterOut = Math.max(0, needAfterSrs - outDraw);
-          oaDraw = Math.min(oaAvail, remAfterOut);
-        }
-        const liqDraw = cashDraw + oaDraw + eqDraw;
-        if (needAfterSrs - liqDraw > 0.05) return false;
-        if (dm === endMonth) break;
-        dEq = Math.max(0, dEq * (1 + rate) - eqDraw);
-        dCash = Math.max(0, dCash * (1 + cashRate) - cashDraw);
-        dSrs = Math.max(0, dSrs * (1 + srsRate) - srsDraw);
-        if (cAge >= 65) {
-          dOa = Math.max(0, dOa * (1 + oaMonthlyRate) - oaDraw);
-        } else if (oaDraw > 0) {
-          dOa = Math.max(0, dOa - oaDraw);
-          dOaWithdrawnPost55 += oaDraw;
+        const brM =
+          cAge < 65 && todayBridge > 0
+            ? todayBridge * (1 + inflation) ** (dm / 12)
+            : 0;
+        const dSrsStart = Math.max(srsWithdrawalAge, candAge);
+        const step = stepRetirementDrawdown(
+          { eq: dEq, cash: dCash, srs: dSrs, oa: dOa },
+          cAge,
+          dSrsStart,
+          sp,
+          cP,
+          brM,
+        );
+        if (step.monthlyShortfall > 0.05) return false;
+        dEq = step.nextEq;
+        dCash = step.nextCash;
+        dSrs = step.nextSrs;
+        dOa = step.nextOa;
+        if (step.oaWithdrawnDelta > 0) {
+          recordOaWithdrawal(candOaState, step.oaWithdrawnDelta, dm);
         }
       }
       return true;
@@ -2942,41 +3470,84 @@
 
     let projectedFireAge = null;
     const minFireAge = Math.max(age, lifestyle === "cca" ? 55 : 40);
-    let candEq = buckets.equities + buckets.sgDividends;
-    let candCash = buckets.ssbCash;
-    let candSrs = buckets.srs;
     const candStateByAge = new Map();
-    const maxCandMonths = Math.max(0, Math.round((80 - age) * 12));
-    for (let cm = 0; cm <= maxCandMonths; cm++) {
-      if (cm % 12 === 0) {
-        const cAge = age + cm / 12;
-        let oaAtCand = 0;
-        if (cAge <= 65 && cpfByAge.has(cAge)) {
-          oaAtCand = cpfByAge.get(cAge).oa;
-        } else if (cAge > 65) {
-          oaAtCand = (cpfByAge.get(65)?.oa || 0) * (1 + C.oaRate) ** (cAge - 65);
+    if (!options.skipSolvers) {
+      let candEq = buckets.equities + buckets.sgDividends;
+      let candCash = buckets.ssbCash;
+      let candSrs = buckets.srs;
+      const maxCandMonths = Math.max(0, Math.round((80 - age) * 12));
+      for (let cm = 0; cm <= maxCandMonths; cm++) {
+        if (cm % 12 === 0) {
+          const cAge = age + cm / 12;
+          let oaAtCand = 0;
+          if (cAge <= 65 && cpfByAge.has(cAge)) {
+            oaAtCand = cpfByAge.get(cAge).oa;
+          } else if (cAge > 65) {
+            oaAtCand =
+              (cpfByAge.get(65)?.oa || 0) * (1 + C.oaRate) ** (cAge - 65);
+          }
+          candStateByAge.set(cAge, {
+            eq: candEq,
+            cash: candCash,
+            srs: candSrs,
+            oa: oaAtCand,
+          });
         }
-        candStateByAge.set(cAge, {
-          eq: candEq,
-          cash: candCash,
-          srs: candSrs,
-          oa: oaAtCand,
-        });
+        if (cm === maxCandMonths) break;
+        const { eqBuy, cashBuy } = splitDirectLiquidContrib(
+          monthlyLiquidContrib,
+          monthlyCashSaving,
+        );
+        const cAgeNow = age + cm / 12;
+        const cElNow = cAgeNow >= 65 ? Math.floor(cAgeNow - 65 + 1e-9) : 0;
+        const candCpfLifeNow =
+          cAgeNow >= 65
+            ? payout65 *
+              (plan === "escalating" ? (1 + C.escalatingRate) ** cElNow : 1)
+            : 0;
+        candEq = candEq * (1 + rate) + eqBuy;
+        candCash = candCash * (1 + cashRate) + cashBuy + candCpfLifeNow;
+        candSrs = candSrs * (1 + srsRate) + effectiveMonthlySrs;
       }
-      if (cm === maxCandMonths) break;
-      const { eqBuy, cashBuy } = splitDirectLiquidContrib(
-        monthlyLiquidContrib,
-        monthlyCashSaving,
-      );
-      candEq = candEq * (1 + rate) + eqBuy;
-      candCash = candCash * (1 + cashRate) + cashBuy;
-      candSrs = candSrs * (1 + srsRate) + monthlySrsContrib;
-    }
-    for (let cand = minFireAge; cand <= 80; cand++) {
-      const st = candStateByAge.get(cand);
-      if (st && survivesDrawdownFromAge(cand, st.eq, st.cash, st.srs, st.oa)) {
-        projectedFireAge = cand;
-        break;
+      const maxFireCand = Math.min(80, endAge - 1);
+      for (let cand = minFireAge; cand <= maxFireCand; cand++) {
+        const st = candStateByAge.get(cand);
+        if (!st) continue;
+        const cCtx = getCandCpfContext(cand);
+        let candOaStart = st.oa;
+        if (cand <= 65 && cCtx.map.has(cand)) {
+          candOaStart = cCtx.map.get(cand).oa;
+        } else if (cand > 65) {
+          candOaStart =
+            (cCtx.map.get(65)?.oa || 0) * (1 + C.oaRate) ** (cand - 65);
+        }
+        let candCashStart = st.cash;
+        if (cand > 65 && Math.abs(cCtx.payout65 - payout65) > 0.01) {
+          const deltaPayout = cCtx.payout65 - payout65;
+          const extraMonths = Math.round((cand - 65) * 12);
+          let extraCash = 0;
+          for (let em = 0; em < extraMonths; em++) {
+            const eEl = Math.floor(em / 12 + 1e-9);
+            extraCash =
+              extraCash * (1 + cashRate) +
+              deltaPayout *
+                (plan === "escalating" ? (1 + C.escalatingRate) ** eEl : 1);
+          }
+          candCashStart += extraCash;
+        }
+        if (
+          survivesDrawdownFromAge(
+            cand,
+            st.eq,
+            candCashStart,
+            st.srs,
+            candOaStart,
+            cCtx,
+          )
+        ) {
+          projectedFireAge = cand;
+          break;
+        }
       }
     }
 
@@ -2986,55 +3557,84 @@
       rate,
       retireMonth,
     );
-    let requiredInvestTo95 = Math.max(
-      0,
-      Math.ceil(requiredMonthlyTo95 - monthlyCashSaving),
-    );
-    if (depletionAge !== null && retireMonth > 0) {
+    let requiredInvestTo95 =
+      retireMonth > 0
+        ? Math.max(0, Math.ceil(requiredMonthlyTo95 - monthlyCashSaving))
+        : Math.max(0, Math.ceil(requiredMonthlyTo95));
+    if (!options.skipSolvers && retireMonth > 0) {
       const stRet = candStateByAge.get(retire);
-      const oaAtRet = stRet ? stRet.oa : 0;
-      const eqF =
-        rate > 0 ? ((1 + rate) ** retireMonth - 1) / rate : retireMonth;
-      const cashF =
-        cashRate > 0
-          ? ((1 + cashRate) ** retireMonth - 1) / cashRate
-          : retireMonth;
+      const oaAtRet = atRetirePoint
+        ? atRetirePoint.cpfOA
+        : stRet
+          ? stRet.oa
+          : 0;
+      const eqF = annuityFactor(rate, retireMonth);
+      const cashF = annuityFactor(cashRate, retireMonth);
       const baseEqRet =
         (buckets.equities + buckets.sgDividends) * (1 + rate) ** retireMonth;
-      const baseCashRet = buckets.ssbCash * (1 + cashRate) ** retireMonth;
-      const srsRet = stRet
-        ? stRet.srs
-        : buckets.srs * (1 + srsRate) ** retireMonth;
-      const testSurvives = (testInv) => {
+      let retainedCpfCashRet = 0;
+      if (retire > 65) {
+        const start65M = Math.max(0, Math.round((65 - age) * 12));
+        for (let rm = start65M; rm < retireMonth; rm++) {
+          const rAge = age + rm / 12;
+          const rEl = Math.floor(rAge - 65 + 1e-9);
+          const rPayout =
+            payout65 *
+            (plan === "escalating" ? (1 + C.escalatingRate) ** rEl : 1);
+          retainedCpfCashRet = retainedCpfCashRet * (1 + cashRate) + rPayout;
+        }
+      }
+      const baseCashRet =
+        buckets.ssbCash * (1 + cashRate) ** retireMonth + retainedCpfCashRet;
+      const srsF = annuityFactor(srsRate, retireMonth);
+      const baseSrsRet = buckets.srs * (1 + srsRate) ** retireMonth;
+      const testSurvives = (testTotalInv) => {
+        const candSrs = Math.min(monthlySrsContrib, Math.max(0, testTotalInv));
+        const candLiquid = Math.max(0, testTotalInv - candSrs);
         const { eqBuy, cashBuy } = splitDirectLiquidContrib(
-          testInv,
+          candLiquid,
           monthlyCashSaving,
         );
         return survivesDrawdownFromAge(
           retire,
           baseEqRet + eqBuy * eqF,
           baseCashRet + cashBuy * cashF,
-          srsRet,
+          baseSrsRet + candSrs * srsF,
           oaAtRet,
         );
       };
-      let lo = Math.max(0, Math.floor(monthlyLiquidContrib) + 1);
-      let hi = Math.max(lo + 500, Math.ceil(requiredMonthlyTo95 * 1.6) + 500);
-      while (!testSurvives(hi) && hi < 200000) hi *= 2;
-      for (let step = 0; step < 18; step++) {
-        if (lo >= hi) break;
-        const mid = Math.floor((lo + hi) / 2);
-        if (testSurvives(mid)) hi = mid;
-        else lo = mid + 1;
+      if (depletionAge !== null) {
+        let lo = Math.max(0, Math.floor(totalMonthlyOutside) + 1);
+        let hi = Math.max(lo + 500, Math.ceil(requiredMonthlyTo95 * 1.6) + 500);
+        while (!testSurvives(hi) && hi < 200000) hi *= 2;
+        for (let step = 0; step < 18; step++) {
+          if (lo >= hi) break;
+          const mid = Math.floor((lo + hi) / 2);
+          if (testSurvives(mid)) hi = mid;
+          else lo = mid + 1;
+        }
+        requiredInvestTo95 = lo;
+      } else {
+        // Already funded through endAge: solve downward for the true minimum monthly investment.
+        if (testSurvives(0)) {
+          requiredInvestTo95 = 0;
+        } else {
+          let lo = 0;
+          let hi = Math.max(0, Math.ceil(totalMonthlyOutside));
+          for (let step = 0; step < 18; step++) {
+            if (lo >= hi) break;
+            const mid = Math.floor((lo + hi) / 2);
+            if (testSurvives(mid)) hi = mid;
+            else lo = mid + 1;
+          }
+          requiredInvestTo95 = lo;
+        }
       }
-      requiredInvestTo95 = lo;
-    } else if (depletionAge === null) {
-      requiredInvestTo95 = Math.round(monthlyLiquidContrib);
     }
 
-    const fmt = (v) => `$${Math.round(Math.max(0, v)).toLocaleString("en-SG")}`;
-    const totalMonthlySaving = sim.cpfExtra + sim.invest;
-    const elevatorPitch = `I need ${fmt(fireNumberToday)} in outside & SRS investments (${retire < 65 ? `${fmt(bridgeCorpusToday)} bridge for ages ${retire}–65 + ` : ""}${fmt(phase2CorpusToday)} to top up my ${fmt(todayValue(payout65, 65, age, inflation))}/mo CPF LIFE floor) to retire at age ${retire}. With ${fmt(buckets.total)} invested today${totalMonthlySaving > 0 ? ` and ${fmt(totalMonthlySaving)}/mo saved` : ""}, I’m ${pctFunded}% funded at ${retire}${projectedFireAge != null ? ` and hit financial independence at age ${projectedFireAge}` : ""}.`;
+    const fmt = fmtSgd;
+    const totalMonthlySaving = sim.cpfExtra + monthlyCashSaving + sim.invest;
+    const elevatorPitch = `I need ${fmt(effectiveFireNumberToday)} in outside & SRS investments (${retire < 65 ? `${fmt(bridgeCorpusToday)} bridge for ages ${retire}–65 + ` : ""}${fmt(phase2CorpusToday)} to top up my ${fmt(todayValue(effectivePayout65, 65, age, inflation))}/mo CPF LIFE floor) to retire at age ${retire}. With ${fmt(buckets.total)} invested today${totalMonthlySaving > 0 ? ` and ${fmt(totalMonthlySaving)}/mo saved` : ""}, I’m ${pctFunded}% funded at ${retire}${projectedFireAge != null ? ` and hit financial independence at age ${projectedFireAge}` : ""}.`;
 
     return {
       age,
@@ -3045,15 +3645,16 @@
       cashReturnRate: cashReturnAnnual,
       bridge: {
         years: Math.max(0, 65 - retire),
+        monthlyBridgeToday: todayBridge,
         requiredAtRetire: bridgeCorpusAtRetire,
         requiredToday: bridgeCorpusToday,
       },
       phase2: {
-        years: endAge - 65,
+        years: Math.max(0, endAge - phase2StartAge),
         requiredAtRetire: phase2CorpusAtRetire,
         requiredToday: phase2CorpusToday,
-        cpfLife65Nominal: payout65,
-        cpfLife65Today: todayValue(payout65, 65, age, inflation),
+        cpfLife65Nominal: effectivePayout65,
+        cpfLife65Today: todayValue(effectivePayout65, 65, age, inflation),
         projectedCpfAt65Nominal: ptAt65 ? ptAt65.cpfTotal : 0,
         projectedCpfAt65Today: ptAt65 ? ptAt65.today.cpfTotal : 0,
       },
@@ -3064,6 +3665,8 @@
         requiredInvestTo95,
         projectedOutsideAtRetireNominal: outsideAtRetire,
         projectedOutsideAtRetireToday: outsideAtRetireToday,
+        projectedSpendableAtRetireNominal: spendableAtRetire,
+        projectedSpendableAtRetireToday: spendableAtRetireToday,
         shortfallToday: Math.max(
           0,
           effectiveFireNumberToday - spendableAtRetireToday,
@@ -3094,12 +3697,170 @@
         srsAge: srsWithdrawalAge,
         age65: {
           age: 65,
-          cpfLifeToday: todayValue(payout65, 65, age, inflation),
+          cpfLifeToday: todayValue(effectivePayout65, 65, age, inflation),
           cpfTotalToday: ptAt65 ? ptAt65.today.cpfTotal : 0,
         },
       },
+      atRetire: atRetirePoint,
       points,
       elevatorPitch,
+    };
+  }
+
+  // Unified multi-bucket simulation & Auto-investment solver so Overview, Trajectory, and Print Poster share 100% identical numbers.
+  function solveBucketAwareSimulation(
+    rawP,
+    selectedKey = "salary",
+    options = {},
+  ) {
+    const effLongevity = resolveLongevityAge(rawP, C.fireEndAge);
+    const pWithHorizon = { ...rawP, longevityAge: effLongevity };
+    const effP = withEffectiveSavings(pWithHorizon);
+    const summary = options.summary || calculate(effP);
+    const userHasInvest = rawP?.invest != null && rawP?.invest !== "";
+    const initialSim = simulate(effP, selectedKey, { summary });
+    let solvedAutoInvest = Math.round(
+      initialSim.selectedScenario.privateSaving || 0,
+    );
+
+    if (!summary.retiringNow) {
+      const srsMo =
+        Math.min(C.srsCap, Math.max(0, Number(effP.srsAnnual || 0))) / 12;
+      const cachedCpfResult = initialSim.cpfResult;
+      const testFunded = (candInvest) => {
+        const candP = { ...effP, invest: candInvest };
+        const candSim = simulate(candP, selectedKey, {
+          summary,
+          cpfResult: cachedCpfResult,
+        });
+        const candFire = firePlan(candP, selectedKey, {
+          summary,
+          simulation: candSim,
+          skipSolvers: true,
+        });
+        return candFire.fireNumber.depletionAge === null;
+      };
+      if (testFunded(0)) {
+        solvedAutoInvest = 0;
+      } else {
+        let lo = 0;
+        let hi = Math.max(
+          Math.ceil(srsMo) + 500,
+          Math.ceil(solvedAutoInvest * 1.6) + 500,
+        );
+        const maxHi = Math.max(250000, hi * 16);
+        while (!testFunded(hi) && hi < maxHi) hi *= 2;
+        for (let step = 0; step < 24; step++) {
+          if (lo >= hi) break;
+          const mid = Math.floor((lo + hi) / 2);
+          if (testFunded(mid)) hi = mid;
+          else lo = mid + 1;
+        }
+        solvedAutoInvest = lo;
+      }
+    } else {
+      solvedAutoInvest = 0;
+    }
+
+    const activeInvest = summary.retiringNow
+      ? 0
+      : userHasInvest
+        ? Number(rawP.invest)
+        : solvedAutoInvest;
+    const finalP = { ...effP, invest: activeInvest };
+    const rawSim = simulate(finalP, selectedKey, {
+      summary,
+      cpfResult: initialSim.cpfResult,
+    });
+    const fire = firePlan(finalP, selectedKey, {
+      summary,
+      simulation: rawSim,
+    });
+
+    const reconciledPoints = fire.points.map((fpPt) => {
+      const spendable =
+        fpPt.spendableNetWorth ??
+        fpPt.totalOutside + (fpPt.age >= 55 ? Math.max(0, fpPt.cpfOA) : 0);
+      return {
+        age: fpPt.age,
+        year: fpPt.year,
+        phase: fpPt.phase === "phase2" ? "drawdown" : fpPt.phase,
+        monthlySpend: fpPt.monthlySpend,
+        monthlyCPF: fpPt.monthlyCpfLife,
+        monthlyBridge: fpPt.monthlyBridge,
+        monthlyGap:
+          fpPt.age >= fire.retire
+            ? Math.max(
+                0,
+                fpPt.monthlySpend - fpPt.monthlyCpfLife - fpPt.monthlyBridge,
+              )
+            : 0,
+        portfolioBalance: spendable,
+        outsideBalance: fpPt.totalOutside,
+      };
+    });
+
+    const reqAtRetire = fire.fireNumber.totalRequiredAtRetire;
+    const projSpendableAtRetire =
+      fire.fireNumber.projectedSpendableAtRetireNominal;
+    const scen = {
+      ...rawSim.selectedScenario,
+      privateTarget: reqAtRetire,
+      privateSaving: solvedAutoInvest,
+      chosenInvest: activeInvest,
+      illustratedPortfolio: projSpendableAtRetire,
+      remainingPortfolioGap: Math.max(0, reqAtRetire - projSpendableAtRetire),
+      contributionShortfall: Math.max(0, solvedAutoInvest - activeInvest),
+      totalFunding:
+        (rawSim.selectedScenario.cpfFunding || 0) + solvedAutoInvest,
+      chosenTotal:
+        (rawSim.cpfExtra || 0) + (rawSim.cashSaving || 0) + activeInvest,
+    };
+
+    const reconcileScenarioRow = (sc) =>
+      sc.key === selectedKey
+        ? {
+            ...sc,
+            privateTarget: reqAtRetire,
+            privateSaving: solvedAutoInvest,
+            totalFunding: (sc.cpfFunding || 0) + solvedAutoInvest,
+            chosenInvest: activeInvest,
+            illustratedPortfolio: projSpendableAtRetire,
+            remainingPortfolioGap: scen.remainingPortfolioGap,
+            contributionShortfall: scen.contributionShortfall,
+          }
+        : sc;
+
+    const reconciledSummary = {
+      ...summary,
+      endAge: fire.endAge,
+      target: selectedKey === "salary" ? reqAtRetire : summary.target,
+      saving: selectedKey === "salary" ? solvedAutoInvest : summary.saving,
+      scenarios: summary.scenarios.map(reconcileScenarioRow),
+      ...(summary.brsScenario
+        ? { brsScenario: reconcileScenarioRow(summary.brsScenario) }
+        : {}),
+    };
+
+    const simulation = {
+      ...rawSim,
+      summary: reconciledSummary,
+      endAge: fire.endAge,
+      selectedScenario: scen,
+      points: reconciledPoints,
+      invest: activeInvest,
+      portfolioAtRetire: projSpendableAtRetire,
+      outsideAtRetire: fire.fireNumber.projectedOutsideAtRetireNominal,
+      depletionAge: fire.fireNumber.depletionAge,
+      projectedFireAge: fire.fireNumber.projectedFireAge,
+      fullyFunded: fire.fireNumber.fullyFundedTo95,
+      bucketAware: true,
+    };
+
+    return {
+      summary: reconciledSummary,
+      simulation,
+      fire,
     };
   }
 
@@ -3136,13 +3897,12 @@
       };
     }
     if (mode === "hdb" || mode === "bank") {
+      const rawLoanRate =
+        loanRate == null || loanRate === "" ? 2.6 : Number(loanRate);
       const ratePct =
         mode === "hdb"
           ? 2.6
-          : Math.max(
-              0,
-              Number(loanRate == null || loanRate === "" ? 2.6 : loanRate),
-            );
+          : Math.max(0, Number.isFinite(rawLoanRate) ? rawLoanRate : 2.6);
       const principal = Math.max(0, Number(loanBalance || 0));
       const years = Math.max(0, Number(loanYears || 0));
       const parties = Math.max(1, Math.round(Number(loanParties || 1)));
@@ -3267,8 +4027,9 @@
         C.srsCap / 12,
         Math.max(0, Number(params?.srsAnnual || 0)) / 12,
       );
-      srsMo = Math.round(srsMonthlyPlanned);
-      liquidPool = Math.max(0, investPool - srsMonthlyPlanned);
+      const srsMonthlyEffective = Math.min(srsMonthlyPlanned, investPool);
+      srsMo = Math.round(srsMonthlyEffective);
+      liquidPool = Math.max(0, investPool - srsMonthlyEffective);
 
       if (liquidPool > 0.5) {
         const rawGlobal = Math.max(
@@ -3292,11 +4053,11 @@
           globalEqMo = Math.max(0, eqTarget - sgEqMo);
         } else {
           const eqShare = Math.min(
-            0.95,
-            Math.max(0.2, Number(params?.targetEquityPct ?? 80) / 100),
+            1,
+            Math.max(0, Number(params?.targetEquityPct ?? 80) / 100),
           );
           const sgShareOfEq = Math.min(
-            0.3,
+            1,
             Math.max(
               0,
               Number(params?.sgSleevePct ?? C.defaultSgDividendSplitPct) / 100,
@@ -3310,9 +4071,10 @@
       }
 
       cpfExtraMo = Math.round(Math.max(0, Number(simulation?.cpfExtra || 0)));
-      cashSavingMo = Math.round(Math.max(0, Number(simulation?.cashSaving || 0)));
-      const totalCashSavings =
-        cpfExtraMo + cashSavingMo + Math.max(investPool, srsMonthlyPlanned);
+      cashSavingMo = Math.round(
+        Math.max(0, Number(simulation?.cashSaving || 0)),
+      );
+      const totalCashSavings = cpfExtraMo + cashSavingMo + investPool;
       livingAndTax = Math.max(0, Math.round(afterCpf - totalCashSavings));
       overspendMo = Math.max(0, Math.round(totalCashSavings - afterCpf));
     }
@@ -3322,7 +4084,11 @@
     const rows = [
       { label: "Living & IRAS Tax", amt: livingAndTax, color: "#64748B" },
       { label: "Mandatory CPF", amt: mandatoryCpf, color: "#059669" },
-      { label: "Cash Savings (HYSA / SSB)", amt: cashSavingMo, color: "#0891B2" },
+      {
+        label: "Cash Savings (HYSA / SSB)",
+        amt: cashSavingMo,
+        color: "#0891B2",
+      },
       {
         label: "Equities (Global + SG)",
         amt: eqMo,
@@ -3390,9 +4156,9 @@
     const earliestSafeAgeText =
       projFireAge == null ? "After 80" : "Age " + projFireAge;
     const depletionAgeDisplay =
-      fn.depletionAge != null ? Math.floor(fn.depletionAge) : 90;
+      fn.depletionAge != null ? Math.floor(fn.depletionAge) : endAge;
     const runwayPill = fullyFundedTo95
-      ? "Lasts 95+"
+      ? "Lasts " + endAge + "+"
       : "Lasts to " + depletionAgeDisplay;
     const diffYears = projFireAge == null ? null : retireAge - projFireAge;
     const verdictSub =
@@ -3405,13 +4171,21 @@
             : -diffYears + " yr" + (-diffYears > 1 ? "s" : "") + " after goal";
 
     const ptAtRetire =
+      fire?.atRetire ||
       fire?.points?.find((pt) => pt.age === retireAge) ||
       fire?.points?.[fire.points.length - 1];
-    const outsideNeed = fn.totalRequiredToday ?? s.privateTarget;
+    const outsideNeed =
+      basis === "nominal"
+        ? (fn.totalRequiredAtRetire ?? s.privateTarget)
+        : (fn.totalRequiredToday ?? s.privateTarget);
     const cpfAtRetire =
-      ptAtRetire?.today?.cpfTotal ??
-      fire?.phase2?.projectedCpfAt65Today ??
-      s.balance;
+      basis === "nominal"
+        ? (ptAtRetire?.cpfTotal ??
+          fire?.phase2?.projectedCpfAt65Nominal ??
+          s.balance)
+        : (ptAtRetire?.today?.cpfTotal ??
+          fire?.phase2?.projectedCpfAt65Today ??
+          s.balance);
     const outsideAtRetire =
       basis === "nominal"
         ? (ptAtRetire?.totalOutside ?? 0)
@@ -3432,10 +4206,21 @@
       masRates,
     });
 
-    const cpfFloor65 = fire?.phase2?.cpfLife65Today ?? s.payout;
+    const cpfFloor65 =
+      basis === "nominal"
+        ? (fire?.phase2?.cpfLife65Nominal ?? s.payout)
+        : (fire?.phase2?.cpfLife65Today ?? s.payout);
+    const spend65ForBasis =
+      basis === "nominal"
+        ? r.moneyBasis === "today"
+          ? r.spend65 * (1 + r.inflation) ** Math.max(0, 65 - r.age)
+          : r.spend65
+        : r.moneyBasis === "today"
+          ? r.spend65
+          : todayValue(r.spend65, 65, r.age, r.inflation);
     const cpfCovPct = Math.min(
       100,
-      Math.round((cpfFloor65 / Math.max(1, r.spend65)) * 100),
+      Math.round((cpfFloor65 / Math.max(1, spend65ForBasis)) * 100),
     );
     const builtTodayPct = Math.min(100, Math.max(0, fn.currentFirePct ?? 0));
 
@@ -3469,8 +4254,6 @@
       Number(params?.srsAnnual || 0) > 0,
     );
 
-    const fmtSgd = (v) =>
-      "$" + Math.round(Math.max(0, v || 0)).toLocaleString("en-SG");
     const hol = bogle?.holistic || {};
     const targetEqPct = Math.round(hol.targetEquityPct ?? 80);
     const targetBondPct = Math.round(hol.targetBondPct ?? 20);
@@ -3666,10 +4449,16 @@
         label: "5 · Age-" + retireAge + " Target",
         tag:
           taps.tap1Cpf.oaAt55Today > 0
-            ? "Today’s $ · +" +
-              fmtSgd(taps.tap1Cpf.oaInterestMonthlyToday) +
+            ? (basis === "nominal" ? "Nominal $ · +" : "Today’s $ · +") +
+              fmtSgd(
+                basis === "nominal"
+                  ? taps.tap1Cpf.oaInterestMonthlyNominal
+                  : taps.tap1Cpf.oaInterestMonthlyToday,
+              ) +
               "/mo 55 OA"
-            : "Today’s $ · 4-Tap Floor",
+            : basis === "nominal"
+              ? "Nominal $ · 4-Tap Floor"
+              : "Today’s $ · 4-Tap Floor",
         value: fmtSgd(outsideNeed) + " out + " + fmtSgd(cpfAtRetire) + " CPF",
       },
     ];
@@ -4603,8 +5392,21 @@
 
   function resolveCashParkingCatalog(masRatesInput) {
     const { data, isLive } = normalizeMasRates(masRatesInput);
+    const derivedAsOf = (() => {
+      if (data.asOfDate && /^\d{4}-\d{2}-\d{2}/.test(data.asOfDate)) {
+        const dt = new Date(data.asOfDate + "T00:00:00Z");
+        if (!Number.isNaN(dt.getTime())) {
+          return dt.toLocaleDateString("en-SG", {
+            month: "short",
+            year: "numeric",
+            timeZone: "UTC",
+          });
+        }
+      }
+      return "Nov 2026";
+    })();
     return {
-      asOf: "Nov 2026",
+      asOf: derivedAsOf,
       masAsOfDate: data.asOfDate,
       masIsLive: isLive,
       masFetchedAt: data.fetchedAt || null,
@@ -4622,8 +5424,6 @@
       ],
     };
   }
-
-  const CASH_PARKING_CATALOG = resolveCashParkingCatalog();
 
   const CASH_ACCOUNT_PRESETS = [
     {
@@ -4661,9 +5461,9 @@
       sdicCovered: true,
       sovereignBacked: false,
       bonusCap: 100000,
-      bonusRatePct: 2.45,
+      bonusRatePct: 1.95,
       baseRatePct: 0.05,
-      note: "First $100k earns Salary + Save bonus (~2.45%–3.30%); balances >$100k drop to 0.05% base rate.",
+      note: "First $100k earns Salary + Save bonus (~1.95%–2.45%); balances >$100k drop to 0.05% base rate.",
     },
     {
       key: "uob-one",
@@ -4687,9 +5487,9 @@
       sdicCovered: true,
       sovereignBacked: false,
       bonusCap: 100000,
-      bonusRatePct: 1.88,
+      bonusRatePct: 1.48,
       baseRatePct: 0.05,
-      note: "Flat daily interest up to $100k with zero hoops; SDIC-insured up to $100k.",
+      note: "Daily interest up to $100k (0.88% base, 1.48% bonus); SDIC-insured up to $100k.",
     },
     {
       key: "gxs",
@@ -4700,9 +5500,9 @@
       sdicCovered: true,
       sovereignBacked: false,
       bonusCap: 95000,
-      bonusRatePct: 1.38,
+      bonusRatePct: 1.08,
       baseRatePct: 0.05,
-      note: "Up to $95k across Main + Boost Pockets; SDIC-insured up to $100k.",
+      note: "Up to $95k across Saving Pockets (1.08%) / Main (0.88%); SDIC-insured up to $100k.",
     },
     {
       key: "trust-bank",
@@ -4831,12 +5631,16 @@
         DEFAULT_MAS_LIVE_RATES.ssb?.year10Return ??
         2.39,
     );
+    const tbillBenchmarkPct = Number(
+      resolvedMas?.tbills?.sixMonth?.cutOffYield ??
+        DEFAULT_MAS_LIVE_RATES.tbills?.sixMonth?.cutOffYield ??
+        1.86,
+    );
     const list = Array.isArray(accounts) ? accounts : [];
     const sdicMap = new Map();
     let totalBalance = 0;
     let totalTier1Balance = 0;
     let totalOverflowBalance = 0;
-    let totalTier1Interest = 0;
     let totalOverflowInterest = 0;
     let totalAnnualInterest = 0;
     let potentialExtraAnnualInterest = 0;
@@ -4879,16 +5683,14 @@
         balance > 0 && hasOverflow
           ? Math.round(Math.max(0, bonusRatePct - effectiveRatePct) * 100) / 100
           : 0;
-      const redeployRatePct = Math.max(ssbBenchmarkPct, 2.0);
       const potentialOverflowGainAnnual =
-        hasOverflow && redeployRatePct > baseRatePct
-          ? overflowBalance * ((redeployRatePct - baseRatePct) / 100)
+        hasOverflow && ssbBenchmarkPct > baseRatePct
+          ? overflowBalance * ((ssbBenchmarkPct - baseRatePct) / 100)
           : 0;
 
       totalBalance += balance;
       totalTier1Balance += tier1Balance;
       totalOverflowBalance += overflowBalance;
-      totalTier1Interest += tier1AnnualInterest;
       totalOverflowInterest += overflowAnnualInterest;
       totalAnnualInterest += annualInterest;
       potentialExtraAnnualInterest += potentialOverflowGainAnnual;
@@ -4967,6 +5769,24 @@
         ? (totalAnnualInterest / totalBalance) * 100
         : ssbBenchmarkPct;
     const effectiveRate = effectiveRatePct / 100;
+    // Reconcile total sweep gain with sweepCashAccountsOverflow(): SSB up to $200k cap, remainder to 6M T-Bills.
+    let ssbRoomForSweep = Math.max(0, C.ssbCap - ssbTotalBalance);
+    let cappedPotentialExtraAnnualInterest = 0;
+    for (const row of computedRows) {
+      if (row.overflowBalance > 0) {
+        const toSsb = Math.min(row.overflowBalance, ssbRoomForSweep);
+        const toTbill = Math.max(0, row.overflowBalance - toSsb);
+        ssbRoomForSweep = Math.max(0, ssbRoomForSweep - toSsb);
+        const rowGain =
+          toSsb * Math.max(0, (ssbBenchmarkPct - row.baseRatePct) / 100) +
+          toTbill * Math.max(0, (tbillBenchmarkPct - row.baseRatePct) / 100);
+        row.potentialOverflowGainAnnual = rowGain;
+        cappedPotentialExtraAnnualInterest += rowGain;
+      } else {
+        row.potentialOverflowGainAnnual = 0;
+      }
+    }
+    potentialExtraAnnualInterest = cappedPotentialExtraAnnualInterest;
     const totalMonthlyInterest = totalAnnualInterest / 12;
     const potentialExtraMonthlyInterest = potentialExtraAnnualInterest / 12;
     const overflowAccounts = computedRows.filter((r) => r.overflowBalance > 0);
@@ -5036,9 +5856,14 @@
         baseRatePct: a.baseRatePct,
       }));
     }
+    const ssbBenchmarkPct = bd.ssbBenchmarkPct || 2.39;
     let sweptPool = 0;
     const nextRows = bd.accounts.map((a) => {
-      if (a.hasCap && a.overflowBalance > 0 && a.preset !== "ssb") {
+      if (
+        a.hasCap &&
+        a.overflowBalance > 0 &&
+        a.baseRatePct < ssbBenchmarkPct
+      ) {
         sweptPool += a.overflowBalance;
         return {
           id: a.id,
@@ -5061,12 +5886,19 @@
       };
     });
 
+    const nextUniqueId = () => {
+      let n = nextRows.length + 1;
+      const used = new Set(nextRows.map((r) => r.id));
+      while (used.has("cash-" + n)) n++;
+      return "cash-" + n;
+    };
+
     if (sweptPool > 0) {
       const ssbPreset = resolveCashAccountPreset("ssb", masRates);
       let ssbRow = nextRows.find((r) => r.preset === "ssb");
       if (!ssbRow) {
         ssbRow = {
-          id: "cash-" + (nextRows.length + 1),
+          id: nextUniqueId(),
           preset: "ssb",
           name: "MAS SSB",
           balance: 0,
@@ -5076,7 +5908,7 @@
         };
         nextRows.push(ssbRow);
       }
-      const ssbRoom = Math.max(0, C.ssbCap - ssbRow.balance);
+      const ssbRoom = Math.max(0, C.ssbCap - (bd.ssbTotalBalance || 0));
       const addToSsb = Math.min(sweptPool, ssbRoom);
       ssbRow.balance += addToSsb;
       sweptPool -= addToSsb;
@@ -5086,7 +5918,7 @@
         let tbillRow = nextRows.find((r) => r.preset === "tbills");
         if (!tbillRow) {
           tbillRow = {
-            id: "cash-" + (nextRows.length + 1),
+            id: nextUniqueId(),
             preset: "tbills",
             name: "MAS 6M T-Bills",
             balance: 0,
@@ -5153,8 +5985,7 @@
     let positionNote =
       "Your current cash fits comfortably within one bank’s $100k SDIC insurance limit.";
 
-    const fmtCash = (v) =>
-      "$" + Math.round(Math.max(0, v || 0)).toLocaleString("en-SG");
+    const fmtCash = fmtSgd;
 
     if (cashAccountsActive && cashBreakdown.totalOverflowBalance > 0) {
       positionTone = "warn";
@@ -5287,12 +6118,66 @@
       simulation ||
       simulate(effP, selectedScenario?.key || "salary", { summary: sum });
     const todaySum = sum.moneyBasis === "today" ? sum : todayPlan(sum);
-    const scen =
-      selectedScenario ||
-      todaySum.scenarios.find(
-        (x) => x.key === (sim.selectedScenario?.key || "salary"),
-      ) ||
+    const desiredKey =
+      selectedScenario?.key || sim.selectedScenario?.key || "salary";
+    const matchedTodayScen =
+      desiredKey === "brs" && todaySum.brsScenario
+        ? todaySum.brsScenario
+        : todaySum.scenarios.find((x) => x.key === desiredKey);
+    let scen =
+      (sum.moneyBasis === "today" ? selectedScenario : null) ||
+      matchedTodayScen ||
       todaySum.scenarios[0];
+    if (sum.moneyBasis !== "today" && selectedScenario) {
+      const payoutToday = todayValue(
+        selectedScenario.payout || 0,
+        65,
+        sum.age,
+        sum.inflation,
+      );
+      const standardPayoutToday = todayValue(
+        selectedScenario.standardPayout ?? selectedScenario.payout ?? 0,
+        65,
+        sum.age,
+        sum.inflation,
+      );
+      const payout75Today = todayValue(
+        selectedScenario.payout75 || 0,
+        75,
+        sum.age,
+        sum.inflation,
+      );
+      const balanceToday = todayValue(
+        selectedScenario.balance ?? selectedScenario.cpfAt55 ?? 0,
+        55,
+        sum.age,
+        sum.inflation,
+      );
+      const gap65Today =
+        selectedScenario.gap65 != null
+          ? todayValue(selectedScenario.gap65, 65, sum.age, sum.inflation)
+          : Math.max(0, (todaySum.spend65 || 0) - payoutToday);
+      const gap75Today =
+        selectedScenario.gap75 != null
+          ? todayValue(selectedScenario.gap75, 75, sum.age, sum.inflation)
+          : Math.max(0, (todaySum.spend75 || 0) - payout75Today);
+      scen = {
+        ...(matchedTodayScen || selectedScenario),
+        key: selectedScenario.key,
+        balance: balanceToday,
+        payout: payoutToday,
+        standardPayout: standardPayoutToday,
+        payout75: payout75Today,
+        gap65: gap65Today,
+        gap75: gap75Today,
+        privateTarget: todayValue(
+          selectedScenario.privateTarget || 0,
+          sum.retire,
+          sum.age,
+          sum.inflation,
+        ),
+      };
+    }
     const fp =
       fire || firePlan(effP, scen.key, { summary: sum, simulation: sim });
     const bg = bogle || bogleheadAllocation(effP, sim.invest);
@@ -5319,7 +6204,7 @@
     const ssb1YrPct = Number(
       resolvedMas?.ssb?.year1Return ??
         DEFAULT_MAS_LIVE_RATES.ssb?.year1Return ??
-        2.86,
+        1.83,
     );
     const ssb10YrRate = ssb10YrPct / 100;
     const ssb150kMonthlyYield = Math.round(
@@ -5338,21 +6223,15 @@
       params.cashReturnRate !== "" &&
       Number.isFinite(Number(params.cashReturnRate)) &&
       Number(params.cashReturnRate) >= 0;
-    const customCashRateVal = hasCustomCashRate
-      ? Number(params.cashReturnRate) > 0.3
-        ? Number(params.cashReturnRate) / 100
-        : Number(params.cashReturnRate)
-      : null;
-    const effectiveCashAnnualRate = hasCustomCashRate
-      ? customCashRateVal
-      : cashBreakdown
-        ? cashBreakdown.effectiveRatePct / 100
-        : fp?.cashReturnRate ?? ssb10YrRate;
+    const effectiveCashAnnualRate = resolveCashReturnRate(
+      params,
+      fp?.cashReturnRate ?? ssb10YrRate,
+    );
     const effectiveCashRatePct = hasCustomCashRate
-      ? Number((customCashRateVal * 100).toFixed(2))
+      ? Number((effectiveCashAnnualRate * 100).toFixed(2))
       : cashBreakdown
         ? cashBreakdown.effectiveRatePct
-        : ssb10YrPct;
+        : Number((effectiveCashAnnualRate * 100).toFixed(2));
     const currentSsbMonthlyYield = hasCustomCashRate
       ? Math.round((bg.buckets.ssbCash * effectiveCashAnnualRate) / 12)
       : cashBreakdown
@@ -5361,6 +6240,13 @@
     const monthlyCashSaving = sum.retiringNow
       ? 0
       : Math.round(Math.max(0, Number(sim.cashSaving ?? effP.cashSaving ?? 0)));
+    const monthlyBondBuyFromInvest = sum.retiringNow
+      ? 0
+      : Math.round(
+          Math.max(0, Number(bg.monthlyRebalance?.buyBondMonthly || 0)),
+        );
+    const totalMonthlyCashAndBond =
+      monthlyCashSaving + monthlyBondBuyFromInvest;
     const monthlyExtraCpf = sum.retiringNow
       ? 0
       : Math.round(Math.max(0, Number(sim.cpfExtra ?? effP.cpfExtra ?? 0)));
@@ -5371,30 +6257,38 @@
         ? bg.buckets.ssbCash * (1 + mRateCash) ** monthsToRet +
           monthlyCashSaving * (((1 + mRateCash) ** monthsToRet - 1) / mRateCash)
         : bg.buckets.ssbCash + monthlyCashSaving * monthsToRet;
+    const fvSsbAndBondNominal =
+      mRateCash > 0
+        ? bg.buckets.ssbCash * (1 + mRateCash) ** monthsToRet +
+          totalMonthlyCashAndBond *
+            (((1 + mRateCash) ** monthsToRet - 1) / mRateCash)
+        : bg.buckets.ssbCash + totalMonthlyCashAndBond * monthsToRet;
     const projectedCashOnlyAtRetireToday = Math.round(
       todayValue(fvCashOnlyNominal, sum.retire, sum.age, sum.inflation),
     );
-    const projectedCashMonthlyYieldToday = Math.round(
-      (projectedCashOnlyAtRetireToday * effectiveCashAnnualRate) / 12,
+    const fallbackProjectedSsbAtRetireToday = Math.round(
+      todayValue(fvSsbAndBondNominal, sum.retire, sum.age, sum.inflation),
     );
     const ptAtRetire =
+      fp?.atRetire ||
       fp?.points?.find((pt) => pt.age === fp.retire) ||
       fp?.points?.[fp.points.length - 1] ||
       null;
+    const resolvedProjectedSsbCashAtRetireToday = Math.round(
+      ptAtRetire?.today?.ssbCash ?? fallbackProjectedSsbAtRetireToday,
+    );
+    const projectedCashMonthlyYieldToday = Math.round(
+      (resolvedProjectedSsbCashAtRetireToday * effectiveCashAnnualRate) / 12,
+    );
     const currentLiquidEquities = Math.round(
       (bg.buckets.equities || 0) + (bg.buckets.sgDividends || 0),
     );
     const projectedEquitiesAtRetireToday = Math.round(
       ptAtRetire?.today?.liquidEquities ?? currentLiquidEquities,
     );
-    const projTotalLiquidToday =
-      (ptAtRetire?.today?.liquidEquities ?? 0) +
-      (ptAtRetire?.today?.ssbCash ?? 0);
+    // Tap 3 owns liquid equities only; Tap 4 owns SSB/Cash + bond sleeve so Tap 3 + Tap 4 === total liquid with zero double-counting.
     const projectedInvestAtRetireToday = ptAtRetire
-      ? Math.max(
-          projectedEquitiesAtRetireToday,
-          Math.round(projTotalLiquidToday - projectedCashOnlyAtRetireToday),
-        )
+      ? projectedEquitiesAtRetireToday
       : Math.round(
           todayValue(
             sim.portfolioAtRetire || 0,
@@ -5534,6 +6428,8 @@
         maxSrsAfterRstu: tx.maxSrsAfterRstu,
         srsTaxSavedAfterRstu: tx.srsTaxSavedAfterRstu,
         srsStandaloneTaxSaved: tx.srsStandaloneTaxSaved,
+        taxSavedPerYear: tx.srsTaxSavedAfterRstu,
+        effectiveRoom: tx.maxSrsAfterRstu,
         worthIt: srsWorthIt,
         verdictStatus: srsVerdictStatus,
         verdictLabel: srsVerdictLabel,
@@ -5569,9 +6465,7 @@
         currentSsbCash: bg.buckets.ssbCash,
         monthlyCashSaving,
         projectedCashOnlyAtRetireToday,
-        projectedSsbCashAtRetireToday: Math.round(
-          ptAtRetire?.today?.ssbCash ?? projectedCashOnlyAtRetireToday,
-        ),
+        projectedSsbCashAtRetireToday: resolvedProjectedSsbCashAtRetireToday,
         projectedMonthlyYieldToday: projectedCashMonthlyYieldToday,
         emergencyMin,
         emergencyMax,
@@ -5582,6 +6476,7 @@
         ssb10YrPct,
         ssb1YrPct,
         cashAccountsActive,
+        cashBreakdown,
         hasCustomCashRate,
         effectiveRatePct: effectiveCashRatePct,
         accountCount: cashBreakdown ? cashBreakdown.accounts.length : 1,
@@ -5609,10 +6504,21 @@
       100,
       Math.max(0, Math.round((Number(opts.ratePct ?? 5) || 0) * 100) / 100),
     );
-    const inflationRate = Number(opts.inflationRate ?? C.defaultInflation ?? 0.025);
+    const rawInf = Number(
+      opts.inflationRate ?? SG_DEFAULT_PLAN.inflationRate ?? 0.025,
+    );
+    const inflationRate = Number.isFinite(rawInf)
+      ? Math.max(0, rawInf)
+      : (SG_DEFAULT_PLAN.inflationRate ?? 0.025);
     const inflationPct = Math.round(inflationRate * 10000) / 100;
+    const rawSsbRate =
+      opts.ssbRatePct ?? DEFAULT_MAS_LIVE_RATES.ssb?.year10Return ?? 2.39;
     const ssbRatePct =
-      Math.round((Number(opts.ssbRatePct ?? DEFAULT_MAS_LIVE_RATES.ssb10YAvgPct ?? 2.16) || 2.16) * 100) / 100;
+      Math.round(
+        (Number.isFinite(Number(rawSsbRate)) && rawSsbRate !== ""
+          ? Math.max(0, Number(rawSsbRate))
+          : 2.39) * 100,
+      ) / 100;
 
     const annualPayout = Math.round(capital * (ratePct / 100) * 100) / 100;
     const monthlyPayout = Math.round((annualPayout / 12) * 100) / 100;
@@ -5620,7 +6526,8 @@
     const dailyPayout = Math.round((annualPayout / 365) * 100) / 100;
 
     const realRatePct = Math.round((ratePct - inflationPct) * 100) / 100;
-    const realAnnualPayout = Math.round(capital * (realRatePct / 100) * 100) / 100;
+    const realAnnualPayout =
+      Math.round(capital * (realRatePct / 100) * 100) / 100;
     const realMonthlyPayout = Math.round((realAnnualPayout / 12) * 100) / 100;
 
     let tierKey = "sweet-spot";
@@ -5658,13 +6565,15 @@
       tone = "warn";
       badge = "Elevated Yield · Verify Payout Coverage";
       headline = "High Yield — Check Free Cash Flow & Gearing";
-      summary = "Above typical SG blue-chip bank and REIT averages (4.5%–6.0%). Confirm distributions are backed by recurring operating cash flow rather than high debt gearing (>40%) or capital return.";
+      summary =
+        "Above typical SG blue-chip bank and REIT averages (4.5%–6.0%). Confirm distributions are backed by recurring operating cash flow rather than high debt gearing (>40%) or capital return.";
     } else {
       tierKey = "yield-trap";
       tone = "danger";
       badge = "High Risk · Capital Erosion Warning";
       headline = "Unsustainable SGD Yield Zone — Watch for NAV Erosion";
-      summary = "In SGD terms, yields above 7.5% rarely sustain without share price / NAV decay, DPU cuts, FX depreciation, or covered-call upside drag. Check 5-year total return before committing capital.";
+      summary =
+        "In SGD terms, yields above 7.5% rarely sustain without share price / NAV decay, DPU cuts, FX depreciation, or covered-call upside drag. Check 5-year total return before committing capital.";
     }
 
     const rawBenchmarks = [
@@ -5779,18 +6688,39 @@
     inflationPct = 2.5,
     masRates = null,
   } = {}) {
-    const tgtMo = Math.max(0, Number(targetMonthly) || 0);
-    const rPct = Math.max(0.1, Math.min(25, Number(ratePct) || 5.0));
-    const curCap = Math.max(0, Number(currentCapital) || 0);
-    const moSave = Math.max(0, Number(monthlyContribution) || 0);
-    const infPct = Math.max(0, Number(inflationPct) || 2.5);
+    const tgtMo = Math.max(
+      0,
+      Number.isFinite(Number(targetMonthly)) ? Number(targetMonthly) : 0,
+    );
+    const rPct = Math.max(
+      0.1,
+      Math.min(25, Number.isFinite(Number(ratePct)) ? Number(ratePct) : 5.0),
+    );
+    const curCap = Math.max(
+      0,
+      Number.isFinite(Number(currentCapital)) ? Number(currentCapital) : 0,
+    );
+    const moSave = Math.max(
+      0,
+      Number.isFinite(Number(monthlyContribution))
+        ? Number(monthlyContribution)
+        : 0,
+    );
+    const infPct = Math.max(
+      0,
+      Number.isFinite(Number(inflationPct)) ? Number(inflationPct) : 2.5,
+    );
     const ssbRatePct = Number(
-      masRates?.ssb?.tenYearAvgReturn ?? masRates?.ssb?.year10Return ?? DEFAULT_MAS_LIVE_RATES.ssb10YAvgPct ?? 2.16,
+      masRates?.ssb?.tenYearAvgReturn ??
+        masRates?.ssb?.year10Return ??
+        DEFAULT_MAS_LIVE_RATES.ssb?.year10Return ??
+        2.39,
     );
 
     const targetAnnual = Math.round(tgtMo * 12 * 100) / 100;
     const rateDec = rPct / 100;
-    const requiredCapital = rateDec > 0 ? Math.round(targetAnnual / rateDec) : 0;
+    const requiredCapital =
+      rateDec > 0 ? Math.round(targetAnnual / rateDec) : 0;
     const realRatePct = Math.round((rPct - infPct) * 100) / 100;
     const capitalGap = Math.max(0, requiredCapital - curCap);
     const pctReachedNow =
@@ -5798,34 +6728,42 @@
         ? Math.min(100, Math.round((curCap / requiredCapital) * 1000) / 10)
         : 100;
 
-    // Exact years to reach requiredCapital with curCap + moSave compounding monthly at rPct
-    const rMo = rateDec / 12;
+    // Exact years to reach inflation-adjusted target capital (today's purchasing power)
+    // with curCap + fixed nominal moSave compounding monthly at effective annual rPct.
+    const rMo = monthlyRate(rateDec);
+    const infMo = monthlyRate(infPct / 100);
     let monthsToGoal = 0;
     if (capitalGap > 0) {
       if (moSave <= 0 && curCap <= 0) {
         monthsToGoal = Infinity;
       } else {
         let bal = curCap;
-        while (bal < requiredCapital && monthsToGoal < 1200) {
+        let inflatedCap = requiredCapital;
+        while (bal < inflatedCap && monthsToGoal < 1200) {
           bal = bal * (1 + rMo) + moSave;
+          inflatedCap *= 1 + infMo;
           monthsToGoal++;
         }
-        if (bal < requiredCapital) monthsToGoal = Infinity;
+        if (bal < inflatedCap) monthsToGoal = Infinity;
       }
     }
     const yearsToGoal = Number.isFinite(monthsToGoal)
       ? Math.round((monthsToGoal / 12) * 10) / 10
       : null;
 
-    // Required monthly contribution to hit requiredCapital in 10, 15, 20, 25 years
+    // Required monthly contribution to hit inflation-adjusted target capital in 10, 15, 20, 25 years
     const calcReqSaveForYears = (yrs, tierRatePct = rPct) => {
       const n = Math.max(1, Math.round(yrs * 12));
-      const rm = tierRatePct / 100 / 12;
-      const tierCap = tierRatePct > 0 ? Math.round((tgtMo * 12) / (tierRatePct / 100)) : 0;
+      const rm = monthlyRate(tierRatePct / 100);
+      const tierCapToday =
+        tierRatePct > 0 ? Math.round((tgtMo * 12) / (tierRatePct / 100)) : 0;
+      const tierCapInflated = Math.round(
+        tierCapToday * (1 + infPct / 100) ** yrs,
+      );
       const fvCur = curCap * (1 + rm) ** n;
-      const rem = Math.max(0, tierCap - fvCur);
+      const rem = Math.max(0, tierCapInflated - fvCur);
       if (rem <= 0) return 0;
-      const af = rm > 0 ? ((1 + rm) ** n - 1) / rm : n;
+      const af = annuityFactor(rm, n);
       return Math.ceil(rem / af);
     };
 
@@ -5837,20 +6775,46 @@
     });
 
     const tierRows = [
-      { key: "ssb", label: "MAS 10Y SSB", sub: "Risk-free sovereign floor", ratePct: ssbRatePct },
-      { key: "cpf-sa", label: "CPF SA / RA Floor", sub: "4.0% statutory floor", ratePct: 4.0 },
-      { key: "sg-banks", label: "STI ETF / SG Banks", sub: "DBS · OCBC · UOB (0% tax)", ratePct: 5.0 },
-      { key: "sg-reits", label: "SG Blue-Chip REITs", sub: "Industrial & Retail REITs", ratePct: 6.0 },
-      { key: "yield-trap", label: "High-Risk / Yield Trap", sub: "High NAV erosion risk", ratePct: 8.0 },
+      {
+        key: "ssb",
+        label: "MAS 10Y SSB",
+        sub: "Risk-free sovereign floor",
+        ratePct: ssbRatePct,
+      },
+      {
+        key: "cpf-sa",
+        label: "CPF SA / RA Floor",
+        sub: "4.0% statutory floor",
+        ratePct: 4.0,
+      },
+      {
+        key: "sg-banks",
+        label: "STI ETF / SG Banks",
+        sub: "DBS · OCBC · UOB (0% tax)",
+        ratePct: 5.0,
+      },
+      {
+        key: "sg-reits",
+        label: "SG Blue-Chip REITs",
+        sub: "Industrial & Retail REITs",
+        ratePct: 6.0,
+      },
+      {
+        key: "yield-trap",
+        label: "High-Risk / Yield Trap",
+        sub: "High NAV erosion risk",
+        ratePct: 8.0,
+      },
     ].map((t) => {
-      const reqCap = Math.round((tgtMo * 12) / (t.ratePct / 100));
+      const safeRate = t.ratePct > 0 ? t.ratePct : 0.1;
+      const reqCap = Math.round((tgtMo * 12) / (safeRate / 100));
       const gap = Math.max(0, reqCap - curCap);
       return {
         ...t,
         requiredCapital: reqCap,
         capitalGap: gap,
-        save15YrMo: calcReqSaveForYears(15, t.ratePct),
-        save20YrMo: calcReqSaveForYears(20, t.ratePct),
+        save15YrMo: calcReqSaveForYears(15, safeRate),
+        save20YrMo: calcReqSaveForYears(20, safeRate),
         isSelected: Math.abs(t.ratePct - rPct) <= 0.35,
       };
     });
@@ -5888,14 +6852,61 @@
     benchmarkRatePct = 5.0,
     masRates = null,
   } = {}) {
-    const moPayIn = Math.max(1, Number(monthlyContribution) || 1000);
-    const cYrs = Math.max(1, Math.min(50, Math.round(Number(contributeYears) || 15)));
-    const dYrs = Math.max(0, Math.min(30, Math.round(Number(deferYears) || 0)));
-    const pYrs = Math.max(1, Math.min(50, Math.round(Number(payoutYears) || 20)));
-    const quotedMo = Math.max(0, Number(quotedMonthlyPayout) || 0);
-    const benchRatePct = Math.max(0.5, Math.min(20, Number(benchmarkRatePct) || 5.0));
+    const moPayIn = Math.max(
+      1,
+      Number.isFinite(Number(monthlyContribution))
+        ? Number(monthlyContribution)
+        : 1000,
+    );
+    const cYrs = Math.max(
+      1,
+      Math.min(
+        50,
+        Math.round(
+          Number.isFinite(Number(contributeYears))
+            ? Number(contributeYears)
+            : 15,
+        ),
+      ),
+    );
+    const dYrs = Math.max(
+      0,
+      Math.min(
+        30,
+        Math.round(
+          Number.isFinite(Number(deferYears)) ? Number(deferYears) : 0,
+        ),
+      ),
+    );
+    const pYrs = Math.max(
+      1,
+      Math.min(
+        50,
+        Math.round(
+          Number.isFinite(Number(payoutYears)) ? Number(payoutYears) : 20,
+        ),
+      ),
+    );
+    const quotedMo = Math.max(
+      0,
+      Number.isFinite(Number(quotedMonthlyPayout))
+        ? Number(quotedMonthlyPayout)
+        : 0,
+    );
+    const benchRatePct = Math.max(
+      0.5,
+      Math.min(
+        20,
+        Number.isFinite(Number(benchmarkRatePct))
+          ? Number(benchmarkRatePct)
+          : 5.0,
+      ),
+    );
     const ssbRatePct = Number(
-      masRates?.ssb?.tenYearAvgReturn ?? masRates?.ssb?.year10Return ?? DEFAULT_MAS_LIVE_RATES.ssb10YAvgPct ?? 2.16,
+      masRates?.ssb?.tenYearAvgReturn ??
+        masRates?.ssb?.year10Return ??
+        DEFAULT_MAS_LIVE_RATES.ssb?.year10Return ??
+        2.39,
     );
 
     const nIn = cYrs * 12;
@@ -5909,8 +6920,7 @@
         ? Math.round((totalPayoutReceived / totalPrincipalPaid) * 100) / 100
         : 0;
 
-    // Solve exact monthly IRR where NPV(rMo) = 0
-    // PV of inflows (contributions at t = 0..nIn-1) = PV of outflows (payouts at t = nIn+nDefer..nIn+nDefer+nOut-1)
+    // Solve exact monthly IRR where NPV(rMo) = 0, expressed as effective annual return ((1 + rMo)^12 - 1)
     let impliedAnnualIrrPct = 0;
     if (quotedMo <= 0) {
       impliedAnnualIrrPct = -100;
@@ -5918,27 +6928,29 @@
       impliedAnnualIrrPct = 0;
     } else {
       const npvAtMonthlyRate = (rm) => {
-        if (Math.abs(rm) < 1e-9) return totalPayoutReceived - totalPrincipalPaid;
+        if (Math.abs(rm) < 1e-9)
+          return totalPayoutReceived - totalPrincipalPaid;
         const pvIn = moPayIn * ((1 - (1 + rm) ** -nIn) / rm);
         const pvOutAtStartOfPayout = quotedMo * ((1 - (1 + rm) ** -nOut) / rm);
         const pvOut = pvOutAtStartOfPayout * (1 + rm) ** -(nIn + nDefer);
         return pvOut - pvIn;
       };
-      let lo = -0.015;
+      let lo = -0.5;
       let hi = 0.03;
       while (npvAtMonthlyRate(hi) > 0 && hi < 0.25) hi *= 2;
-      for (let i = 0; i < 45; i++) {
+      for (let i = 0; i < 50; i++) {
         const mid = (lo + hi) / 2;
         if (npvAtMonthlyRate(mid) > 0) lo = mid;
         else hi = mid;
       }
       const rMoSolved = (lo + hi) / 2;
-      impliedAnnualIrrPct = Math.round(rMoSolved * 12 * 100 * 100) / 100;
+      const effectiveAnnualPct = ((1 + rMoSolved) ** 12 - 1) * 100;
+      impliedAnnualIrrPct = Math.round(effectiveAnnualPct * 100) / 100;
     }
 
-    // Helper: what monthly payout does investing moPayIn at ratePct produce over pYrs?
+    // Helper: what monthly payout does investing moPayIn at effective annualPct produce over pYrs?
     const calcDiyAnnuity = (annualPct) => {
-      const rm = annualPct / 100 / 12;
+      const rm = monthlyRate(Math.max(0, annualPct) / 100);
       const fvContribute =
         rm > 0 ? moPayIn * (((1 + rm) ** nIn - 1) / rm) : moPayIn * nIn;
       const potAtPayoutStart = fvContribute * (1 + rm) ** nDefer;
@@ -5997,7 +7009,7 @@
       {
         key: "quoted",
         label: "Quoted Annuity Plan",
-        sub: `\${moPayIn.toLocaleString("en-SG")}/mo × ${cYrs}y term${dYrs > 0 ? ` · ${dYrs}y deferment` : ""} · ${pYrs}y payout`,
+        sub: `$${moPayIn.toLocaleString("en-SG")}/mo × ${cYrs}y term${dYrs > 0 ? ` · ${dYrs}y deferment` : ""} · ${pYrs}y payout`,
         ratePct: impliedAnnualIrrPct,
         potAtPayoutStart: Math.round(
           calcDiyAnnuity(Math.max(0, impliedAnnualIrrPct)).potAtPayoutStart,
@@ -6023,7 +7035,7 @@
       {
         key: "diy-bench",
         label: `DIY · Portfolio @ ${benchRatePct.toFixed(1)}% p.a.`,
-        sub: `\${diyBench.potAtPayoutStart.toLocaleString("en-SG")} accumulated value · ~\${Math.round(diyBench.perpetualMonthly).toLocaleString("en-SG")}/mo perpetual yield`,
+        sub: `$${diyBench.potAtPayoutStart.toLocaleString("en-SG")} accumulated value · ~$${Math.round(diyBench.perpetualMonthly).toLocaleString("en-SG")}/mo perpetual yield`,
         ...diyBench,
       },
     ];
@@ -6052,45 +7064,62 @@
     };
   }
 
-  function generateTrajectory(p, selectedKey = "salary") {
-    return simulate(p, selectedKey);
+  function projectCashBucketAtRetire({
+    currentBalance = 0,
+    monthlyInflow = 0,
+    annualRate = 0,
+    yearsToRetire = 0,
+    inflationRate = 0.025,
+  } = {}) {
+    const months = Math.max(0, Math.round(yearsToRetire * 12));
+    const mRate = monthlyRate(Math.max(0, Number(annualRate) || 0));
+    const cur = Math.max(0, Number(currentBalance) || 0);
+    const inflow = Math.max(0, Number(monthlyInflow) || 0);
+    const fvNominal =
+      mRate > 0
+        ? cur * (1 + mRate) ** months +
+          inflow * (((1 + mRate) ** months - 1) / mRate)
+        : cur + inflow * months;
+    const inf = Math.max(0, Number(inflationRate ?? 0.025));
+    const fvToday = fvNominal / (1 + inf) ** Math.max(0, yearsToRetire);
+    return { nominal: Math.round(fvNominal), today: Math.round(fvToday) };
   }
 
   const api = {
     C,
-    DEMO_PLAN,
     SG_DEFAULT_PLAN,
+    SG_PERSONA_PRESETS,
+    resolveLongevityAge,
     computeAgeFromDob,
     defaultDobForAge,
     computeHousingPayment,
     residentTax,
+    computeTaxSummary,
     outsideAllocationGuide,
     resolvePortfolioBuckets,
+    withEffectiveSavings,
     taxSweetSpot,
     bogleheadAllocation,
     firePlan,
+    solveBucketAwareSimulation,
     retirementSum,
     annuityFactor,
     extraInterest,
     payoutFrom65,
     projectCPF,
     simulate,
-    earliestRetirement,
     milestonePlan,
     todayValue,
     todayPlan,
     todayTrajectory,
-    drawdownToday,
     allocation,
     careRows,
     ccaRows,
     lifestyles,
-    budgetBreakdown,
     EXPENSE_CATEGORIES,
     defaultExpenseItems,
     scaleExpenseItems,
     expensePlan,
-    careTotals,
     healthShieldMonthlyAtAge,
     insuranceCurveLevelAtAge,
     expenseAt,
@@ -6099,7 +7128,6 @@
     calculate,
     paycheckAllocation,
     DEFAULT_MAS_LIVE_RATES,
-    CASH_PARKING_CATALOG,
     CASH_ACCOUNT_PRESETS,
     resolveCashAccountPreset,
     defaultCashAccounts,
@@ -6113,7 +7141,7 @@
     evaluateDividendYield,
     evaluateTargetMonthlyIncome,
     evaluateAnnuityPlan,
-    generateTrajectory,
+    projectCashBucketAtRetire,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.RetirementModel = api;

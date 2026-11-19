@@ -283,7 +283,7 @@ The palette balances authoritative cobalt action controls and signature Swell ro
 
 ### Named Rules
 
-**The Semantic Asset Invariant Rule.** Every wealth bucket owns one immutable color across all 6 workspace tabs, all 4 modals, and the A4 Print Poster (`CPF = Emerald`, `Equities = Cobalt/Sky`, `SRS = Violet`, `Cash/SSB = Amber`, `Post-55 OA Tap = Teal`, `Deficit/Trap = Crimson`). Never repurpose Shortfall Crimson (`#dc2626`) for safe Cash/SSB buffers or swap CPF and Equities colors between adjacent widgets.
+**The Semantic Asset Invariant Rule.** Every wealth bucket owns one immutable color across all 7 workspace views, all 4 modals, and the A4 Print Poster (`CPF = Emerald`, `Equities = Cobalt/Sky`, `SRS = Violet`, `Cash/SSB = Amber`, `Post-55 OA Tap = Teal`, `Deficit/Trap = Crimson`). Never repurpose Shortfall Crimson (`#dc2626`) for safe Cash/SSB buffers or swap CPF and Equities colors between adjacent widgets.
 
 **The Rose Restraint Rule.** Swell Rose (`#e83e8c` / `#ec4899`) marks brand identity, active navigation cues, and the print action—never validation errors or body paragraphs. Whenever rose text appears on `#fdf2f8`, use Deep Rose Ink (`#be185d`, `5.53:1`) so small label contrast stays comfortably above `4.5:1`.
 
@@ -298,7 +298,7 @@ The palette balances authoritative cobalt action controls and signature Swell ro
 ### Hierarchy
 
 - **Display** (`800`, `clamp(1.65rem, 2.6vw, 2.15rem)`, line-height `1.08`, tracking `-0.03em`): Hero retirement readiness figures, primary KPI headline numbers, and modal summary totals.
-- **Headline** (`600–750`, `clamp(1.38rem, 2.2vw, 1.62rem)`, line-height `1.2`, tracking `-0.025em`): Canonical `.fin-page-header h1` / `.ember-header-main h1` / `.fin-header-copy h1` across all 6 workspace tabs (`Overview`, `Trajectory`, `Allocator`, `Cash Parking`, `Tax Relief`, `CPF Milestones`) and `My Settings`.
+- **Headline** (`600–750`, `clamp(1.38rem, 2.2vw, 1.62rem)`, line-height `1.2`, tracking `-0.025em`): Canonical `.fin-page-header h1` / `.ember-header-main h1` / `.fin-header-copy h1` across all 7 workspace views (`Overview`, `Trajectory`, `Allocator`, `Dividend & Yield`, `Cash Parking`, `Tax Relief`, `CPF Milestones`) and `My Settings`.
 - **Title** (`700`, `0.98rem–1.08rem`, line-height `1.3`, tracking `-0.015em`): Bento card headers, `<dialog>` modal titles, and 4-Tap card headings.
 - **Body** (`450–500`, `0.9375rem` / `15px`, line-height `1.55`, max measure `68ch`): Explanatory guidance, assumption notes, and form field inputs.
 - **Label** (`650–700`, `0.72rem–0.78rem`, line-height `1.25`, tracking `0.02em–0.05em`): Table column headers, status pills, sidebar badges, and chart axis labels (`>= 6.5pt` minimum after scaling in `@media print`).
@@ -319,10 +319,10 @@ The palette balances authoritative cobalt action controls and signature Swell ro
   - Label-to-input gaps stay tight (`6px`) while distinct form sections and field rows separate at `16px–22px` (`1.05rem`) so related controls read as clear Gestalt groups.
   - Destructive controls (`button-danger` Reset Plan) are physically separated from primary save/navigation actions and gated behind `#confirm-reset-modal` so accidental clicks cannot wipe user assumptions.
 - **Responsive Breakpoints:**
-  - `960px`: Sidebar transitions off-canvas in favor of a fixed bottom 6-tab navigation bar (`padding-bottom: calc(76px + env(safe-area-inset-bottom))`).
+  - `960px`: Sidebar transitions off-canvas in favor of a fixed bottom 5-tab navigation bar (`Overview`, `Trajectory`, `Allocator` [with `Allocator` / `Dividend & Yield` sub-tabs], `Cash`, and `Tax & CPF` [with `Tax Relief` / `CPF Milestones` sub-tabs]) with safe-area padding (`padding-bottom: calc(76px + env(safe-area-inset-bottom))`).
   - `820px` & `720px`: Two-column analytical grids stack into single-column cards; top header compacts lifestyle selector and action buttons (preserving icon-accessible Print and Settings triggers).
   - `640px`: Form grids and modal rows stack vertically with `44px` minimum touch targets.
-- **Single-Page A4 Print Grid (`@media print`):** `@page { size: A4 portrait; margin: 9mm; }` yielding a `192mm × 279mm` printable frame organized into five deterministic bands: (1) FinScope Light Masthead + Context Chips, (2) 5-Card KPI Strip + Starting Balances Strip, (3) Net Worth Trajectory + Readiness Gauge + Age-65 Expense Donut, (4) 4-Tap Retirement Income Architecture + Paycheck Allocation Waterfall, and (5) Milestones, Strategy Comparison Table, 5-Row Action Plan, and Statutory Colophon.
+- **Single-Page A4 Print Grid (`@media print`):** `@page { size: A4 landscape; margin: 6.5mm 8mm; }` yielding a 1-page horizontal blueprint organized into deterministic bands: (1) FinScope Light Masthead + Context Chips, (2) 5-Card KPI Strip + Starting Balances Strip, (3) 3-Column Visual Row (Net Worth Trajectory + Readiness Gauge + Age-65 Expense Donut), (4) 4-Tap Retirement Income Architecture + Paycheck Allocation Waterfall, and (5) Milestones, Strategy Comparison Table, 5-Row Action Plan, and Statutory Colophon.
 
 ## Elevation & Depth
 
@@ -332,19 +332,19 @@ Retirement Shield uses a **quiet-resting, crisp-floating** hybrid depth model: r
 
 - **Resting Card (`--surface-shadow`):** `0 2px 6px rgba(15, 23, 42, 0.03), 0 10px 28px rgba(15, 23, 42, 0.05)` — Applied to `.card-surface`, `.fin-card`, `.sim-controls-card`, and `.affordability-card`.
 - **Interactive Hover Lift (`--surface-shadow-hover`):** `0 6px 16px rgba(15, 23, 42, 0.06), 0 16px 36px rgba(15, 23, 42, 0.08)` — Paired with `translateY(-1px)` on clickable KPI cards and Cash Parking instrument tiles.
-- **Floating Popover (`--popover-shadow`):** `0 12px 32px -4px rgba(15, 23, 42, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.06)` — Used on `#header-lifestyle-menu`, `.field-help-panel`, and chart tooltips.
+- **Floating Popover (`--popover-shadow`):** `0 12px 32px -4px rgba(15, 23, 42, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.06)` — Used on `.field-help-panel` and chart tooltips.
 - **Modal Dialog (`--dialog-shadow`):** `0 24px 64px -12px rgba(15, 23, 42, 0.2), 0 4px 16px -2px rgba(15, 23, 42, 0.08)` — Paired with `::backdrop { background: rgba(15, 23, 42, 0.42); backdrop-filter: blur(3px); }` across all 4 native `<dialog>` modals.
-- **Print Flatness (`@media print`):** All shadows collapse to `none` in print; hierarchy is carried strictly by `1px solid #d8dee9` borders and `#f8fafc` subtle fills.
+- **Print Flatness (`@media print`):** All shadows collapse to `none` in print; hierarchy is carried strictly by `1px solid var(--border)` (`#cbd5e1`) borders and `#f8fafc` subtle fills.
 
 ### Named Rules
 
-**The Quiet Resting Card, Crisp Floating Layer Rule.** Resting cards never compete for depth, while floating overlays (`.plan-settings`, `.field-help-panel`, `#header-lifestyle-menu`, `#ui-toast`) must never have their `box-shadow` stripped—elevation is how users immediately distinguish transient layers from the underlying sheet.
+**The Quiet Resting Card, Crisp Floating Layer Rule.** Resting cards never compete for depth, while floating overlays (`.plan-settings`, `.field-help-panel`, `#ui-toast`) must never have their `box-shadow` stripped—elevation is how users immediately distinguish transient layers from the underlying sheet.
 
 ## Shapes
 
-- **Outer Bento & Modal Radius (`18px` / `--radius-lg`):** Primary analytical cards, hero containers, and `<dialog>` modal frames.
-- **Secondary Card & Callout Radius (`14px` / `--radius-md`):** Executive KPI cards, 4-Tap income cards, Cash Parking tiles, and Print Poster modules.
-- **Control & Input Radius (`10px` / `--radius-sm`):** Text/number inputs, `<select>` menus, standard action buttons, segmented sub-blocks, and brand badge squircle.
+- **Outer Bento & Modal Radius (`16px` / `--radius-lg`):** Primary analytical cards, hero containers, and `<dialog>` modal frames.
+- **Secondary Card & Callout Radius (`12px` / `--radius-md`):** Executive KPI cards, 4-Tap income cards, Cash Parking tiles, and Print Poster modules.
+- **Control & Input Radius (`8px` / `--radius-sm`):** Text/number inputs, `<select>` menus, standard action buttons, segmented sub-blocks, and brand badge squircle.
 - **Pill Geometry (`999px`):** Status verdicts (`.status-pill`), header Print button, lifestyle switcher pill, filter chips, toggle tracks, and segmented control gliders.
 - **Clean Hairline Framing:** Containers are bounded by uniform `1px solid` borders (`#edf0f7` at rest, `#d8dee9` on inputs/print). Thick `3px–4px` colored `border-left` or `border-top` stripes on rounded cards are banned; semantic status is signaled via compact dots, icon badges, or soft pill fills.
 
@@ -353,7 +353,8 @@ Retirement Shield uses a **quiet-resting, crisp-floating** hybrid depth model: r
 Grounded in Figma's **5 Dimensions of Interaction Design** (Words, Visuals, Physical Ergonomics, Time, Behavior) and **WCAG 2.2 AA**:
 
 - **Non-Color Differentiation:** Never communicate status or series identity by color alone. Pair semantic hues with inline SVG icons (`checkTiny`, `alertTriangle`), explicit text verdicts (`100% Funded`, `Shortfall`), or patterned/labeled legend tags so color-vision-deficient users read every signal unambiguously.
-- **Assistive Technology & Live Feedback:** Route dynamic recalculations, modal confirmations, and validation summaries through polite ARIA live regions (`#sr-status`), enforce `:focus-visible` (`2px solid var(--primary)` with `2px` offset) across all interactive controls, and support `@media (forced-colors: active)` (`3px solid CanvasText` focus outlines).
+- **Assistive Technology & Live Feedback:** Route dynamic recalculations, modal confirmations, and validation summaries through polite ARIA live regions (`.sr-status` on `#plan-status` and `#sim-status`), enforce `:focus-visible` (`2px solid var(--primary)` with `2px` offset) across all interactive controls (including SVG chart slices), preserve `outline: 2px solid transparent` on custom `:focus-within` input wrappers, and support `@media (forced-colors: active)` (`3px solid CanvasText` focus outlines).
+- **Consistent Readiness Badge Cap:** Cap numeric `pctFunded` badges consistently via `formatFundedPct()` (`100%+` when `> 100`, otherwise `0%–100%`) across the sidebar badge, Readiness Gauge, Overview hero KPI, Quick Edit summary, and Print Sheet so readouts never contradict the `100%`-capped SVG arc.
 - **Physical Ergonomics (`44×44px` Tap Targets):** Standard `.button` controls maintain `min-height: 44px`, and on `@media (pointer: coarse)` icon buttons (`.dialog-dismiss`, `.field-help-trigger`, `.text-link`, `.text-button`) enforce at least `44px × 44px` hit areas.
 - **4D Time & Motion Budget:** Micro-interactions (button hover/active, input focus rings, chip transitions) run at `150ms` (`--raw-duration-fast`) and overlay/toggle/sidebar transitions at `220ms` (`--raw-duration-panel`) using `--ease: cubic-bezier(0.2, 0.8, 0.2, 1)`. All transitions and entrance animations collapse to `0.01ms` under `@media (prefers-reduced-motion: reduce)`.
 - **Orientation, User Control & Empty States:**
@@ -397,7 +398,7 @@ Grounded in Figma's **5 Dimensions of Interaction Design** (Words, Visuals, Phys
 
 - **Style:** `10px` radius, `1px solid #d8dee9` stroke, `#ffffff` fill, `tabular-nums` text, optional `$` prefix or `%` / `yrs` suffix adornments, and `±$50` `.saving-stepper` buttons for tactile saving adjustments.
 - **Focus & Error:** `:focus-visible` / `:focus-within` shifts border to `#2563eb` with `0 0 0 3px rgba(37, 99, 235, 0.16)` ring; `[aria-invalid="true"]` shifts to `#dc2626` with an inline `.settings-error` recovery message.
-- **Toggle Switch (`.ui-toggle-btn`):** `role="switch"` capsule button containing `.ui-toggle-state` text plus a `36px × 20px` `.ui-toggle-track` (`#cbd5e1` off, `#2563eb` on) and `16px` white `.ui-toggle-thumb` sliding `16px` via `transform`.
+- **Toggle Switch (`.ui-toggle-switch`):** `role="switch"` capsule button containing `.ui-toggle-state` text plus a `36px × 20px` `.ui-toggle-track` (`#cbd5e1` off, `#2563eb` on) and `16px` white `.ui-toggle-thumb` sliding `16px` via `transform`. Its `<label>` targets the switch button directly (never a hidden `<select>` inside `aria-hidden="true"`).
 
 ### Segmented Controls & Filter Bars
 
@@ -406,11 +407,11 @@ Grounded in Figma's **5 Dimensions of Interaction Design** (Words, Visuals, Phys
 ### Navigation & Header Shell
 
 - **Desktop Sidebar:** `244px` white rail with Swell Rose `.fin-brand-badge` header, `role="tablist"` navigation buttons showing live tabular status badges (`83%`, `Age 65`, `60/40`, `2.86%`, `SRS`, `Sal`/`FRS`/`ERS`), and collapsible `72px` icon mode.
-- **Mobile Tabbar (`<= 960px`):** Fixed bottom 6-item bar with clear active Cobalt/Rose indicator and safe-area inset padding.
+- **Mobile Tabbar (`<= 960px`):** Fixed bottom 5-item bar (grouping `Allocator` + `Dividend & Yield` and `Tax Relief` + `CPF Milestones`) with clear active Cobalt/Rose indicator and safe-area inset padding.
 
 ### Signature Component: 1-Page A4 Print Poster (`#print-sheet`)
 
-- **Purpose:** Self-contained executive retirement blueprint designed specifically for `A4 portrait` (`192mm × 279mm`) physical printing and PDF export.
+- **Purpose:** Self-contained executive retirement blueprint designed specifically for `A4 landscape` (`6.5mm 8mm` margins) physical printing and PDF export.
 - **Structure:** Opens with a light Porcelain-Slate & White FinScope masthead card (`.fin-brand-badge` SVG + plan title + assumption chips + readiness status pill), followed by the 5-card KPI strip, starting CPF/outside portfolio breakdown, full-series net worth area chart (`forcedSeries: "all"`), readiness gauge, Age-65 spending donut, 4-Tap retirement income table in real today-dollars, paycheck allocation bars, life milestones, strategy comparison table, 5-row action checklist, and statutory methodology colophon.
 
 ## Governance & Sync Protocol

@@ -1,7 +1,21 @@
 /* Build fills the revision and the bounded list of app-owned public assets. */
 const CACHE_PREFIX = "retirement-shield-";
-const CACHE_NAME = "retirement-shield-__CACHE_VERSION__";
-const APP_SHELL = __PRECACHE__;
+const CACHE_NAME = "retirement-shield-dev";
+const APP_SHELL = [
+  "./index.html",
+  "./styles.css",
+  "./model.js",
+  "./app.js",
+  "./manifest.webmanifest",
+  "./favicon.svg",
+  "./favicon.ico",
+  "./assets/inter-latin.woff2",
+  "./assets/icon-192.png",
+  "./assets/icon-512.png",
+  "./assets/icon-maskable-512.png",
+  "./assets/apple-touch-icon.png",
+  "./assets/mas-rates.json",
+];
 const appURL = (path) => new URL(path, self.registration.scope).href;
 const assetURLs = new Set(APP_SHELL.map(appURL));
 const shellURL = appURL("./index.html");
@@ -21,7 +35,6 @@ self.addEventListener("install", (event) => {
           await cache.put(url, response);
         }),
       );
-      await self.skipWaiting();
     })(),
   );
 });
@@ -52,15 +65,10 @@ async function pageResponse(request) {
   const cache = await caches.open(CACHE_NAME);
   try {
     const response = await fetch(request, { cache: "no-cache" });
-    if (response.status >= 500) throw new Error("App temporarily unavailable");
-    // Do not store auth redirects, access errors or other non-app responses.
-    if (
-      response.ok &&
-      !response.redirected &&
-      response.headers.get("content-type")?.includes("text/html")
-    ) {
-      await cache.put(shellURL, response.clone());
-    }
+    if (response.type === "opaqueredirect") return response;
+    if (!response.ok) throw new Error("App temporarily unavailable");
+    // Do not overwrite precached shellURL with a newer build's HTML whose hashed
+    // JS/CSS bundles are absent from this worker's APP_SHELL cache.
     return response;
   } catch {
     return (
@@ -78,17 +86,29 @@ async function pageResponse(request) {
 
 async function networkFirstJson(request) {
   const cache = await caches.open(CACHE_NAME);
+  const canonicalKey = appURL("./assets/mas-rates.json");
+  let lastResponse = null;
   try {
     const response = await fetch(request, { cache: "no-cache" });
+    lastResponse = response;
     if (response.ok && !response.redirected) {
-      await cache.put(request, response.clone());
+      await cache.put(canonicalKey, response.clone());
       return response;
     }
   } catch {
     // Offline or transient network error falls back to precached snapshot.
   }
-  const cached = await cache.match(request);
-  return cached || fetch(request);
+  const cached =
+    (await cache.match(canonicalKey)) ||
+    (await cache.match(request, { ignoreSearch: true }));
+  return (
+    cached ||
+    lastResponse ||
+    new Response("{}", {
+      status: 503,
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+    })
+  );
 }
 
 self.addEventListener("fetch", (event) => {
@@ -110,10 +130,17 @@ self.addEventListener("fetch", (event) => {
       const cache = await caches.open(CACHE_NAME);
       const cached = await cache.match(event.request);
       if (cached) return cached;
-      const response = await fetch(event.request);
-      if (response.ok && !response.redirected)
-        await cache.put(event.request, response.clone());
-      return response;
+      try {
+        const response = await fetch(event.request);
+        if (response.ok && !response.redirected)
+          await cache.put(event.request, response.clone());
+        return response;
+      } catch {
+        return new Response("Offline asset unavailable.", {
+          status: 503,
+          headers: { "Content-Type": "text/plain; charset=utf-8" },
+        });
+      }
     })(),
   );
 });

@@ -20,7 +20,7 @@ Unlike generic compound-interest calculators or bank lead-generation tools, Reti
 
 ## Operating Context
 
-Used on desktop browsers for deep multi-tab scenario modeling (`Overview`, `Trajectory`, `Allocator`, `Cash Parking`, `Tax Relief`, `CPF Milestones`), on mobile standalone PWAs for quick check-ins and parameter edits, and printed or saved as a 1-page A4 portrait PDF (`#print-sheet`) for offline filing or household discussion.
+Used on desktop browsers for deep multi-tab scenario modeling (`Overview`, `Trajectory`, `Allocator`, `Dividend & Yield`, `Cash Parking`, `Tax Relief`, `CPF Milestones`), on mobile standalone PWAs for quick check-ins and parameter edits, and printed or saved as a 1-page A4 portrait PDF (`#print-sheet`) for offline filing or household discussion.
 
 ## Capabilities and Constraints
 

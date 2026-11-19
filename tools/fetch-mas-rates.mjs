@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const MAS_BASE =
@@ -93,7 +93,7 @@ async function main() {
   const [ssbIssues, ssbInterests, tbillAuctions] = await Promise.all([
     fetchJson(`${MAS_BASE}m/listsavingbonds?rows=200&sort=issue_date%20desc`),
     fetchJson(
-      `${MAS_BASE}m/savingbondsinterest?rows=200&sort=issue_code%20desc`,
+      `${MAS_BASE}m/savingbondsinterest?rows=200&sort=issue_date%20desc`,
     ),
     fetchJson(
       `${MAS_BASE}m/listauctionbondsandbills?rows=200&filters=product_type:%22B%22&sort=auction_date%20desc`,
@@ -169,7 +169,9 @@ async function main() {
     .filter(
       (r) =>
         Number(r.auction_tenor) === 0.5 &&
-        (!r.cutoff_yield || Number(r.cutoff_yield) === 0),
+        (!r.cutoff_yield || Number(r.cutoff_yield) === 0) &&
+        (!sixMonthCompleted ||
+          String(r.auction_date) > String(sixMonthCompleted.auction_date)),
     )
     .sort((a, b) =>
       String(a.auction_date).localeCompare(String(b.auction_date)),
@@ -184,7 +186,9 @@ async function main() {
     .filter(
       (r) =>
         Number(r.auction_tenor) === 1 &&
-        (!r.cutoff_yield || Number(r.cutoff_yield) === 0),
+        (!r.cutoff_yield || Number(r.cutoff_yield) === 0) &&
+        (!oneYearCompleted ||
+          String(r.auction_date) > String(oneYearCompleted.auction_date)),
     )
     .sort((a, b) =>
       String(a.auction_date).localeCompare(String(b.auction_date)),
@@ -236,10 +240,12 @@ async function main() {
   };
 
   const now = new Date();
-  const sgNow = new Date(
-    now.toLocaleString("en-US", { timeZone: "Asia/Singapore" }),
-  );
-  const asOfDate = `${sgNow.getFullYear()}-${String(sgNow.getMonth() + 1).padStart(2, "0")}-${String(sgNow.getDate()).padStart(2, "0")}`;
+  const asOfDate = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Singapore",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
 
   const payload = {
     source: "Monetary Authority of Singapore (eservices.mas.gov.sg)",
@@ -295,10 +301,32 @@ async function main() {
     },
   };
 
+  // Validate model.js marker before writing either file so assets/mas-rates.json
+  // and DEFAULT_MAS_LIVE_RATES cannot silently diverge on format shifts.
+  const modelPath = path.resolve("model.js");
+  const modelSrc = await readFile(modelPath, "utf8");
+  const markerRe =
+    /const DEFAULT_MAS_LIVE_RATES = \{[\s\S]*?\n  \};\n\n  function normalizeMasRates/;
+  if (!markerRe.test(modelSrc)) {
+    throw new Error(
+      "Could not locate DEFAULT_MAS_LIVE_RATES marker in model.js; sync aborted.",
+    );
+  }
+  const indented = JSON.stringify(payload, null, 2)
+    .split("\n")
+    .map((line, idx) => (idx === 0 ? line : `  ${line}`))
+    .join("\n");
+  const updatedModel = modelSrc.replace(
+    markerRe,
+    () =>
+      `const DEFAULT_MAS_LIVE_RATES = ${indented};\n\n  function normalizeMasRates`,
+  );
   const outPath = path.resolve("assets/mas-rates.json");
   await writeFile(outPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  await writeFile(modelPath, updatedModel, "utf8");
+
   console.log(
-    `Updated ${outPath}: SSB ${payload.ssb.trancheCode} (${payload.ssb.year10Return}% 10Y avg, ${payload.ssb.history.yr1.percentile}th pct 12M), 6M T-Bill ${payload.tbills.sixMonth.issueCode} (${payload.tbills.sixMonth.cutoffYield}%, ${payload.tbills.sixMonth.history.yr1.percentile}th pct 12M).`,
+    `Updated ${outPath} & DEFAULT_MAS_LIVE_RATES: SSB ${payload.ssb.trancheCode} (${payload.ssb.year10Return}% 10Y avg, ${payload.ssb.history.yr1?.percentile ?? "n/a"}th pct 12M), 6M T-Bill ${payload.tbills.sixMonth.issueCode} (${payload.tbills.sixMonth.cutoffYield}%, ${payload.tbills.sixMonth.history.yr1?.percentile ?? "n/a"}th pct 12M).`,
   );
 }
 

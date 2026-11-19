@@ -1,13 +1,18 @@
 import sharp from "sharp";
 import { readFile, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 
 const source = await readFile(new URL("../assets/icon.svg", import.meta.url));
 const full = sharp(source, { density: 192 });
+const sourceText = source.toString();
+const bgPath = '<path fill="url(#bg)" d="M0 0h512v512H0z"/>';
+if (!sourceText.includes(bgPath) || !sourceText.includes("</svg>")) {
+  throw new Error("assets/icon.svg is missing expected background path or </svg> tag.");
+}
 const standard = Buffer.from(
-  source
-    .toString()
+  sourceText
     .replace(
-      '<path fill="url(#bg)" d="M0 0h512v512H0z"/>',
+      bgPath,
       '<rect width="512" height="512" rx="112" fill="url(#bg)"/><g transform="translate(-25.6 -25.6) scale(1.1)">',
     )
     .replace("</svg>", "</g></svg>"),
@@ -25,7 +30,7 @@ for (const [name, size] of [
   )
     .resize(size, size)
     .png({ compressionLevel: 9, palette: true, quality: 100 })
-    .toFile(new URL(`../assets/${name}.png`, import.meta.url).pathname);
+    .toFile(fileURLToPath(new URL(`../assets/${name}.png`, import.meta.url)));
 }
 // Crisp high-legibility Rose-Pink shield + 3 ascending bars for 16px-48px browser tabs.
 const favicon =

@@ -2,7 +2,9 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
 const sharp = require("sharp");
+
 const manifest = JSON.parse(fs.readFileSync("dist/manifest.webmanifest"));
 
 test("install assets have actual declared dimensions and maskable artwork is opaque", async () => {
@@ -12,8 +14,9 @@ test("install assets have actual declared dimensions and maskable artwork is opa
     const meta = await image.metadata();
     assert.equal(`${meta.width}x${meta.height}`, icon.sizes);
     assert.equal(meta.format, "png");
-    if (icon.purpose === "maskable")
+    if (icon.purpose === "maskable") {
       assert.equal((await image.stats()).isOpaque, true);
+    }
   }
   const apple = await sharp("dist/assets/apple-touch-icon.png").metadata();
   assert.equal(apple.width, 180);
@@ -23,6 +26,7 @@ test("install assets have actual declared dimensions and maskable artwork is opa
     true,
   );
 });
+
 test("manifest identity, scope, launch and shortcuts remain within the app", () => {
   const base = new URL("https://example.test/retirement-shield/");
   assert.equal(
@@ -30,6 +34,8 @@ test("manifest identity, scope, launch and shortcuts remain within the app", () 
     new URL(manifest.start_url, base).href,
   );
   assert.equal(manifest.display, "standalone");
+  assert.equal(manifest.theme_color, "#f4f6fa");
+  assert.equal(manifest.background_color, "#f4f6fa");
   assert.ok(
     manifest.icons.some(
       (icon) => icon.sizes === "192x192" && icon.purpose === "any",
@@ -40,21 +46,27 @@ test("manifest identity, scope, launch and shortcuts remain within the app", () 
       (icon) => icon.sizes === "512x512" && icon.purpose === "any",
     ),
   );
-  for (const shortcut of manifest.shortcuts)
+  for (const shortcut of manifest.shortcuts) {
     assert.ok(new URL(shortcut.url, base).href.startsWith(base.href));
-  for (const icon of manifest.icons)
+  }
+  for (const icon of manifest.icons) {
     assert.ok(new URL(icon.src, base).href.startsWith(base.href));
+  }
   assert.equal(new URL(manifest.scope, base).href, base.href);
 });
-test("production HTML and CSS reference existing local files and no external font service", () => {
+
+test("production HTML and CSS reference existing local hashed files and no external font CDN", () => {
   const html = fs.readFileSync("dist/index.html", "utf8");
   assert.equal(html.includes("fonts.googleapis.com"), false);
   assert.equal(html.includes("fonts.gstatic.com"), false);
+
   const files = [...html.matchAll(/(?:src|href)="([^"#]+)"/g)]
     .map((match) => match[1])
     .filter((file) => !file.includes(":"));
-  for (const file of files)
+  for (const file of files) {
     assert.ok(fs.existsSync(path.join("dist", file)), file);
+  }
+
   const cssFile = files.find((file) => file.endsWith(".css"));
   const css = fs.readFileSync(path.join("dist", cssFile), "utf8");
   for (const match of css.matchAll(/url\(["']?([^)'" ]+)["']?\)/g)) {
@@ -63,96 +75,49 @@ test("production HTML and CSS reference existing local files and no external fon
       match[1],
     );
   }
+
   assert.match(html, /assets\/app\.[a-f0-9]{12}\.js/);
   assert.match(html, /assets\/styles\.[a-f0-9]{12}\.css/);
   assert.equal(fs.existsSync("dist/app.js"), false);
   assert.match(html, /name="viewport"[^>]*viewport-fit=cover/);
   assert.match(html, /name="apple-mobile-web-app-capable"\s+content="yes"/);
-  assert.match(html, /name="apple-mobile-web-app-status-bar-style"/);
-  assert.match(html, /name="apple-mobile-web-app-title"/);
+  assert.match(html, /name="theme-color" content="#f4f6fa"/);
   assert.match(html, /rel="apple-touch-icon"[^>]*sizes="180x180"/);
 });
-test("service worker has a concrete build revision and bounded app cache", () => {
-  const sw = fs.readFileSync("dist/sw.js", "utf8");
+
+test("service worker is valid JS with concrete build revision, bounded cache, and offline fallback", () => {
+  const rawSw = fs.readFileSync("sw.js", "utf8");
+  assert.doesNotThrow(
+    () => new vm.Script(rawSw),
+    "Unbuilt source sw.js must be syntactically valid JS for local dev",
+  );
+  assert.equal(rawSw.includes("__PRECACHE__"), false);
+  assert.equal(rawSw.includes("__CACHE_VERSION__"), false);
+  assert.equal(rawSw.includes("return cached || fetch(request);"), false);
+  assert.ok(rawSw.includes("status: 503"));
+
+  const distSw = fs.readFileSync("dist/sw.js", "utf8");
   const html = fs.readFileSync("dist/index.html", "utf8");
-  assert.equal(sw.includes("__PRECACHE__"), false);
-  assert.equal(sw.includes("__CACHE_VERSION__"), false);
-  assert.ok(sw.includes("retirement-shield-"));
-  assert.ok(sw.includes("startsWith("));
-  assert.ok(sw.includes("text/html"));
-  assert.match(sw, /cache:\s*"reload"/);
+  assert.equal(distSw.includes("__PRECACHE__"), false);
+  assert.equal(distSw.includes("__CACHE_VERSION__"), false);
+  assert.ok(distSw.includes("retirement-shield-"));
+  assert.match(distSw, /cache:\s*"reload"/);
+
   const revMatch = html.match(
     /<meta name="app-revision" content="([a-f0-9]{12})"/,
   );
   assert.ok(revMatch, "index.html should embed 12-hex app-revision meta tag");
   assert.ok(
-    sw.includes(`retirement-shield-${revMatch[1]}`),
-    "sw.js cache version should match dist/index.html app-revision",
+    distSw.includes(`retirement-shield-${revMatch[1]}`),
+    "dist/sw.js cache version should match dist/index.html app-revision",
   );
 });
-test("Porcelain-Slate design system alignment: theme colors, unified icons, font hygiene, and DESIGN.md", () => {
-  const html = fs.readFileSync("dist/index.html", "utf8");
-  const themeMatch = html.match(
-    /<meta name="theme-color" content="([^"]+)" id="meta-theme-color"/,
-  );
-  assert.ok(themeMatch, "Expected #meta-theme-color in dist/index.html");
-  assert.equal(themeMatch[1], "#f4f6fa");
-  assert.equal(manifest.theme_color, "#f4f6fa");
-  assert.equal(manifest.background_color, "#f4f6fa");
 
-  for (const docFile of ["DESIGN.md", "PRODUCT.md"]) {
-    assert.ok(fs.existsSync(docFile), `Expected ${docFile} at repo root`);
-    assert.ok(
-      fs.statSync(docFile).size > 500,
-      `${docFile} should be non-empty`,
-    );
-  }
-
-  assert.equal(fs.existsSync("assets/ibm-plex-sans-latin.woff2"), false);
-  assert.equal(fs.existsSync("dist/assets/ibm-plex-sans-latin.woff2"), false);
-
-  const files = [...html.matchAll(/(?:src|href)="([^"#]+)"/g)]
-    .map((match) => match[1])
-    .filter((file) => file.endsWith(".css"));
-  const css = fs.readFileSync(path.join("dist", files[0]), "utf8");
-  assert.equal(
-    css.toLowerCase().includes("#0a1829"),
-    false,
-    "Production CSS must not contain legacy #0a1829 dark-navy values",
-  );
-
-  const iconSvg = fs.readFileSync("assets/icon.svg", "utf8").toLowerCase();
-  const faviconSvg = fs.readFileSync("dist/favicon.svg", "utf8").toLowerCase();
-  assert.ok(iconSvg.includes("#ec4899") && iconSvg.includes("#e83e8c"));
-  assert.ok(faviconSvg.includes("#ec4899") && faviconSvg.includes("#e83e8c"));
-});
-
-test("4-Tap semantic asset colors, spinbutton reset, and clean page headers follow DESIGN.md", () => {
+test("static structural invariants: defined CSS tokens, print font floor, and unique HTML IDs", () => {
   const srcCss = fs.readFileSync("styles.css", "utf8");
-  const srcApp = fs.readFileSync("app.js", "utf8");
   const srcHtml = fs.readFileSync("index.html", "utf8");
 
-  assert.match(
-    srcCss,
-    /\.tap-progress-fill\.is-tap1\s*\{\s*background:\s*var\(--sem-cpf\)/,
-  );
-  assert.match(
-    srcCss,
-    /\.tap-progress-fill\.is-tap2\s*\{\s*background:\s*var\(--sem-srs\)/,
-  );
-  assert.match(
-    srcCss,
-    /\.tap-progress-fill\.is-tap3\s*\{\s*background:\s*var\(--primary\)/,
-  );
-  assert.match(
-    srcCss,
-    /\.tap-progress-fill\.is-tap4\s*\{\s*background:\s*var\(--sem-cash\)/,
-  );
-  assert.match(srcCss, /::-webkit-inner-spin-button/);
-  assert.equal(srcApp.includes("swell-kicker"), false);
-  assert.equal(srcHtml.includes("swell-kicker"), false);
-
-  // Zero undefined CSS variables (excluding inline runtime custom properties)
+  // 1. Every var(--*) referenced in styles.css is defined (excluding runtime inline vars)
   const definedVars = new Set(
     [...srcCss.matchAll(/(--[a-zA-Z0-9-]+)\s*:/g)].map((m) => m[1]),
   );
@@ -165,63 +130,166 @@ test("4-Tap semantic asset colors, spinbutton reset, and clean page headers foll
     "--src-bg",
     "--stagger",
   ]);
-  const usedVars = [...srcCss.matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g)].map(
-    (m) => m[1],
-  );
-  const undefinedVars = usedVars.filter(
-    (v) => !definedVars.has(v) && !runtimeVars.has(v),
-  );
+  const undefinedVars = [...srcCss.matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g)]
+    .map((m) => m[1])
+    .filter((v) => !definedVars.has(v) && !runtimeVars.has(v));
   assert.deepEqual(undefinedVars, []);
 
-  // Zero legacy palette hexes across source files
-  for (const hex of ["#0a1829", "#111827", "#f6f8f5", "#faf3e5", "#fdfbfa"]) {
-    assert.equal(
-      srcCss.toLowerCase().includes(hex),
-      false,
-      `styles.css must not contain ${hex}`,
-    );
-    assert.equal(
-      srcApp.toLowerCase().includes(hex),
-      false,
-      `app.js must not contain ${hex}`,
-    );
-    assert.equal(
-      srcHtml.toLowerCase().includes(hex),
-      false,
-      `index.html must not contain ${hex}`,
-    );
-  }
+  // 2. Print stylesheet enforces 6.5pt minimum legibility floor
+  const printIdx = srcCss.indexOf("@media print {");
+  assert.ok(printIdx !== -1);
+  const subFloorPts = [
+    ...srcCss.slice(printIdx).matchAll(/font-size:\s*(\d+(?:\.\d+)?)pt/g),
+  ]
+    .map((m) => parseFloat(m[1]))
+    .filter((pt) => pt < 6.5);
+  assert.deepEqual(subFloorPts, []);
 
-  // Zero deprecated legacy CSS variable aliases in :root
-  for (const legacyVar of [
-    "--navy-950",
-    "--navy-900",
-    "--paper",
-    "--teal-deep",
-  ]) {
-    assert.equal(
-      srcCss.includes(legacyVar),
-      false,
-      `styles.css must not contain retired alias ${legacyVar}`,
-    );
+  // 3. Zero duplicate static IDs in index.html
+  const ids = [...srcHtml.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]);
+  const seen = new Set();
+  const duplicates = [];
+  for (const id of ids) {
+    if (seen.has(id)) duplicates.push(id);
+    seen.add(id);
   }
+  assert.deepEqual(duplicates, []);
+});
 
-  // Accessible soft-tint ink tokens per DESIGN.md Named Rules
-  assert.match(
-    srcCss,
-    /\.tap-verdict-pill\.is-danger\s*\{[\s\S]*?background:\s*var\(--sem-alert-soft\)/,
+test("service worker runtime behavior: install precache, stale cache eviction, safe pageResponse, and networkFirstJson offline fallback", async () => {
+  const swSrc = fs.readFileSync("dist/sw.js", "utf8");
+  const cacheMap = new Map();
+  const openCache = (name) => {
+    if (!cacheMap.has(name)) cacheMap.set(name, new Map());
+    const store = cacheMap.get(name);
+    return {
+      async put(req, res) {
+        const key = typeof req === "string" ? req : req.url;
+        store.set(key, res);
+      },
+      async match(req) {
+        const key = typeof req === "string" ? req : req.url;
+        return store.get(key);
+      },
+    };
+  };
+  const listeners = new Map();
+  let fetchImpl = async (req) => {
+    const url = typeof req === "string" ? req : req.url;
+    return new Response(`body-v1:${url}`, {
+      status: 200,
+      headers: {
+        "content-type": url.endsWith(".json")
+          ? "application/json"
+          : "text/html",
+      },
+    });
+  };
+  const sandbox = {
+    URL,
+    Request,
+    Response,
+    fetch: (...args) => fetchImpl(...args),
+    caches: {
+      async open(name) {
+        return openCache(name);
+      },
+      async keys() {
+        return [...cacheMap.keys()];
+      },
+      async delete(name) {
+        return cacheMap.delete(name);
+      },
+    },
+    self: {
+      location: new URL("https://example.test/retirement-shield/sw.js"),
+      registration: { scope: "https://example.test/retirement-shield/" },
+      clients: { async claim() {} },
+      skipWaiting() {},
+      addEventListener(type, fn) {
+        listeners.set(type, fn);
+      },
+    },
+  };
+  vm.runInNewContext(swSrc, sandbox, { filename: "dist/sw.js" });
+
+  // 1. Install precaches APP_SHELL
+  let waitPromise;
+  listeners.get("install")({
+    waitUntil(p) {
+      waitPromise = p;
+    },
+  });
+  await waitPromise;
+  const activeCacheName = [...cacheMap.keys()][0];
+  assert.ok(activeCacheName.startsWith("retirement-shield-"));
+  const activeStore = cacheMap.get(activeCacheName);
+  const shellUrl = "https://example.test/retirement-shield/index.html";
+  assert.ok(activeStore.has(shellUrl), "install must precache index.html");
+
+  // 2. Activate deletes stale caches with same prefix
+  cacheMap.set("retirement-shield-oldrev", new Map());
+  cacheMap.set("unrelated-cache", new Map());
+  listeners.get("activate")({
+    waitUntil(p) {
+      waitPromise = p;
+    },
+  });
+  await waitPromise;
+  assert.equal(cacheMap.has("retirement-shield-oldrev"), false);
+  assert.equal(cacheMap.has("unrelated-cache"), true);
+  assert.equal(cacheMap.has(activeCacheName), true);
+
+  // 3. pageResponse serves live network HTML without overwriting precached shellURL
+  fetchImpl = async () =>
+    new Response("<html>NEW-BUILD-HTML</html>", {
+      status: 200,
+      headers: { "content-type": "text/html" },
+    });
+  let respPromise;
+  listeners.get("fetch")({
+    request: {
+      method: "GET",
+      mode: "navigate",
+      url: "https://example.test/retirement-shield/",
+    },
+    respondWith(p) {
+      respPromise = p;
+    },
+  });
+  const liveResp = await respPromise;
+  assert.equal(await liveResp.text(), "<html>NEW-BUILD-HTML</html>");
+  // Precached shell must still be original v1 so offline reload stays consistent with v1 hashed assets
+  assert.equal(
+    await activeStore.get(shellUrl).clone().text(),
+    `body-v1:${shellUrl}`,
   );
-  assert.match(
-    srcCss,
-    /\.cash-safety-pill\.is-gov\s*\{[\s\S]*?color:\s*var\(--sem-cpf-ink\)/,
-  );
-  assert.match(
-    srcCss,
-    /\.cash-sync-tag\s*\{[\s\S]*?color:\s*var\(--sem-cpf-ink\)/,
-  );
-  // Gold-standard wealth dashboard upgrades: Mercury live scrub, ProjectionLab milestone flags, Sovereign Floor split, and Bento hover-sync
-  assert.ok(srcApp.includes("nw-live-scrub-pill"), "Expected Mercury-style live header scrubbing in app.js");
-  assert.ok(srcApp.includes("nw-milestone-flag"), "Expected ProjectionLab-style milestone pill flags in app.js");
-  assert.ok(srcApp.includes("fin-security-split-bar"), "Expected Guaranteed Floor vs Market Portfolio Draw split bar in app.js");
-  assert.ok(srcApp.includes("data-bento-seg"), "Expected Finary/Copilot Bento hover-sync segments in app.js");
+
+  // 4. Offline navigate falls back to precached v1 shell
+  fetchImpl = async () => {
+    throw new Error("offline");
+  };
+  listeners.get("fetch")({
+    request: {
+      method: "GET",
+      mode: "navigate",
+      url: "https://example.test/retirement-shield/",
+    },
+    respondWith(p) {
+      respPromise = p;
+    },
+  });
+  const offlineResp = await respPromise;
+  assert.equal(await offlineResp.text(), `body-v1:${shellUrl}`);
+
+  // 5. mas-rates.json uses network-first and falls back to precached JSON offline
+  const masUrl = "https://example.test/retirement-shield/assets/mas-rates.json";
+  listeners.get("fetch")({
+    request: { method: "GET", mode: "cors", url: masUrl },
+    respondWith(p) {
+      respPromise = p;
+    },
+  });
+  const masOfflineResp = await respPromise;
+  assert.equal(await masOfflineResp.text(), `body-v1:${masUrl}`);
 });

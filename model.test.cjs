@@ -1,14 +1,37 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { referencePayout, portfolioTarget, C } = require("./model.js");
+const DEMO_PLAN = {
+  lifestyle: "home-helper",
+  age: 35,
+  salary: 8500,
+  annualBonus: 17000,
+  retire: 55,
+  spend: 3900,
+  oa: 75000,
+  sa: 55000,
+  ma: 45000,
+  housing: 0,
+  equities: 120000,
+  sgDividends: 20000,
+  ssbCash: 35000,
+  srs: 25000,
+  srsAge: 63,
+  srsAnnual: 6000,
+  srsInvestedIn: "global",
+  existingReliefs: 1000,
+  targetEquityPct: 80,
+  sgSleevePct: 15,
+  plan: "standard",
+  returnRate: 0.05,
+  inflationRate: 0.03,
+  post55Work: false,
+};
 // Explicit legacy fixtures preserve the approved Home + Helper behaviour.
 const calculate = (p) =>
   require("./model.js").calculate({ lifestyle: "home-helper", ...p });
 const generateTrajectory = (p, key) =>
-  require("./model.js").generateTrajectory(
-    { lifestyle: "home-helper", ...p },
-    key,
-  );
+  require("./model.js").simulate({ lifestyle: "home-helper", ...p }, key);
 test("two known fields produce a complete finite answer without refinements", () => {
   const r = calculate({ age: 35, salary: 6000 });
   for (const [k, v] of Object.entries(r))
@@ -66,12 +89,16 @@ test("known CPF balances matter and invalid primary details are rejected", () =>
 });
 
 test("helper ranges add correctly without duplicate food; age-75 normal and concession totals differ by 240", () => {
-  const { careTotals, expenseAt } = require("./model.js");
-  assert.deepEqual(careTotals("now"), [2650, 3530]);
-  assert.deepEqual(careTotals("later"), [3630, 4890]);
+  const { careRows, expenseAt } = require("./model.js");
+  const sumCare = (k) => [
+    careRows.reduce((s, r) => s + r[k][0], 0),
+    careRows.reduce((s, r) => s + r[k][1], 0),
+  ];
+  assert.deepEqual(sumCare("now"), [2650, 3530]);
+  assert.deepEqual(sumCare("later"), [3630, 4890]);
   assert.ok(Math.abs(expenseAt(3090, 65, 10, "helper") - 4260) < 1e-6);
   assert.deepEqual(
-    careTotals("later").map((v) => v - 240),
+    sumCare("later").map((v) => v - 240),
     [3390, 4650],
   );
 });
@@ -389,29 +416,6 @@ test("funded portfolio trajectory matches monthly withdrawal target through 90",
         assert.ok(t.points.at(-1).portfolioBalance < 1e-4);
       }
 });
-test("drawdown slices use one retirement date and cannot exceed the portfolio", () => {
-  const { todayPlan, drawdownToday, todayValue } = require("./model");
-  for (const retire of [40, 55, 65, 75, 80])
-    for (const spend of [0, 500, 3500]) {
-      const r = calculate({ age: 35, salary: 6000, retire, spend }),
-        d = todayPlan(r);
-      for (let i = 0; i < 3; i++) {
-        const v = drawdownToday(r, r.scenarios[i]);
-        assert.ok(
-          Math.abs(
-            v.cashReserve +
-              v.ssbLadder +
-              v.equityCore -
-              d.scenarios[i].privateTarget,
-          ) < 1e-6,
-        );
-        assert.ok(
-          v.ssbLadder <= todayValue(200000, retire, r.age, r.inflation),
-        );
-      }
-    }
-});
-
 test("CCA is the new default with the approved spending provisions", () => {
   const M = require("./model.js");
   const r = M.calculate({ age: 35, salary: 6000 });
@@ -468,7 +472,7 @@ test("both presets reconcile answer, monthly trajectory and portfolio funding", 
         for (const plan of ["standard", "escalating"])
           for (const key of ["salary", "frs", "ers"]) {
             const p = { age, salary: 6000, lifestyle, retire, plan };
-            const t = M.generateTrajectory(p, key),
+            const t = M.simulate(p, key),
               d = M.todayPlan({
                 ...t.summary,
                 scenarios: [t.selectedScenario],
@@ -495,52 +499,7 @@ test("both presets reconcile answer, monthly trajectory and portfolio funding", 
                 ) < 1e-7,
               );
             }
-            const slices = M.drawdownToday(t.summary, t.selectedScenario);
-            assert.ok(
-              Math.abs(
-                slices.cashReserve +
-                  slices.ssbLadder +
-                  slices.equityCore -
-                  s.privateTarget,
-              ) < 1e-6,
-            );
           }
-});
-
-test("budget previews reconcile categories, groups and custom totals for both presets", () => {
-  const M = require("./model.js");
-  for (const lifestyle of ["cca", "home-helper"])
-    for (const total of [0, 1000, 2500, 2800, 3500, 3900, 4321.5]) {
-      const b = M.budgetBreakdown(lifestyle, total);
-      assert.ok(
-        Math.abs(b.rows.reduce((sum, row) => sum + row.amount, 0) - total) <
-          1e-8,
-      );
-      assert.ok(
-        Math.abs(
-          b.groups.reduce((sum, group) => sum + group.amount, 0) - total,
-        ) < 1e-8,
-      );
-      assert.equal(b.groups.length, 3);
-      for (const row of b.rows)
-        assert.ok(Number.isFinite(row.amount) && row.amount >= 0);
-    }
-  const cca = M.budgetBreakdown();
-  assert.equal(cca.total, 2800);
-  const ccaLegacy = M.budgetBreakdown("cca", 2500);
-  assert.deepEqual(
-    ccaLegacy.groups.map((g) => g.amount),
-    [1180, 1120, 200],
-  );
-  const helper = M.budgetBreakdown("home-helper");
-  assert.equal(helper.total, 3900);
-  const helperLegacy = M.budgetBreakdown("home-helper", 3500);
-  assert.equal(
-    helperLegacy.rows.find((row) => row.name === "Planning cushion").amount,
-    410,
-  );
-  assert.throws(() => M.budgetBreakdown("unknown", 2500));
-  assert.throws(() => M.budgetBreakdown("cca", -1));
 });
 
 test("OA balance visibly reduces ERS savings while the fully funded ERS payout stays fixed", () => {
@@ -588,26 +547,6 @@ test("fractional retirement ages stop extra CPF contributions at exact integer m
     );
     assert.equal(Math.round(sim.totalExtra), offset * 200);
   }
-  const earliest = M.earliestRetirement(
-    { age: 35, salary: 8000, lifestyle: "home-helper", savings: 300000 },
-    "salary",
-    0,
-    2500,
-  );
-  assert.ok(earliest !== null && earliest >= 40 && earliest <= 80);
-  const simAtEarliest = M.simulate(
-    {
-      age: 35,
-      salary: 8000,
-      lifestyle: "home-helper",
-      savings: 300000,
-      retire: earliest,
-      invest: 2500,
-      cpfExtra: 0,
-    },
-    "salary",
-  );
-  assert.equal(simAtEarliest.fullyFunded, true);
 });
 
 test("monthly MediSave deductions reduce MA and surface cash shortfall when MA runs low", () => {
@@ -801,8 +740,8 @@ test("bogleheadAllocation computes liquid vs holistic net worth split and smart 
 
 test("firePlan models two-phase FIRE bridge, 1M65 trajectory to 95, and SRS 63/64 rule", () => {
   const M = require("./model.js");
-  const fp63 = M.firePlan(M.DEMO_PLAN, "salary");
-  assert.equal(fp63.points[0].age, M.DEMO_PLAN.age);
+  const fp63 = M.firePlan(DEMO_PLAN, "salary");
+  assert.equal(fp63.points[0].age, DEMO_PLAN.age);
   assert.equal(fp63.points.at(-1).age, 95);
   assert.equal(fp63.bridge.years, 10);
   assert.ok(fp63.bridge.requiredToday > 0);
@@ -811,17 +750,14 @@ test("firePlan models two-phase FIRE bridge, 1M65 trajectory to 95, and SRS 63/6
   assert.ok(fp63.elevatorPitch.includes("CPF LIFE"));
 
   // SRS age 63 starts drawing at 63, age 64 delays drawdown until 64
-  const fp64 = M.firePlan({ ...M.DEMO_PLAN, srsAge: 64 }, "salary");
+  const fp64 = M.firePlan({ ...DEMO_PLAN, srsAge: 64 }, "salary");
   const pt63a = fp63.points.find((x) => x.age === 63);
   const pt63b = fp64.points.find((x) => x.age === 63);
   assert.ok(pt63a.monthlySrsDraw > 0);
   assert.equal(pt63b.monthlySrsDraw, 0);
 
   // Idle SRS cash at 0.05% grows noticeably slower than invested SRS
-  const idleSrs = M.firePlan(
-    { ...M.DEMO_PLAN, srsInvestedIn: "cash" },
-    "salary",
-  );
+  const idleSrs = M.firePlan({ ...DEMO_PLAN, srsInvestedIn: "cash" }, "salary");
   assert.ok(
     idleSrs.points.find((x) => x.age === 62).srs <
       fp63.points.find((x) => x.age === 62).srs,
@@ -1046,9 +982,9 @@ test("buildPrintReportModel aligns retire age, readiness fallback, waterfall-to-
   assert.ok(pm2.customSavingNote.includes("Custom input active"));
 });
 
-test("CASH_PARKING_CATALOG and cashParkingPlan cover limits, links, and tiered cash stacking", () => {
+test("resolveCashParkingCatalog and cashParkingPlan cover limits, links, and tiered cash stacking", () => {
   const M = require("./model.js");
-  const cat = M.CASH_PARKING_CATALOG;
+  const cat = M.resolveCashParkingCatalog();
   assert.ok(cat.asOf);
   assert.ok(cat.items.length >= 12);
 
@@ -1456,7 +1392,7 @@ test("4-Tap retirement architecture, SRS age-63 $400k/$450k-$500k ballooning tra
   const M = require("./model.js");
 
   // 1. Default 85% Global Growth / 15% SG Dividend split inside Equity Sleeve
-  assert.equal(M.DEMO_PLAN.sgSleevePct, 15);
+  assert.equal(DEMO_PLAN.sgSleevePct, 15);
   const bogleDefault = M.bogleheadAllocation(
     {
       age: 35,
@@ -1536,7 +1472,7 @@ test("4-Tap retirement architecture, SRS age-63 $400k/$450k-$500k ballooning tra
 
   // 4. Age-55 $500k OA = ~$1,000/mo ($1,042/mo exact) & 4-Tap Retirement Income Summary
   const p55 = {
-    ...M.DEMO_PLAN,
+    ...DEMO_PLAN,
     age: 35,
     retire: 55,
     salary: 8500,
@@ -1587,7 +1523,16 @@ test("SG_DEFAULT_PLAN, index.html initial inputs, and buildPrintReportModel stay
   const fs = require("node:fs");
   const M = require("./model.js");
   const html = fs.readFileSync("index.html", "utf8");
-  const appJs = fs.readFileSync("app.js", "utf8");
+  const appJs = [
+    "app.js",
+    "src/app/views-cash-div.js",
+    "src/app/views-overview.js",
+    "src/app/views-expense.js",
+    "src/app/charts.js",
+    "src/app/print-sheet.js",
+  ]
+    .map((p) => fs.readFileSync(p, "utf8"))
+    .join("\n");
 
   // 1. Verify SG_DEFAULT_PLAN reflects modern Singapore age-35 profile with exact 85/15 equity split
   const def = M.SG_DEFAULT_PLAN;
@@ -1759,11 +1704,24 @@ test("outsideAllocationGuide, retirementTapsPlan, and buildPrintReportModel stay
   const sumB = M.calculate(pBonus);
   const simB = M.simulate(pBonus, "salary", { summary: sumB });
   const rB = M.todayPlan(sumB);
+  const pNoBonus = {
+    ...pBonus,
+    annualBonus: 0,
+  };
+  const sumNB = M.calculate(pNoBonus);
+  const simNB = M.simulate(pNoBonus, "salary", { summary: sumNB });
+  const rNB = M.todayPlan(sumNB);
+  const guideNoBonus = M.outsideAllocationGuide(rNB, simNB, pNoBonus);
   const guideNoParams = M.outsideAllocationGuide(rB, simB);
   const guideWithParams = M.outsideAllocationGuide(rB, simB, pBonus);
   assert.ok(
-    guideWithParams.tax.marginalRate > guideNoParams.tax.marginalRate,
+    guideWithParams.tax.marginalRate > guideNoBonus.tax.marginalRate,
     "Expected annualBonus in params to raise marginal tax rate in outsideAllocationGuide",
+  );
+  assert.equal(
+    guideNoParams.tax.marginalRate,
+    guideWithParams.tax.marginalRate,
+    "Expected outsideAllocationGuide fallback to pick up awBonusAnnual from summary",
   );
 
   const pCapped = {
@@ -1983,6 +1941,26 @@ test("annualBonus credits Additional Wage CPF up to $102,000 ceiling, srsInveste
   assert.equal(mpEsc.plannedCpfExtra, 300);
   assert.ok(mpEsc.withPlanned.remainingGap < mpStd.gap);
   assert.ok(mpEsc.withPlanned.additionalMonthlyNeeded < mpStd.monthly);
+  // Cohort payouts and monthly top-up in milestonePlan must reconcile identically with calculate()/todayPlan()
+  const mpCalcToday = M.todayPlan(
+    M.calculate({ ...def, age: 35, plan: "standard", cpfExtra: 0 }),
+  );
+  assert.equal(
+    Math.round(mpStd.cohortMilestones.brs.payoutToday),
+    Math.round(mpCalcToday.brsScenario.payout),
+  );
+  assert.equal(
+    Math.round(mpStd.cohortMilestones.frs.payoutToday),
+    Math.round(mpCalcToday.scenarios.find((s) => s.key === "frs").payout),
+  );
+  assert.equal(
+    Math.round(mpStd.cohortMilestones.ers.payoutToday),
+    Math.round(mpCalcToday.scenarios.find((s) => s.key === "ers").payout),
+  );
+  assert.equal(
+    mpStd.monthly,
+    Math.round(mpCalcToday.scenarios.find((s) => s.key === "ers").cpfFunding),
+  );
 
   // 4. retirementTapsPlan Tap 2 personalized verdicts across income/tax states
   const tapsLow = M.retirementTapsPlan({
@@ -2165,7 +2143,16 @@ test("Multi-Account Tiered Cash & SSB Breakdown computes exact tiered EIR, SDIC 
 test("firePlan routes monthly savings holistically, spends post-55 excess CPF OA and low-yielding cash first, and Portfolio Allocator chip moves monotonically with equity", () => {
   const fs = require("node:fs");
   const M = require("./model.js");
-  const appJs = fs.readFileSync("app.js", "utf8");
+  const appJs = [
+    "app.js",
+    "src/app/views-cash-div.js",
+    "src/app/views-overview.js",
+    "src/app/views-expense.js",
+    "src/app/charts.js",
+    "src/app/print-sheet.js",
+  ]
+    .map((p) => fs.readFileSync(p, "utf8"))
+    .join("\n");
 
   // 1. Portfolio Allocator top chip uses Current - Target signed variance (not inverse Target - Current)
   assert.ok(
@@ -2229,9 +2216,12 @@ test("firePlan routes monthly savings holistically, spends post-55 excess CPF OA
   });
 
   // With direct 55/45 split on auto-saving ($624/mo), ~76%+ funded and lasts to age ~87+
-  assert.ok(fire32.fireNumber.pctFunded >= 75 && fire32.fireNumber.pctFunded < 100);
+  assert.ok(
+    fire32.fireNumber.pctFunded >= 75 && fire32.fireNumber.pctFunded < 100,
+  );
   assert.ok(fire32.fireNumber.depletionAge >= 86);
-  assert.equal(fire32.fireNumber.projectedFireAge, 75);
+  // Including retained post-65 CPF LIFE payouts during post-65 work reaches FI at age 72
+  assert.equal(fire32.fireNumber.projectedFireAge, 72);
 
   // Adopting projectedFireAge (75) while keeping the $624/mo investment is 100%+ funded to 95 with zero depletion and does not shift projectedFireAge higher
   const p32AtReady = {
@@ -2320,21 +2310,30 @@ test("Cash Savings and Outside Investment are split separately and Outside Inves
   assert.ok(pt90.ssbCash > 20000 + 500 * 12 * 30);
 
   // Full 100/0 and 0/100 splits are supported on both Equity/Bond and Global/SG
-  const bogle100Eq100Global = M.bogleheadAllocation({ ...base, targetEquityPct: 100, sgSleevePct: 0 }, 1000);
+  const bogle100Eq100Global = M.bogleheadAllocation(
+    { ...base, targetEquityPct: 100, sgSleevePct: 0 },
+    1000,
+  );
   assert.equal(bogle100Eq100Global.holistic.targetEquityPct, 100);
   assert.equal(bogle100Eq100Global.holistic.sgEquitySplitPct, 0);
   assert.equal(bogle100Eq100Global.monthlyRebalance.buyGlobalMonthly, 1000);
   assert.equal(bogle100Eq100Global.monthlyRebalance.buySgMonthly, 0);
   assert.equal(bogle100Eq100Global.monthlyRebalance.buyBondMonthly, 0);
 
-  const bogle100Eq100Sg = M.bogleheadAllocation({ ...base, targetEquityPct: 100, sgSleevePct: 100 }, 1000);
+  const bogle100Eq100Sg = M.bogleheadAllocation(
+    { ...base, targetEquityPct: 100, sgSleevePct: 100 },
+    1000,
+  );
   assert.equal(bogle100Eq100Sg.holistic.targetEquityPct, 100);
   assert.equal(bogle100Eq100Sg.holistic.sgEquitySplitPct, 100);
   assert.equal(bogle100Eq100Sg.monthlyRebalance.buyGlobalMonthly, 0);
   assert.equal(bogle100Eq100Sg.monthlyRebalance.buySgMonthly, 1000);
   assert.equal(bogle100Eq100Sg.monthlyRebalance.buyBondMonthly, 0);
 
-  const bogle0Eq100Bond = M.bogleheadAllocation({ ...base, targetEquityPct: 0, sgSleevePct: 50 }, 1000);
+  const bogle0Eq100Bond = M.bogleheadAllocation(
+    { ...base, targetEquityPct: 0, sgSleevePct: 50 },
+    1000,
+  );
   assert.equal(bogle0Eq100Bond.holistic.targetEquityPct, 0);
   assert.equal(bogle0Eq100Bond.monthlyRebalance.buyGlobalMonthly, 0);
   assert.equal(bogle0Eq100Bond.monthlyRebalance.buySgMonthly, 0);
@@ -2361,20 +2360,28 @@ test("Cash Savings and Outside Investment are split separately and Outside Inves
   assert.equal(taps70.tap3Equities.monthlyBondBuy, 300);
   assert.equal(taps70.tap4Ssb.monthlyCashSaving, 500);
   assert.equal(taps70.tap4Ssb.effectiveRatePct, 2);
-  assert.ok(taps70.tap4Ssb.projectedCashOnlyAtRetireToday > taps70.tap4Ssb.currentSsbCash);
-  assert.ok(taps70.tap3Equities.projectedInvestAtRetireToday > taps70.tap3Equities.currentEquities);
+  assert.ok(
+    taps70.tap4Ssb.projectedCashOnlyAtRetireToday >
+      taps70.tap4Ssb.currentSsbCash,
+  );
+  assert.ok(
+    taps70.tap3Equities.projectedInvestAtRetireToday >
+      taps70.tap3Equities.currentEquities,
+  );
   assert.equal(
     taps70.tap3Equities.gapCoveragePct,
     Math.min(100, Math.round(fire70.fireNumber.pctFunded)),
   );
 
-  // Verify simulate() and earliestRetirement() include cashSaving and cashReturnRate
-  const simNoCash = M.simulate({ ...base, cashSaving: 0 }, "salary", { summary: r });
+  // Verify simulate() includes cashSaving and cashReturnRate
+  const simNoCash = M.simulate({ ...base, cashSaving: 0 }, "salary", {
+    summary: r,
+  });
   assert.ok(sim.portfolioAtRetire > simNoCash.portfolioAtRetire);
-  assert.equal(sim.investmentDeposits, simNoCash.investmentDeposits + 500 * (65 - 35) * 12);
-  const erWithCash = M.earliestRetirement({ ...base, cashSaving: 500 }, "salary", 0, 1000);
-  const erNoCash = M.earliestRetirement({ ...base, cashSaving: 0 }, "salary", 0, 1000);
-  assert.ok(erWithCash <= erNoCash);
+  assert.equal(
+    sim.investmentDeposits,
+    simNoCash.investmentDeposits + 500 * (65 - 35) * 12,
+  );
 
   // Verify resolveCashReturnRate normalizes percentage (> 0.3) vs decimal
   assert.equal(M.resolveCashReturnRate({ cashReturnRate: 2.5 }), 0.025);
@@ -2396,7 +2403,9 @@ test("Cash Savings and Outside Investment are split separately and Outside Inves
     bogle,
     paycheck: pc,
   });
-  const splitRow = printReport.actionRows.find((row) => row.label.includes("Monthly Split"));
+  const splitRow = printReport.actionRows.find((row) =>
+    row.label.includes("Monthly Split"),
+  );
   assert.ok(splitRow && splitRow.value.includes("$500 Cash"));
 });
 
@@ -2439,8 +2448,7 @@ test("evaluateDividendYield computes monthly, annual, quarterly, daily payouts a
   assert.equal(yieldTrap.monthlyPayout, 750);
 });
 
-
-test("evaluateTargetMonthlyIncome computes required capital, gap, years to goal, and 15/20-year savings", () => {
+test("evaluateTargetMonthlyIncome computes required capital, gap, inflation-adjusted years to goal, and 15/20-year savings", () => {
   const M = RetirementModel;
   const res = M.evaluateTargetMonthlyIncome({
     targetMonthly: 10000,
@@ -2449,11 +2457,26 @@ test("evaluateTargetMonthlyIncome computes required capital, gap, years to goal,
     monthlyContribution: 1817,
     inflationPct: 2.5,
   });
+  const resNom = M.evaluateTargetMonthlyIncome({
+    targetMonthly: 10000,
+    ratePct: 5.0,
+    currentCapital: 60000,
+    monthlyContribution: 1817,
+    inflationPct: 0,
+  });
   assert.equal(res.targetAnnual, 120000);
   assert.equal(res.requiredCapital, 2400000);
   assert.equal(res.capitalGap, 2340000);
   assert.equal(res.pctReachedNow, 2.5);
-  assert.ok(res.yearsToGoal > 30 && res.yearsToGoal < 42);
+  assert.ok(resNom.yearsToGoal > 30 && resNom.yearsToGoal < 42);
+  assert.ok(
+    res.yearsToGoal > resNom.yearsToGoal,
+    "Inflation-adjusted target should take longer than nominal target",
+  );
+  assert.ok(
+    res.save15YrMo > resNom.save15YrMo && res.save20YrMo > resNom.save20YrMo,
+    "Inflation-adjusted 15/20-yr required savings must exceed nominal savings",
+  );
   assert.ok(res.save15YrMo > res.save20YrMo);
   assert.equal(res.tone, "good");
   assert.equal(res.tierRows.length, 5);
@@ -2498,4 +2521,1185 @@ test("evaluateAnnuityPlan computes implied IRR, payout multiple, DIY comparisons
   });
   assert.equal(worthIt.verdictKey, "worth-it");
   assert.equal(worthIt.tone, "good");
+});
+
+test("longevityAge (85/90/95/100), bridgeIncome (pre-65 Barista FIRE), BRS Property Pledge path, familyRstuAnnual, and SG_PERSONA_PRESETS", () => {
+  const M = RetirementModel;
+  const base = {
+    age: 35,
+    retire: 50,
+    salary: 6500,
+    lifestyle: "home-helper",
+    oa: 80000,
+    sa: 60000,
+    ma: 40000,
+    equities: 120000,
+    ssbCash: 30000,
+  };
+
+  // 1. Longevity horizon (85 vs 90 vs 95 vs 100)
+  assert.equal(M.resolveLongevityAge({}, 90), 90);
+  assert.equal(M.resolveLongevityAge({ longevityAge: 100 }, 90), 100);
+  const sum85 = M.calculate({ ...base, longevityAge: 85 });
+  const sum100 = M.calculate({ ...base, longevityAge: 100 });
+  assert.equal(sum85.endAge, 85);
+  assert.equal(sum100.endAge, 100);
+  assert.ok(
+    sum100.target > sum85.target,
+    "Longer longevity horizon (Age 100 vs 85) increases required outside portfolio",
+  );
+  const sim100 = M.simulate({ ...base, longevityAge: 100 }, "salary", {
+    summary: sum100,
+  });
+  const fire100 = M.firePlan({ ...base, longevityAge: 100 }, "salary", {
+    summary: sum100,
+    simulation: sim100,
+  });
+  assert.equal(sim100.endAge, 100);
+  assert.equal(fire100.endAge, 100);
+  assert.equal(fire100.points.at(-1).age, 100);
+
+  // 2. Barista / Part-Time Bridge Income (from retire until 65)
+  const sumNoBridge = M.calculate({ ...base, bridgeIncome: 0 });
+  const sumWithBridge = M.calculate({ ...base, bridgeIncome: 1500 });
+  assert.ok(
+    sumWithBridge.target < sumNoBridge.target,
+    "Pre-65 bridge income reduces outside portfolio needed at retirement",
+  );
+  const simWithBridge = M.simulate({ ...base, bridgeIncome: 1500 }, "salary", {
+    summary: sumWithBridge,
+  });
+  const fireWithBridge = M.firePlan({ ...base, bridgeIncome: 1500 }, "salary", {
+    summary: sumWithBridge,
+    simulation: simWithBridge,
+  });
+  const pt55 = fireWithBridge.points.find((p) => p.age === 55);
+  const pt66 = fireWithBridge.points.find((p) => p.age === 66);
+  assert.ok(
+    pt55.today.monthlyBridge > 1400 && pt55.today.monthlyBridge <= 1500,
+  );
+  assert.equal(pt66.today.monthlyBridge, 0);
+
+  // 3. BRS Property Pledge path (50% FRS cap on RA at 55, keeping excess OA liquid)
+  assert.ok(sumNoBridge.brsScenario, "calculate() includes brsScenario");
+  assert.equal(sumNoBridge.brsScenario.key, "brs");
+  assert.ok(
+    sumNoBridge.brsScenario.balance < sumNoBridge.scenarios[1].balance,
+    "BRS scenario locks 50% of FRS in RA at 55",
+  );
+  assert.ok(
+    M.projectCPF(base, 0, "brs").oaAfter55 >=
+      M.projectCPF(base, 0, "frs").oaAfter55,
+    "BRS path preserves more or equal post-55 liquid OA than FRS path",
+  );
+  const simBrs = M.simulate(base, "brs", { summary: sumNoBridge });
+  assert.equal(simBrs.selectedScenario.key, "brs");
+
+  // 4. Spouse / Family CPF Cash Top-Up (familyRstuAnnual up to $8,000/yr)
+  const taxNoFam = M.taxSweetSpot({ ...base, familyRstuAnnual: 0 });
+  const taxWithFam = M.taxSweetSpot({ ...base, familyRstuAnnual: 8000 });
+  assert.equal(taxWithFam.familyRstuPlanned, 8000);
+  assert.equal(taxWithFam.eligibleFamilyRstu, 8000);
+  assert.ok(
+    taxWithFam.familyRstuTaxSaved > 0,
+    "Family RSTU top-up generates positive IRAS tax savings when relief room is available",
+  );
+
+  // 5. Removed Sankey and Fee Drag model export check
+  assert.equal(M.buildSankeyModel, undefined);
+  assert.equal(M.evaluateFeeDrag, undefined);
+
+  // 7. SG_PERSONA_PRESETS validity
+  assert.ok(Array.isArray(M.SG_PERSONA_PRESETS));
+  assert.equal(M.SG_PERSONA_PRESETS.length, 4);
+  for (const preset of M.SG_PERSONA_PRESETS) {
+    const calc = M.calculate(preset.params);
+    assert.ok(calc.retire >= calc.age);
+    assert.equal(calc.scenarios.length, 3);
+    assert.ok(calc.brsScenario);
+  }
+});
+
+test("Audit math & statutory regressions: solveBucketAwareSimulation, age-65 pending CPF interest, post-55 OA sweep, spendableNetWorth, IRAS $80k relief cap, geometric monthly rates, and effective annuity IRR", () => {
+  const M = RetirementModel;
+
+  // M-01 & M-04: solveBucketAwareSimulation reconciles Auto outside investment across summary, simulation, and fire through Age 95
+  const autoPlan = { ...M.SG_DEFAULT_PLAN };
+  delete autoPlan.invest;
+  const solved = M.solveBucketAwareSimulation(autoPlan, "frs");
+  assert.equal(solved.summary.endAge, 95);
+  assert.equal(solved.simulation.endAge, 95);
+  assert.equal(solved.fire.endAge, 95);
+  assert.equal(solved.fire.fireNumber.fullyFundedTo95, true);
+  assert.equal(solved.simulation.fullyFunded, true);
+  assert.equal(solved.fire.fireNumber.depletionAge, null);
+  assert.ok(solved.fire.fireNumber.pctFunded >= 100);
+  const sFrs = solved.summary.scenarios.find((sc) => sc.key === "frs");
+  assert.equal(
+    Math.round(sFrs.privateSaving),
+    Math.round(solved.simulation.invest),
+  );
+
+  // M-02: projectCPF credits Jan-Nov pending interest when reaching age 65 mid-year (e.g. non-integer age)
+  const midYearCpf = M.projectCPF(
+    {
+      age: 54.5,
+      retire: 65,
+      salary: 0,
+      oa: 0,
+      sa: 220400,
+      ma: 79000,
+      inflationRate: 0,
+      plan: "standard",
+    },
+    0,
+    "frs",
+  );
+  // 10.5 years from 54.5 to 65 -> RA at 55 (~$224.8k) compounds for 10 full years to 65 (~$339k+), including the final year's months
+  assert.ok(midYearCpf.ra65 > 330000);
+
+  // M-03 & M-05: Post-55 excess OA withdrawals cannot be double-counted into age-65 RA sweep, and spendableNetWorth excludes locked RA/MA
+  const earlyFireP = {
+    ...M.SG_DEFAULT_PLAN,
+    age: 50,
+    retire: 56,
+    lifestyle: "home-helper",
+    spend: 5500,
+    salary: 6000,
+    oa: 180000,
+    sa: 80000,
+    ma: 79000,
+    equities: 40000,
+    sgDividends: 0,
+    ssbCash: 20000,
+    srs: 0,
+    savings: 60000,
+    invest: 0,
+  };
+  const earlySolved = M.solveBucketAwareSimulation(earlyFireP, "frs");
+  for (const pt of earlySolved.fire.points) {
+    const expectedSpendable =
+      pt.totalOutside + (pt.age >= 55 ? Math.max(0, pt.cpfOA) : 0);
+    assert.ok(
+      Math.abs(pt.spendableNetWorth - expectedSpendable) < 1e-6,
+      `spendableNetWorth at age ${pt.age} must exclude locked CPF SA/RA/MA`,
+    );
+    assert.ok(pt.totalNetWorth >= pt.spendableNetWorth);
+  }
+
+  // M-06: computeTaxSummary uses progressive IRAS brackets, includes bonus + active RSTU/SRS reliefs, and enforces the $80,000 personal relief cap
+  const highEarner = {
+    age: 40,
+    retire: 65,
+    salary: 25000,
+    annualBonus: 60000,
+    existingReliefs: 72000,
+    srsAnnual: 15300,
+    familyRstuAnnual: 8000,
+    oa: 50000,
+    sa: 50000,
+    ma: 50000,
+  };
+  const taxSum = M.computeTaxSummary(highEarner, { cpfExtra: 700 });
+  assert.equal(taxSum.annualGross, 360000);
+  // Mandatory employee CPF on $102k ceiling is $20,400; existingReliefs $72,000 => $92,400 > $80,000 cap!
+  assert.equal(taxSum.totalBaseReliefs, 80000);
+  assert.equal(taxSum.reliefCapRemaining, 0);
+  assert.equal(taxSum.activeVoluntaryReliefs, 0);
+  assert.equal(taxSum.activeChargeableIncome, 280000);
+  assert.equal(taxSum.activeTax.chargeableIncome, 280000);
+
+  // M-10: evaluateTargetMonthlyIncome uses geometric monthlyRate() matching core engine and inflates target capital by inflationPct
+  const targetGeometric = M.evaluateTargetMonthlyIncome({
+    targetMonthly: 600,
+    ratePct: 7.2,
+    currentCapital: 0,
+    monthlyContribution: 0,
+    inflationPct: 0,
+  });
+  // At 7.2% effective annual (mRate = 1.072^(1/12)-1), requiredCapital = $100,000; 20yr monthly saving matches requiredSaving($100,000, 0, mRate, 240)
+  const expectedM240 =
+    100000 / (((1.072 ** (1 / 12)) ** 240 - 1) / (1.072 ** (1 / 12) - 1));
+  assert.equal(targetGeometric.requiredCapital, 100000);
+  assert.equal(targetGeometric.save20YrMo, Math.ceil(expectedM240));
+  const targetReal = M.evaluateTargetMonthlyIncome({
+    targetMonthly: 600,
+    ratePct: 7.2,
+    currentCapital: 0,
+    monthlyContribution: 0,
+    inflationPct: 2.5,
+  });
+  assert.equal(targetReal.save20YrMo, Math.ceil(expectedM240 * 1.025 ** 20));
+
+  // M-11 & M-12: evaluateAnnuityPlan uses effective annual IRR, handles negative-return endowment traps (<1.0x payout), and leaves zero literal $$ in comparison strings
+  const lossEndowment = M.evaluateAnnuityPlan({
+    monthlyContribution: 1000,
+    contributeYears: 10,
+    deferYears: 5,
+    payoutYears: 10,
+    quotedMonthlyPayout: 800, // $96k back on $120k paid!
+    benchmarkRatePct: 5.0,
+  });
+  assert.ok(lossEndowment.payoutMultiple < 1);
+  assert.ok(lossEndowment.impliedAnnualIrrPct < 0);
+  assert.equal(lossEndowment.verdictKey, "endowment-trap");
+  for (const c of lossEndowment.comparisons) {
+    assert.equal(
+      String(c.sub || "").includes("$$"),
+      false,
+      `Comparison subtext must not contain literal $$: ${c.sub}`,
+    );
+  }
+});
+
+test("Phase 1 & 2 audit regressions: post-55 RA single-count, cashSaving shortfall, fractional retire, nominal print, projectedFireAge, retire>65, SRS early retire, multi-SSB cap, longevity>90, zero fallbacks", () => {
+  const M = require("./model.js");
+
+  // 1. Post-55 RA contributions must not be double-counted or earn same-month interest
+  const post55Res = M.projectCPF(
+    {
+      age: 54,
+      retire: 65,
+      salary: 5000,
+      oa: 0,
+      sa: 0,
+      ma: 0,
+      post55Work: true,
+    },
+    0,
+    "salary",
+    null,
+    { monthly: true },
+  );
+  const m55_1 = post55Res.ledger.find(
+    (r) => Math.abs(r.age - (55 + 1 / 12)) < 1e-4,
+  );
+  const m55_2 = post55Res.ledger.find(
+    (r) => Math.abs(r.age - (55 + 2 / 12)) < 1e-4,
+  );
+  assert.ok(m55_1 && m55_2);
+  const raStep = m55_2.ra - m55_1.ra;
+  // 2027 senior rate 35.5%, RA share 0.3661 => 5000 * 0.355 * 0.3661 = 649.8275 (1x, not 2x 1299.65)
+  assert.ok(
+    Math.abs(raStep - 649.8275) < 1,
+    `Expected single-counted post-55 RA step ~$649.83, got ${raStep}`,
+  );
+
+  // 2. solveBucketAwareSimulation contributionShortfall must not double-subtract cashSaving
+  const solved = M.solveBucketAwareSimulation(
+    {
+      ...M.SG_DEFAULT_PLAN,
+      age: 35,
+      salary: 6000,
+      retire: 55,
+      cashSaving: 1000,
+      invest: 500,
+    },
+    "salary",
+  );
+  const expectedShortfall = Math.max(
+    0,
+    solved.simulation.selectedScenario.privateSaving - 500,
+  );
+  assert.equal(
+    solved.simulation.selectedScenario.contributionShortfall,
+    expectedShortfall,
+  );
+
+  // 3. Fractional retirement age (55.5) captured accurately in firePlan, buildPrintReportModel, retirementTapsPlan
+  const fracP = {
+    ...M.SG_DEFAULT_PLAN,
+    age: 35,
+    salary: 8000,
+    retire: 55.5,
+    invest: 1500,
+  };
+  const fracSolved = M.solveBucketAwareSimulation(fracP, "salary");
+  assert.ok(fracSolved.fire.atRetire);
+  assert.equal(fracSolved.fire.atRetire.age, 55.5);
+  const fracPrint = M.buildPrintReportModel({
+    summary: fracSolved.summary,
+    selectedScenario: fracSolved.simulation.selectedScenario,
+    simulation: fracSolved.simulation,
+    fire: fracSolved.fire,
+    params: fracP,
+    basis: "nominal",
+  });
+  assert.ok(
+    Math.abs(
+      fracPrint.outsideAtRetire - fracSolved.fire.atRetire.totalOutside,
+    ) < 2,
+    "buildPrintReportModel must use exact fractional atRetire snapshot",
+  );
+
+  // 4. buildPrintReportModel nominal basis must use nominal cpfLife65 for cpfCovPct
+  const nomPrint = M.buildPrintReportModel({
+    summary: fracSolved.summary,
+    selectedScenario: fracSolved.simulation.selectedScenario,
+    simulation: fracSolved.simulation,
+    fire: fracSolved.fire,
+    params: fracP,
+    basis: "nominal",
+  });
+  const expectedNomCov = Math.min(
+    100,
+    Math.round(
+      ((fracSolved.fire.phase2.cpfLife65Nominal ??
+        fracSolved.simulation.selectedScenario.payout) /
+        Math.max(1, fracSolved.summary.spend65)) *
+        100,
+    ),
+  );
+  assert.equal(nomPrint.cpfCovPct, expectedNomCov);
+
+  // 5. projectedFireAge must be self-consistent when actually retiring at that age
+  const fireTestP = {
+    ...M.SG_DEFAULT_PLAN,
+    age: 35,
+    salary: 8000,
+    oa: 10000,
+    sa: 10000,
+    ma: 10000,
+    equities: 400000,
+    retire: 65,
+    invest: 2000,
+    housing: 0,
+  };
+  const fireTest = M.solveBucketAwareSimulation(fireTestP, "salary");
+  const projAge = fireTest.fire.fireNumber.projectedFireAge;
+  assert.ok(projAge != null);
+  const verifyAtProj = M.solveBucketAwareSimulation(
+    { ...fireTestP, retire: projAge },
+    "salary",
+  );
+  assert.equal(
+    verifyAtProj.fire.fireNumber.fullyFundedTo95,
+    true,
+    `Expected retiring at projectedFireAge (${projAge}) to actually stay funded`,
+  );
+
+  // 6. retire > 65 must compound OA cleanly across age 69->70 and retain pre-retirement CPF LIFE payouts
+  const lateP = {
+    ...M.SG_DEFAULT_PLAN,
+    age: 50,
+    retire: 70,
+    salary: 6000,
+    oa: 300000,
+    sa: 250000,
+    housing: 0,
+    invest: 500,
+  };
+  const lateSolved = M.solveBucketAwareSimulation(lateP, "salary");
+  const pt69 = lateSolved.fire.points.find((pt) => pt.age === 69);
+  const pt70 = lateSolved.fire.points.find((pt) => pt.age === 70);
+  assert.ok(pt69 && pt70 && pt69.cpfOA > 0);
+  assert.ok(
+    Math.abs(pt70.cpfOA / pt69.cpfOA - 1.025) < 0.002,
+    `Expected ~2.5% OA growth age 69->70, got ${pt70.cpfOA / pt69.cpfOA}`,
+  );
+
+  // 7. taxSweetSpot must stop SRS contributions at retire < srsLockInAge
+  const earlySrsTax = M.taxSweetSpot({
+    age: 35,
+    retire: 50,
+    salary: 12000,
+    srsAnnual: 15300,
+    returnRate: 0.05,
+  });
+  const lateSrsTax = M.taxSweetSpot({
+    age: 35,
+    retire: 65,
+    salary: 12000,
+    srsAnnual: 15300,
+    returnRate: 0.05,
+  });
+  assert.ok(
+    earlySrsTax.srsProjectedAt63 < lateSrsTax.srsProjectedAt63 - 150000,
+    "Early retirement at 50 must cap SRS contribution horizon in taxSweetSpot",
+  );
+
+  // 8. sweepCashAccountsOverflow must respect aggregate $200k SSB cap across multiple SSB rows
+  const swept = M.sweepCashAccountsOverflow([
+    {
+      id: "c1",
+      preset: "dbs-multiplier",
+      name: "DBS",
+      balance: 150000,
+      bonusCap: 100000,
+      bonusRatePct: 2.0,
+      baseRatePct: 0.05,
+    },
+    {
+      id: "c2",
+      preset: "ssb",
+      name: "SSB 1",
+      balance: 120000,
+      bonusCap: 200000,
+      bonusRatePct: 2.39,
+      baseRatePct: 0,
+    },
+    {
+      id: "c3",
+      preset: "ssb",
+      name: "SSB 2",
+      balance: 80000,
+      bonusCap: 200000,
+      bonusRatePct: 2.39,
+      baseRatePct: 0,
+    },
+  ]);
+  const ssbTotalAfter = swept
+    .filter((r) => r.preset === "ssb")
+    .reduce((a, b) => a + b.balance, 0);
+  const tbillTotalAfter = swept
+    .filter((r) => r.preset === "tbills")
+    .reduce((a, b) => a + b.balance, 0);
+  assert.equal(ssbTotalAfter, 200000);
+  assert.equal(tbillTotalAfter, 50000);
+
+  // 9. calculate() firstShortfallAge scans beyond age 90 when longevityAge > 90
+  const longCalc = M.calculate({
+    age: 35,
+    salary: 8000,
+    retire: 65,
+    spend: 1950,
+    plan: "standard",
+    longevityAge: 105,
+    inflationRate: 0.01,
+  });
+  const longSim = M.simulate(
+    {
+      age: 35,
+      salary: 8000,
+      retire: 65,
+      spend: 1950,
+      plan: "standard",
+      longevityAge: 105,
+      inflationRate: 0.01,
+    },
+    "ers",
+    { summary: longCalc },
+  );
+  const longCalcErs = longCalc.scenarios.find((s) => s.key === "ers");
+  assert.equal(
+    longCalcErs.firstShortfallAge !== null,
+    longSim.selectedScenario.firstShortfallAge !== null,
+  );
+
+  // 10. Explicit 0 inputs must not be overwritten by truthy || fallbacks
+  const zeroInf = M.evaluateTargetMonthlyIncome({
+    targetMonthly: 2000,
+    ratePct: 5,
+    inflationPct: 0,
+  });
+  assert.equal(zeroInf.inflationPct, 0);
+  const zeroSsb = M.evaluateDividendYield({
+    capital: 100000,
+    ratePct: 5,
+    ssbRatePct: 0,
+  });
+  assert.equal(zeroSsb.ssbRatePct, 0);
+});
+
+test("Comprehensive audit regressions: SRS deemed-withdrawal sweep, nominal taps/print alignment, age-55+ RSTU FRS cap, ghost SRS cap, BRS reconciliation, SSB sweep", () => {
+  const M = RetirementModel;
+
+  // 1. SRS balance is never permanently frozen after srsWithdrawalAge + 10 (swept to liquid cash net of tax)
+  const srsFreezeCase = {
+    age: 50,
+    salary: 6000,
+    retire: 65,
+    spend: 2200,
+    srs: 300000,
+    srsAge: 63,
+    oa: 100000,
+    sa: 200000,
+    lifestyle: "cca",
+  };
+  const srsRes = M.solveBucketAwareSimulation(srsFreezeCase, "frs");
+  const pt85 = srsRes.fire.points.find((pt) => pt.age === 85);
+  assert.equal(
+    pt85.srs,
+    0,
+    "SRS must sweep to liquid cash after 10-year window",
+  );
+  assert.equal(
+    srsRes.fire.fireNumber.depletionAge,
+    null,
+    "Swept SRS prevents false depletion when healthcare costs rise",
+  );
+
+  // 1b. Late retiree (retire >= 73) starts 10-year SRS window at retirement age rather than locking 100%
+  const lateSrsCase = {
+    age: 50,
+    salary: 10000,
+    retire: 75,
+    spend: 4000,
+    srs: 300000,
+    srsAge: 63,
+    srsAnnual: 15300,
+    lifestyle: "cca",
+  };
+  const lateSrsRes = M.solveBucketAwareSimulation(lateSrsCase, "frs");
+  const pt86 = lateSrsRes.fire.points.find((pt) => pt.age === 86);
+  assert.equal(pt86.srs, 0);
+  assert.equal(lateSrsRes.fire.fireNumber.depletionAge, null);
+
+  // 2. retirementTapsPlan normalizes nominal selectedScenario to today's dollars
+  const demoNominal = M.solveBucketAwareSimulation(DEMO_PLAN, "frs");
+  const tapsFromNominal = M.retirementTapsPlan({
+    summary: demoNominal.summary,
+    selectedScenario: demoNominal.simulation.selectedScenario,
+    simulation: demoNominal.simulation,
+    fire: demoNominal.fire,
+    params: DEMO_PLAN,
+  });
+  const demoTodaySum = M.todayPlan(demoNominal.summary);
+  const tapsFromToday = M.retirementTapsPlan({
+    summary: demoTodaySum,
+    selectedScenario: demoTodaySum.scenarios.find((s) => s.key === "frs"),
+    simulation: demoNominal.simulation,
+    fire: demoNominal.fire,
+    params: DEMO_PLAN,
+  });
+  assert.equal(
+    tapsFromNominal.tap1Cpf.budgetCoveragePct,
+    tapsFromToday.tap1Cpf.budgetCoveragePct,
+    "Nominal selectedScenario must not inflate today-dollar CPF coverage",
+  );
+  assert.ok(tapsFromNominal.tap1Cpf.budgetCoveragePct < 60);
+
+  // 3. IRAS age-55+ RSTU tax relief is capped at FRS ($220,400), not ERS ($440,800)
+  const age55AtFrs = {
+    age: 55,
+    salary: 12000,
+    ra: M.C.frs,
+    sa: M.C.frs,
+  };
+  const tax55 = M.taxSweetSpot(age55AtFrs);
+  assert.equal(tax55.saRoom, 0);
+  assert.equal(tax55.maxRstu, 0);
+  assert.equal(tax55.rstuTaxSaved, 0);
+  const taxSum55 = M.computeTaxSummary(age55AtFrs, { cpfExtra: 667 });
+  assert.equal(taxSum55.saRoom, 0);
+  assert.equal(taxSum55.activeSelfRstu, 0);
+
+  // 4. firePlan caps effective SRS contribution at totalMonthlyOutside (no ghost SRS when invest = 0)
+  const zeroInvSrs = {
+    age: 35,
+    salary: 10000,
+    retire: 55,
+    invest: 0,
+    srsAnnual: 15300,
+    equities: 0,
+    sgDividends: 0,
+    ssbCash: 0,
+    srs: 0,
+    lifestyle: "cca",
+  };
+  const zeroInvRes = M.solveBucketAwareSimulation(zeroInvSrs, "salary");
+  const pt55Zero = zeroInvRes.fire.points.find((pt) => pt.age === 55);
+  assert.equal(pt55Zero.srs, 0, "invest: 0 must not fabricate SRS balance");
+
+  // 5. buildPrintReportModel nominal basis stays basis-consistent across outsideNeed, cpfAtRetire, and cpfCovPct
+  const printNom = M.buildPrintReportModel({
+    summary: demoNominal.summary,
+    selectedScenario: demoNominal.simulation.selectedScenario,
+    simulation: demoNominal.simulation,
+    fire: demoNominal.fire,
+    params: DEMO_PLAN,
+    basis: "nominal",
+  });
+  const printToday = M.buildPrintReportModel({
+    summary: demoNominal.summary,
+    selectedScenario: demoNominal.simulation.selectedScenario,
+    simulation: demoNominal.simulation,
+    fire: demoNominal.fire,
+    params: DEMO_PLAN,
+    basis: "today",
+  });
+  assert.ok(printNom.outsideNeed > printToday.outsideNeed);
+  assert.ok(printNom.cpfAtRetire > printToday.cpfAtRetire);
+  assert.equal(
+    printNom.cpfCovPct,
+    printToday.cpfCovPct,
+    "CPF coverage % must match across nominal and today bases",
+  );
+
+  // 6. retire > 65 projectedFireAge includes retained post-65 CPF LIFE payouts
+  const retire70 = {
+    age: 50,
+    salary: 6000,
+    retire: 70,
+    lifestyle: "cca",
+    equities: 80000,
+    ssbCash: 20000,
+    oa: 100000,
+    sa: 150000,
+    invest: 4100,
+  };
+  const r70 = M.solveBucketAwareSimulation(retire70, "salary");
+  assert.equal(r70.fire.fireNumber.fullyFundedTo95, true);
+  assert.ok(
+    r70.fire.fireNumber.projectedFireAge <= 70,
+    `Expected projectedFireAge <= 70 when fully funded at 70, got ${r70.fire.fireNumber.projectedFireAge}`,
+  );
+
+  // 7. requiredInvestTo95 aligns with solveBucketAwareSimulation privateSaving (both include SRS)
+  const srsAlignPlan = {
+    age: 35,
+    salary: 12000,
+    retire: 55,
+    srsAnnual: 15300,
+    lifestyle: "cca",
+  };
+  const srsAlign = M.solveBucketAwareSimulation(srsAlignPlan, "salary");
+  assert.ok(
+    Math.abs(
+      srsAlign.fire.fireNumber.requiredInvestTo95 -
+        srsAlign.simulation.selectedScenario.privateSaving,
+    ) <= 2,
+  );
+
+  // 8. outsideAllocationGuide without explicit params uses regularBaselineTax (not bonus-inflated tax)
+  const bonusPlan = {
+    age: 35,
+    salary: 8500,
+    annualBonus: 34000,
+    retire: 65,
+    lifestyle: "cca",
+  };
+  const bSum = M.calculate(bonusPlan);
+  const bSim = M.simulate(bonusPlan, "salary", { summary: bSum });
+  const guideNoParams = M.outsideAllocationGuide(bSum, bSim);
+  const guideRegularOnly = M.outsideAllocationGuide(
+    M.calculate({ ...bonusPlan, annualBonus: 0 }),
+    bSim,
+  );
+  assert.equal(
+    Math.round(guideNoParams.netTakeHome),
+    Math.round(guideRegularOnly.netTakeHome),
+  );
+
+  // 9. solveBucketAwareSimulation reconciles summary.brsScenario when selectedKey === "brs"
+  const brsRes = M.solveBucketAwareSimulation(DEMO_PLAN, "brs");
+  assert.equal(
+    brsRes.summary.brsScenario.privateSaving,
+    brsRes.simulation.selectedScenario.privateSaving,
+  );
+
+  // 10. withEffectiveSavings derives savings from buckets even if stale p.savings is present
+  const eff = M.withEffectiveSavings({
+    savings: 50000,
+    equities: 200000,
+    ssbCash: 50000,
+  });
+  assert.equal(eff.savings, 250000);
+
+  // 11. sweepCashAccountsOverflow sweeps SSB overflow above $200,000 into T-Bills
+  const sweptSsb = M.sweepCashAccountsOverflow([
+    {
+      id: "ssb-1",
+      preset: "ssb",
+      name: "MAS SSB",
+      balance: 260000,
+      bonusCap: 200000,
+      bonusRatePct: 2.39,
+      baseRatePct: 0,
+    },
+  ]);
+  const ssbAfter = sweptSsb.find((a) => a.preset === "ssb");
+  const tbillAfter = sweptSsb.find((a) => a.preset === "tbills");
+  assert.equal(ssbAfter.balance, 200000);
+  assert.equal(tbillAfter.balance, 60000);
+
+  // 12. calculate/validate rejects negative invest, and simulate clamps negative invest when summary is precomputed
+  assert.throws(() =>
+    M.simulate({ ...M.SG_DEFAULT_PLAN, invest: -500 }, "frs"),
+  );
+  const preSum = M.calculate(M.SG_DEFAULT_PLAN);
+  const negSim = M.simulate({ ...M.SG_DEFAULT_PLAN, invest: -500 }, "frs", {
+    summary: preSum,
+  });
+  assert.equal(negSim.invest, 0);
+});
+
+test("Full audit Phase 1-4 regressions: SRS requiredInvestTo95 diversion, tap2Srs fields, paycheckAllocation SRS cap, nominal taps cpfExtra", () => {
+  const M = require("./model.js");
+
+  // 1. tap2Srs exposes taxSavedPerYear & effectiveRoom for high-income $0 SRS candidates
+  const hiInc = {
+    age: 35,
+    retire: 65,
+    salary: 12000,
+    annualBonus: 24000,
+    srs: 0,
+    srsAnnual: 0,
+    invest: 2000,
+  };
+  const hiTaps = M.retirementTapsPlan({ params: hiInc });
+  assert.equal(hiTaps.tap2Srs.verdictStatus, "worth-it");
+  assert.ok(
+    hiTaps.tap2Srs.taxSavedPerYear > 0,
+    "taxSavedPerYear must be populated",
+  );
+  assert.ok(
+    hiTaps.tap2Srs.effectiveRoom > 0,
+    "effectiveRoom must be populated",
+  );
+
+  // 2. firePlan requiredInvestTo95 accounts for SRS diversion when invest < srsAnnual/12
+  const srsDivP = {
+    age: 35,
+    retire: 55,
+    longevityAge: 95,
+    salary: 12000,
+    spend65: 4500,
+    oa: 50000,
+    sa: 30000,
+    ma: 30000,
+    cash: 100000,
+    invest: 0,
+    srsAnnual: 15300,
+    srsInvestedIn: "cash",
+    rate: 0.06,
+    inflation: 0.025,
+  };
+  const fpInitial = M.firePlan(srsDivP, "frs");
+  assert.ok(fpInitial.fireNumber.requiredInvestTo95 > 0);
+  const fpApplied = M.firePlan(
+    { ...srsDivP, invest: fpInitial.fireNumber.requiredInvestTo95 },
+    "frs",
+  );
+  assert.equal(
+    fpApplied.fireNumber.fullyFundedTo95,
+    true,
+    "Applying requiredInvestTo95 must fund plan through longevityAge even with SRS diversion",
+  );
+
+  // 3. paycheckAllocation caps srsMo to investPool to match firePlan
+  const pCapSrs = {
+    age: 35,
+    retire: 65,
+    salary: 10000,
+    invest: 500,
+    srsAnnual: 15300,
+  };
+  const sumCap = M.calculate(pCapSrs);
+  const simCap = M.simulate(pCapSrs, "salary", { summary: sumCap });
+  const pcCap = M.paycheckAllocation(
+    M.todayPlan(sumCap),
+    simCap,
+    M.bogleheadAllocation(pCapSrs, simCap.invest),
+    pCapSrs,
+  );
+  assert.equal(pcCap.srsMo, 500);
+
+  // 5. retirementTapsPlan preserves p.cpfExtra when passed a nominal summary + selectedScenario
+  const pCpfEx = {
+    age: 35,
+    retire: 65,
+    salary: 5000,
+    oa: 0,
+    sa: 0,
+    ma: 0,
+    cpfExtra: 667,
+    invest: 1000,
+  };
+  const nomSum = M.calculate(pCpfEx);
+  const nomSim = M.simulate(pCpfEx, "salary", { summary: nomSum });
+  const nomTaps = M.retirementTapsPlan({
+    params: pCpfEx,
+    summary: nomSum,
+    simulation: nomSim,
+    selectedScenario: nomSim.selectedScenario,
+  });
+  const expectedTodayPayout = M.todayValue(
+    nomSim.selectedScenario.payout,
+    65,
+    nomSum.age,
+    nomSum.inflation,
+  );
+  assert.ok(
+    Math.abs(nomTaps.tap1Cpf.monthlyPayoutToday - expectedTodayPayout) < 2,
+    `Expected ~${expectedTodayPayout}, got ${nomTaps.tap1Cpf.monthlyPayoutToday}`,
+  );
+});
+
+test("Iterative audit regressions: firePlan exact-PV & SRS tax, nominal taps fields, outsideAllocationGuide SRS cap, Coast-FIRE & high-spend solver, NaN guards, sweepCashAccountsOverflow", () => {
+  const M = RetirementModel;
+
+  // 1. Model C1: firePlan exact-PV reconciliation at age 55 through 95 (no pre-growth cap or extra-month off-by-one)
+  const pBaseC1 = {
+    age: 54,
+    salary: 6000,
+    retire: 55,
+    lifestyle: "cca",
+    spend: 2800,
+    oa: 100000,
+    sa: 100000,
+    ma: 50000,
+    equities: 0,
+    returnRate: 0.05,
+    inflationRate: 0.03,
+    cashReturnRate: 0.05,
+    longevityAge: 95,
+  };
+  const fpProbe = M.firePlan(pBaseC1, "salary");
+  const exactEqToday = Math.ceil(
+    (fpProbe.fireNumber.fireNumberAtRetire || 0) / 1.05,
+  );
+  const fpExact = M.firePlan({ ...pBaseC1, equities: exactEqToday }, "salary");
+  assert.equal(fpExact.fireNumber.depletionAge, null);
+  assert.equal(fpExact.fireNumber.fullyFundedTo95, true);
+
+  // 2. Model C2: retirementTapsPlan preserves balance, standardPayout, and gap65 when summary is nominal + cpfExtra
+  const pC2 = {
+    age: 40,
+    salary: 4000,
+    retire: 60,
+    lifestyle: "cca",
+    oa: 10000,
+    sa: 10000,
+    ma: 10000,
+    equities: 100000,
+    cpfExtra: 667,
+  };
+  const sumC2 = M.calculate(pC2);
+  const simC2 = M.simulate(pC2, "salary", { summary: sumC2 });
+  const tapsC2 = M.retirementTapsPlan({
+    params: pC2,
+    summary: sumC2,
+    simulation: simC2,
+    selectedScenario: simC2.selectedScenario,
+  });
+  const expBal55Today = M.todayValue(
+    simC2.selectedScenario.balance,
+    55,
+    sumC2.age,
+    sumC2.inflation,
+  );
+  const expStdToday = M.todayValue(
+    simC2.selectedScenario.standardPayout,
+    65,
+    sumC2.age,
+    sumC2.inflation,
+  );
+  const expGap65Today = M.todayValue(
+    simC2.selectedScenario.gap65,
+    65,
+    sumC2.age,
+    sumC2.inflation,
+  );
+  assert.ok(
+    Math.abs(tapsC2.tap1Cpf.projectedCpf55Today - expBal55Today) < 2,
+    `Expected projectedCpf55Today ~${expBal55Today}, got ${tapsC2.tap1Cpf.projectedCpf55Today}`,
+  );
+  assert.ok(
+    Math.abs(tapsC2.tap1Cpf.standardMonthlyToday - expStdToday) < 2,
+    `Expected standardMonthlyToday ~${expStdToday}, got ${tapsC2.tap1Cpf.standardMonthlyToday}`,
+  );
+  assert.ok(
+    Math.abs(tapsC2.tap3Equities.postCpfGap65Today - expGap65Today) < 2,
+    `Expected postCpfGap65Today ~${expGap65Today}, got ${tapsC2.tap3Equities.postCpfGap65Today}`,
+  );
+
+  // 3. Model M1: firePlan deducts IRAS withdrawal tax during 10-year SRS drawdown for ballooning SRS
+  const pSrsTax = {
+    age: 54,
+    salary: 8000,
+    retire: 63,
+    lifestyle: "cca",
+    spend: 12000,
+    oa: 100000,
+    sa: 100000,
+    ma: 50000,
+    equities: 500000,
+    srs: 1500000,
+    srsAge: 63,
+    srsInvestedIn: "global",
+    returnRate: 0.05,
+    inflationRate: 0.025,
+    longevityAge: 95,
+  };
+  const fpSrsTax = M.firePlan(pSrsTax, "salary");
+  const pt65Srs = fpSrsTax.points.find((x) => x.age === 65);
+  assert.ok(pt65Srs && pt65Srs.monthlySrsDraw > 4000);
+  // Because SRS draw exceeds $3,333/mo tax-free ceiling, net SRS covers less than gross draw,
+  // forcing liquid drawdown to cover the IRAS tax drag alongside any remaining spend gap.
+  assert.ok(
+    pt65Srs.monthlyLiquidDraw > 0 || pt65Srs.monthlyShortfall > 0,
+    "Ballooning SRS withdrawal tax must be covered by liquid buckets or surfaced as shortfall",
+  );
+
+  // 4. Model M2: outsideAllocationGuide caps srsMonthly at srsEligible / 12 under $80k relief cap
+  const pCapM2 = {
+    age: 35,
+    salary: 15000,
+    existingReliefs: 57600,
+    retire: 60,
+    lifestyle: "cca",
+    invest: 5000,
+  };
+  const sumM2 = M.calculate(pCapM2);
+  const simM2 = M.simulate(pCapM2, "salary", { summary: sumM2 });
+  const guideM2 = M.outsideAllocationGuide(sumM2, simM2, pCapM2);
+  const srsCapMo = Math.min(M.C.srsCap, guideM2.remainingReliefCap) / 12;
+  assert.ok(
+    guideM2.split.srsMonthly <= srsCapMo + 0.01,
+    `srsMonthly (${guideM2.split.srsMonthly}) must not exceed srsEligible/12 (${srsCapMo})`,
+  );
+
+  // 5. Model M3: solveBucketAwareSimulation Coast-FIRE returns 0 (not srsMo) & solves high-spend > $250k/mo
+  const coastRes = M.solveBucketAwareSimulation(
+    {
+      age: 35,
+      salary: 12000,
+      retire: 60,
+      lifestyle: "cca",
+      equities: 3000000,
+      srsAnnual: 15300,
+    },
+    "salary",
+  );
+  assert.equal(coastRes.simulation.selectedScenario.privateSaving, 0);
+  assert.equal(coastRes.fire.fireNumber.fullyFundedTo95, true);
+
+  const highSpendRes = M.solveBucketAwareSimulation(
+    {
+      age: 54,
+      salary: 10000,
+      retire: 55,
+      lifestyle: "home-helper",
+      spend: 50000,
+      oa: 0,
+      sa: 0,
+      ma: 0,
+      equities: 0,
+      returnRate: 0.04,
+    },
+    "salary",
+  );
+  assert.equal(highSpendRes.fire.fireNumber.fullyFundedTo95, true);
+  assert.equal(highSpendRes.fire.fireNumber.depletionAge, null);
+
+  // 6. Model M5: firePlan retiringNow does not subtract monthly cashSaving from lump-sum shortfall
+  const fpRetNow0 = M.firePlan(
+    {
+      age: 40,
+      salary: 5000,
+      retire: 40,
+      lifestyle: "home-helper",
+      equities: 100000,
+      cashSaving: 0,
+    },
+    "salary",
+  );
+  const fpRetNow1k = M.firePlan(
+    {
+      age: 40,
+      salary: 5000,
+      retire: 40,
+      lifestyle: "home-helper",
+      equities: 100000,
+      cashSaving: 1000,
+    },
+    "salary",
+  );
+  assert.equal(
+    fpRetNow1k.fireNumber.requiredInvestTo95,
+    fpRetNow0.fireNumber.requiredInvestTo95,
+  );
+
+  // 7. Model M6: NaN guards in evaluateDividendYield and computeHousingPayment
+  const divNan = M.evaluateDividendYield({
+    capital: 100000,
+    ratePct: 5,
+    inflationRate: "abc",
+  });
+  assert.ok(Number.isFinite(divNan.realMonthlyPayout));
+  assert.ok(Number.isFinite(divNan.inflationPct));
+
+  const houseNan = M.computeHousingPayment({
+    mode: "bank",
+    loanRate: "abc",
+    loanBalance: 300000,
+    loanYears: 20,
+    loanParties: 1,
+  });
+  assert.ok(Number.isFinite(houseNan.ratePct));
+  assert.ok(Number.isFinite(houseNan.monthlyShare));
+
+  // 8. Model L3 & L4: sweepCashAccountsOverflow preserves high-base accounts & avoids duplicate IDs; phase2.years & taxSweetSpot retiringNow
+  const swept = M.sweepCashAccountsOverflow([
+    {
+      id: "cash-1",
+      preset: "custom",
+      name: "High Base Custom",
+      balance: 150000,
+      bonusCap: 100000,
+      bonusRatePct: 3.5,
+      baseRatePct: 3.0,
+    },
+    {
+      id: "cash-3",
+      preset: "dbs-multiplier",
+      name: "DBS Multiplier",
+      balance: 150000,
+      bonusCap: 100000,
+      bonusRatePct: 2.0,
+      baseRatePct: 0.05,
+    },
+  ]);
+  const ids = swept.map((r) => r.id);
+  assert.equal(
+    new Set(ids).size,
+    ids.length,
+    "Swept account IDs must be unique",
+  );
+  assert.equal(
+    swept.find((r) => r.id === "cash-1").balance,
+    150000,
+    "Account with baseRatePct >= SSB benchmark should not be swept",
+  );
+
+  const fpRet70 = M.firePlan(
+    { age: 50, salary: 6000, retire: 70, lifestyle: "cca", longevityAge: 95 },
+    "salary",
+  );
+  assert.equal(fpRet70.phase2.years, 25);
+
+  const txRetNow = M.taxSweetSpot({
+    age: 40,
+    salary: 8000,
+    retire: 40,
+    lifestyle: "home-helper",
+  });
+  assert.equal(txRetNow.srsMaxSafeAnnualTo400k, 0);
+});
+
+test("Audit Phases 1-5 regressions: Tap 3/4 non-overlap, over-funded requiredInvestTo95, net SRS income, age>65 CPF, negative extraInterest, SSB cap breakdown, SRS up to retire", () => {
+  const M = require("./model.js");
+  // 1. Tap 3 + Tap 4 must not double-count bond-sleeve cash on a 60/40 portfolio
+  const p6040 = {
+    age: 35,
+    salary: 8000,
+    retire: 65,
+    lifestyle: "cca",
+    targetEquityPct: 60,
+    invest: 2000,
+    cashSaving: 500,
+    equities: 50000,
+    ssbCash: 30000,
+  };
+  const sum6040 = M.calculate(p6040);
+  const fp6040 = M.firePlan(p6040, "frs", { summary: sum6040 });
+  const taps6040 = M.retirementTapsPlan({
+    summary: sum6040,
+    params: p6040,
+    fire: fp6040,
+  });
+  const ptRet = fp6040.atRetire;
+  const expectedTotalLiquid =
+    Math.round(ptRet.today.liquidEquities) + Math.round(ptRet.today.ssbCash);
+  assert.equal(
+    taps6040.tap3Equities.projectedInvestAtRetireToday +
+      taps6040.tap4Ssb.projectedSsbCashAtRetireToday,
+    expectedTotalLiquid,
+    "Tap 3 + Tap 4 must equal total liquid portfolio with zero bond-sleeve double-counting",
+  );
+
+  // 2. Over-funded plan reports requiredInvestTo95 === 0 instead of current invest
+  const fpOver = M.firePlan(
+    {
+      age: 35,
+      salary: 8000,
+      retire: 65,
+      lifestyle: "cca",
+      equities: 2000000,
+      invest: 5000,
+    },
+    "frs",
+  );
+  assert.equal(fpOver.fireNumber.depletionAge, null);
+  assert.equal(
+    fpOver.fireNumber.requiredInvestTo95,
+    0,
+    "Already self-sustaining plan must report $0 required monthly investment",
+  );
+
+  // 3. firePlan monthlyTotalIncome uses net post-tax SRS drawdown (never inflates by IRAS tax)
+  const fpSrsTax = M.firePlan(
+    {
+      age: 40,
+      salary: 12000,
+      retire: 63,
+      lifestyle: "home-helper",
+      srs: 200000,
+      srsAnnual: 15300,
+      srsInvestedIn: "global",
+      equities: 300000,
+    },
+    "frs",
+  );
+  const pt64 = fpSrsTax.points.find((pt) => pt.age === 64);
+  assert.ok(pt64 && pt64.monthlySrsTax > 0, "Expected SRS withdrawal tax at age 64");
+  assert.ok(
+    pt64.monthlyTotalIncome <= pt64.monthlySpend + 0.05,
+    "monthlyTotalIncome must not exceed monthlySpend by SRS tax remitted to IRAS",
+  );
+
+  // 4. allocation() handles age > 65 statutory bands (16.5% for 65-70, 12.5% for >70)
+  assert.equal(M.allocation(68, 2027)[2], 0.165);
+  assert.equal(M.allocation(72, 2027)[2], 0.125);
+
+  // 5. extraInterest() clamps negative balances to 0
+  const exNeg = M.extraInterest({ oa: -10000, sa: 20000, ma: 20000, ra: 0 }, 35);
+  assert.equal(exNeg.sa, 200);
+  assert.equal(exNeg.ma, 200);
+
+  // 6. taxSweetSpot allows SRS contributions up to retire (> 63) and models 10-yr return during drawdown
+  const txRet63 = M.taxSweetSpot({
+    age: 40,
+    salary: 12000,
+    retire: 63,
+    srs: 20000,
+    srsAnnual: 15300,
+    srsInvestedIn: "global",
+  });
+  const txRet65 = M.taxSweetSpot({
+    age: 40,
+    salary: 12000,
+    retire: 65,
+    srs: 20000,
+    srsAnnual: 15300,
+    srsInvestedIn: "global",
+  });
+  assert.ok(
+    txRet65.srsProjectedAt63 > txRet63.srsProjectedAt63,
+    "Allowing SRS contributions up to retire=65 must project higher SRS pot than retiring at 63",
+  );
+  assert.ok(
+    txRet63.srsTenYearAnnualDraw > txRet63.srsProjectedAt63 / 10,
+    "Invested SRS 10-year annual drawdown must reflect ongoing returns during drawdown",
+  );
+
+  // 7. computeCashAccountsBreakdown caps SSB sweep gain at $200k SSB limit
+  const bdCap = M.computeCashAccountsBreakdown([
+    { id: "c1", preset: "ssb", name: "MAS SSB", balance: 200000, bonusCap: 200000, bonusRatePct: 2.39, baseRatePct: 2.39 },
+    { id: "c2", preset: "dbs-multiplier", name: "DBS", balance: 150000, bonusCap: 100000, bonusRatePct: 2.0, baseRatePct: 0.05 },
+  ]);
+  const expectedTbillGain = 50000 * ((M.DEFAULT_MAS_LIVE_RATES.tbills.sixMonth.cutoffYield - 0.05) / 100);
+  assert.ok(
+    Math.abs(bdCap.potentialExtraAnnualInterest - expectedTbillGain) < 1,
+    "Overflow above $200k SSB cap must be priced at 6M T-Bill yield, not SSB yield",
+  );
+
+  // 8. paycheckAllocation fallback honors 100% equity without clamping to 95%
+  const pay100 = M.paycheckAllocation(
+    { age: 35, salary: 8000, targetEquityPct: 100, sgSleevePct: 0, invest: 1000 },
+    "frs",
+    { bogle: { monthlyRebalance: { buyGlobalMonthly: 0, buySgMonthly: 0, buyBondMonthly: 0 } } },
+  );
+  assert.equal(pay100.ssbMo, 0, "100% equity target must not clamp to 95%/5% bond split");
 });

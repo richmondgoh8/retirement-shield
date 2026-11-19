@@ -56,6 +56,7 @@
                   stroke-width="2.2"
                   stroke-linecap="round"
                   stroke-linejoin="round"
+                  aria-hidden="true"
                 >
                   <path d="M12 21s7-3.5 7-9V5l-7-2.5L5 5v7c0 5.5 7 9 7 9z" />
                   <path d="M9 14v-2.5" />
@@ -91,13 +92,19 @@
               </svg>
             </button>
           </div>
-          <nav class="sidebar-nav" role="tablist" aria-label="Core views">
-            <div class="sidebar-group">
+          <nav
+            class="sidebar-nav"
+            role="tablist"
+            aria-orientation="vertical"
+            aria-label="Core views"
+          >
+            <div class="sidebar-group" role="presentation">
               <button
                 type="button"
                 class="sidebar-tab is-active"
                 data-tab="overview"
                 role="tab"
+                aria-controls="tab-panel-overview"
                 aria-selected="true"
                 title="Overview"
               >
@@ -130,6 +137,7 @@
                 class="sidebar-tab"
                 data-tab="trajectory"
                 role="tab"
+                aria-controls="tab-panel-trajectory"
                 aria-selected="false"
                 title="Trajectory"
               >
@@ -160,6 +168,7 @@
                 class="sidebar-tab"
                 data-tab="allocator"
                 role="tab"
+                aria-controls="tab-panel-allocator"
                 aria-selected="false"
                 title="Allocator"
               >
@@ -190,6 +199,7 @@
                 class="sidebar-tab"
                 data-tab="cash-parking"
                 role="tab"
+                aria-controls="tab-panel-cash-parking"
                 aria-selected="false"
                 title="Cash Parking & Yield"
               >
@@ -214,16 +224,19 @@
                   class="sidebar-badge"
                   id="nav-badge-cash"
                   aria-hidden="true"
-                  >7</span
+                  >2.39%</span
                 >
               </button>
-              <div class="sidebar-subgroup">
-                <span class="sidebar-group-heading">Tax &amp; Rules</span>
+              <div class="sidebar-subgroup" role="presentation">
+                <span class="sidebar-group-heading" aria-hidden="true"
+                  >Tax &amp; Rules</span
+                >
                 <button
                   type="button"
                   class="sidebar-tab is-child"
                   data-tab="tax"
                   role="tab"
+                  aria-controls="tab-panel-tax"
                   aria-selected="false"
                   title="Tax Relief (RSTU &amp; SRS)"
                 >
@@ -255,6 +268,7 @@
                   class="sidebar-tab is-child"
                   data-tab="cpf-rules"
                   role="tab"
+                  aria-controls="tab-panel-cpf-rules"
                   aria-selected="false"
                   title="CPF Milestones &amp; Age 55"
                 >
@@ -288,6 +302,7 @@
                   class="sidebar-tab is-child"
                   data-tab="dividend-calc"
                   role="tab"
+                  aria-controls="tab-panel-dividend-calc"
                   aria-selected="false"
                   title="Dividend &amp; Yield Calculator"
                 >
@@ -387,6 +402,7 @@
                   stroke-width="2.2"
                   stroke-linecap="round"
                   stroke-linejoin="round"
+                  aria-hidden="true"
                 >
                   <path d="M12 21s7-3.5 7-9V5l-7-2.5L5 5v7c0 5.5 7 9 7 9z" />
                   <path d="M9 14v-2.5" />
@@ -407,6 +423,35 @@
               >
                 <span class="update-dot" aria-hidden="true"></span>
                 <span>Update Ready · Reload</span>
+              </button>
+              <button
+                class="button button-small share-header-button"
+                type="button"
+                id="share-plan-btn"
+                data-share-plan
+                aria-label="Copy shareable plan link"
+                title="Copy shareable URL link for this retirement plan (no server upload)"
+              >
+                <svg
+                  class="btn-icon"
+                  viewBox="0 0 24 24"
+                  width="15"
+                  height="15"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
+                  />
+                  <path
+                    d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+                  />
+                </svg>
+                <span class="hide-sm">Share</span>
               </button>
               <button
                 class="button button-small settings-header-button"
@@ -507,6 +552,33 @@
                   <button
                     type="button"
                     class="button button-small"
+                    data-share-plan
+                    title="Copy a URL hash link encoding this plan"
+                  >
+                    <svg
+                      class="btn-icon"
+                      viewBox="0 0 24 24"
+                      width="15"
+                      height="15"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
+                      />
+                      <path
+                        d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+                      />
+                    </svg>
+                    <span>Copy Share Link</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="button button-small"
                     id="export-json-btn"
                     title="Download your retirement plan as a JSON file"
                   >
@@ -556,6 +628,7 @@
                     type="file"
                     id="import-json-file"
                     accept=".json,application/json"
+                    aria-label="Import retirement plan JSON file"
                     hidden
                   />
                   <button
@@ -580,6 +653,98 @@
                   class="settings-error-actions"
                   hidden
                 ></div>
+
+                <section
+                  class="card-surface settings-card persona-presets-card"
+                  id="persona-presets-strip"
+                  aria-labelledby="settings-personas-heading"
+                >
+                  <div class="persona-presets-head">
+                    <div>
+                      <h2 id="settings-personas-heading">
+                        Singapore Starter Archetypes
+                      </h2>
+                      <p class="settings-card-sub">
+                        Load a realistic Singapore profile to explore CPF,
+                        housing, SRS, and early retirement trade-offs in one
+                        click.
+                      </p>
+                    </div>
+                    <button type="button" class="text-button" data-sg-reset>
+                      Reset to baseline
+                    </button>
+                  </div>
+                  <div
+                    class="persona-presets-grid"
+                    role="group"
+                    aria-label="Singapore household presets"
+                  >
+                    <button
+                      type="button"
+                      class="persona-preset-btn"
+                      data-persona-preset="fresh-grad"
+                    >
+                      <span class="persona-preset-top">
+                        <strong>Fresh Grad</strong>
+                        <span class="persona-preset-badge"
+                          >Age 25 · $4.5k/mo</span
+                        >
+                      </span>
+                      <span class="persona-preset-desc"
+                        >35-year runway, low starting CPF, 90/10 growth
+                        tilt.</span
+                      >
+                    </button>
+                    <button
+                      type="button"
+                      class="persona-preset-btn"
+                      data-persona-preset="hdb-family"
+                    >
+                      <span class="persona-preset-top">
+                        <strong>HDB Dual-Income</strong>
+                        <span class="persona-preset-badge"
+                          >Age 35 · $6.8k/mo</span
+                        >
+                      </span>
+                      <span class="persona-preset-desc"
+                        >Split 4-room HDB mortgage from CPF OA + Home &amp;
+                        Helper budget.</span
+                      >
+                    </button>
+                    <button
+                      type="button"
+                      class="persona-preset-btn"
+                      data-persona-preset="henry-srs"
+                    >
+                      <span class="persona-preset-top">
+                        <strong>HENRY Above Cap</strong>
+                        <span class="persona-preset-badge"
+                          >Age 42 · $14k/mo</span
+                        >
+                      </span>
+                      <span class="persona-preset-desc"
+                        >Above $8k OW cap · Max SRS ($15.3k) + Family Cash RSTU
+                        ($8k).</span
+                      >
+                    </button>
+                    <button
+                      type="button"
+                      class="persona-preset-btn"
+                      data-persona-preset="barista-fire-50"
+                    >
+                      <span class="persona-preset-top">
+                        <strong>Barista FIRE 55</strong>
+                        <span class="persona-preset-badge"
+                          >Age 50 · Retire 55</span
+                        >
+                      </span>
+                      <span class="persona-preset-desc"
+                        >Paid-up flat + $1,500/mo part-time bridge from 55 to
+                        65.</span
+                      >
+                    </button>
+                  </div>
+                </section>
 
                 <section
                   class="card-surface settings-card"
@@ -1133,6 +1298,27 @@
                         personal relief cap applies.
                       </small>
                     </div>
+                    <div class="field">
+                      <label for="known-family-rstu"
+                        >Spouse / Family CPF cash top-up ($/yr)</label
+                      >
+                      <div class="input-wrap">
+                        <span>$</span
+                        ><input
+                          id="known-family-rstu"
+                          type="number"
+                          min="0"
+                          max="8000"
+                          step="any"
+                          placeholder="0"
+                          inputmode="decimal"
+                        />
+                      </div>
+                      <small>
+                        Separate IRAS tax relief up to $8,000/yr for cash RSTU
+                        to spouse, parents, or grandparents (within $80k cap).
+                      </small>
+                    </div>
                   </div>
                 </section>
 
@@ -1163,6 +1349,57 @@
                 role="status"
                 aria-atomic="true"
               ></p>
+              <div
+                id="shared-sandbox-banner"
+                class="shared-sandbox-banner"
+                role="region"
+                aria-label="Shared plan sandbox notice"
+                hidden
+              >
+                <div class="shared-sandbox-copy">
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="18"
+                    height="18"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
+                    />
+                    <path
+                      d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+                    />
+                  </svg>
+                  <div>
+                    <strong>Viewing Shared Plan Link (Sandbox Mode)</strong>
+                    <span
+                      >Your existing browser-saved plan is untouched unless you
+                      choose to overwrite it.</span
+                    >
+                  </div>
+                </div>
+                <div class="shared-sandbox-actions">
+                  <button
+                    type="button"
+                    class="button button-small button-primary"
+                    id="sandbox-save-btn"
+                  >
+                    Save to My Browser
+                  </button>
+                  <button
+                    type="button"
+                    class="button button-small"
+                    id="sandbox-revert-btn"
+                  >
+                    Revert to My Saved Plan
+                  </button>
+                </div>
+              </div>
               <div
                 id="plan-error-banner"
                 class="plan-error-banner"
@@ -1306,7 +1543,8 @@
                       </div>
                       <div class="field">
                         <label for="sim-invest"
-                          >Monthly planned investment (Outside investments)</label
+                          >Monthly planned investment (Outside
+                          investments)</label
                         >
                         <div class="saving-stepper">
                           <button
@@ -1342,6 +1580,47 @@
                         <small id="sim-invest-help"
                           >Separate from CPF (HYSA, SSBs, SRS, ETFs). Leave
                           blank for the suggested amount.</small
+                        >
+                      </div>
+                      <div class="field">
+                        <label for="sim-bridge-income"
+                          >Part-time / Barista income before 65</label
+                        >
+                        <div class="saving-stepper">
+                          <button
+                            type="button"
+                            data-adjust="sim-bridge-income"
+                            data-delta="-100"
+                            aria-label="Decrease bridge income by 100 dollars"
+                          >
+                            −
+                          </button>
+                          <div class="input-wrap">
+                            <span>$</span
+                            ><input
+                              id="sim-bridge-income"
+                              name="bridgeIncomeSimulation"
+                              type="number"
+                              min="0"
+                              max="1000000"
+                              step="any"
+                              inputmode="decimal"
+                              placeholder="0"
+                              aria-describedby="sim-bridge-help"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            data-adjust="sim-bridge-income"
+                            data-delta="100"
+                            aria-label="Increase bridge income by 100 dollars"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <small id="sim-bridge-help"
+                          >Optional monthly income (today’s $) earned from
+                          retirement age until 65 before CPF LIFE starts.</small
                         >
                       </div>
                     </div>
@@ -1416,6 +1695,30 @@
                             Portfolio Balance
                           </button>
                         </div>
+                        <div
+                          class="btn-group traj-basis-group"
+                          role="group"
+                          aria-label="Dollar purchasing power basis"
+                        >
+                          <button
+                            type="button"
+                            class="btn-toggle is-active"
+                            data-traj-basis="today"
+                            aria-pressed="true"
+                            title="Inflation-adjusted purchasing power in today’s dollars"
+                          >
+                            Today’s $
+                          </button>
+                          <button
+                            type="button"
+                            class="btn-toggle"
+                            data-traj-basis="nominal"
+                            aria-pressed="false"
+                            title="Nominal future statement dollars before discounting inflation"
+                          >
+                            Future $
+                          </button>
+                        </div>
                       </div>
                     </div>
                     <div class="chart-wrapper">
@@ -1432,6 +1735,18 @@
                       ></div>
                     </div>
                     <div class="chart-legend" id="chart-legend"></div>
+                    <p class="traj-click-hint" id="trajectory-click-hint">
+                      Click any age bar or point on the chart (or any row in the
+                      yearly table) to open its single-year CPF &amp; 4-Tap
+                      audit breakdown.
+                    </p>
+                    <div
+                      id="trajectory-year-inspector"
+                      class="traj-inspector-card"
+                      role="region"
+                      aria-label="Single-year cashflow and CPF audit inspector"
+                      hidden
+                    ></div>
                     <details class="result-details">
                       <summary>Explore the yearly figures table</summary>
                       <p>
@@ -1480,6 +1795,47 @@
                 aria-label="Allocator"
                 hidden
               >
+                <nav class="ui-breadcrumb" aria-label="Breadcrumb">
+                  <button
+                    type="button"
+                    class="ui-breadcrumb-link"
+                    data-go-tab="overview"
+                  >
+                    Overview
+                  </button>
+                  <span class="ui-breadcrumb-sep" aria-hidden="true">/</span>
+                  <span class="ui-breadcrumb-group">Planning</span>
+                  <span class="ui-breadcrumb-sep" aria-hidden="true">/</span>
+                  <span class="ui-breadcrumb-cur" aria-current="page"
+                    >Portfolio Allocator</span
+                  >
+                </nav>
+                <div
+                  class="rules-subtabs"
+                  role="tablist"
+                  aria-label="Allocator and Yield tools"
+                >
+                  <button
+                    type="button"
+                    class="rules-subtab is-active"
+                    data-tab="allocator"
+                    role="tab"
+                    aria-controls="tab-panel-allocator"
+                    aria-selected="true"
+                  >
+                    Portfolio Allocator
+                  </button>
+                  <button
+                    type="button"
+                    class="rules-subtab"
+                    data-tab="dividend-calc"
+                    role="tab"
+                    aria-controls="tab-panel-dividend-calc"
+                    aria-selected="false"
+                  >
+                    Dividend &amp; Yield
+                  </button>
+                </div>
                 <div id="allocator-slot"></div>
               </section>
 
@@ -1490,6 +1846,19 @@
                 aria-label="Cash Parking"
                 hidden
               >
+                <nav class="ui-breadcrumb" aria-label="Breadcrumb">
+                  <button
+                    type="button"
+                    class="ui-breadcrumb-link"
+                    data-go-tab="overview"
+                  >
+                    Overview
+                  </button>
+                  <span class="ui-breadcrumb-sep" aria-hidden="true">/</span>
+                  <span class="ui-breadcrumb-cur" aria-current="page"
+                    >Cash Parking &amp; Yield Mediums</span
+                  >
+                </nav>
                 <div id="cash-parking-slot"></div>
               </section>
 
@@ -1500,6 +1869,47 @@
                 aria-label="Dividend &amp; Yield Calculator"
                 hidden
               >
+                <nav class="ui-breadcrumb" aria-label="Breadcrumb">
+                  <button
+                    type="button"
+                    class="ui-breadcrumb-link"
+                    data-go-tab="overview"
+                  >
+                    Overview
+                  </button>
+                  <span class="ui-breadcrumb-sep" aria-hidden="true">/</span>
+                  <span class="ui-breadcrumb-group">Utility</span>
+                  <span class="ui-breadcrumb-sep" aria-hidden="true">/</span>
+                  <span class="ui-breadcrumb-cur" aria-current="page"
+                    >Dividend &amp; Yield Calculator</span
+                  >
+                </nav>
+                <div
+                  class="rules-subtabs"
+                  role="tablist"
+                  aria-label="Allocator and Yield tools"
+                >
+                  <button
+                    type="button"
+                    class="rules-subtab"
+                    data-tab="allocator"
+                    role="tab"
+                    aria-controls="tab-panel-allocator"
+                    aria-selected="false"
+                  >
+                    Portfolio Allocator
+                  </button>
+                  <button
+                    type="button"
+                    class="rules-subtab is-active"
+                    data-tab="dividend-calc"
+                    role="tab"
+                    aria-controls="tab-panel-dividend-calc"
+                    aria-selected="true"
+                  >
+                    Dividend &amp; Yield
+                  </button>
+                </div>
                 <div id="dividend-calc-slot"></div>
               </section>
 
@@ -1535,6 +1945,7 @@
                     class="rules-subtab is-active"
                     data-tab="tax"
                     role="tab"
+                    aria-controls="tab-panel-tax"
                     aria-selected="true"
                   >
                     Tax Relief
@@ -1544,6 +1955,7 @@
                     class="rules-subtab"
                     data-tab="cpf-rules"
                     role="tab"
+                    aria-controls="tab-panel-cpf-rules"
                     aria-selected="false"
                   >
                     CPF Milestones
@@ -1584,6 +1996,7 @@
                     class="rules-subtab"
                     data-tab="tax"
                     role="tab"
+                    aria-controls="tab-panel-tax"
                     aria-selected="false"
                   >
                     Tax Relief
@@ -1593,6 +2006,7 @@
                     class="rules-subtab is-active"
                     data-tab="cpf-rules"
                     role="tab"
+                    aria-controls="tab-panel-cpf-rules"
                     aria-selected="true"
                   >
                     CPF Milestones
@@ -1618,6 +2032,7 @@
         class="mobile-tab is-active"
         data-tab="overview"
         role="tab"
+        aria-controls="tab-panel-overview"
         aria-selected="true"
       >
         <svg
@@ -1643,6 +2058,7 @@
         class="mobile-tab"
         data-tab="trajectory"
         role="tab"
+        aria-controls="tab-panel-trajectory"
         aria-selected="false"
       >
         <svg
@@ -1665,7 +2081,9 @@
         type="button"
         class="mobile-tab"
         data-tab="allocator"
+        data-tab-group="allocator"
         role="tab"
+        aria-controls="tab-panel-allocator"
         aria-selected="false"
       >
         <svg
@@ -1689,6 +2107,7 @@
         class="mobile-tab"
         data-tab="cash-parking"
         role="tab"
+        aria-controls="tab-panel-cash-parking"
         aria-selected="false"
       >
         <svg
@@ -1715,6 +2134,7 @@
         data-tab="tax"
         data-tab-group="tax"
         role="tab"
+        aria-controls="tab-panel-tax"
         aria-selected="false"
       >
         <svg
@@ -1784,6 +2204,7 @@
                   <option value="0.05" selected>
                     5.0% / year (Balanced default)
                   </option>
+                  <option value="0.055">5.5% / year (Growth-balanced)</option>
                   <option value="0.06">
                     6.0% / year (Growth / equity-tilted)
                   </option>
@@ -1813,7 +2234,7 @@
             </div>
             <div class="field">
               <div class="toggle-label-row">
-                <label for="known-post55" id="post55-toggle-label"
+                <label for="post55-toggle-switch" id="post55-toggle-label"
                   >Senior salary CPF (ages 55–65)</label
                 >
                 <button
@@ -1860,6 +2281,43 @@
                 meanwhile.</small
               >
             </div>
+            <div class="field">
+              <label for="known-longevity">Longevity planning horizon</label>
+              <div class="input-wrap select-wrap">
+                <select id="known-longevity">
+                  <option value="" selected>Age 95 (Default horizon)</option>
+                  <option value="85">Age 85 (Shorter horizon)</option>
+                  <option value="90">Age 90 (Standard baseline)</option>
+                  <option value="95">Age 95 (Extended horizon)</option>
+                  <option value="100">Age 100 (Centenarian)</option>
+                </select>
+              </div>
+              <small
+                >CPF LIFE pays for life; outside portfolio drawdown is sized to
+                last through this age.</small
+              >
+            </div>
+            <div class="field">
+              <label for="known-bridge-income"
+                >Part-time / Barista income before 65 ($/mo)</label
+              >
+              <div class="input-wrap">
+                <span>$</span
+                ><input
+                  id="known-bridge-income"
+                  type="number"
+                  min="0"
+                  max="1000000"
+                  step="any"
+                  placeholder="0"
+                  inputmode="decimal"
+                />
+              </div>
+              <small
+                >Optional monthly income (today’s $) earned between early
+                retirement and age 65.</small
+              >
+            </div>
           </div>
           <div class="assumptions-baseline-note">
             <strong>What preset budgets include</strong>
@@ -1886,23 +2344,34 @@
         <input id="known-savings" type="hidden" value="" />
         <p id="settings-error" class="settings-error" role="status"></p>
       </div>
-      <div class="settings-footer">
+      <div class="settings-footer qe-footer">
         <p
           id="settings-live-summary"
+          class="qe-live-summary"
           role="status"
           aria-live="polite"
           aria-atomic="true"
         ></p>
-        <button type="button" class="text-button" id="reset-settings">
-          Reset assumptions</button
-        ><button
-          type="button"
-          class="button button-primary"
-          commandfor="plan-settings"
-          command="close"
-        >
-          Done
-        </button>
+        <div class="qe-footer-actions">
+          <button type="button" class="text-button" id="reset-settings">
+            Reset assumptions
+          </button>
+          <button
+            type="button"
+            class="button button-small"
+            data-settings-cancel
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="button button-primary"
+            commandfor="plan-settings"
+            command="close"
+          >
+            Done
+          </button>
+        </div>
       </div>
     </dialog>
 
@@ -2198,7 +2667,8 @@
                 </button>
               </div>
               <p class="qe-hint" id="qe-cpf-extra-hint">
-                Leave blank for target path suggestion. Compounds at 4.0% p.a. in SA / RA.
+                Leave blank for target path suggestion. Compounds at 4.0% p.a.
+                in SA / RA.
               </p>
               <div
                 class="qe-salary-split"
@@ -2207,7 +2677,11 @@
               ></div>
             </div>
             <div class="qe-income-actions">
-              <button type="button" id="qe-cpf-extra-reset" class="fin-link-pill qe-reset-pill">
+              <button
+                type="button"
+                id="qe-cpf-extra-reset"
+                class="fin-link-pill qe-reset-pill"
+              >
                 Reset to path suggestion
               </button>
             </div>
@@ -2217,7 +2691,9 @@
         <div id="qe-panel-cash-saving" class="qe-panel" hidden>
           <div class="qe-stack">
             <div class="qe-field">
-              <label for="qe-cash-saving">Monthly planned savings (HYSA / SSB)</label>
+              <label for="qe-cash-saving"
+                >Monthly planned savings (HYSA / SSB)</label
+              >
               <div class="saving-stepper">
                 <button
                   type="button"
@@ -2287,7 +2763,9 @@
               </p>
             </div>
             <div class="qe-field">
-              <label for="qe-cash-return">Projected HYSA / SSB interest rate (% p.a.)</label>
+              <label for="qe-cash-return"
+                >Projected HYSA / SSB interest rate (% p.a.)</label
+              >
               <div class="saving-stepper">
                 <button
                   type="button"
@@ -2367,7 +2845,11 @@
               ></div>
             </div>
             <div class="qe-income-actions">
-              <button type="button" id="qe-cash-saving-reset" class="fin-link-pill qe-reset-pill">
+              <button
+                type="button"
+                id="qe-cash-saving-reset"
+                class="fin-link-pill qe-reset-pill"
+              >
                 Reset savings &amp; rate to default
               </button>
             </div>
@@ -2377,7 +2859,9 @@
         <div id="qe-panel-invest" class="qe-panel" hidden>
           <div class="qe-stack">
             <div class="qe-field">
-              <label for="qe-invest">Monthly planned investment (Outside investments)</label>
+              <label for="qe-invest"
+                >Monthly planned investment (Outside investments)</label
+              >
               <div class="saving-stepper">
                 <button
                   type="button"
@@ -2451,13 +2935,25 @@
                 <div class="bogle-funnel-head">
                   <div class="bogle-funnel-title-wrap">
                     <span class="bogle-step-badge">Step 1 · Total Split</span>
-                    <label for="qe-target-equity">Target Equity / Bond Split</label>
+                    <label for="qe-target-equity"
+                      >Target Equity / Bond Split</label
+                    >
                   </div>
-                  <strong class="bogle-funnel-readout" id="qe-target-equity-readout">80% Equity · 20% Bond</strong>
+                  <strong
+                    class="bogle-funnel-readout"
+                    id="qe-target-equity-readout"
+                    >80% Equity · 20% Bond</strong
+                  >
                 </div>
                 <div class="bogle-stage1-bar" aria-hidden="true">
-                  <span id="qe-stage1-eq-bar" style="width:80%;background:var(--primary);"></span>
-                  <span id="qe-stage1-bond-bar" style="width:20%;background:var(--sem-cpf);"></span>
+                  <span
+                    id="qe-stage1-eq-bar"
+                    style="width: 80%; background: var(--primary)"
+                  ></span>
+                  <span
+                    id="qe-stage1-bond-bar"
+                    style="width: 20%; background: var(--sem-cash)"
+                  ></span>
                 </div>
                 <div class="bogle-funnel-controls">
                   <div class="saving-stepper bogle-stepper">
@@ -2479,7 +2975,9 @@
                         value="80"
                         inputmode="numeric"
                       />
-                      <span id="qe-target-equity-suffix">% Equity (20% Bond)</span>
+                      <span id="qe-target-equity-suffix"
+                        >% Equity (20% Bond)</span
+                      >
                     </div>
                     <button
                       type="button"
@@ -2495,31 +2993,96 @@
                     role="group"
                     aria-label="Target equity and bond split presets"
                   >
-                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-target-equity" data-val="0">0/100</button>
-                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-target-equity" data-val="50">50/50</button>
-                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-target-equity" data-val="60">60/40</button>
-                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-target-equity" data-val="70">70/30</button>
-                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-target-equity" data-val="80">80/20</button>
-                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-target-equity" data-val="90">90/10</button>
-                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-target-equity" data-val="100">100/0</button>
+                    <button
+                      type="button"
+                      class="qe-picker-chip"
+                      data-bogle-preset="known-target-equity"
+                      data-val="0"
+                    >
+                      0/100
+                    </button>
+                    <button
+                      type="button"
+                      class="qe-picker-chip"
+                      data-bogle-preset="known-target-equity"
+                      data-val="50"
+                    >
+                      50/50
+                    </button>
+                    <button
+                      type="button"
+                      class="qe-picker-chip"
+                      data-bogle-preset="known-target-equity"
+                      data-val="60"
+                    >
+                      60/40
+                    </button>
+                    <button
+                      type="button"
+                      class="qe-picker-chip"
+                      data-bogle-preset="known-target-equity"
+                      data-val="70"
+                    >
+                      70/30
+                    </button>
+                    <button
+                      type="button"
+                      class="qe-picker-chip"
+                      data-bogle-preset="known-target-equity"
+                      data-val="80"
+                    >
+                      80/20
+                    </button>
+                    <button
+                      type="button"
+                      class="qe-picker-chip"
+                      data-bogle-preset="known-target-equity"
+                      data-val="90"
+                    >
+                      90/10
+                    </button>
+                    <button
+                      type="button"
+                      class="qe-picker-chip"
+                      data-bogle-preset="known-target-equity"
+                      data-val="100"
+                    >
+                      100/0
+                    </button>
                   </div>
                 </div>
               </div>
 
               <div class="bogle-funnel-connector" aria-hidden="true">
                 <span class="bogle-connector-elbow"></span>
-                <span class="bogle-connector-badge" id="qe-funnel-connector-text">Subdivides your <strong>80% Equity Sleeve</strong> into Global vs SG Dividend</span>
+                <span
+                  class="bogle-connector-badge"
+                  id="qe-funnel-connector-text"
+                  >Subdivides your <strong>80% Equity Sleeve</strong> into
+                  Global vs SG Dividend</span
+                >
               </div>
 
               <div class="bogle-funnel-stage is-stage-2" id="qe-funnel-stage-2">
                 <div class="bogle-funnel-head">
                   <div class="bogle-funnel-title-wrap">
-                    <span class="bogle-step-badge is-sub" id="qe-stage2-badge">Step 2 · Inside 80% Equity</span>
-                    <label for="qe-sg-sleeve">Equity Sleeve Split (Global / SG Dividend)</label>
+                    <span class="bogle-step-badge is-sub" id="qe-stage2-badge"
+                      >Step 2 · Inside 80% Equity</span
+                    >
+                    <label for="qe-sg-sleeve"
+                      >Equity Sleeve Split (Global / SG Dividend)</label
+                    >
                   </div>
                   <div class="bogle-funnel-readout-group">
-                    <strong class="bogle-funnel-readout" id="qe-sg-sleeve-readout">85% Global / 15% SG <span class="bogle-of-eq">of Eq</span></strong>
-                    <span class="bogle-effective-pill" id="qe-sg-effective-pill">= 68% Global · 12% SG of total</span>
+                    <strong
+                      class="bogle-funnel-readout"
+                      id="qe-sg-sleeve-readout"
+                      >85% Global / 15% SG
+                      <span class="bogle-of-eq">of Eq</span></strong
+                    >
+                    <span class="bogle-effective-pill" id="qe-sg-effective-pill"
+                      >= 68% Global · 12% SG of total</span
+                    >
                   </div>
                 </div>
                 <div class="bogle-funnel-controls">
@@ -2558,13 +3121,62 @@
                     role="group"
                     aria-label="Global vs SG equity sleeve presets"
                   >
-                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-sg-sleeve" data-val="0">100/0</button>
-                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-sg-sleeve" data-val="10">90/10</button>
-                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-sg-sleeve" data-val="15">85/15</button>
-                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-sg-sleeve" data-val="20">80/20</button>
-                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-sg-sleeve" data-val="30">70/30</button>
-                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-sg-sleeve" data-val="50">50/50</button>
-                    <button type="button" class="qe-picker-chip" data-bogle-preset="known-sg-sleeve" data-val="100">0/100</button>
+                    <button
+                      type="button"
+                      class="qe-picker-chip"
+                      data-bogle-preset="known-sg-sleeve"
+                      data-val="0"
+                    >
+                      100/0
+                    </button>
+                    <button
+                      type="button"
+                      class="qe-picker-chip"
+                      data-bogle-preset="known-sg-sleeve"
+                      data-val="10"
+                    >
+                      90/10
+                    </button>
+                    <button
+                      type="button"
+                      class="qe-picker-chip"
+                      data-bogle-preset="known-sg-sleeve"
+                      data-val="15"
+                    >
+                      85/15
+                    </button>
+                    <button
+                      type="button"
+                      class="qe-picker-chip"
+                      data-bogle-preset="known-sg-sleeve"
+                      data-val="20"
+                    >
+                      80/20
+                    </button>
+                    <button
+                      type="button"
+                      class="qe-picker-chip"
+                      data-bogle-preset="known-sg-sleeve"
+                      data-val="30"
+                    >
+                      70/30
+                    </button>
+                    <button
+                      type="button"
+                      class="qe-picker-chip"
+                      data-bogle-preset="known-sg-sleeve"
+                      data-val="50"
+                    >
+                      50/50
+                    </button>
+                    <button
+                      type="button"
+                      class="qe-picker-chip"
+                      data-bogle-preset="known-sg-sleeve"
+                      data-val="100"
+                    >
+                      0/100
+                    </button>
                   </div>
                 </div>
               </div>
@@ -2575,7 +3187,11 @@
               aria-live="polite"
             ></div>
             <div class="qe-income-actions">
-              <button type="button" id="qe-invest-reset" class="fin-link-pill qe-reset-pill">
+              <button
+                type="button"
+                id="qe-invest-reset"
+                class="fin-link-pill qe-reset-pill"
+              >
                 Reset to suggested investment &amp; split
               </button>
             </div>
@@ -2852,6 +3468,9 @@
           <button type="button" class="text-button" id="qe-open-full-settings">
             All settings →
           </button>
+          <button type="button" class="button button-small" data-qe-cancel>
+            Cancel
+          </button>
           <button type="button" class="button button-primary" data-qe-close>
             Done
           </button>
@@ -2895,6 +3514,13 @@
             id="exp-modal-open-settings"
           >
             All settings →
+          </button>
+          <button
+            type="button"
+            class="button button-small"
+            data-exp-modal-cancel
+          >
+            Cancel
           </button>
           <button
             type="button"
@@ -2947,6 +3573,7 @@
               stroke-width="2"
               stroke-linecap="round"
               stroke-linejoin="round"
+              aria-hidden="true"
             >
               <path
                 d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
@@ -3012,6 +3639,6 @@
     </div>
 
     <script src="model.js" defer></script>
-    <script src="app.js" defer></script>
+    <script type="module" src="app.js"></script>
   </body>
 </html>
