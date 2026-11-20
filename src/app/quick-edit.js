@@ -45,6 +45,46 @@ export const QE_BINDINGS = [
   ["qe-srs-invested", "known-srs-invested"],
 ];
 
+const QE_CURRENCY_IDS = new Set([
+  "qe-oa",
+  "qe-sa",
+  "qe-ma",
+  "qe-sa-invested",
+  "qe-equities",
+  "qe-sg-dividends",
+  "qe-ssb-cash",
+  "qe-srs",
+]);
+
+function parseQeCurrency(el) {
+  if (!el) return "";
+  const rawValue = el.value.trim().replace(/,/g, "");
+  if (rawValue === "") return "";
+  const numeric = Number(rawValue);
+  return Number.isFinite(numeric) ? String(Math.round(numeric * 100) / 100) : "";
+}
+
+function formatQeCurrency(el) {
+  if (!el || !QE_CURRENCY_IDS.has(el.id)) return;
+  const rawValue = el.value.trim().replace(/,/g, "");
+  if (rawValue === "") return;
+  const numeric = Number(rawValue);
+  if (!Number.isFinite(numeric)) return;
+  el.value = numeric.toLocaleString("en-SG", {
+    maximumFractionDigits: 2,
+  });
+}
+
+function syncQeSrsDisclosure() {
+  const srsBalance = Number(
+    ($("#qe-srs")?.value || "").replace(/,/g, "") || 0,
+  );
+  const srsSection = $("#qe-srs-section");
+  const allocationWrap = $("#qe-srs-invested-wrap");
+  if (allocationWrap) allocationWrap.hidden = srsBalance <= 0;
+  if (srsSection) srsSection.classList.toggle("is-empty", srsBalance <= 0);
+}
+
 const QE_PANEL_META = {
   age: { title: "Date of Birth & Age", focus: "#qe-dob" },
   goal: { title: "Target Retirement Age", focus: "#qe-retire" },
@@ -136,8 +176,10 @@ export function createQuickEditController(ctx) {
       if (!qeEl || !srcEl) continue;
       if (document.activeElement !== qeEl) {
         qeEl.value = srcEl.value;
+        formatQeCurrency(qeEl);
       }
     }
+    syncQeSrsDisclosure();
 
     const curRetire = Number($("#known-retire")?.value || defRetire);
     $$("[data-qe-retire-delta]").forEach((btn) => {
@@ -603,6 +645,20 @@ export function createQuickEditController(ctx) {
           <div class="qe-bd-top">
             <span>Total Assets</span>
             <strong>${raw(m(cpfTot + outTot, "", "qe-bd-total"))}</strong>
+          </div>
+          <div
+            class="qe-bd-split"
+            role="img"
+            aria-label="CPF ${raw(m(cpfTot))}, Outside ${raw(m(outTot))}"
+          >
+            <span
+              class="qe-bd-split-cpf"
+              style="width:${cpfTot + outTot > 0 ? Math.max(0, Math.min(100, (cpfTot / (cpfTot + outTot)) * 100)) : 0}%"
+            ></span>
+            <span
+              class="qe-bd-split-outside"
+              style="width:${cpfTot + outTot > 0 ? Math.max(0, Math.min(100, (outTot / (cpfTot + outTot)) * 100)) : 0}%"
+            ></span>
           </div>
           <div class="qe-bd-rows">
             <div>
@@ -1100,7 +1156,16 @@ export function createQuickEditController(ctx) {
             hintEl.classList.toggle("is-capped", capped !== false);
           }
         }
-        srcEl.value = qeEl.value;
+        const normalized = QE_CURRENCY_IDS.has(qeId)
+          ? parseQeCurrency(qeEl)
+          : qeEl.value;
+        srcEl.value = normalized;
+        if (QE_CURRENCY_IDS.has(qeId) && normalized !== "") {
+          qeEl.value = Number(normalized).toLocaleString("en-SG", {
+            maximumFractionDigits: 2,
+          });
+        }
+        if (qeId === "qe-srs") syncQeSrsDisclosure();
         if (qeId === "qe-housing-mode") {
           handleHousingModeSwitch(qeEl.value);
         }
@@ -1147,6 +1212,9 @@ export function createQuickEditController(ctx) {
       };
       qeEl.addEventListener("input", () => syncBack(false));
       qeEl.addEventListener("change", () => syncBack(true));
+      if (QE_CURRENCY_IDS.has(qeId)) {
+        qeEl.addEventListener("blur", () => formatQeCurrency(qeEl));
+      }
     });
 
     bindRevertibleDialog(qeDialog, {

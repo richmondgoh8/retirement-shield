@@ -3837,6 +3837,79 @@ h3 {
   gap: 8px;
 }
 
+.quick-edit-modal[data-qe-panel="balances"] .settings-scroll-body {
+  padding-top: 12px;
+}
+
+.quick-edit-modal[data-qe-panel="balances"] #qe-balances-breakdown {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--surface-subtle);
+  box-shadow: 0 6px 12px rgba(15, 23, 42, 0.04);
+}
+
+.qe-balance-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.qe-balance-section {
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.qe-balance-section:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.qe-balance-section-title {
+  margin: 0 0 10px;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.qe-balance-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 14px;
+}
+
+.qe-balance-field-grid > .qe-span-full {
+  grid-column: 1 / -1;
+}
+
+.qe-balance-field-grid .input-wrap input {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.qe-balance-field-grid .input-wrap input::-webkit-inner-spin-button,
+.qe-balance-field-grid .input-wrap input::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .quick-edit-modal[data-qe-panel="balances"] {
+    width: calc(100% - 16px);
+  }
+
+  .qe-balance-field-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .qe-bd-rows {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
 .qe-bd-top {
   display: flex;
   align-items: baseline;
@@ -3851,9 +3924,31 @@ h3 {
 }
 
 .qe-bd-top strong {
-  font-size: 1.08rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--ink);
+}
+
+.qe-bd-split {
+  display: flex;
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+}
+
+.qe-bd-split-cpf,
+.qe-bd-split-outside {
+  height: 100%;
+  transition: width 160ms var(--ease);
+}
+
+.qe-bd-split-cpf {
+  background: var(--sem-cpf);
+}
+
+.qe-bd-split-outside {
+  background: var(--primary);
 }
 
 .qe-bd-rows {

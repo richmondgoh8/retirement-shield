@@ -3307,79 +3307,88 @@
 
         <div id="qe-panel-balances" class="qe-panel" hidden>
           <div id="qe-balances-breakdown" class="qe-breakdown-bar"></div>
-          <div class="field-grid">
+          <div class="qe-balance-sections">
+            <section class="qe-balance-section">
+              <h3 class="qe-balance-section-title">CPF Accounts</h3>
+              <div class="qe-balance-field-grid">
             <div class="qe-field">
-              <label for="qe-oa">CPF Ordinary Account (OA)</label>
+              <label for="qe-oa">Ordinary Account (OA)</label>
               <div class="input-wrap">
                 <span>$</span>
                 <input
                   id="qe-oa"
-                  type="number"
+                  type="text"
                   min="0"
                   max="1000000000"
                   step="any"
                   placeholder="0"
-                  inputmode="decimal"
+                  inputmode="numeric"
                 />
               </div>
             </div>
             <div class="qe-field">
-              <label for="qe-sa">CPF Special Account (SA)</label>
+              <label for="qe-sa">Special Account (SA)</label>
               <div class="input-wrap">
                 <span>$</span>
                 <input
                   id="qe-sa"
-                  type="number"
+                  type="text"
                   min="0"
                   max="1000000000"
                   step="any"
                   placeholder="0"
-                  inputmode="decimal"
+                  inputmode="numeric"
                 />
               </div>
             </div>
             <div class="qe-field">
-              <label for="qe-ma">CPF MediSave (MA)</label>
+              <label for="qe-ma">MediSave (MA)</label>
               <div class="input-wrap">
                 <span>$</span>
                 <input
                   id="qe-ma"
-                  type="number"
+                  type="text"
                   min="0"
                   max="1000000000"
                   step="any"
                   placeholder="0"
-                  inputmode="decimal"
+                  inputmode="numeric"
                 />
               </div>
             </div>
             <div class="qe-field">
-              <label for="qe-sa-invested">Active CPFIS-SA investments</label>
+              <label for="qe-sa-invested">CPFIS-SA Investments</label>
               <div class="input-wrap">
                 <span>$</span>
                 <input
                   id="qe-sa-invested"
-                  type="number"
+                  type="text"
                   min="0"
                   max="1000000000"
                   step="any"
                   placeholder="0"
-                  inputmode="decimal"
+                  inputmode="numeric"
                 />
               </div>
             </div>
+              </div>
+            </section>
+
+            <section class="qe-balance-section">
+              <h3 class="qe-balance-section-title">Investments &amp; Cash</h3>
+              <div class="qe-balance-field-grid">
             <div class="qe-field">
               <label for="qe-equities">Global Equities (VWRA / ISAC)</label>
               <div class="input-wrap">
                 <span>$</span>
                 <input
                   id="qe-equities"
-                  type="number"
+                  type="text"
                   min="0"
                   max="1000000000"
                   step="any"
                   placeholder="0"
-                  inputmode="decimal"
+                  inputmode="numeric"
                 />
               </div>
             </div>
@@ -3389,44 +3398,16 @@
                 <span>$</span>
                 <input
                   id="qe-sg-dividends"
-                  type="number"
+                  type="text"
                   min="0"
                   max="1000000000"
                   step="any"
                   placeholder="0"
-                  inputmode="decimal"
+                  inputmode="numeric"
                 />
               </div>
             </div>
-            <div class="qe-field">
-              <label for="qe-srs">SRS balance today</label>
-              <div class="input-wrap">
-                <span>$</span>
-                <input
-                  id="qe-srs"
-                  type="number"
-                  min="0"
-                  max="1000000000"
-                  step="any"
-                  placeholder="0"
-                  inputmode="decimal"
-                />
-              </div>
-            </div>
-            <div class="qe-field">
-              <label for="qe-srs-invested">SRS funds invested in</label>
-              <div class="input-wrap select-wrap">
-                <select id="qe-srs-invested">
-                  <option value="global" selected>
-                    Global Equity Index Funds
-                  </option>
-                  <option value="balanced">Balanced 60/40 Portfolio</option>
-                  <option value="ssb">SSB / T-Bills</option>
-                  <option value="cash">Uninvested Cash (0.05% p.a.)</option>
-                </select>
-              </div>
-            </div>
-            <div class="qe-field qe-span-full qe-cash-section">
+            <div class="qe-field qe-cash-section qe-span-full">
               <div class="qe-cash-single-wrap" id="qe-cash-single-wrap">
                 <div class="qe-cash-head-row">
                   <label for="qe-ssb-cash"
@@ -3445,17 +3426,53 @@
                   <span>$</span>
                   <input
                     id="qe-ssb-cash"
-                    type="number"
+                    type="text"
                     min="0"
                     max="1000000000"
                     step="any"
                     placeholder="0"
-                    inputmode="decimal"
+                    inputmode="numeric"
                   />
                 </div>
               </div>
               <div id="qe-cash-accounts-slot"></div>
             </div>
+              </div>
+            </section>
+
+            <section class="qe-balance-section" id="qe-srs-section">
+              <h3 class="qe-balance-section-title">SRS (Optional)</h3>
+              <div class="qe-balance-field-grid">
+                <div class="qe-field">
+                  <label for="qe-srs">SRS Balance</label>
+                  <div class="input-wrap">
+                    <span>$</span>
+                    <input
+                      id="qe-srs"
+                      type="text"
+                      min="0"
+                      max="1000000000"
+                      step="any"
+                      placeholder="0"
+                      inputmode="numeric"
+                    />
+                  </div>
+                </div>
+                <div class="qe-field" id="qe-srs-invested-wrap">
+                  <label for="qe-srs-invested">SRS Allocation</label>
+                  <div class="input-wrap select-wrap">
+                    <select id="qe-srs-invested">
+                      <option value="global" selected>
+                        Global Equity Index Funds
+                      </option>
+                      <option value="balanced">Balanced 60/40 Portfolio</option>
+                      <option value="ssb">SSB / T-Bills</option>
+                      <option value="cash">Uninvested Cash (0.05% p.a.)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </section>
           </div>
         </div>
         <p id="qe-error" class="settings-error" role="status" hidden></p>

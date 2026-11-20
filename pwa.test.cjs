@@ -63,6 +63,20 @@ test("narrow PWA header keeps the update banner bounded", () => {
   );
 });
 
+test("CPF and Investment balances modal is grouped and summary is sticky", () => {
+  const html = fs.readFileSync("index.html", "utf8");
+  const css = fs.readFileSync("styles.css", "utf8");
+  assert.match(html, /<h3 class="qe-balance-section-title">CPF Accounts<\/h3>/);
+  assert.match(html, /<h3 class="qe-balance-section-title">Investments &amp; Cash<\/h3>/);
+  assert.match(html, /<h3 class="qe-balance-section-title">SRS \(Optional\)<\/h3>/);
+  assert.match(html, /<label for="qe-sa-invested">CPFIS-SA Investments<\/label>/);
+  assert.match(html, /<label for="qe-srs">SRS Balance<\/label>/);
+  assert.match(html, /<label for="qe-srs-invested">SRS Allocation<\/label>/);
+  assert.match(css, /#qe-balances-breakdown\s*\{[^]*?position:\s*sticky;/);
+  assert.match(css, /\.qe-bd-split-cpf\s*\{/);
+  assert.match(css, /\.qe-balance-field-grid\s*\{/);
+});
+
 test("production HTML and CSS reference existing local hashed files and no external font CDN", () => {
   const html = fs.readFileSync("dist/index.html", "utf8");
   assert.equal(html.includes("fonts.googleapis.com"), false);
