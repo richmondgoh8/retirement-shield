@@ -12,7 +12,7 @@
     "test": "npm run build && node --test model.test.cjs pwa.test.cjs ui.test.cjs",
     "test:model": "node --test model.test.cjs",
     "test:ui": "npm run build && node --test ui.test.cjs",
-    "format": "prettier --write app.js src/**/*.js model.js styles.css index.html sw.js tools/*.mjs *.test.cjs manifest.webmanifest package.json README.md DESIGN.md PRODUCT.md docs/*.md"
+    "format": "prettier --write app.js src/**/*.js model.js styles.css index.html sw.js tools/*.mjs *.test.cjs manifest.webmanifest package.json README.md AGENTS.md DESIGN.md PRODUCT.md docs/*.md"
   },
   "devDependencies": {
     "esbuild": "0.28.2",

@@ -3,7 +3,8 @@ import {
   m,
   centsHtml,
   compactMoney,
-  escapeAttr,
+  html,
+  raw,
   ICONS,
 } from "./format.js";
 
@@ -43,19 +44,19 @@ function buildBogleheadSection(bogle) {
   const reb = bogle.monthlyRebalance;
   const liqDonut = svgDonut(
     [
-      { value: liq.globalEquities, color: "#2563EB" },
-      { value: liq.sgDividends, color: "#60A5FA" },
-      { value: liq.bondsCash, color: "#D97706" },
+      { value: liq.globalEquities, color: "var(--sem-equities)" },
+      { value: liq.sgDividends, color: "var(--sem-equities-sg)" },
+      { value: liq.bondsCash, color: "var(--sem-cash)" },
     ],
     `${Math.round(liq.equityPct)}/${Math.round(liq.bondPct)}`,
     "Eq / Cash",
   );
   const holDonut = svgDonut(
     [
-      { value: hol.globalEquities, color: "#2563EB" },
-      { value: hol.sgDividends, color: "#60A5FA" },
-      { value: hol.liquidBonds, color: "#D97706" },
-      { value: hol.cpfTotal, color: "#059669" },
+      { value: hol.globalEquities, color: "var(--sem-equities)" },
+      { value: hol.sgDividends, color: "var(--sem-equities-sg)" },
+      { value: hol.liquidBonds, color: "var(--sem-cash)" },
+      { value: hol.cpfTotal, color: "var(--sem-cpf)" },
     ],
     `${Math.round(hol.effectiveEquityPct)}/${Math.round(hol.effectiveBondPct)}`,
     "Eq / Bond",
@@ -82,7 +83,8 @@ function buildBogleheadSection(bogle) {
       : hol.cpfTotal > 0
         ? "CPF"
         : "SSB/Cash";
-  const targetBondColor = hol.cpfTotal > 0 ? "#059669" : "#D97706";
+  const targetBondColor =
+    hol.cpfTotal > 0 ? "var(--sem-cpf)" : "var(--sem-cash)";
   const targetBondTitle =
     hol.cpfTotal > 0 ? "Target Bond / CPF Floor" : "Target SSB / Cash Floor";
   const curEqRounded = Math.round(hol.effectiveEquityPct);
@@ -110,7 +112,7 @@ function buildBogleheadSection(bogle) {
       <p class="fin-page-sub">Holistic stock/bond balance counting CPF and SSB/Cash as your defensive floor.</p>
     </div>
     <div class="ember-header-meta">
-      <span class="status-pill ${gapBadge.cls === "is-good" ? "is-good" : "is-info"}">${gapBadge.text}</span>
+      <span class="status-pill ${gapBadge.cls === "is-good" ? "is-good" : "is-info"}">${gapBadge.cls === "is-good" ? ICONS.checkTiny : ICONS.alertTriangle}<span>${gapBadge.text}</span></span>
     </div>
   </header>
   <section class="bogle-card card-surface" id="boglehead-allocator" aria-labelledby="bogle-title">
@@ -129,9 +131,9 @@ function buildBogleheadSection(bogle) {
         <div class="donut-row">
           ${liqDonut}
           <ul class="donut-legend">
-            <li><i style="background:#2563EB;"></i><span>Global UCITS</span><b>${m(liq.globalEquities, "", "bogle-liq-eq")}</b></li>
-            <li><i style="background:#60A5FA;"></i><span>SG Dividends</span><b>${m(liq.sgDividends, "", "bogle-liq-sg")}</b></li>
-            <li><i style="background:#D97706;"></i><span>SSB / Cash</span><b>${m(liq.bondsCash, "", "bogle-liq-cash")}</b></li>
+            <li><i style="background:var(--sem-equities);"></i><span>Global UCITS</span><b>${m(liq.globalEquities, "", "bogle-liq-eq")}</b></li>
+            <li><i style="background:var(--sem-equities-sg);"></i><span>SG Dividends</span><b>${m(liq.sgDividends, "", "bogle-liq-sg")}</b></li>
+            <li><i style="background:var(--sem-cash);"></i><span>SSB / Cash</span><b>${m(liq.bondsCash, "", "bogle-liq-cash")}</b></li>
           </ul>
         </div>
       </div>
@@ -143,10 +145,10 @@ function buildBogleheadSection(bogle) {
         <div class="donut-row">
           ${holDonut}
           <ul class="donut-legend">
-            <li><i style="background:#2563EB;"></i><span>Global Equities</span><b>${hol.totalNetWorth ? Math.round((hol.globalEquities / hol.totalNetWorth) * 100) : 0}% (${m(hol.globalEquities)})</b></li>
-            <li><i style="background:#60A5FA;"></i><span>SG Dividends</span><b>${hol.totalNetWorth ? Math.round((hol.sgDividends / hol.totalNetWorth) * 100) : 0}% (${m(hol.sgDividends)})</b></li>
-            <li><i style="background:#D97706;"></i><span>SSB / Cash</span><b>${hol.totalNetWorth ? Math.round((hol.liquidBonds / hol.totalNetWorth) * 100) : 0}% (${m(hol.liquidBonds)})</b></li>
-            <li><i style="background:#059669;"></i><span>CPF (OA+SA+MA)</span><b>${hol.totalNetWorth ? Math.round((hol.cpfTotal / hol.totalNetWorth) * 100) : 0}% (${m(hol.cpfTotal)})</b></li>
+            <li><i style="background:var(--sem-equities);"></i><span>Global Equities</span><b>${hol.totalNetWorth ? Math.round((hol.globalEquities / hol.totalNetWorth) * 100) : 0}% (${m(hol.globalEquities)})</b></li>
+            <li><i style="background:var(--sem-equities-sg);"></i><span>SG Dividends</span><b>${hol.totalNetWorth ? Math.round((hol.sgDividends / hol.totalNetWorth) * 100) : 0}% (${m(hol.sgDividends)})</b></li>
+            <li><i style="background:var(--sem-cash);"></i><span>SSB / Cash</span><b>${hol.totalNetWorth ? Math.round((hol.liquidBonds / hol.totalNetWorth) * 100) : 0}% (${m(hol.liquidBonds)})</b></li>
+            <li><i style="background:var(--sem-cpf);"></i><span>CPF (OA+SA+MA)</span><b>${hol.totalNetWorth ? Math.round((hol.cpfTotal / hol.totalNetWorth) * 100) : 0}% (${m(hol.cpfTotal)})</b></li>
           </ul>
         </div>
       </div>
@@ -167,10 +169,10 @@ function buildBogleheadSection(bogle) {
               <strong>${Math.round(curGlobalPct)}% Global · ${Math.round(curSgPct)}% SG · ${Math.round(hol.effectiveBondPct)}% ${bondLabel}</strong>
             </div>
             <div class="mix-track" aria-hidden="true">
-              ${curGlobalPct > 0.4 ? `<span style="width:${curGlobalPct.toFixed(1)}%;background:#2563EB;" title="Global Equities"></span>` : ""}
-              ${curSgPct > 0.4 ? `<span style="width:${curSgPct.toFixed(1)}%;background:#60A5FA;" title="SG Dividends"></span>` : ""}
-              ${curCashPct > 0.4 ? `<span style="width:${curCashPct.toFixed(1)}%;background:#D97706;" title="SSB / Cash"></span>` : ""}
-              ${curCpfPct > 0.4 ? `<span style="width:${curCpfPct.toFixed(1)}%;background:#059669;" title="CPF OA/SA/MA"></span>` : ""}
+              ${curGlobalPct > 0.4 ? `<span style="width:${curGlobalPct.toFixed(1)}%;background:var(--sem-equities);" title="Global Equities"></span>` : ""}
+              ${curSgPct > 0.4 ? `<span style="width:${curSgPct.toFixed(1)}%;background:var(--sem-equities-sg);" title="SG Dividends"></span>` : ""}
+              ${curCashPct > 0.4 ? `<span style="width:${curCashPct.toFixed(1)}%;background:var(--sem-cash);" title="SSB / Cash"></span>` : ""}
+              ${curCpfPct > 0.4 ? `<span style="width:${curCpfPct.toFixed(1)}%;background:var(--sem-cpf);" title="CPF OA/SA/MA"></span>` : ""}
             </div>
           </div>
           <div class="mix-bar-row">
@@ -179,8 +181,8 @@ function buildBogleheadSection(bogle) {
               <strong>${targetGlobalPct}% Global · ${targetSgPct}% SG · ${hol.targetBondPct}% ${bondLabel}</strong>
             </div>
             <div class="mix-track" aria-hidden="true">
-              ${targetGlobalPct > 0.4 ? `<span style="width:${targetGlobalPct}%;background:#2563EB;" title="Target Global UCITS"></span>` : ""}
-              ${targetSgPct > 0.4 ? `<span style="width:${targetSgPct}%;background:#60A5FA;" title="Target SG Dividends"></span>` : ""}
+              ${targetGlobalPct > 0.4 ? `<span style="width:${targetGlobalPct}%;background:var(--sem-equities);" title="Target Global UCITS"></span>` : ""}
+              ${targetSgPct > 0.4 ? `<span style="width:${targetSgPct}%;background:var(--sem-equities-sg);" title="Target SG Dividends"></span>` : ""}
               ${hol.targetBondPct > 0.4 ? `<span style="width:${hol.targetBondPct}%;background:${targetBondColor};" title="${targetBondTitle}"></span>` : ""}
             </div>
           </div>
@@ -197,8 +199,8 @@ function buildBogleheadSection(bogle) {
             <strong class="bogle-funnel-readout" id="bogle-target-readout">${hol.targetEquityPct}% Equity · ${hol.targetBondPct}% Bond</strong>
           </div>
           <div class="bogle-stage1-bar" aria-hidden="true">
-            <span id="bogle-stage1-eq-bar" style="width:${hol.targetEquityPct}%;background:var(--primary);"></span>
-            <span id="bogle-stage1-bond-bar" style="width:${hol.targetBondPct}%;background:#D97706;"></span>
+            <span id="bogle-stage1-eq-bar" style="width:${hol.targetEquityPct}%;background:var(--sem-equities);"></span>
+            <span id="bogle-stage1-bond-bar" style="width:${hol.targetBondPct}%;background:var(--sem-cash);"></span>
           </div>
           <div class="bogle-funnel-controls">
             <div class="saving-stepper bogle-stepper">
@@ -224,7 +226,7 @@ function buildBogleheadSection(bogle) {
           <span class="bogle-connector-elbow"></span>
           <span class="bogle-connector-badge" id="bogle-funnel-connector-text">${
             hol.targetEquityPct > 0
-              ? `Subdivides your <strong>${hol.targetEquityPct}% Equity Sleeve (${money(reb.buyGlobalMonthly + reb.buySgMonthly)}/mo)</strong> into Global vs SG Dividend`
+              ? `Subdivides your <strong>${hol.targetEquityPct}% Equity Sleeve (${m(reb.buyGlobalMonthly + reb.buySgMonthly, "/mo")})</strong> into Global vs SG Dividend`
               : `Target Equity is <strong>0%</strong> (100% Bond) — increase Equity above 0% to activate Global / SG sleeve`
           }</span>
         </div>
@@ -242,18 +244,18 @@ function buildBogleheadSection(bogle) {
           </div>
           <div class="bogle-funnel-controls">
             <div class="saving-stepper bogle-stepper">
-              <button type="button" data-bogle-step="bogle-sg-slider" data-delta="-5" aria-label="Decrease SG dividend sleeve by 5%">−</button>
+              <button type="button" data-bogle-step="bogle-sg-slider" data-delta="-5" aria-label="Decrease SG dividend sleeve by 5%"${hol.targetEquityPct === 0 ? " disabled" : ""}>−</button>
               <div class="input-wrap">
-                <input id="bogle-sg-slider" type="number" min="0" max="100" step="1" value="${hol.sgSleevePct}" inputmode="numeric" />
+                <input id="bogle-sg-slider" type="number" min="0" max="100" step="1" value="${hol.sgSleevePct}" inputmode="numeric"${hol.targetEquityPct === 0 ? " disabled" : ""} />
                 <span>% SG (${globalSplitPct}% Global)</span>
               </div>
-              <button type="button" data-bogle-step="bogle-sg-slider" data-delta="5" aria-label="Increase SG dividend sleeve by 5%">+</button>
+              <button type="button" data-bogle-step="bogle-sg-slider" data-delta="5" aria-label="Increase SG dividend sleeve by 5%"${hol.targetEquityPct === 0 ? " disabled" : ""}>+</button>
             </div>
             <div class="qe-picker-chips bogle-preset-chips bogle-funnel-chips" role="group" aria-label="SG dividend sleeve presets">
               ${[0, 10, 15, 20, 30, 50, 100]
                 .map(
                   (v) =>
-                    `<button type="button" class="qe-picker-chip${hol.sgSleevePct === v ? " is-active" : ""}" data-bogle-sg-preset="${v}" aria-pressed="${hol.sgSleevePct === v}">${100 - v}/${v}</button>`,
+                    `<button type="button" class="qe-picker-chip${hol.sgSleevePct === v ? " is-active" : ""}" data-bogle-sg-preset="${v}" aria-pressed="${hol.sgSleevePct === v}"${hol.targetEquityPct === 0 ? " disabled" : ""}>${100 - v}/${v}</button>`,
                 )
                 .join("")}
             </div>
@@ -267,9 +269,9 @@ function buildBogleheadSection(bogle) {
           <p>${reb.note}</p>
         </div>
         <div class="rebalance-pills">
-          <span class="pill-eq"><i class="sem-dot" style="background:#2563EB;"></i><b>${m(reb.buyGlobalMonthly, "/mo", "bogle-reb-eq")}</b> Global UCITS</span>
-          <span class="pill-sg"><i class="sem-dot" style="background:#60A5FA;"></i><b>${m(reb.buySgMonthly, "/mo", "bogle-reb-sg")}</b> SG Dividends</span>
-          <span class="pill-cash"><i class="sem-dot" style="background:#D97706;"></i><b>${m(reb.buyBondMonthly, "/mo", "bogle-reb-bond")}</b> SSB / T-Bills</span>
+          <span class="pill-eq"><i class="sem-dot" style="background:var(--sem-equities);"></i><b>${m(reb.buyGlobalMonthly, "/mo", "bogle-reb-eq")}</b> Global UCITS</span>
+          <span class="pill-sg"><i class="sem-dot" style="background:var(--sem-equities-sg);"></i><b>${m(reb.buySgMonthly, "/mo", "bogle-reb-sg")}</b> SG Dividends</span>
+          <span class="pill-cash"><i class="sem-dot" style="background:var(--sem-cash);"></i><b>${m(reb.buyBondMonthly, "/mo", "bogle-reb-bond")}</b> SSB / T-Bills</span>
           <button type="button" class="fin-link-pill cash-crosslink-btn" data-go-tab="cash-parking">Compare SSB, HYSA &amp; MMFs →</button>
         </div>
       </div>
@@ -278,10 +280,34 @@ function buildBogleheadSection(bogle) {
 }
 
 function buildTaxSweetSpotSection(tax) {
+  const C = RetirementModel.C;
   const marginalPct = `${(tax.taxBefore.marginalRate * 100).toFixed(1).replace(/\.0$/, "")}%`;
-  const capPct = Math.min(
+  const capTotal = Math.max(1, C.personalReliefCap);
+  const baseReliefs = Math.max(0, Math.round(tax.reliefCapUsed || 0));
+  const activeSelfRstu = Math.max(0, Math.round(tax.activeSelfRstu || 0));
+  const activeFamRstu = Math.max(0, Math.round(tax.activeFamilyRstu || 0));
+  const activeSrs = Math.max(0, Math.round(tax.activeSrs || 0));
+  const totalClaimed = Math.min(
+    capTotal,
+    baseReliefs + activeSelfRstu + activeFamRstu + activeSrs,
+  );
+  const totalClaimedPct = Math.min(
     100,
-    Math.round((tax.reliefCapUsed / RetirementModel.C.personalReliefCap) * 100),
+    Math.round((totalClaimed / capTotal) * 100),
+  );
+  const remainingAfterActive = Math.max(0, capTotal - totalClaimed);
+  const basePct = Math.min(100, (baseReliefs / capTotal) * 100);
+  const selfRstuPct = Math.min(
+    100 - basePct,
+    (activeSelfRstu / capTotal) * 100,
+  );
+  const famRstuPct = Math.min(
+    100 - basePct - selfRstuPct,
+    (activeFamRstu / capTotal) * 100,
+  );
+  const srsPct = Math.min(
+    100 - basePct - selfRstuPct - famRstuPct,
+    (activeSrs / capTotal) * 100,
   );
   const tierTone =
     tax.tier === "max-both" || tax.tier === "rstu-first"
@@ -290,35 +316,66 @@ function buildTaxSweetSpotSection(tax) {
 
   return `<section class="tax-sweet-card card-surface" id="tax-sweet-spot" aria-labelledby="tax-sweet-title">
     <div class="tax-sweet-head">
-      <h2 id="tax-sweet-title">CPF RSTU vs. SRS Tax Sweet-Spot</h2>
+      <div>
+        <h2 id="tax-sweet-title">CPF RSTU vs. SRS Tax Sweet-Spot</h2>
+        <p class="tax-guidance-copy">${tax.guidance}</p>
+      </div>
       <span class="status-pill ${tierTone}">${tax.headline}</span>
     </div>
-    <p class="tax-guidance-copy">${tax.guidance}</p>
     <dl class="tax-metrics-grid">
       <div class="tax-metric-box">
         <dt>Chargeable Income (est.)</dt>
         <dd>${m(tax.chargeableIncome, "/yr", "tax-chargeable")}</dd>
-        <small>${marginalPct} marginal bracket · ${money(tax.taxBefore.annualTax)}/yr tax</small>
+        <small>${marginalPct} marginal bracket · ${m(tax.taxBefore.annualTax, "/yr")} tax</small>
       </div>
       <div class="tax-metric-box">
         <dt>CPF RSTU ($8k cap to FRS)</dt>
         <dd>${m(tax.rstuTaxSaved, "/yr saved", "tax-rstu-saved")}</dd>
-        <small>Eligible room: ${money(tax.maxRstu)}/yr (SA room ${money(tax.saRoom)})</small>
+        <small>Eligible room: ${m(tax.maxRstu, "/yr")} (SA room ${m(tax.saRoom)})</small>
       </div>
       <div class="tax-metric-box">
         <dt>SRS ($15.3k Citizen/PR cap)</dt>
         <dd>${m(tax.srsTaxSavedAfterRstu, "/yr saved", "tax-srs-saved")}</dd>
-        <small>After RSTU (${money(tax.srsStandaloneTaxSaved)}/yr standalone) · Lock-in age ${tax.srsLockInAge}</small>
+        <small>After RSTU (${m(tax.srsStandaloneTaxSaved, "/yr")} standalone) · Lock-in age ${tax.srsLockInAge}</small>
       </div>
       <div class="tax-metric-box">
         <dt>$80k Relief Cap Used</dt>
-        <dd>${m(tax.reliefCapUsed, "", "tax-cap-used")} <span class="curr-muted">/ $80,000</span></dd>
-        <div class="tap-progress-track tax-cap-progress" role="progressbar" aria-valuenow="${capPct}" aria-valuemin="0" aria-valuemax="100" aria-label="${capPct}% of $80,000 personal income tax relief cap used">
-          <span class="tap-progress-fill ${capPct >= 95 ? "is-danger" : "is-tap1"}" style="width:${capPct}%"></span>
-        </div>
-        <small>${capPct}% used by CPF + reliefs (${money(tax.reliefCapRemaining)} left)</small>
+        <dd>${m(tax.reliefCapUsed, "", "tax-cap-used")} <span class="curr-muted">/ ${m(C.personalReliefCap)}</span></dd>
+        <small>${totalClaimedPct}% claimed · ${m(remainingAfterActive)} remaining</small>
       </div>
     </dl>
+    <article class="fin-bento-card card-surface tax-bento-embedded" aria-label="IRAS $80,000 personal relief cap waterfall">
+      <div class="fin-bento-head">
+        <div>
+          <span class="fin-bento-eyebrow">YA ${C.year} IRAS $80,000 Relief Cap</span>
+          <h3 class="fin-bento-title">${m(totalClaimed)} <small>claimed · ${m(remainingAfterActive)} room left</small></h3>
+        </div>
+        <span class="fin-bento-share-pill">${totalClaimedPct}%</span>
+      </div>
+      <div class="fin-bento-bar" role="progressbar" aria-valuenow="${totalClaimedPct}" aria-valuemin="0" aria-valuemax="100" aria-label="${totalClaimedPct}% of $80,000 personal income tax relief cap used">
+        <span data-meter-key="tax-wf-base" data-meter-w="${basePct.toFixed(1)}" style="width:${basePct.toFixed(1)}%;background:var(--sem-equities);"></span>
+        <span data-meter-key="tax-wf-rstu" data-meter-w="${selfRstuPct.toFixed(1)}" style="width:${selfRstuPct.toFixed(1)}%;background:var(--sem-cpf);"></span>
+        <span data-meter-key="tax-wf-fam" data-meter-w="${famRstuPct.toFixed(1)}" style="width:${famRstuPct.toFixed(1)}%;background:var(--sem-emerald);"></span>
+        <span data-meter-key="tax-wf-srs" data-meter-w="${srsPct.toFixed(1)}" style="width:${srsPct.toFixed(1)}%;background:var(--sem-srs);"></span>
+      </div>
+      <ul class="fin-bento-list">
+        <li>
+          <span class="fin-bento-item-label"><i style="background:var(--sem-equities);"></i>Mandatory CPF &amp; Existing Reliefs</span>
+          <span class="fin-bento-item-meta">Base IRAS reliefs before voluntary top-ups</span>
+          <strong>${m(baseReliefs)} <small class="fin-bento-share-pill">${Math.round(basePct)}%</small></strong>
+        </li>
+        <li>
+          <span class="fin-bento-item-label"><i style="background:var(--sem-cpf);"></i>Self CPF RSTU${activeFamRstu > 0 ? " + Family RSTU" : ""}</span>
+          <span class="fin-bento-item-meta">${activeSelfRstu > 0 || activeFamRstu > 0 ? `Saves ${m((tax.rstuTaxSaved || 0) + (tax.familyRstuTaxSaved || 0), "/yr")}` : `Up to ${m(tax.maxRstu, "/yr")} eligible room`}</span>
+          <strong>${m(activeSelfRstu + activeFamRstu)} <small class="fin-bento-share-pill">${Math.round(selfRstuPct + famRstuPct)}%</small></strong>
+        </li>
+        <li>
+          <span class="fin-bento-item-label"><i style="background:var(--sem-srs);"></i>SRS Contribution</span>
+          <span class="fin-bento-item-meta">${activeSrs > 0 ? `Locked until age ${tax.srsLockInAge}` : `Up to ${m(tax.maxSrsAfterRstu, "/yr")} after RSTU`}</span>
+          <strong>${m(activeSrs)} <small class="fin-bento-share-pill">${Math.round(srsPct)}%</small></strong>
+        </li>
+      </ul>
+    </article>
     <div class="family-rstu-bar">
       <div class="family-rstu-copy">
         <strong>Spouse / Parents CPF Cash Top-Up (Family RSTU · Separate $8,000/yr Cap)</strong>
@@ -335,42 +392,67 @@ function buildTaxSweetSpotSection(tax) {
           tax.familyRstuPlanned > 0
             ? `<button type="button" class="fin-action-chip" data-apply-family-rstu="0">Clear family RSTU</button>`
             : tax.maxFamilyRstuRoom > 0
-              ? `<button type="button" class="fin-action-chip" data-apply-family-rstu="${Math.round(tax.maxFamilyRstuRoom)}">Simulate +${money(tax.maxFamilyRstuRoom)}/yr</button>`
+              ? `<button type="button" class="fin-action-chip" data-apply-family-rstu="${Math.round(tax.maxFamilyRstuRoom)}">Simulate +${m(tax.maxFamilyRstuRoom, "/yr")}</button>`
               : ""
         }
       </div>
     </div>
-    <div class="srs-trap-panel is-${tax.srsTrapStatus || "safe"}" role="region" aria-label="Tap 2 SRS Mechanics and Age-${tax.srsLockInAge} Ballooning Trap Guardrail">
+    ${(() => {
+      const srsStartAge = tax.srsWithdrawalStartAge ?? tax.srsLockInAge;
+      const srsZeroTaxCap =
+        tax.srsZeroTaxCap || RetirementModel.C.srsSoftCapAt63;
+      const srsZeroTaxCapCompact = compactMoney(srsZeroTaxCap);
+      const srsCapFillPct = Math.min(
+        100,
+        Math.round((tax.srsProjectedAt63 / Math.max(1, srsZeroTaxCap)) * 100),
+      );
+      const srsBarTone =
+        tax.srsTrapStatus === "balloon-trap"
+          ? "is-danger"
+          : tax.srsTrapStatus === "near-cap"
+            ? "is-warn"
+            : "is-srs";
+      return `<div class="srs-trap-panel is-${tax.srsTrapStatus || "safe"}" role="region" aria-label="Tap 2 SRS Mechanics and Age-${srsStartAge} Ballooning Trap Guardrail">
       <div class="srs-trap-head">
         <div class="srs-trap-copy">
-          <strong>Tap 2 (SRS) Mechanics &amp; Age-${tax.srsLockInAge} Ballooning Guardrail</strong>
+          <strong>Tap 2 (SRS) Mechanics &amp; Age-${srsStartAge} Ballooning Guardrail</strong>
           <p>${tax.srsTrapGuidance}</p>
         </div>
         <span class="status-pill ${tax.srsTrapTone || (tax.srsTrapStatus === "balloon-trap" ? "is-danger" : tax.srsTrapStatus === "near-cap" ? "is-warn" : "is-info")}">${tax.srsTrapHeadline}</span>
       </div>
+      <div class="tap-progress-wrap">
+        <div class="tap-progress-meta">
+          <span>Projected age-${srsStartAge} pot vs ${srsZeroTaxCapCompact} $0-tax ceiling</span>
+          <strong>${srsCapFillPct}%</strong>
+        </div>
+        <div class="tap-progress-track" role="progressbar" aria-valuenow="${srsCapFillPct}" aria-valuemin="0" aria-valuemax="100" aria-label="Projected SRS pot vs $0-tax ceiling">
+          <span class="tap-progress-fill ${srsBarTone}" data-meter-key="tax-srs-cap-bar" data-meter-w="${srsCapFillPct}" style="width:${srsCapFillPct}%"></span>
+        </div>
+      </div>
       <dl class="tax-metrics-grid srs-trap-metrics">
         <div class="tax-metric-box">
-          <dt>Projected SRS at Age ${tax.srsLockInAge}</dt>
+          <dt>Projected SRS at Age ${srsStartAge}</dt>
           <dd>${m(tax.srsProjectedAt63, "", "tax-srs-proj63")}</dd>
-          <small>${tax.srsProjectedAt63 > 0 ? `${((tax.srsReturnRate ?? 0) * 100).toFixed(2).replace(/\.00$/, "")}% p.a. (${tax.srsInvestedIn === "cash" ? "idle cash" : tax.srsInvestedIn === "ssb" ? "SSB" : tax.srsInvestedIn === "balanced" ? "60/40" : "Global ETFs"}) · ${money(tax.srsBalanceToday)} now + ${money(tax.srsAnnualPlanned)}/yr` : `$0 balance · $0/yr planned (${((tax.srsReturnRate ?? 0) * 100).toFixed(2).replace(/\.00$/, "")}% ${tax.srsInvestedIn === "cash" ? "idle cash" : tax.srsInvestedIn === "ssb" ? "SSB" : tax.srsInvestedIn === "balanced" ? "60/40" : "Global ETFs"} assumed)`}</small>
+          <small>${tax.srsProjectedAt63 > 0 ? `${((tax.srsReturnRate ?? 0) * 100).toFixed(2).replace(/\.00$/, "")}% p.a. (${tax.srsInvestedIn === "cash" ? "idle cash" : tax.srsInvestedIn === "ssb" ? "SSB" : tax.srsInvestedIn === "balanced" ? "60/40" : "Global ETFs"}) · ${m(tax.srsBalanceToday)} now + ${m(tax.srsAnnualPlanned, "/yr")}` : `$0 balance · $0/yr planned (${((tax.srsReturnRate ?? 0) * 100).toFixed(2).replace(/\.00$/, "")}% ${tax.srsInvestedIn === "cash" ? "idle cash" : tax.srsInvestedIn === "ssb" ? "SSB" : tax.srsInvestedIn === "balanced" ? "60/40" : "Global ETFs"} assumed)`}</small>
         </div>
         <div class="tax-metric-box">
-          <dt>10-Yr Drawdown (${tax.srsLockInAge}–${tax.srsLockInAge + 10})</dt>
+          <dt>10-Yr Drawdown (${srsStartAge}–${srsStartAge + 10})</dt>
           <dd>${m(tax.srsTenYearAnnualDraw, "/yr", "tax-srs-draw")}</dd>
-          <small>${tax.srsProjectedAt63 > 0 ? `${money(tax.srsTenYearMonthlyDraw)}/mo nominal · Tax-free ≤ $40k/yr` : `Up to $40,000/yr ($3,333/mo) tax-free at $400k pot`}</small>
+          <small>${tax.srsProjectedAt63 > 0 ? `${m(tax.srsTenYearMonthlyDraw, "/mo")} nominal · Tax-free ≤ $40k/yr` : `Up to $40,000/yr ($3,333/mo) tax-free at ${srsZeroTaxCapCompact} pot`}</small>
         </div>
         <div class="tax-metric-box">
-          <dt>Safe Annual Pace to $400k</dt>
+          <dt>Safe Annual Pace to ${srsZeroTaxCapCompact}</dt>
           <dd>${m(tax.srsMaxSafeAnnualTo400k, "/yr", "tax-srs-safe-pace")}</dd>
-          <small>${tax.srsFullCapProjectedAt63 > tax.srsTrapFloorAt63 && tax.srsMaxSafeAnnualTo400k < 15250 ? `Over ${tax.srsYearsToLockIn ?? Math.max(0, tax.srsLockInAge - 35)} yrs @ ${((tax.srsReturnRate ?? 0) * 100).toFixed(2).replace(/\.00$/, "")}% · $15.3k/yr max → ${compactMoney(tax.srsFullCapProjectedAt63)} pot` : `Statutory cap $15,300/yr · Direct excess to brokerage`}</small>
+          <small>${tax.srsFullCapProjectedAt63 > tax.srsTrapFloorAt63 && tax.srsMaxSafeAnnualTo400k < 15250 ? `Over ${tax.srsYearsToLockIn ?? Math.max(0, srsStartAge - 35)} yrs @ ${((tax.srsReturnRate ?? 0) * 100).toFixed(2).replace(/\.00$/, "")}% · $15.3k/yr max → ${compactMoney(tax.srsFullCapProjectedAt63)} pot` : `Statutory cap $15,300/yr · Direct excess to brokerage`}</small>
         </div>
         <div class="tax-metric-box">
           <dt>Est. Withdrawal Tax (50% Rule)</dt>
           <dd>${m(tax.srsWithdrawalTaxAt63?.annualTax || 0, "/yr", "tax-srs-wdtax")}</dd>
-          <small>${tax.srsProjectedAt63 > 0 ? `50% taxable (${money(tax.srsTaxableAnnualAt63)}/yr vs $20k IRAS 0% threshold)` : `50% taxable · $0 tax when draw ≤ $40k/yr ($20k chargeable)`}</small>
+          <small>${tax.srsProjectedAt63 > 0 ? `50% taxable (${m(tax.srsTaxableAnnualAt63, "/yr")} vs $20k IRAS 0% threshold)` : `50% taxable · $0 tax when draw ≤ $40k/yr ($20k chargeable)`}</small>
         </div>
       </dl>
-    </div>
+    </div>`;
+    })()}
     <div class="srs-callout-bar" role="note">
       ${ICONS.warnTiny}
       <span>${tax.srsIdleWarning}</span>
@@ -384,8 +466,8 @@ function getCashItemTags(item) {
     `${item.requirements || ""} ${item.rateDetail || ""}`.toLowerCase();
   if (
     reqText.includes("srs") ||
-    item.category === "sovereign" ||
-    item.category === "mmf"
+    item.category === "gov" ||
+    item.category === "fd-mmf"
   ) {
     tags.push({ key: "srs", label: "SRS Eligible" });
   }
@@ -396,7 +478,10 @@ function getCashItemTags(item) {
   ) {
     tags.push({
       key: "safe",
-      label: item.category === "sovereign" ? "SG Gov Backed" : "SDIC $100k",
+      label:
+        item.category === "gov" || item.protectionTone === "gov"
+          ? "SG Gov Backed"
+          : "SDIC $100k",
     });
   }
   if (
@@ -444,122 +529,170 @@ function buildCashCardsMarkup(
   });
 
   if (!visibleItems.length) {
-    return `<div class="cash-empty-state card-surface" role="status">
-      <p>No cash parking mediums match <strong>"${escapeAttr(q || tagFilter)}"</strong>.</p>
-      <button type="button" class="button button-small fin-pill-btn" data-cash-reset-filters>Reset search &amp; tags</button>
+    return html`<div class="cash-empty-state card-surface" role="status">
+      <p>No cash parking mediums match <strong>"${q || tagFilter}"</strong>.</p>
+      <button
+        type="button"
+        class="button button-small fin-pill-btn"
+        data-cash-reset-filters
+      >
+        Reset search &amp; tags
+      </button>
     </div>`;
   }
 
-  return `<div class="cash-cards-grid">
-    ${visibleItems
-      .map((item, idx) => {
-        const tiers = Array.isArray(item.rateTiers) ? item.rateTiers : [];
-        const tierRows = tiers.length
-          ? `<div class="cash-rate-rows">${tiers
-              .map(
-                (t) =>
-                  `<div class="cash-rate-row${t.tone ? ` is-${t.tone}` : ""}">
-                    <span class="cash-rate-label">${t.label}</span>
-                    <strong class="cash-rate-fig">${t.value}</strong>
-                  </div>`,
-              )
-              .join("")}</div>`
-          : `<strong class="cash-rate-val">${item.rateHeadline}</strong>`;
-        const metaRow =
-          item.metaBadge || item.syncBadge
-            ? `<div class="cash-rate-meta">
-                ${item.metaBadge ? `<span class="cash-tranche-tag">${item.metaBadge}</span>` : "<span></span>"}
-                ${item.syncBadge ? `<span class="cash-sync-tag">${item.syncBadge}</span>` : ""}
-              </div>`
-            : "";
+  return html`<div class="cash-cards-grid">
+    ${visibleItems.map((item, idx) => {
+      const tiers = Array.isArray(item.rateTiers) ? item.rateTiers : [];
+      const tierRows = tiers.length
+        ? html`<div class="cash-rate-rows">
+            ${tiers.map((t) =>
+              raw(
+                html`<div class="cash-rate-row${t.tone ? ` is-${t.tone}` : ""}">
+                  <span class="cash-rate-label">${t.label}</span>
+                  <strong class="cash-rate-fig">${t.value}</strong>
+                </div>`,
+              ),
+            )}
+          </div>`
+        : html`<strong class="cash-rate-val">${item.rateHeadline}</strong>`;
+      const metaRow =
+        item.metaBadge || item.syncBadge
+          ? html`<div class="cash-rate-meta">
+              ${item.metaBadge ? raw(html`<span class="cash-tranche-tag">${item.metaBadge}</span>`) : raw("<span></span>")}
+              ${item.syncBadge ? raw(html`<span class="cash-sync-tag">${item.syncBadge}</span>`) : ""}
+            </div>`
+          : "";
 
-        return `<a class="cash-card card-surface${entering ? " is-entering" : ""}" style="--stagger:${Math.min(idx, 6)}" href="${item.url}" target="_blank" rel="noopener noreferrer" aria-label="${item.name} — ${item.rateHeadline}, ${item.capLabel}. Opens ${item.urlDomain} in a new tab">
+      return raw(
+        html`<a
+          class="cash-card card-surface${entering ? " is-entering" : ""}"
+          style="--stagger:${Math.min(idx, 6)}"
+          href="${item.url}"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="${item.name} — ${item.rateHeadline}, ${item.capLabel}. Opens ${item.urlDomain} in a new tab"
+        >
           <div class="cash-card-top">
             <span class="cash-cat-tag">${item.categoryLabel}</span>
-            <span class="cash-safety-pill is-${item.protectionTone}">${item.protection}</span>
+            <span class="cash-safety-pill is-${item.protectionTone}"
+              >${item.protection}</span
+            >
           </div>
           <div class="cash-card-title">
             <h3>${item.name}</h3>
             <span class="cash-provider">${item.provider}</span>
           </div>
           <div class="cash-rate-box">
-            ${metaRow}
-            ${tierRows}
+            ${raw(metaRow)} ${raw(tierRows)}
             <small class="cash-rate-note">${item.rateDetail}</small>
           </div>
           ${
             item.rateContext
-              ? (() => {
-                  const rc = item.rateContext;
-                  const bars = rc.recent6 || [];
-                  const minB = Math.min(
-                    ...bars.map((b) => b.rate),
-                    rc.yr1.min || 0,
-                  );
-                  const maxB = Math.max(...bars.map((b) => b.rate), 0.1);
-                  const spanB = Math.max(0.25, maxB - minB * 0.88);
-                  const minAvgPos = Math.max(
-                    4,
-                    Math.min(
-                      96,
-                      Math.round(
-                        ((rc.yr1.avg - rc.yr1.min) /
-                          Math.max(0.01, rc.yr1.max - rc.yr1.min)) *
-                          100,
+              ? raw(
+                  (() => {
+                    const rc = item.rateContext;
+                    const bars = rc.recent6 || [];
+                    const minB = Math.min(
+                      ...bars.map((b) => b.rate),
+                      rc.yr1.min || 0,
+                    );
+                    const maxB = Math.max(...bars.map((b) => b.rate), 0.1);
+                    const spanB = Math.max(0.25, maxB - minB * 0.88);
+                    const minAvgPos = Math.max(
+                      4,
+                      Math.min(
+                        96,
+                        Math.round(
+                          ((rc.yr1.avg - rc.yr1.min) /
+                            Math.max(0.01, rc.yr1.max - rc.yr1.min)) *
+                            100,
+                        ),
                       ),
-                    ),
-                  );
-                  return `<div class="cash-hist-box">
-                  <div class="cash-hist-head">
-                    <span class="cash-hist-verdict is-${rc.tone}">${rc.verdict}</span>
-                    ${rc.prevLabel ? `<span class="cash-hist-delta ${rc.deltaPrev >= 0 ? "is-up" : "is-down"}">${rc.deltaText} ${rc.prevLabel}</span>` : ""}
-                  </div>
-                  <div class="cash-hist-range">
-                    <div class="cash-hist-range-labels">
-                      <span>12M low ${rc.yr1.min.toFixed(2)}%</span>
-                      <span>12M avg ${rc.yr1.avg.toFixed(2)}%</span>
-                      <span>high ${rc.yr1.max.toFixed(2)}%</span>
-                    </div>
-                    <div class="cash-hist-track" aria-hidden="true">
-                      <span class="cash-hist-avg-mark" style="left:${minAvgPos}%" title="12M avg"></span>
-                      <span class="cash-hist-dot" style="left:${rc.yr1.posPct}%"></span>
-                    </div>
-                    ${rc.longTerm ? `<div class="cash-hist-long">${rc.longTerm.label}: ${rc.longTerm.min.toFixed(2)}%–${rc.longTerm.max.toFixed(2)}% (avg ${rc.longTerm.avg.toFixed(2)}% · ${rc.longTerm.pctText || rc.longTerm.percentile + "th pct"})</div>` : ""}
-                  </div>
-                  ${
-                    bars.length
-                      ? `<div class="cash-hist-spark" aria-label="Last ${bars.length} tranches">
-                        ${bars
-                          .map((b, bi) => {
-                            const hPct = Math.max(
-                              22,
-                              Math.min(
-                                100,
-                                Math.round(
-                                  ((b.rate - minB * 0.88) / spanB) * 100,
-                                ),
-                              ),
-                            );
-                            const isCur = bi === bars.length - 1;
-                            return `<div class="cash-spark-col${isCur ? " is-current" : ""}" title="${b.code}: ${b.rate.toFixed(2)}%">
-                              <span class="cash-spark-val">${b.rate.toFixed(2)}</span>
-                              <span class="cash-spark-bar-wrap"><span class="cash-spark-bar" style="height:${hPct}%"></span></span>
-                              <span class="cash-spark-lbl">${b.label}</span>
-                            </div>`;
-                          })
-                          .join("")}
-                      </div>`
-                      : ""
-                  }
-                  <p class="cash-hist-action">${rc.action}</p>
-                </div>`;
-                })()
+                    );
+                    return html`<div class="cash-hist-box">
+                      <div class="cash-hist-head">
+                        <span class="cash-hist-verdict is-${rc.tone}"
+                          >${rc.verdict}</span
+                        >
+                        ${rc.prevLabel ? raw(html`<span class="cash-hist-delta ${rc.deltaPrev >= 0 ? "is-up" : "is-down"}">${rc.deltaText} ${rc.prevLabel}</span>`) : ""}
+                      </div>
+                      <div class="cash-hist-range">
+                        <div class="cash-hist-range-labels">
+                          <span>12M low ${rc.yr1.min.toFixed(2)}%</span>
+                          <span>12M avg ${rc.yr1.avg.toFixed(2)}%</span>
+                          <span>high ${rc.yr1.max.toFixed(2)}%</span>
+                        </div>
+                        <div class="cash-hist-track" aria-hidden="true">
+                          <span
+                            class="cash-hist-avg-mark"
+                            style="left:${minAvgPos}%"
+                            title="12M avg"
+                          ></span>
+                          <span
+                            class="cash-hist-dot"
+                            style="left:${rc.yr1.posPct}%"
+                          ></span>
+                        </div>
+                        ${rc.longTerm ? raw(html`<div class="cash-hist-long">${rc.longTerm.label}: ${rc.longTerm.min.toFixed(2)}%–${rc.longTerm.max.toFixed(2)}% (avg ${rc.longTerm.avg.toFixed(2)}% · ${rc.longTerm.pctText || rc.longTerm.percentile + "th pct"})</div>`) : ""}
+                      </div>
+                      ${
+                        bars.length
+                          ? raw(
+                              html`<div
+                                class="cash-hist-spark"
+                                role="group"
+                                aria-label="Last ${bars.length} tranches"
+                              >
+                                ${bars.map((b, bi) => {
+                                  const hPct = Math.max(
+                                    22,
+                                    Math.min(
+                                      100,
+                                      Math.round(
+                                        ((b.rate - minB * 0.88) / spanB) * 100,
+                                      ),
+                                    ),
+                                  );
+                                  const isCur = bi === bars.length - 1;
+                                  return raw(
+                                    html`<div
+                                      class="cash-spark-col${isCur ? " is-current" : ""}"
+                                      title="${b.code}: ${b.rate.toFixed(2)}%"
+                                    >
+                                      <span class="cash-spark-val"
+                                        >${b.rate.toFixed(2)}</span
+                                      >
+                                      <span class="cash-spark-bar-wrap"
+                                        ><span
+                                          class="cash-spark-bar"
+                                          style="height:${hPct}%"
+                                        ></span
+                                      ></span>
+                                      <span class="cash-spark-lbl"
+                                        >${b.label}</span
+                                      >
+                                    </div>`,
+                                  );
+                                })}
+                              </div>`,
+                            )
+                          : ""
+                      }
+                      <p class="cash-hist-action">${rc.action}</p>
+                    </div>`;
+                  })(),
+                )
               : ""
           }
-          <div class="cash-card-tags" aria-label="Vehicle attributes">
-            ${getCashItemTags(item)
-              .map((t) => `<span class="ui-tag is-${t.key}">${t.label}</span>`)
-              .join("")}
+          <div
+            class="cash-card-tags"
+            role="group"
+            aria-label="Vehicle attributes"
+          >
+            ${getCashItemTags(item).map((t) =>
+              raw(html`<span class="ui-tag is-${t.key}">${t.label}</span>`),
+            )}
           </div>
           <dl class="cash-specs">
             <div>
@@ -576,9 +709,9 @@ function buildCashCardsMarkup(
             <span>Verify live rates</span>
             <span class="cash-domain-link">${item.urlDomain} ↗</span>
           </div>
-        </a>`;
-      })
-      .join("")}
+        </a>`,
+      );
+    })}
   </div>`;
 }
 
@@ -587,17 +720,17 @@ function buildCashAccountReadoutHTML(acc) {
   const isUncapped = acc.bonusCap <= 0;
   let breakdownStr = "";
   let badgeTone = "info";
-  let badgeDetail = `${money(acc.monthlyInterest)}/mo · ${money(acc.annualInterest)}/yr`;
+  let badgeDetail = `${m(acc.monthlyInterest, "/mo")} · ${m(acc.annualInterest, "/yr")}`;
 
   if (acc.hasOverflow) {
-    breakdownStr = `First <strong>${money(acc.tier1Balance)}</strong> @ <strong>${acc.bonusRatePct.toFixed(2)}%</strong> (${money(acc.tier1AnnualInterest)}/yr) + <strong class="is-overflow-text">${money(acc.overflowBalance)} excess @ ${acc.baseRatePct.toFixed(2)}%</strong> (${money(acc.overflowAnnualInterest)}/yr)`;
+    breakdownStr = `First <strong>${m(acc.tier1Balance)}</strong> @ <strong>${acc.bonusRatePct.toFixed(2)}%</strong> (${m(acc.tier1AnnualInterest, "/yr")}) + <strong class="is-overflow-text">${m(acc.overflowBalance)} excess @ ${acc.baseRatePct.toFixed(2)}%</strong> (${m(acc.overflowAnnualInterest, "/yr")})`;
     badgeTone = "warn";
-    badgeDetail = `${money(acc.monthlyInterest)}/mo · −${acc.rateDragPct.toFixed(2)}% drag`;
+    badgeDetail = `${m(acc.monthlyInterest, "/mo")} · −${acc.rateDragPct.toFixed(2)}% drag`;
   } else if (!isUncapped) {
     const roomLeft = Math.max(0, acc.bonusCap - acc.balance);
-    breakdownStr = `Within ${money(acc.bonusCap)} bonus cap @ <strong>${acc.bonusRatePct.toFixed(2)}%</strong> (${money(roomLeft)} cap room left)`;
+    breakdownStr = `Within ${m(acc.bonusCap)} bonus cap @ <strong>${acc.bonusRatePct.toFixed(2)}%</strong> (${m(roomLeft)} cap room left)`;
     badgeTone = "good";
-  } else if (acc.category === "sovereign") {
+  } else if (acc.sovereignBacked) {
     breakdownStr = `MAS Sovereign (${acc.preset === "ssb" ? "$200k SSB limit" : "no cap"}) @ <strong>${acc.bonusRatePct.toFixed(2)}%</strong> p.a.`;
     badgeTone = "good";
   } else {
@@ -611,87 +744,144 @@ function buildCashAccountReadoutHTML(acc) {
 
 function buildCashAccountsSummaryHTML(bd) {
   if (!bd) return "";
-  const hasOverflow = bd.totalOverflowBalance > 0;
+  const hasSweepableOverflow =
+    bd.totalOverflowBalance > 0 && Math.round(bd.sweepAnnualGain) > 0;
   const hasSdicWarn = bd.sdicOverflowTotal > 0;
-  return `
-    <div class="cash-acc-kpi">
+  return html` <div class="cash-acc-kpi">
       <span>Total Cash &amp; SSB</span>
-      <strong>${m(bd.totalBalance)}</strong>
-      <small>${bd.accountCount} account${bd.accountCount === 1 ? "" : "s"} synced to plan</small>
+      <strong>${raw(m(bd.totalBalance))}</strong>
+      <small
+        >${bd.accountCount} account${bd.accountCount === 1 ? "" : "s"} synced to
+        plan</small
+      >
     </div>
     <div class="cash-acc-kpi">
       <span>Blended Effective Yield</span>
-      <strong class="${hasOverflow ? "is-amber" : "is-emerald"}">${bd.effectiveRatePct.toFixed(2)}% EIR</strong>
-      <small>${hasOverflow ? `Dragged down by ${money(bd.totalOverflowBalance)} over cap` : "Compounds cash bucket in FIRE plan"}</small>
+      <strong class="${hasSweepableOverflow ? "is-amber" : "is-emerald"}"
+        >${bd.effectiveRatePct.toFixed(2)}% EIR</strong
+      >
+      <small
+        >${hasSweepableOverflow ? raw(html`Dragged down by ${raw(m(bd.totalOverflowBalance))} over cap`) : "Compounds cash bucket in FIRE plan"}</small
+      >
     </div>
     <div class="cash-acc-kpi">
       <span>Passive Cash Interest</span>
-      <strong>${m(bd.totalMonthlyInterest, "/mo")}</strong>
-      <small>${m(bd.totalAnnualInterest, "/yr")} total annual interest</small>
+      <strong>${raw(m(bd.totalMonthlyInterest, "/mo"))}</strong>
+      <small
+        >${raw(m(bd.totalAnnualInterest, "/yr"))} total annual interest</small
+      >
     </div>
     <div class="cash-acc-kpi">
       <span>Bonus Cap &amp; SDIC Status</span>
-      <strong class="${hasOverflow || hasSdicWarn ? "is-amber" : "is-emerald"}">${
-        hasOverflow
-          ? `${m(bd.totalOverflowBalance)} over cap`
-          : hasSdicWarn
-            ? `${m(bd.sdicOverflowTotal)} over SDIC`
-            : "Within all caps ✓"
-      }</strong>
-      <small>${
-        hasOverflow
-          ? `Excess earns ${bd.overflowAvgBaseRatePct.toFixed(2)}% · Sweep adds +${money(bd.sweepAnnualGain)}/yr`
-          : hasSdicWarn
-            ? `Exceeds $100k/bank in ${bd.sdicExceededBanks.map((b) => escapeAttr(b.bankLabel)).join(", ")}`
-            : "All accounts within bonus & $100k SDIC caps"
-      }</small>
+      <strong
+        class="${hasSweepableOverflow || hasSdicWarn ? "is-amber" : "is-emerald"}"
+        >${
+          hasSweepableOverflow
+            ? raw(html`${raw(m(bd.totalOverflowBalance))} over cap`)
+            : hasSdicWarn
+              ? raw(html`${raw(m(bd.sdicOverflowTotal))} over SDIC`)
+              : "Within all caps ✓"
+        }</strong
+      >
+      <small
+        >${
+          hasSweepableOverflow
+            ? raw(
+                html`Excess earns ${bd.overflowAvgBaseRatePct.toFixed(2)}% ·
+                Sweep adds +${raw(m(bd.sweepAnnualGain, "/yr"))}`,
+              )
+            : hasSdicWarn
+              ? `Exceeds $100k/bank in ${bd.sdicExceededBanks.map((b) => b.bankLabel).join(", ")}`
+              : "All accounts within bonus & $100k SDIC caps"
+        }</small
+      >
     </div>`;
 }
 
 function buildCashAccountsAlertsHTML(bd) {
   if (!bd) return "";
   const parts = [];
-  if (bd.totalOverflowBalance > 0) {
+  if (bd.totalOverflowBalance > 0 && Math.round(bd.sweepAnnualGain) > 0) {
     const overList = bd.accounts
-      .filter((a) => a.hasOverflow)
+      .filter((a) => a.hasOverflow && (a.potentialOverflowGainAnnual || 0) > 0)
       .map(
         (a) =>
-          `<strong>${escapeAttr(a.name)}</strong> has <strong>${money(a.overflowBalance)}</strong> above its ${money(a.bonusCap)} cap earning <strong>${a.baseRatePct.toFixed(2)}%</strong> (dragging account EIR from ${a.bonusRatePct.toFixed(2)}% down to <strong>${a.effectiveRatePct.toFixed(2)}%</strong>)`,
+          html`<strong>${a.name}</strong> has
+            <strong>${raw(m(a.overflowBalance))}</strong> above its
+            ${raw(m(a.bonusCap))} cap earning
+            <strong>${a.baseRatePct.toFixed(2)}%</strong> (dragging account EIR
+            from ${a.bonusRatePct.toFixed(2)}% down to
+            <strong>${a.effectiveRatePct.toFixed(2)}%</strong>)`,
       )
       .join("; ");
-    parts.push(`<div class="cash-acc-alert is-warn" role="status">
-      <div class="cash-acc-alert-copy">
-        <strong>Bonus Cap Overflow Detected (${money(bd.totalOverflowBalance)} earning ${bd.overflowAvgBaseRatePct.toFixed(2)}% base):</strong>
-        <span>${overList}. Sweeping the overflow into MAS SSB / T-Bills (${bd.ssb10YrPct.toFixed(2)}%) lifts your blended cash EIR to <strong>${bd.sweptEffectiveRatePct.toFixed(2)}%</strong> (<strong>+${money(bd.sweepAnnualGain)}/yr</strong> extra interest).</span>
-      </div>
-      ${
-        bd.sweepAnnualGain > 0
-          ? `<button type="button" class="button button-small button-accent cash-acc-sweep-btn" data-cash-acc-sweep>Sweep ${money(bd.totalOverflowBalance)} overflow to MAS SSB (+${money(bd.sweepAnnualGain)}/yr) →</button>`
-          : ""
-      }
-    </div>`);
+    parts.push(
+      html`<div class="cash-acc-alert is-warn" role="status">
+        <div class="cash-acc-alert-copy">
+          <strong
+            >Bonus Cap Overflow Detected (${raw(m(bd.totalOverflowBalance))}
+            earning ${bd.overflowAvgBaseRatePct.toFixed(2)}% base):</strong
+          >
+          <span
+            >${raw(overList)}. Sweeping the overflow into MAS SSB / T-Bills
+            (${bd.ssb10YrPct.toFixed(2)}%) lifts your blended cash EIR to
+            <strong>${bd.sweptEffectiveRatePct.toFixed(2)}%</strong> (<strong
+              >+${raw(m(bd.sweepAnnualGain, "/yr"))}</strong
+            >
+            extra interest).</span
+          >
+        </div>
+        ${
+          bd.sweepAnnualGain > 0
+            ? raw(
+                html`<button
+                  type="button"
+                  class="button button-small button-accent cash-acc-sweep-btn"
+                  data-cash-acc-sweep
+                >
+                  Sweep ${raw(m(bd.totalOverflowBalance))} overflow to MAS SSB
+                  (+${raw(m(bd.sweepAnnualGain, "/yr"))}) →
+                </button>`,
+              )
+            : ""
+        }
+      </div>`,
+    );
   }
   if (bd.sdicOverflowTotal > 0) {
     const sdicList = bd.sdicExceededBanks
       .map(
         (b) =>
-          `<strong>${escapeAttr(b.bankLabel)}</strong> combined deposits (<strong>${money(b.balance)}</strong>) exceed the $100,000 SDIC insured limit by <strong>${money(b.uninsured)}</strong>`,
+          html`<strong>${b.bankLabel}</strong> combined deposits
+            (<strong>${raw(m(b.balance))}</strong>) exceed the $100,000 SDIC
+            insured limit by <strong>${raw(m(b.uninsured))}</strong>`,
       )
       .join("; ");
-    parts.push(`<div class="cash-acc-alert is-info" role="status">
-      <div class="cash-acc-alert-copy">
-        <strong>Per-Bank $100k SDIC Coverage Notice:</strong>
-        <span>${sdicList}. Note that DBS and POSB share a single $100,000 SDIC limit.</span>
-      </div>
-    </div>`);
+    parts.push(
+      html`<div class="cash-acc-alert is-info" role="status">
+        <div class="cash-acc-alert-copy">
+          <strong>Per-Bank $100k SDIC Coverage Notice:</strong>
+          <span
+            >${raw(sdicList)}. Note that DBS and POSB share a single $100,000
+            SDIC limit.</span
+          >
+        </div>
+      </div>`,
+    );
   }
   if (bd.ssbTotal > bd.ssbCap) {
-    parts.push(`<div class="cash-acc-alert is-warn" role="status">
-      <div class="cash-acc-alert-copy">
-        <strong>MAS $200,000 Individual SSB Limit Exceeded:</strong>
-        <span>Your SSB rows total <strong>${money(bd.ssbTotal)}</strong> (${money(bd.ssbOverflow)} above the $200,000 MAS individual holding cap). Route excess into 6-Month MAS T-Bills or a secondary bank.</span>
-      </div>
-    </div>`);
+    parts.push(
+      html`<div class="cash-acc-alert is-warn" role="status">
+        <div class="cash-acc-alert-copy">
+          <strong>MAS $200,000 Individual SSB Limit Exceeded:</strong>
+          <span
+            >Your SSB rows total
+            <strong>${raw(m(bd.ssbTotal))}</strong> (${raw(m(bd.ssbOverflow))}
+            above the $200,000 MAS individual holding cap). Route excess into
+            6-Month MAS T-Bills or a secondary bank.</span
+          >
+        </div>
+      </div>`,
+    );
   }
   return parts.join("");
 }
@@ -717,7 +907,12 @@ function buildCashAccountsEditorHTML(cp, context = "page") {
     presets
       .map(
         (pr) =>
-          `<option value="${pr.key}"${pr.key === selectedKey ? " selected" : ""}>${escapeAttr(pr.name || pr.label)}</option>`,
+          html`<option
+            value="${pr.key}"
+            ${raw(pr.key === selectedKey ? " selected" : "")}
+          >
+            ${pr.name || pr.label}
+          </option>`,
       )
       .join("");
 
@@ -760,7 +955,7 @@ function buildCashAccountsEditorHTML(cp, context = "page") {
             ${buildCashAccountsAlertsHTML(bd)}
           </div>
           <div class="cash-acc-toolbar">
-            <span class="cash-acc-toolbar-meta" id="cash-acc-count-${context}"><strong>${bd.accountCount}</strong> ${bd.accountCount === 1 ? "account" : "accounts"} · Total <strong>${money(bd.totalBalance)}</strong></span>
+            <span class="cash-acc-toolbar-meta" id="cash-acc-count-${context}"><strong>${bd.accountCount}</strong> ${bd.accountCount === 1 ? "account" : "accounts"} · Total <strong>${m(bd.totalBalance)}</strong></span>
             <button type="button" class="button button-small button-accent" data-cash-acc-add="smart">+ Add account</button>
           </div>
           <div class="cash-acc-list" role="region" aria-label="Itemized bank and SSB accounts">
@@ -771,87 +966,196 @@ function buildCashAccountsEditorHTML(cp, context = "page") {
                   acc.preset === "tbills" ||
                   acc.preset === "mmf";
                 const isCustomPreset = acc.preset === "custom";
-                return `<div class="cash-acc-row${acc.hasOverflow ? " is-overflow" : ""}" data-cash-acc-row="${idx}">
-                  <div class="cash-acc-row-top${isCustomPreset ? " is-custom-preset" : ""}">
+                return html`<div
+                  class="cash-acc-row${acc.hasOverflow ? " is-overflow" : ""}"
+                  data-cash-acc-row="${idx}"
+                >
+                  <div
+                    class="cash-acc-row-top${isCustomPreset ? " is-custom-preset" : ""}"
+                  >
                     <div class="cash-acc-col is-preset">
-                      <label for="cash-acc-preset-${context}-${idx}">Bank / Vehicle</label>
+                      <label for="cash-acc-preset-${context}-${idx}"
+                        >Bank / Vehicle</label
+                      >
                       <div class="input-wrap select-wrap">
-                        <select id="cash-acc-preset-${context}-${idx}" data-cash-acc-field="preset" data-cash-acc-idx="${idx}">
-                          ${presetOptions(acc.preset)}
+                        <select
+                          id="cash-acc-preset-${context}-${idx}"
+                          data-cash-acc-field="preset"
+                          data-cash-acc-idx="${idx}"
+                        >
+                          ${raw(presetOptions(acc.preset))}
                         </select>
                       </div>
                     </div>
                     ${
                       isCustomPreset
-                        ? `<div class="cash-acc-col is-name">
-                            <label for="cash-acc-name-${context}-${idx}">Bank / Account Name</label>
-                            <div class="input-wrap">
-                              <input id="cash-acc-name-${context}-${idx}" type="text" maxlength="50" data-cash-acc-field="name" data-cash-acc-idx="${idx}" value="${escapeAttr(acc.name)}" placeholder="e.g. HSBC / CIMB" />
-                            </div>
-                          </div>`
+                        ? raw(
+                            html`<div class="cash-acc-col is-name">
+                              <label for="cash-acc-name-${context}-${idx}"
+                                >Bank / Account Name</label
+                              >
+                              <div class="input-wrap">
+                                <input
+                                  id="cash-acc-name-${context}-${idx}"
+                                  type="text"
+                                  maxlength="50"
+                                  data-cash-acc-field="name"
+                                  data-cash-acc-idx="${idx}"
+                                  value="${acc.name}"
+                                  placeholder="e.g. HSBC / CIMB"
+                                />
+                              </div>
+                            </div>`,
+                          )
                         : ""
                     }
                     <div class="cash-acc-col is-balance">
-                      <label for="cash-acc-bal-${context}-${idx}">Balance ($)</label>
+                      <label for="cash-acc-bal-${context}-${idx}"
+                        >Balance ($)</label
+                      >
                       <div class="input-wrap">
                         <span>$</span>
-                        <input id="cash-acc-bal-${context}-${idx}" type="number" min="0" max="100000000" step="any" inputmode="decimal" data-cash-acc-field="balance" data-cash-acc-idx="${idx}" value="${acc.balance}" />
+                        <input
+                          id="cash-acc-bal-${context}-${idx}"
+                          type="number"
+                          min="0"
+                          max="100000000"
+                          step="any"
+                          inputmode="decimal"
+                          data-cash-acc-field="balance"
+                          data-cash-acc-idx="${idx}"
+                          value="${acc.balance}"
+                        />
                       </div>
                     </div>
                     <div class="cash-acc-col is-remove">
-                      <button type="button" class="exp-remove-btn cash-acc-remove-btn" data-cash-acc-remove="${idx}" aria-label="Remove ${escapeAttr(acc.name)}" title="Remove account">×</button>
+                      <button
+                        type="button"
+                        class="exp-remove-btn cash-acc-remove-btn"
+                        data-cash-acc-remove="${idx}"
+                        aria-label="Remove ${acc.name}"
+                        title="Remove account"
+                      >
+                        ×
+                      </button>
                     </div>
                   </div>
-                  <div class="cash-acc-row-rules${isFlatVehicle ? " is-flat" : ""}">
+                  <div
+                    class="cash-acc-row-rules${isFlatVehicle ? " is-flat" : ""}"
+                  >
                     ${
                       isFlatVehicle
-                        ? `<div class="cash-acc-col is-rate">
-                            <label for="cash-acc-bonus-${context}-${idx}">${acc.preset === "ssb" ? "10-Yr Avg Yield" : "Annual Yield"}</label>
-                            <div class="input-wrap">
-                              <input id="cash-acc-bonus-${context}-${idx}" type="number" min="0" max="20" step="0.05" inputmode="decimal" data-cash-acc-field="bonusRatePct" data-cash-acc-idx="${idx}" value="${acc.bonusRatePct}" />
-                              <span>%</span>
-                            </div>
-                          </div>
-                          <div class="cash-acc-flat-meta">
-                            <span>${
-                              acc.preset === "ssb"
-                                ? "AAA Singapore Gov · $200,000 MAS individual holding limit across all SSB tranches"
-                                : acc.preset === "tbills"
-                                  ? "AAA Singapore Gov · No individual holding limit · 6M / 1Y auction cut-off"
-                                  : "Institutional SGD Money Market Fund · Uncapped (non-SDIC custodian)"
-                            }</span>
-                          </div>`
-                        : `<div class="cash-acc-col is-cap">
-                            <label for="cash-acc-cap-${context}-${idx}" title="Max balance earning the bonus rate (enter 0 for uncapped)">Bonus Cap ($)</label>
-                            <div class="input-wrap">
-                              <span>$</span>
-                              <input id="cash-acc-cap-${context}-${idx}" type="number" min="0" max="100000000" step="1000" inputmode="numeric" data-cash-acc-field="bonusCap" data-cash-acc-idx="${idx}" value="${acc.bonusCap}" placeholder="0 = none" />
-                            </div>
-                          </div>
-                          <div class="cash-acc-col is-rate">
-                            <label for="cash-acc-bonus-${context}-${idx}" title="Interest rate on balance up to the bonus cap">Rate up to Cap</label>
-                            <div class="input-wrap">
-                              <input id="cash-acc-bonus-${context}-${idx}" type="number" min="0" max="20" step="0.05" inputmode="decimal" data-cash-acc-field="bonusRatePct" data-cash-acc-idx="${idx}" value="${acc.bonusRatePct}" />
-                              <span>%</span>
-                            </div>
-                          </div>
-                          <div class="cash-acc-col is-rate">
-                            <label for="cash-acc-base-${context}-${idx}" title="Base interest rate on any excess balance above the bonus cap">Rate &gt; Cap</label>
-                            <div class="input-wrap">
-                              <input id="cash-acc-base-${context}-${idx}" type="number" min="0" max="20" step="0.05" inputmode="decimal" data-cash-acc-field="baseRatePct" data-cash-acc-idx="${idx}" value="${acc.baseRatePct}" />
-                              <span>%</span>
-                            </div>
-                          </div>`
+                        ? raw(
+                            html`<div class="cash-acc-col is-rate">
+                                <label for="cash-acc-bonus-${context}-${idx}"
+                                  >${acc.preset === "ssb" ? "10-Yr Avg Yield" : "Annual Yield"}</label
+                                >
+                                <div class="input-wrap">
+                                  <input
+                                    id="cash-acc-bonus-${context}-${idx}"
+                                    type="number"
+                                    min="0"
+                                    max="20"
+                                    step="0.05"
+                                    inputmode="decimal"
+                                    data-cash-acc-field="bonusRatePct"
+                                    data-cash-acc-idx="${idx}"
+                                    value="${acc.bonusRatePct}"
+                                  />
+                                  <span>%</span>
+                                </div>
+                              </div>
+                              <div class="cash-acc-flat-meta">
+                                <span
+                                  >${
+                                    acc.preset === "ssb"
+                                      ? "AAA Singapore Gov · $200,000 MAS individual holding limit across all SSB tranches"
+                                      : acc.preset === "tbills"
+                                        ? "AAA Singapore Gov · No individual holding limit · 6M / 1Y auction cut-off"
+                                        : "Institutional SGD Money Market Fund · Uncapped (non-SDIC custodian)"
+                                  }</span
+                                >
+                              </div>`,
+                          )
+                        : raw(
+                            html`<div class="cash-acc-col is-cap">
+                                <label
+                                  for="cash-acc-cap-${context}-${idx}"
+                                  title="Max balance earning the bonus rate (enter 0 for uncapped)"
+                                  >Bonus Cap ($)</label
+                                >
+                                <div class="input-wrap">
+                                  <span>$</span>
+                                  <input
+                                    id="cash-acc-cap-${context}-${idx}"
+                                    type="number"
+                                    min="0"
+                                    max="100000000"
+                                    step="1000"
+                                    inputmode="numeric"
+                                    data-cash-acc-field="bonusCap"
+                                    data-cash-acc-idx="${idx}"
+                                    value="${acc.bonusCap}"
+                                    placeholder="0 = none"
+                                  />
+                                </div>
+                              </div>
+                              <div class="cash-acc-col is-rate">
+                                <label
+                                  for="cash-acc-bonus-${context}-${idx}"
+                                  title="Interest rate on balance up to the bonus cap"
+                                  >Rate up to Cap</label
+                                >
+                                <div class="input-wrap">
+                                  <input
+                                    id="cash-acc-bonus-${context}-${idx}"
+                                    type="number"
+                                    min="0"
+                                    max="20"
+                                    step="0.05"
+                                    inputmode="decimal"
+                                    data-cash-acc-field="bonusRatePct"
+                                    data-cash-acc-idx="${idx}"
+                                    value="${acc.bonusRatePct}"
+                                  />
+                                  <span>%</span>
+                                </div>
+                              </div>
+                              <div class="cash-acc-col is-rate">
+                                <label
+                                  for="cash-acc-base-${context}-${idx}"
+                                  title="Base interest rate on any excess balance above the bonus cap"
+                                  >Rate &gt; Cap</label
+                                >
+                                <div class="input-wrap">
+                                  <input
+                                    id="cash-acc-base-${context}-${idx}"
+                                    type="number"
+                                    min="0"
+                                    max="20"
+                                    step="0.05"
+                                    inputmode="decimal"
+                                    data-cash-acc-field="baseRatePct"
+                                    data-cash-acc-idx="${idx}"
+                                    value="${acc.baseRatePct}"
+                                  />
+                                  <span>%</span>
+                                </div>
+                              </div>`,
+                          )
                     }
                   </div>
-                  <div class="cash-acc-row-readout" data-cash-acc-readout="${idx}">
-                    ${buildCashAccountReadoutHTML(acc)}
+                  <div
+                    class="cash-acc-row-readout"
+                    data-cash-acc-readout="${idx}"
+                  >
+                    ${raw(buildCashAccountReadoutHTML(acc))}
                   </div>
                 </div>`;
               })
               .join("")}
           </div>
-          <div class="cash-acc-quick-bar" aria-label="Quick-add Singapore bank or sovereign cash account">
+          <div class="cash-acc-quick-bar" role="group" aria-label="Quick-add Singapore bank or sovereign cash account">
             <span class="cash-acc-quick-label">Add account:</span>
             ${quickPresets
               .map(
@@ -870,24 +1174,24 @@ function buildCashPlanCardHTML(cp) {
     <div class="rules-card-head">
       <div>
         <h2 id="cash-layer-title">Your Cash Buffer &amp; Cap Positioning</h2>
-        <p>${escapeAttr(cp.positionNote)}</p>
+        ${html`<p>${cp.positionNote}</p>`}
       </div>
-      <span class="status-pill is-${escapeAttr(cp.positionTone)}">${escapeAttr(cp.positionHeadline)}</span>
+      ${html`<span class="status-pill is-${cp.positionTone}">${cp.positionHeadline}</span>`}
     </div>
 
     <dl class="tax-metrics-grid cash-kpi-grid">
       <div class="tax-metric-box">
         <dt>6–12m Emergency Target</dt>
         <dd>${m(cp.emergencyMin, "", "cash-em-min")}–${m(cp.emergencyMax, "", "cash-em-max")}</dd>
-        <small>6–12m × ${money(cp.emergencyMonthlyBase)}/mo retire budget</small>
+        <small>6–12m × ${m(cp.emergencyMonthlyBase, "/mo")} retire budget</small>
       </div>
       <div class="tax-metric-box">
         <dt>Entered SSB / Cash Bucket</dt>
         <dd>${m(cp.currentCash, "", "cash-entered")}</dd>
         <small>${
           cp.cashAccountsActive && bd
-            ? `${bd.accountCount} account${bd.accountCount === 1 ? "" : "s"} · <strong>${bd.effectiveRatePct.toFixed(2)}% blended EIR</strong> (~${money(bd.totalMonthlyInterest)}/mo)`
-            : `Target $150,000 SSB after buffer (max ${money(cp.ssbCap)} MAS cap · ${money(cp.sdicCap)} SDIC/bank)`
+            ? `${bd.accountCount} account${bd.accountCount === 1 ? "" : "s"} · <strong>${bd.effectiveRatePct.toFixed(2)}% blended EIR</strong> (~${m(bd.totalMonthlyInterest, "/mo")})`
+            : `Target $150,000 SSB after buffer (max ${m(cp.ssbCap)} MAS cap · ${m(cp.sdicCap)} SDIC/bank)`
         }</small>
       </div>
       <div class="tax-metric-box">
@@ -895,7 +1199,7 @@ function buildCashPlanCardHTML(cp) {
         <dd>${m(cp.monthlyCashSlice > 0 ? cp.monthlyCashSlice : 0, "/mo", "cash-monthly-slice")}</dd>
         <small>${
           cp.monthlyCashSaving > 0
-            ? `${money(cp.monthlyCashSaving)}/mo planned savings + ${money(cp.monthlyBondSlice || 0)}/mo bond slice`
+            ? `${m(cp.monthlyCashSaving, "/mo")} planned savings + ${m(cp.monthlyBondSlice || 0, "/mo")} bond slice`
             : cp.hasSrs
               ? "Idle SRS earns 0.05% — park in T-Bills/MMFs"
               : "From Allocator SSB / T-Bills target"
@@ -905,7 +1209,7 @@ function buildCashPlanCardHTML(cp) {
 
     ${buildCashAccountsEditorHTML(cp, "page")}
 
-    <div class="cash-ladder-grid" aria-label="Suggested cash parking waterfall">
+    <div class="cash-ladder-grid" role="group" aria-label="Suggested cash parking waterfall">
       ${cp.tiers
         .map(
           (tier) => `<div class="cash-tier-box">
@@ -977,10 +1281,10 @@ function buildCashParkingSection(
     <header class="ember-page-header fin-page-header">
       <div class="fin-header-copy">
         <h1>Cash Parking &amp; Yield Mediums</h1>
-        <p class="cash-page-sub">Compare Singapore cash vehicles, holding limits, and SDIC coverage. Click any card to view live rates on the official provider site.</p>
+        <p class="fin-page-sub">Compare Singapore cash vehicles, holding limits, and SDIC coverage. Click any card to view live rates on the official provider site.</p>
       </div>
-      <div class="cash-header-sync">
-        <span class="fin-target-pill cash-sync-pill">${syncText}</span>
+      <div class="ember-header-meta cash-header-sync">
+        ${html`<span class="fin-target-pill cash-sync-pill">${syncText}</span>`}
         <button type="button" class="button button-small cash-sync-btn" data-cash-sync title="Check latest SSB tranche &amp; T-Bill auction cut-off">↻ Sync MAS</button>
       </div>
     </header>
@@ -1001,7 +1305,7 @@ function buildCashParkingSection(
       <div class="cash-search-tag-bar">
         <div class="cash-search-wrap">
           <svg class="cash-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          <input type="search" id="cash-search-input" class="cash-search-input" placeholder="Search SSB, MariBank, UOB, SRS, T+0…" aria-label="Search cash parking vehicles" value="${escapeAttr(searchQuery)}" />
+          ${html`<input type="search" id="cash-search-input" class="cash-search-input" placeholder="Search SSB, MariBank, UOB, SRS, T+0…" aria-label="Search cash parking vehicles" value="${searchQuery}" />`}
           <button type="button" class="cash-search-clear" data-cash-search-clear aria-label="Clear search" ${searchQuery ? "" : "hidden"}>×</button>
         </div>
         <div class="cash-tag-bar" role="group" aria-label="Filter by vehicle attribute tag">
@@ -1072,7 +1376,7 @@ function buildDividendResultsHTML(divModel) {
     <div class="div-payout-hero">
       <div class="div-payout-main">
         <span class="div-payout-eyebrow">Monthly Passive Income</span>
-        <strong class="div-payout-amount" id="div-monthly-readout">${centsHtml(divModel.monthlyPayout)}<span>/mo</span></strong>
+        <strong class="div-payout-amount" id="div-monthly-readout">${centsHtml(divModel.monthlyPayout, "/mo")}</strong>
         <p class="div-payout-sub">From <strong>${m(divModel.capital)}</strong> principal at <strong>${divModel.ratePct.toFixed(2)}% p.a.</strong> (~<strong>${centsHtml(divModel.dailyPayout)}/day</strong>)</p>
       </div>
       <div class="div-payout-subgrid">
@@ -1100,7 +1404,7 @@ function buildDividendResultsHTML(divModel) {
         <h2 id="div-verdict-headline">${divModel.headline}</h2>
       </div>
       <p class="div-verdict-summary" id="div-verdict-summary">${divModel.summary}</p>
-      <div class="div-spectrum-wrap" aria-label="Singapore yield benchmark spectrum from 0% to 10%+">
+      <div class="div-spectrum-wrap" role="group" aria-label="Singapore yield benchmark spectrum from 0% to 10%+">
         <div class="div-spectrum-track">
           ${zones
             .map(
@@ -1174,7 +1478,7 @@ function buildDividendBenchmarksHTML(divModel) {
                   <span class="status-pill is-${b.tone} div-tier-pill">${b.verdictShort}</span>
                 </td>
                 <td class="num-col"><span class="div-rate-badge">${b.ratePct.toFixed(2)}%</span></td>
-                <td class="num-col"><strong class="div-mo-val">${centsHtml(b.monthlyPayout)}<span class="div-mo-unit">/mo</span></strong></td>
+                <td class="num-col"><strong class="div-mo-val">${centsHtml(b.monthlyPayout, "/mo")}</strong></td>
                 <td class="num-col">${m(b.annualPayout, "/yr")}</td>
                 <td class="num-col ${realClass}">${realSign}${b.realRatePct.toFixed(2)}%</td>
                 <td class="num-col ${diffClass}">${diffStr}</td>
@@ -1198,8 +1502,12 @@ function buildTargetResultsHTML(targetModel) {
     targetModel.capitalGap <= 0
       ? `Your ${m(targetModel.currentCapital)} already covers this goal`
       : targetModel.yearsToGoal == null
-        ? "Cannot reach goal at $0/mo contribution"
-        : `Saving ${m(targetModel.monthlyContribution, "/mo")} at ${targetModel.ratePct.toFixed(2)}% p.a. (${targetModel.inflationPct.toFixed(1)}% real target)`;
+        ? targetModel.monthlyContribution <= 0
+          ? "Cannot reach goal at $0/mo contribution"
+          : targetModel.ratePct <= targetModel.inflationPct
+            ? `Yield (${targetModel.ratePct.toFixed(2)}%) does not outpace ${targetModel.inflationPct.toFixed(1)}% inflation`
+            : `Exceeds 100-year horizon at ${m(targetModel.monthlyContribution, "/mo")}`
+        : `Saving ${m(targetModel.monthlyContribution, "/mo")} at ${targetModel.ratePct.toFixed(2)}% p.a. (${targetModel.inflationPct.toFixed(1)}% inflation)`;
 
   return `
     <div class="div-payout-hero">
@@ -1384,7 +1692,7 @@ function buildAnnuityBenchmarksHTML(annuityModel) {
                 </td>
                 <td class="num-col"><span class="div-rate-badge">${c.ratePct.toFixed(2)}%</span></td>
                 <td class="num-col">${m(c.potAtPayoutStart)}</td>
-                <td class="num-col"><strong class="div-mo-val">${m(Math.round(c.monthlyPayout))}<span class="div-mo-unit">/mo</span></strong></td>
+                <td class="num-col"><strong class="div-mo-val">${m(Math.round(c.monthlyPayout), "/mo")}</strong></td>
                 <td class="num-col">${m(c.totalPayout)}</td>
                 <td class="num-col ${deltaClass}">${deltaStr}</td>
               </tr>`;
@@ -1613,11 +1921,11 @@ function buildDividendCalculatorSection({
             <input id="div-annuity-pay-yrs" type="number" inputmode="numeric" min="1" max="50" step="1" value="${annuityModel.contributeYears}" aria-label="Number of years paying premiums" />
             <span>yrs</span>
           </div>
-          <div class="div-chip-row">
+          <div class="div-chip-row" role="group" aria-label="Premium term presets">
             ${[5, 10, 15, 20]
               .map(
                 (y) =>
-                  `<button type="button" class="div-preset-chip${annuityModel.contributeYears === y ? " is-active" : ""}" data-div-annuity-pay-yrs="${y}">${y}y</button>`,
+                  `<button type="button" class="div-preset-chip${annuityModel.contributeYears === y ? " is-active" : ""}" data-div-annuity-pay-yrs="${y}" aria-pressed="${annuityModel.contributeYears === y}">${y}y</button>`,
               )
               .join("")}
           </div>
@@ -1631,11 +1939,11 @@ function buildDividendCalculatorSection({
             <input id="div-annuity-defer-yrs" type="number" inputmode="numeric" min="0" max="30" step="1" value="${annuityModel.deferYears}" aria-label="Deferment years before payout starts" />
             <span>yrs</span>
           </div>
-          <div class="div-chip-row">
+          <div class="div-chip-row" role="group" aria-label="Deferment period presets">
             ${[0, 5, 10, 15]
               .map(
                 (y) =>
-                  `<button type="button" class="div-preset-chip${annuityModel.deferYears === y ? " is-active" : ""}" data-div-annuity-defer-yrs="${y}">${y}y</button>`,
+                  `<button type="button" class="div-preset-chip${annuityModel.deferYears === y ? " is-active" : ""}" data-div-annuity-defer-yrs="${y}" aria-pressed="${annuityModel.deferYears === y}">${y}y</button>`,
               )
               .join("")}
           </div>
@@ -1649,11 +1957,11 @@ function buildDividendCalculatorSection({
             <input id="div-annuity-draw-yrs" type="number" inputmode="numeric" min="1" max="50" step="1" value="${annuityModel.payoutYears}" aria-label="Number of years receiving payouts" />
             <span>yrs</span>
           </div>
-          <div class="div-chip-row">
+          <div class="div-chip-row" role="group" aria-label="Payout duration presets">
             ${[10, 15, 20, 30]
               .map(
                 (y) =>
-                  `<button type="button" class="div-preset-chip${annuityModel.payoutYears === y ? " is-active" : ""}" data-div-annuity-draw-yrs="${y}">${y}y</button>`,
+                  `<button type="button" class="div-preset-chip${annuityModel.payoutYears === y ? " is-active" : ""}" data-div-annuity-draw-yrs="${y}" aria-pressed="${annuityModel.payoutYears === y}">${y}y</button>`,
               )
               .join("")}
           </div>
@@ -1715,7 +2023,7 @@ function buildDividendCalculatorSection({
     <header class="ember-page-header fin-page-header">
       <div class="fin-header-copy">
         <h1>Dividend, Target Income &amp; Annuity Calculator</h1>
-        <p class="cash-page-sub">Standalone Singapore calculator for lump-sum yield, target monthly passive income, and retirement annuity evaluation.</p>
+        <p class="fin-page-sub">Standalone Singapore calculator for lump-sum yield, target monthly passive income, and retirement annuity evaluation.</p>
       </div>
       <div class="ember-header-meta">
         <span class="status-pill is-${hdrTone}" id="div-header-badge">${hdrText}</span>
@@ -1756,10 +2064,8 @@ function buildDividendCalculatorSection({
 }
 
 export {
-  svgDonut,
   buildBogleheadSection,
   buildTaxSweetSpotSection,
-  getCashItemTags,
   buildCashCardsMarkup,
   buildCashAccountReadoutHTML,
   buildCashAccountsSummaryHTML,

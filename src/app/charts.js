@@ -11,6 +11,73 @@ import {
 let trajectoryInspectedAge = null;
 let onTrajectoryInspectAge = null;
 
+function announceChartStatus(text) {
+  const sr = document.getElementById("sr-status");
+  if (sr && text) sr.textContent = text;
+}
+
+/**
+ * Bind accessible keyboard scrubbing (ArrowLeft/ArrowRight/Home/End/Enter/Space/Escape)
+ * onto an interactive chart container so keyboard-only users can inspect data points.
+ */
+function bindChartKeyboard(
+  chartArea,
+  { count, initialIndex = 0, onShow, onLeave, onSelect },
+) {
+  if (!chartArea || count <= 0) return;
+  chartArea.setAttribute("tabindex", "0");
+  chartArea.setAttribute("role", "application");
+  chartArea.setAttribute("aria-roledescription", "interactive chart");
+  let activeIdx = Math.max(0, Math.min(count - 1, initialIndex));
+  let isActive = false;
+
+  chartArea.onkeydown = (e) => {
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      activeIdx = isActive ? Math.min(count - 1, activeIdx + 1) : activeIdx;
+      isActive = true;
+      onShow(activeIdx);
+    } else if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      activeIdx = isActive ? Math.max(0, activeIdx - 1) : activeIdx;
+      isActive = true;
+      onShow(activeIdx);
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      activeIdx = 0;
+      isActive = true;
+      onShow(activeIdx);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      activeIdx = count - 1;
+      isActive = true;
+      onShow(activeIdx);
+    } else if (
+      (e.key === "Enter" || e.key === " ") &&
+      typeof onSelect === "function"
+    ) {
+      e.preventDefault();
+      if (!isActive) {
+        isActive = true;
+        onShow(activeIdx);
+      }
+      onSelect(activeIdx);
+    } else if (e.key === "Escape") {
+      if (isActive) {
+        e.preventDefault();
+        isActive = false;
+        onLeave();
+      }
+    }
+  };
+  chartArea.onblur = () => {
+    if (isActive) {
+      isActive = false;
+      onLeave();
+    }
+  };
+}
+
 function throttleRaf(fn) {
   let rafId = null;
   let lastEvent = null;
@@ -34,6 +101,16 @@ function throttleRaf(fn) {
   return wrapped;
 }
 
+function getMobileChartWidth(chartArea, compactPrint) {
+  if (compactPrint) return null;
+  const cw =
+    chartArea?.clientWidth || chartArea?.parentElement?.clientWidth || 0;
+  const vw = typeof window !== "undefined" ? window.innerWidth : 1024;
+  const avail = cw > 0 ? Math.min(cw, vw) : Math.max(240, vw - 28);
+  if (avail >= 520) return null;
+  return Math.max(240, Math.min(480, Math.round(avail)));
+}
+
 function buildAxisMilestonesSVG({
   minAge,
   maxAge,
@@ -48,16 +125,18 @@ function buildAxisMilestonesSVG({
   showSrs = false,
   rowYs = [18, 34, 50],
   compactPrint = false,
+  isMobile = false,
   saLabel = "55 SA → RA",
   saStyle = { color: "#0F766E", bg: "#F0FDFA", border: "#99F6E4" },
   srsLabelSuffix = "SRS Draw",
   includeAge55AtMin = false,
 }) {
+  const narrow = isMobile && !compactPrint;
   const raw = [];
   if ((includeAge55AtMin ? minAge <= 55 : minAge < 55) && maxAge >= 55) {
     raw.push({
       age: 55,
-      label: saLabel,
+      label: narrow ? "55 SA→RA" : saLabel,
       color: saStyle.color,
       bg: saStyle.bg,
       border: saStyle.border,
@@ -75,7 +154,7 @@ function buildAxisMilestonesSVG({
   if (showSrs && srsAge != null && srsAge >= minAge && srsAge <= maxAge) {
     raw.push({
       age: srsAge,
-      label: `${srsAge} ${srsLabelSuffix}`,
+      label: narrow ? `${srsAge} SRS` : `${srsAge} ${srsLabelSuffix}`,
       color: "#6D28D9",
       bg: "#F5F3FF",
       border: "#DDD6FE",
@@ -84,7 +163,7 @@ function buildAxisMilestonesSVG({
   if (65 >= minAge && 65 <= maxAge) {
     raw.push({
       age: 65,
-      label: "65 CPF LIFE",
+      label: narrow ? "65 CPF" : "65 CPF LIFE",
       color: "#047857",
       bg: "#ECFDF5",
       border: "#A7F3D0",
@@ -96,7 +175,7 @@ function buildAxisMilestonesSVG({
     const ex = merged.find((mItem) => mItem.age === item.age);
     if (ex) {
       if (item.age === 65 && ex.label.startsWith("Retire")) {
-        ex.label = "65 Retire · CPF LIFE";
+        ex.label = narrow ? "65 Retire·CPF" : "65 Retire · CPF LIFE";
         ex.color = "#BE185D";
         ex.bg = "#FDF2F8";
         ex.border = "#FBCFE8";
@@ -110,21 +189,34 @@ function buildAxisMilestonesSVG({
     }
   }
   const rowBoxes = rowYs.map(() => []);
-  const charW = compactPrint ? 6.8 : 6.1;
-  const pillH = compactPrint ? 17 : 16;
-  const pillYOffset = compactPrint ? 12 : 11.5;
-  const fontSize = compactPrint ? 11.5 : 10;
+  const charW = compactPrint ? 6.8 : narrow ? 5.6 : 6.1;
+  const pillH = compactPrint ? 17 : narrow ? 15 : 16;
+  const pillYOffset = compactPrint ? 12 : narrow ? 10.5 : 11.5;
+  const fontSize = compactPrint ? 11.5 : narrow ? 9.5 : 10;
+  const gapX = narrow ? 6 : 10;
+  const maxPillW = Math.max(44, W - padL - padR);
   return merged
     .map((mItem) => {
       const x = dX(mItem.age);
       const anchor =
-        x < padL + 54 ? "start" : x > W - padR - 54 ? "end" : "middle";
-      const pillW = Math.max(54, mItem.label.length * charW + 14);
-      const x1 =
+        x < padL + (narrow ? 40 : 54)
+          ? "start"
+          : x > W - padR - (narrow ? 40 : 54)
+            ? "end"
+            : "middle";
+      const pillW = Math.min(
+        maxPillW,
+        Math.max(
+          narrow ? 44 : 54,
+          mItem.label.length * charW + (narrow ? 10 : 14),
+        ),
+      );
+      const rawX1 =
         anchor === "start" ? x : anchor === "end" ? x - pillW : x - pillW / 2;
+      const x1 = Math.max(padL, Math.min(W - padR - pillW, rawX1));
       const x2 = x1 + pillW;
       let chosenRow = rowBoxes.findIndex((boxes) =>
-        boxes.every((b) => x2 + 10 <= b.x1 || x1 - 10 >= b.x2),
+        boxes.every((b) => x2 + gapX <= b.x1 || x1 - gapX >= b.x2),
       );
       if (chosenRow === -1) chosenRow = rowBoxes.length - 1;
       rowBoxes[chosenRow].push({ x1, x2 });
@@ -170,9 +262,12 @@ export function renderTrajectoryChart(
     chartWrapper.ontouchmove = null;
     chartWrapper.onmouseleave = null;
     chartWrapper.ontouchend = null;
+    chartWrapper.ontouchcancel = null;
     chartWrapper.onclick = null;
   }
   chartArea.onclick = null;
+  chartArea.onkeydown = null;
+  chartArea.onblur = null;
   const trajLegendEl = $("#chart-legend");
   if (trajLegendEl) {
     trajLegendEl.onmouseover = null;
@@ -210,12 +305,14 @@ export function renderTrajectoryChart(
     return;
   }
 
-  const W = 760,
-    H = 318,
-    padL = 74,
-    padR = 26,
-    padT = 54,
-    padB = 40;
+  const mobileW = getMobileChartWidth(chartArea, false);
+  const isMobile = mobileW != null;
+  const W = isMobile ? mobileW : 760,
+    H = isMobile ? 260 : 318,
+    padL = isMobile ? 52 : 74,
+    padR = isMobile ? 14 : 26,
+    padT = isMobile ? 74 : 54,
+    padB = isMobile ? 34 : 40;
   const plotW = W - padL - padR,
     plotH = H - padT - padB;
   const minAge = points[0].age,
@@ -232,14 +329,19 @@ export function renderTrajectoryChart(
         : pt.portfolioBalance,
     ),
   );
-  const { maxVal, ticks } = niceAxis(rawMax, 4);
+  const { maxVal, ticks } = niceAxis(rawMax, isMobile ? 3 : 4);
   const dY = (val) => padT + (1 - Math.max(0, val) / maxVal) * plotH;
-  const formatTickSvg = isCashflow ? svgMoney : svgCompactMoney;
+  const formatTickSvg = isCashflow
+    ? isMobile
+      ? svgCompactMoney
+      : svgMoney
+    : svgCompactMoney;
+  const tickFontSize = isMobile ? 11 : 12;
   const yTicks = ticks
     .map(
       (v) =>
         `<line x1="${padL}" y1="${dY(v)}" x2="${W - padR}" y2="${dY(v)}" stroke="var(--chart-grid)" stroke-opacity="0.5" stroke-dasharray="3,3" />
-         <text x="${padL - 10}" y="${dY(v) + 4}" text-anchor="end" font-size="12" fill="var(--ink-soft)">${formatTickSvg(v)}</text>`,
+         <text x="${padL - (isMobile ? 7 : 10)}" y="${dY(v) + 4}" text-anchor="end" font-size="${tickFontSize}" fill="var(--ink-soft)">${formatTickSvg(v)}</text>`,
     )
     .join("");
 
@@ -247,10 +349,11 @@ export function renderTrajectoryChart(
     (a) => a >= minAge && a <= maxAge,
   );
   const xTicksList = [];
+  const minTickGap = isMobile ? 48 : 62;
   for (const a of candidateTicks) {
     if (
       xTicksList.length === 0 ||
-      dX(a) - dX(xTicksList[xTicksList.length - 1]) >= 62
+      dX(a) - dX(xTicksList[xTicksList.length - 1]) >= minTickGap
     ) {
       xTicksList.push(a);
     }
@@ -258,7 +361,7 @@ export function renderTrajectoryChart(
   if (xTicksList[xTicksList.length - 1] !== maxAge) {
     if (
       xTicksList.length > 0 &&
-      dX(maxAge) - dX(xTicksList[xTicksList.length - 1]) < 48
+      dX(maxAge) - dX(xTicksList[xTicksList.length - 1]) < (isMobile ? 34 : 48)
     ) {
       xTicksList.pop();
     }
@@ -268,7 +371,7 @@ export function renderTrajectoryChart(
     .map(
       (a) =>
         `<line x1="${dX(a)}" y1="${padT}" x2="${dX(a)}" y2="${H - padB}" stroke="var(--chart-grid)" stroke-opacity="0.35" />
-         <text x="${dX(a)}" y="${H - padB + 22}" text-anchor="middle" font-size="12" fill="var(--ink-soft)">Age ${a}</text>`,
+         <text x="${dX(a)}" y="${H - padB + (isMobile ? 20 : 22)}" text-anchor="middle" font-size="${tickFontSize}" fill="var(--ink-soft)">${isMobile ? a : `Age ${a}`}</text>`,
     )
     .join("");
 
@@ -307,6 +410,8 @@ export function renderTrajectoryChart(
     retireAge: summary.retire,
     srsAge: currentFirePlan?.srsWithdrawalAge ?? 63,
     showSrs: hasSrs,
+    isMobile,
+    rowYs: isMobile ? [14, 30, 46, 62] : [18, 34, 50],
   });
 
   const inspectedPinSVG =
@@ -378,7 +483,7 @@ export function renderTrajectoryChart(
 
   const tooltipEl = $("#chart-tooltip");
   const scrubLine = $("#scrub-line");
-  if (!chartWrapper || !scrubLine) return;
+  if (!chartWrapper || !scrubLine || !tooltipEl) return;
 
   const resolveAgeFromEvent = (e) => {
     const svgEl = $("#trajectory-chart svg");
@@ -399,12 +504,9 @@ export function renderTrajectoryChart(
     };
   };
 
-  const handlePointer = (e) => {
-    const resolved = resolveAgeFromEvent(e);
-    if (!resolved) return;
-    const { svgRect, targetAge } = resolved;
+  const showPoint = (pt, svgRect, announce = false) => {
+    if (!pt || !svgRect) return;
     const wrapRect = chartWrapper.getBoundingClientRect();
-    const pt = points.find((p) => p.age === targetAge) || points[0];
     const svgX = dX(pt.age);
     scrubLine.setAttribute("x1", svgX);
     scrubLine.setAttribute("x2", svgX);
@@ -416,7 +518,7 @@ export function renderTrajectoryChart(
       <div class="tt-row"><span>CPF LIFE</span><b class="sem-cpf">${m(pt.monthlyCPF, "/mo")}</b></div>
       ${pt.monthlyGap > 0 ? `<div class="tt-row"><span>Outside gap</span><b class="sem-eq">${m(pt.monthlyGap, "/mo")}</b></div>` : ""}
       <div class="tt-row"><span>Portfolio</span><b>${m(pt.portfolioBalance)}</b></div>
-      <div class="tt-note">Click to inspect full year ledger</div>`;
+      <div class="tt-note">Click or press Enter to inspect full year ledger</div>`;
     const anchorY =
       chartMode === "portfolio"
         ? dY(pt.portfolioBalance)
@@ -431,6 +533,19 @@ export function renderTrajectoryChart(
       H,
       padT,
     );
+    if (announce) {
+      announceChartStatus(
+        `Age ${pt.age}: spend ${compactMoney(pt.monthlySpend)} per month, CPF LIFE ${compactMoney(pt.monthlyCPF)} per month, portfolio ${compactMoney(pt.portfolioBalance)}.`,
+      );
+    }
+  };
+
+  const handlePointer = (e) => {
+    const resolved = resolveAgeFromEvent(e);
+    if (!resolved) return;
+    const { svgRect, targetAge } = resolved;
+    const pt = points.find((p) => p.age === targetAge) || points[0];
+    showPoint(pt, svgRect, false);
   };
   const throttledPointer = throttleRaf(handlePointer);
   const handleLeave = () => {
@@ -443,6 +558,7 @@ export function renderTrajectoryChart(
   chartWrapper.onmouseleave = handleLeave;
   chartWrapper.ontouchend = handleLeave;
   chartWrapper.ontouchcancel = handleLeave;
+  chartArea.onclick = null;
   chartWrapper.onclick = (e) => {
     if (e.target.closest("button")) return;
     const resolved = resolveAgeFromEvent(e);
@@ -450,6 +566,23 @@ export function renderTrajectoryChart(
       onTrajectoryInspectAge(resolved.targetAge);
     }
   };
+  bindChartKeyboard(chartArea, {
+    count: points.length,
+    initialIndex: Math.max(
+      0,
+      points.findIndex((p) => p.age >= summary.retire),
+    ),
+    onShow: (idx) => {
+      const svgEl = $("#trajectory-chart svg");
+      if (svgEl) showPoint(points[idx], svgEl.getBoundingClientRect(), true);
+    },
+    onLeave: handleLeave,
+    onSelect: (idx) => {
+      if (typeof onTrajectoryInspectAge === "function" && points[idx]) {
+        onTrajectoryInspectAge(points[idx].age);
+      }
+    },
+  });
 }
 
 const NW_SERIES = [
@@ -548,22 +681,38 @@ export function renderStackedNetWorthSVG(
     };
   });
   const compactPrint = Boolean(opts.compactPrint);
+  const mobileW = getMobileChartWidth(chartArea, compactPrint);
+  const isMobile = mobileW != null;
   const isDashCombo =
     Boolean(opts.swellCombo) ||
     chartArea.id === "dash-networth-chart" ||
     chartArea.id === "print-nw-chart";
   const isOverviewHero = chartArea.id === "dash-networth-chart";
-  const W = compactPrint ? 680 : isOverviewHero ? 720 : 860,
-    H = compactPrint ? 176 : isOverviewHero ? 386 : 322,
-    padL = compactPrint ? 54 : isOverviewHero ? 58 : 76,
-    padR = compactPrint ? 16 : isOverviewHero ? 20 : 34,
-    padT = compactPrint ? 56 : isOverviewHero ? 70 : 72,
-    padB = compactPrint ? 24 : isOverviewHero ? 32 : 40;
+  const W = compactPrint
+      ? 680
+      : isMobile
+        ? mobileW
+        : isOverviewHero
+          ? 720
+          : 860,
+    H = compactPrint
+      ? 176
+      : isMobile
+        ? isOverviewHero
+          ? 276
+          : 256
+        : isOverviewHero
+          ? 386
+          : 322,
+    padL = compactPrint ? 54 : isMobile ? 48 : isOverviewHero ? 58 : 76,
+    padR = compactPrint ? 16 : isMobile ? 14 : isOverviewHero ? 20 : 34,
+    padT = compactPrint ? 68 : isMobile ? 74 : isOverviewHero ? 74 : 76,
+    padB = compactPrint ? 24 : isMobile ? 30 : isOverviewHero ? 32 : 40;
   const plotW = W - padL - padR,
     plotH = H - padT - padB;
   const minAge = pts[0].age,
     maxAge = pts[pts.length - 1].age;
-  const xInset = isDashCombo ? 16 : 0;
+  const xInset = isDashCombo ? (isMobile ? 10 : 16) : 0;
   const dX = (age) =>
     padL +
     xInset +
@@ -572,15 +721,15 @@ export function renderStackedNetWorthSVG(
     10000,
     ...pts.map((p) => (soloSeries ? p[soloSeries.key] : p.total)),
   );
-  const { maxVal, ticks } = niceAxis(rawMax, 4);
+  const { maxVal, ticks } = niceAxis(rawMax, isMobile ? 3 : 4);
   const dY = (val) => padT + (1 - Math.max(0, val) / maxVal) * plotH;
 
-  const tickFontSize = compactPrint ? 13.5 : 12;
+  const tickFontSize = compactPrint ? 13.5 : isMobile ? 11 : 12;
   const yTicks = ticks
     .map(
       (v) =>
         `<line x1="${padL}" y1="${dY(v)}" x2="${W - padR}" y2="${dY(v)}" stroke="var(--chart-grid)" stroke-opacity="0.5" stroke-dasharray="3,3" />
-         <text x="${padL - 10}" y="${dY(v) + 4}" text-anchor="end" font-size="${tickFontSize}" fill="var(--ink-soft)">${svgCompactMoney(v)}</text>`,
+         <text x="${padL - (isMobile ? 7 : 10)}" y="${dY(v) + 4}" text-anchor="end" font-size="${tickFontSize}" fill="var(--ink-soft)">${svgCompactMoney(v)}</text>`,
     )
     .join("");
 
@@ -589,18 +738,22 @@ export function renderStackedNetWorthSVG(
   );
   if (!candTicks.includes(maxAge)) candTicks.push(maxAge);
   const xTicksList = [];
+  const xTickGap = isMobile ? 48 : 52;
   for (const a of candTicks) {
-    if (!xTicksList.length || dX(a) - dX(xTicksList.at(-1)) >= 52)
+    if (!xTicksList.length || dX(a) - dX(xTicksList.at(-1)) >= xTickGap)
       xTicksList.push(a);
   }
-  if (xTicksList.at(-1) !== maxAge && dX(maxAge) - dX(xTicksList.at(-1)) >= 32) {
+  if (
+    xTicksList.at(-1) !== maxAge &&
+    dX(maxAge) - dX(xTicksList.at(-1)) >= (isMobile ? 28 : 32)
+  ) {
     xTicksList.push(maxAge);
   }
   const xTicks = xTicksList
     .map(
       (a) =>
         `<line x1="${dX(a)}" y1="${padT}" x2="${dX(a)}" y2="${H - padB}" stroke="var(--chart-grid)" stroke-opacity="0.3" />
-         <text x="${dX(a)}" y="${H - padB + 22}" text-anchor="middle" font-size="${tickFontSize}" fill="var(--ink-soft)">${a}</text>`,
+         <text x="${dX(a)}" y="${H - padB + (isMobile ? 19 : 22)}" text-anchor="middle" font-size="${tickFontSize}" fill="var(--ink-soft)">${a}</text>`,
     )
     .join("");
 
@@ -656,7 +809,7 @@ export function renderStackedNetWorthSVG(
 
   const barSampleAges = (() => {
     const span = Math.max(1, maxAge - minAge);
-    const targetCount = 12;
+    const targetCount = isMobile ? 8 : 12;
     const step = Math.max(1, Math.round(span / (targetCount - 1)));
     const list = [];
     for (let a = minAge; a <= maxAge; a += step) list.push(a);
@@ -690,8 +843,8 @@ export function renderStackedNetWorthSVG(
   const swellComboSVG = (() => {
     if (!isDashCombo) return "";
     const barW = Math.max(
-      14,
-      Math.min(28, (plotW / barSampleAges.length) * 0.48),
+      isMobile ? 10 : 14,
+      Math.min(isMobile ? 22 : 28, (plotW / barSampleAges.length) * 0.48),
     );
     const pivotAge = Math.min(55, fire.retire);
     const barRects = barSampleAges
@@ -777,8 +930,13 @@ export function renderStackedNetWorthSVG(
     retireAge: fire.retire,
     srsAge: fire.srsWithdrawalAge,
     showSrs,
-    rowYs: compactPrint ? [15, 28, 41, 52] : [18, 34, 50, 66],
+    rowYs: compactPrint
+      ? [15, 34, 53]
+      : isMobile
+        ? [14, 30, 46, 62]
+        : [18, 36, 54, 72],
     compactPrint,
+    isMobile,
     saLabel: "55 SA Closure",
     saStyle: { color: "#047857", bg: "#ECFDF5", border: "#A7F3D0" },
     srsLabelSuffix: "SRS",
@@ -804,9 +962,20 @@ export function renderStackedNetWorthSVG(
       const dotY = dY(val);
       const anchor = x > W - padR - 48 ? "end" : "middle";
       const labelText = compactMoney(val);
-      const estW = labelText.length * 7 + 8;
-      const x1 = anchor === "end" ? x - estW : x - estW / 2;
-      const x2 = x1 + estW;
+      const pillW = Math.max(
+        compactPrint ? 48 : 44,
+        labelText.length * (compactPrint ? 7.6 : 6.6) + 12,
+      );
+      const pillH = compactPrint ? 18 : 17;
+      const pillX = Math.max(
+        padL + 2,
+        Math.min(
+          W - padR - pillW - 2,
+          anchor === "end" ? x - pillW + 4 : x - pillW / 2,
+        ),
+      );
+      const x1 = pillX;
+      const x2 = pillX + pillW;
       const aboveY = Math.max(padT + 14, dotY - 10);
       const belowY = Math.min(H - padB - 8, dotY + 18);
       const overlaps = (cy) =>
@@ -833,18 +1002,6 @@ export function renderStackedNetWorthSVG(
       }
       const dotColor = soloSeries ? soloSeries.color : "var(--ink)";
       const pillText = svgCompactMoney(val);
-      const pillW = Math.max(
-        compactPrint ? 48 : 44,
-        labelText.length * (compactPrint ? 7.6 : 6.6) + 12,
-      );
-      const pillH = compactPrint ? 18 : 17;
-      const pillX = Math.max(
-        padL + 2,
-        Math.min(
-          W - padR - pillW - 2,
-          anchor === "end" ? x - pillW + 4 : x - pillW / 2,
-        ),
-      );
       const pillY = labelY - (compactPrint ? 13 : 12);
       return `<circle cx="${x}" cy="${dotY}" r="3.5" fill="${dotColor}" stroke="var(--surface)" stroke-width="1.5" />
         ${showLabel ? `<g class="nw-callout-pill"><rect x="${pillX.toFixed(1)}" y="${pillY.toFixed(1)}" width="${pillW.toFixed(1)}" height="${pillH}" rx="4.5" fill="var(--surface)" fill-opacity="0.94" stroke="var(--border-strong)" stroke-width="1" /><text x="${(pillX + pillW / 2).toFixed(1)}" y="${labelY}" text-anchor="middle" font-size="${compactPrint ? 12.5 : 11}" font-weight="700" fill="var(--ink)">${pillText}</text></g>` : ""}`;
@@ -943,6 +1100,9 @@ export function renderStackedNetWorthSVG(
     };
   }
 
+  if (chartArea.id === "trajectory-chart" && chartArea.parentElement) {
+    chartArea.parentElement.onclick = null;
+  }
   chartArea.onclick = (e) => {
     if (
       chartArea.id === "trajectory-chart" &&
@@ -970,6 +1130,19 @@ export function renderStackedNetWorthSVG(
   const wrap = chartArea.parentElement;
   const scrub = chartArea.querySelector(".nw-scrub-line");
   if (!wrap || !tooltipEl || !scrub) return;
+
+  // Snapshot hero live header synchronously at render time so scrubbing during transitions
+  // never freezes an intermediate morphed value into dataset.defaultHtml.
+  if (chartArea.id === "dash-networth-chart") {
+    const heroTitleEl = document.getElementById("ember-traj-title");
+    const heroValEl = document.getElementById("hero-nw-live");
+    const heroSubEl = document.getElementById("hero-nw-sub-live");
+    if (heroTitleEl && !heroTitleEl.querySelector(".nw-live-scrub-pill")) {
+      heroTitleEl.dataset.defaultHtml = heroTitleEl.innerHTML;
+      if (heroValEl) heroValEl.dataset.defaultHtml = heroValEl.innerHTML;
+      if (heroSubEl) heroSubEl.dataset.defaultHtml = heroSubEl.innerHTML;
+    }
+  }
   const onMove = (e) => {
     const svg = chartArea.querySelector("svg");
     if (!svg) return;
@@ -990,7 +1163,7 @@ export function renderStackedNetWorthSVG(
     scrub.setAttribute("x2", sx);
     scrub.style.display = "block";
 
-    const bandTarget = e.target.closest?.(".nw-band");
+    const bandTarget = e?.target?.closest?.(".nw-band");
     const hoveredKey = soloSeries
       ? soloSeries.key
       : bandTarget?.dataset?.series || null;
@@ -1097,6 +1270,37 @@ export function renderStackedNetWorthSVG(
   wrap.onmouseleave = handleLeave;
   wrap.ontouchend = handleLeave;
   wrap.ontouchcancel = handleLeave;
+  bindChartKeyboard(chartArea, {
+    count: pts.length,
+    initialIndex: Math.max(
+      0,
+      pts.findIndex((p) => p.age >= fire.retire),
+    ),
+    onShow: (idx) => {
+      const svg = chartArea.querySelector("svg");
+      const pt = pts[idx];
+      if (!svg || !pt) return;
+      const svgRect = svg.getBoundingClientRect();
+      if (!svgRect.width || !svgRect.height) return;
+      const sx = dX(pt.age);
+      const clientX = svgRect.left + (sx / W) * svgRect.width;
+      const clientY = svgRect.top + (dY(pt.total) / H) * svgRect.height;
+      onMove({ clientX, clientY });
+      announceChartStatus(
+        `Age ${pt.age}: total net worth ${compactMoney(pt.total)}, CPF ${compactMoney(pt.cpf)}, equities ${compactMoney(pt.eq)}, cash ${compactMoney(pt.ssb)}.`,
+      );
+    },
+    onLeave: handleLeave,
+    onSelect: (idx) => {
+      if (
+        chartArea.id === "trajectory-chart" &&
+        typeof onTrajectoryInspectAge === "function" &&
+        pts[idx]
+      ) {
+        onTrajectoryInspectAge(pts[idx].age);
+      }
+    },
+  });
 }
 
 function renderCashflowWaterfallSVG(
@@ -1129,12 +1333,14 @@ function renderCashflowWaterfallSVG(
     });
   if (!pts.length) return;
   const compactPrint = Boolean(opts.compactPrint);
-  const W = compactPrint ? 640 : 760,
-    H = compactPrint ? 256 : 304,
-    padL = compactPrint ? 58 : 74,
-    padR = compactPrint ? 22 : 26,
-    padT = compactPrint ? 40 : 40,
-    padB = compactPrint ? 32 : 40;
+  const mobileW = getMobileChartWidth(chartArea, compactPrint);
+  const isMobile = mobileW != null;
+  const W = compactPrint ? 640 : isMobile ? mobileW : 760,
+    H = compactPrint ? 256 : isMobile ? 256 : 304,
+    padL = compactPrint ? 68 : isMobile ? 52 : 78,
+    padR = compactPrint ? 22 : isMobile ? 14 : 26,
+    padT = compactPrint ? 58 : isMobile ? 74 : 60,
+    padB = compactPrint ? 32 : isMobile ? 32 : 40;
   const plotW = W - padL - padR,
     plotH = H - padT - padB;
   const rawMax = Math.max(
@@ -1143,31 +1349,45 @@ function renderCashflowWaterfallSVG(
       Math.max(p.spend, p.cpf + p.bridge + p.srs + p.liquid + p.shortfall),
     ),
   );
-  const { maxVal, ticks } = niceAxis(rawMax, 4);
+  const { maxVal, ticks } = niceAxis(rawMax, isMobile ? 3 : 4);
   const dY = (val) => padT + (1 - Math.max(0, val) / maxVal) * plotH;
   const stepX = plotW / pts.length;
-  const barW = Math.max(4, Math.min(18, stepX * 0.72));
+  const barW = Math.max(
+    isMobile ? 3 : 4,
+    Math.min(isMobile ? 14 : 18, stepX * 0.72),
+  );
   const barX = (i) => padL + i * stepX + (stepX - barW) / 2;
   const centerX = (i) => padL + i * stepX + stepX / 2;
 
+  const tickFontSize = isMobile ? 11 : 12;
   const yTicks = ticks
     .map(
       (v) =>
         `<line x1="${padL}" y1="${dY(v)}" x2="${W - padR}" y2="${dY(v)}" stroke="var(--chart-grid)" stroke-opacity="0.5" stroke-dasharray="3,3" />
-         <text x="${padL - 10}" y="${dY(v) + 4}" text-anchor="end" font-size="12" fill="var(--ink-soft)">${svgMoney(v)}</text>`,
+         <text x="${padL - (isMobile ? 7 : 10)}" y="${dY(v) + 4}" text-anchor="end" font-size="${tickFontSize}" fill="var(--ink-soft)">${isMobile || maxVal >= 10000 ? svgCompactMoney(v) : svgMoney(v)}</text>`,
     )
     .join("");
 
+  let lastWfLabelX = -Infinity;
+  const wfMinLabelGap = isMobile ? 38 : 0;
   const xLabels = pts
     .map((p, i) => {
       const isEndpoint = p.age === startAge || p.age === endAge;
+      const stepMod = isMobile ? 10 : 5;
       const isStep =
-        p.age % 5 === 0 &&
+        p.age % stepMod === 0 &&
         Math.abs(p.age - startAge) > 1 &&
         Math.abs(p.age - endAge) > 1;
-      return isEndpoint || isStep
-        ? `<text x="${centerX(i)}" y="${H - padB + 22}" text-anchor="middle" font-size="12" fill="var(--ink-soft)">${p.age}</text>`
-        : "";
+      if (!isEndpoint && !isStep) return "";
+      const cx = centerX(i);
+      if (isMobile && !isEndpoint && cx - lastWfLabelX < wfMinLabelGap) {
+        return "";
+      }
+      if (isMobile && p.age === endAge && cx - lastWfLabelX < 24) {
+        return "";
+      }
+      lastWfLabelX = cx;
+      return `<text x="${cx}" y="${H - padB + (isMobile ? 20 : 22)}" text-anchor="middle" font-size="${tickFontSize}" fill="var(--ink-soft)">${p.age}</text>`;
     })
     .join("");
 
@@ -1211,7 +1431,13 @@ function renderCashflowWaterfallSVG(
     retireAge: fire.retire,
     srsAge: fire.srsWithdrawalAge,
     showSrs,
-    rowYs: compactPrint ? [14, 27] : [16, 30],
+    rowYs: compactPrint
+      ? [15, 34, 53]
+      : isMobile
+        ? [14, 30, 46, 62]
+        : [16, 35, 54],
+    compactPrint,
+    isMobile,
   });
 
   const wfLabel = `Retirement income waterfall chart from age ${fire.retire} to ${fire.endAge}`;
@@ -1291,7 +1517,38 @@ function renderCashflowWaterfallSVG(
   wrap.onmouseleave = onLeave;
   wrap.ontouchend = onLeave;
   wrap.ontouchcancel = onLeave;
+  bindChartKeyboard(chartArea, {
+    count: pts.length,
+    initialIndex: Math.max(
+      0,
+      pts.findIndex((p) => p.age >= fire.retire),
+    ),
+    onShow: (idx) => {
+      const svg = chartArea.querySelector("svg");
+      const pt = pts[idx];
+      if (!svg || !pt) return;
+      const svgRect = svg.getBoundingClientRect();
+      if (!svgRect.width || !svgRect.height) return;
+      const sx = centerX(idx);
+      const clientX = svgRect.left + (sx / W) * svgRect.width;
+      onMove({ clientX });
+      announceChartStatus(
+        `Age ${pt.age}: target spend ${compactMoney(pt.spend)} per month, CPF LIFE ${compactMoney(pt.cpf)}, outside draw ${compactMoney(pt.liquid)}.`,
+      );
+    },
+    onLeave,
+    onSelect: (idx) => {
+      if (
+        chartArea.id === "trajectory-chart" &&
+        typeof onTrajectoryInspectAge === "function" &&
+        pts[idx]
+      ) {
+        onTrajectoryInspectAge(pts[idx].age);
+      }
+    },
+  });
   if (chartArea.id === "trajectory-chart") {
+    chartArea.onclick = null;
     wrap.onclick = (e) => {
       if (e.target.closest("button")) return;
       const svg = chartArea.querySelector("svg");

@@ -69,6 +69,7 @@ async function fetchJson(url, timeoutMs = 10000) {
 }
 
 function roundPct(val) {
+  if (val == null || val === "") return null;
   const num = Number(val);
   return Number.isFinite(num) ? Math.round(num * 100) / 100 : null;
 }
@@ -123,7 +124,7 @@ async function main() {
         year10Return: roundPct(intr.year10_return),
       };
     })
-    .filter((row) => Number.isFinite(row.year10Return));
+    .filter((row) => row.year10Return != null && row.year10Return > 0);
 
   const currentIssue = ssbSeries[0];
   if (!currentIssue)

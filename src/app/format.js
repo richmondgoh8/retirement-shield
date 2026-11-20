@@ -22,7 +22,7 @@ const signedM = (value, suffix = "", animKey = "") => {
   const sign = raw < 0 ? "−" : "";
   const absVal = Math.abs(raw);
   const animAttr = animKey
-    ? ` data-anim-key="${animKey}" data-anim-val="${raw}"`
+    ? ` data-anim-key="${animKey}" data-anim-val="${raw}" data-anim-signed="1"`
     : "";
   return `<span class="curr-wrap"${animAttr}><span class="curr-prefix">${sign}$</span><span class="curr-num">${absVal.toLocaleString("en-SG")}</span>${suffix ? `<span class="curr-suffix">${suffix}</span>` : ""}</span>`;
 };
@@ -66,10 +66,6 @@ const svgWrap = (paths, size = 16) =>
   `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 
 const ICONS = {
-  shieldCheck: svgWrap(
-    '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>',
-    18,
-  ),
   alertTriangle: svgWrap(
     '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
     18,
@@ -101,16 +97,7 @@ const KPI_ICONS = {
     '<path d="M12 21s7-3.5 7-9V5l-7-2.5L5 5v7c0 5.5 7 9 7 9z"/><path d="M9 14v-2.5"/><path d="M12 14v-4.5"/><path d="M15 14V8"/>',
     16,
   ),
-  budget: svgWrap(
-    '<path d="m4 10.5 8-6.5 8 6.5"/><path d="M6 9.5V19a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V9.5"/><path d="M10 20v-5h4v5"/>',
-    16,
-  ),
 };
-KPI_ICONS.clock = KPI_ICONS.age;
-KPI_ICONS.star = KPI_ICONS.goal;
-KPI_ICONS.chat = KPI_ICONS.salary;
-KPI_ICONS.shield = KPI_ICONS.balances;
-KPI_ICONS.wallet = KPI_ICONS.budget;
 
 function buildSmoothSpline(coords, minY, maxY) {
   if (!coords.length) return "";
@@ -158,7 +145,9 @@ function resetControl(el, clearTextInputs = false) {
 
 function syncCustomBudgetReset(opts = {}) {
   const selected = $("#known-lifestyle")?.value || "cca";
-  const amount = RetirementModel.lifestyles[selected]?.budget || 2800;
+  const amount =
+    RetirementModel.lifestyles[selected]?.budget ||
+    RetirementModel.lifestyles.cca.budget;
   const custom = $("#known-spend");
   if (!custom) return;
   custom.placeholder = String(amount);
@@ -259,6 +248,37 @@ function escapeAttr(val) {
     .replace(/>/g, "&gt;");
 }
 
+const escapeHtml = escapeAttr;
+const RAW_HTML = Symbol("raw-html");
+
+/** Mark a trusted HTML string so the `html` tagged template does not double-escape it. */
+function raw(value) {
+  return { [RAW_HTML]: true, value: String(value ?? "") };
+}
+
+/** Auto-escaping HTML tagged template helper; wrap trusted sub-templates with `raw()`. */
+function html(strings, ...values) {
+  let out = strings[0];
+  for (let i = 0; i < values.length; i++) {
+    const val = values[i];
+    if (val != null && typeof val === "object" && val[RAW_HTML]) {
+      out += val.value;
+    } else if (Array.isArray(val)) {
+      out += val
+        .map((item) =>
+          item != null && typeof item === "object" && item[RAW_HTML]
+            ? item.value
+            : escapeHtml(item),
+        )
+        .join("");
+    } else {
+      out += escapeHtml(val);
+    }
+    out += strings[i + 1];
+  }
+  return out;
+}
+
 function formatExpSharePct(pct) {
   const num = Number(pct || 0);
   if (num <= 0) return "0%";
@@ -277,11 +297,63 @@ function formatDobShort(dobStr) {
   });
 }
 
+function deriveReadinessSummary({
+  fire,
+  endAge,
+  pctFunded,
+  onTrack,
+  compact = false,
+}) {
+  const fn = fire?.fireNumber || {};
+  const targetEndAge = endAge || fire?.endAge || 95;
+  const projFireAge = fn.projectedFireAge;
+  const readyText = projFireAge == null ? "After 80" : `Age ${projFireAge}`;
+  const diffYears = projFireAge == null ? null : fire.retire - projFireAge;
+  const depletionAgeDisplay =
+    fn.depletionAge != null ? Math.floor(fn.depletionAge) : targetEndAge;
+  const survivalAnswer = fn.fullyFundedTo95
+    ? `Lasts past age ${targetEndAge}+`
+    : `Lasts to age ${depletionAgeDisplay}`;
+  const safeAgeAnswer =
+    diffYears == null
+      ? "After age 80"
+      : diffYears > 0
+        ? compact
+          ? `Age ${projFireAge} (-${diffYears} yr${diffYears > 1 ? "s" : ""} early)`
+          : `Age ${projFireAge} (${diffYears} yr${diffYears > 1 ? "s" : ""} earlier optional)`
+        : diffYears === 0
+          ? `Age ${projFireAge} (on target)`
+          : compact
+            ? `Age ${projFireAge} (+${-diffYears} yr${-diffYears > 1 ? "s" : ""})`
+            : `Age ${projFireAge} (+${-diffYears} yr${-diffYears > 1 ? "s" : ""} later)`;
+  const fundedPctLabel = formatFundedPct(pctFunded ?? fn.pctFunded);
+  const deltaLine =
+    !compact && diffYears != null && diffYears > 0 && onTrack
+      ? `Can retire ${diffYears} yr${diffYears > 1 ? "s" : ""} earlier · ${fundedPctLabel} funded`
+      : `${fundedPctLabel} of age-${targetEndAge} goal`;
+  const deltaColor =
+    diffYears != null && diffYears >= 0 && onTrack
+      ? "var(--sem-cpf-ink)"
+      : "var(--sem-cash-ink)";
+  return {
+    projFireAge,
+    readyText,
+    diffYears,
+    depletionAgeDisplay,
+    survivalAnswer,
+    safeAgeAnswer,
+    fundedPctLabel,
+    deltaLine,
+    deltaColor,
+  };
+}
+
 export {
   $,
   $$,
   fmtInt,
   formatFundedPct,
+  deriveReadinessSummary,
   money,
   m,
   signedM,
@@ -299,6 +371,9 @@ export {
   syncCustomBudgetReset,
   bindDialogBackdropDismiss,
   escapeAttr,
+  escapeHtml,
+  raw,
+  html,
   formatExpSharePct,
   formatDobShort,
 };

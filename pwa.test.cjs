@@ -293,3 +293,23 @@ test("service worker runtime behavior: install precache, stale cache eviction, s
   const masOfflineResp = await respPromise;
   assert.equal(await masOfflineResp.text(), `body-v1:${masUrl}`);
 });
+
+test("dev SW precaches all src/app modules and dist/index.html loads IIFE app bundle as classic defer script", () => {
+  const devSw = fs.readFileSync("sw.js", "utf8");
+  const appModules = fs
+    .readdirSync(path.join("src", "app"))
+    .filter((f) => f.endsWith(".js"));
+  for (const mod of appModules) {
+    assert.ok(
+      devSw.includes(`./src/app/${mod}`),
+      `Dev sw.js APP_SHELL must include ./src/app/${mod}`,
+    );
+  }
+  const distHtml = fs.readFileSync(path.join("dist", "index.html"), "utf8");
+  assert.ok(
+    /<script src="assets\/app\.[0-9a-f]{12}\.js" defer><\/script>/.test(
+      distHtml,
+    ),
+    "Production dist/index.html must load bundled IIFE app.js with defer (not type=module)",
+  );
+});

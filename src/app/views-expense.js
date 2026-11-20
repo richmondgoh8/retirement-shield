@@ -1,9 +1,4 @@
-import {
-  m,
-  money,
-  escapeAttr,
-  formatExpSharePct,
-} from "./format.js";
+import { m, money, html, raw, formatExpSharePct } from "./format.js";
 
 function describePieSlicePath(cx, cy, outerR, innerR, startDeg, endDeg) {
   const full = endDeg - startDeg >= 359.9;
@@ -50,7 +45,7 @@ function buildExpensePieSVG(ep, opts = {}) {
           .join("");
 
   return `<div class="exp-pie-stage${isPrint ? " is-print-pie" : ""}">
-    <svg class="exp-pie-svg" viewBox="0 0 184 184" width="${isPrint ? 104 : 184}" height="${isPrint ? 104 : 184}" role="img" aria-label="Monthly living expense breakdown pie chart totaling ${money(total)} per month">
+    <svg class="exp-pie-svg" viewBox="0 0 184 184" width="${isPrint ? 104 : 184}" height="${isPrint ? 104 : 184}" role="${isPrint ? "img" : "group"}" aria-label="Monthly living expense breakdown pie chart totaling ${money(total)} per month">
       ${slices}
     </svg>
     <div class="exp-pie-center" aria-hidden="true">
@@ -68,27 +63,43 @@ function renderReadOnlyExpenseTable(
   ariaLabel,
   catColorMap = {},
 ) {
-  return `
-    <div class="exp-items-table is-readonly" role="region" aria-label="${ariaLabel}">
-      <div class="exp-items-head" aria-hidden="true">
-        <span>Category</span>
-        <span>Expense item</span>
-        <span>Monthly ($)</span>
-        <span>Share</span>
+  return html`
+    <div
+      class="exp-items-table is-readonly"
+      role="table"
+      aria-label="${ariaLabel}"
+    >
+      <div class="exp-items-head" role="row">
+        <span role="columnheader">Category</span>
+        <span role="columnheader">Expense item</span>
+        <span role="columnheader">Monthly ($)</span>
+        <span role="columnheader">Share</span>
       </div>
-      <div class="exp-items-body">
-        ${items
-          .map(
-            (it) => `<div class="exp-ro-row">
-              <span class="exp-ro-cat"><i class="exp-cat-dot" style="background:${catColorMap[it.category] || "#64748b"}" aria-hidden="true"></i>${escapeAttr(catLabelMap[it.category] || it.category)}</span>
-              <span class="exp-ro-name">${escapeAttr(it.name)}</span>
-              <strong class="exp-ro-amt">${m(it.amount, "/mo")}</strong>
-              <span class="exp-ro-pct">${formatExpSharePct(it.pct)}</span>
+      <div class="exp-items-body" role="rowgroup">
+        ${items.map((it) =>
+          raw(
+            html`<div class="exp-ro-row" role="row">
+              <span class="exp-ro-cat" role="cell"
+                ><i
+                  class="exp-cat-dot"
+                  style="background:${catColorMap[it.category] || "#64748b"}"
+                  aria-hidden="true"
+                ></i
+                >${catLabelMap[it.category] || it.category}</span
+              >
+              <span class="exp-ro-name" role="cell">${it.name}</span>
+              <strong class="exp-ro-amt" role="cell"
+                >${raw(m(it.amount, "/mo"))}</strong
+              >
+              <span class="exp-ro-pct" role="cell"
+                >${formatExpSharePct(it.pct)}</span
+              >
             </div>`,
-          )
-          .join("")}
+          ),
+        )}
       </div>
-    </div>`;
+    </div>
+  `;
 }
 
 function buildExpenseModalBodyHTML(ep, r, newlyAddedId = null, s = null) {
@@ -118,11 +129,11 @@ function buildExpenseModalBodyHTML(ep, r, newlyAddedId = null, s = null) {
   const sourceBar = `<div class="exp-modal-source-bar" role="group" aria-label="Living budget preset or Custom">
     <button type="button" class="exp-modal-source-btn${!isCustom && ep.lifestyle === "cca" ? " is-active" : ""}" data-exp-load="cca" aria-pressed="${!isCustom && ep.lifestyle === "cca"}">
       <strong>Community Care</strong>
-      <span>$2,800/mo · Fixed preset</span>
+      <span>${m(2800, "/mo")} · Fixed preset</span>
     </button>
     <button type="button" class="exp-modal-source-btn${!isCustom && ep.lifestyle === "home-helper" ? " is-active" : ""}" data-exp-load="home-helper" aria-pressed="${!isCustom && ep.lifestyle === "home-helper"}">
       <strong>Home + Helper</strong>
-      <span>$3,900/mo · Fixed preset</span>
+      <span>${m(3900, "/mo")} · Fixed preset</span>
     </button>
     <button type="button" class="exp-modal-source-btn${isCustom ? " is-active" : ""}" data-exp-enter-custom aria-pressed="${isCustom}">
       <strong>Custom</strong>
@@ -130,7 +141,7 @@ function buildExpenseModalBodyHTML(ep, r, newlyAddedId = null, s = null) {
     </button>
   </div>`;
 
-  const impactStrip = `<div class="exp-impact-strip" id="exp-impact-slot" aria-label="Live retirement budget impact and CPF LIFE plan">
+  const impactStrip = `<div class="exp-impact-strip" id="exp-impact-slot" role="group" aria-label="Live retirement budget impact and CPF LIFE plan">
     <div class="exp-impact-metrics">
       <div class="exp-impact-kpi">
         <span>${retireAge < 65 ? `Age-${retireAge} Retire Need` : "Age-65 Retire Need"}</span>
@@ -161,7 +172,15 @@ function buildExpenseModalBodyHTML(ep, r, newlyAddedId = null, s = null) {
     .filter((cat) => cat.amount > 0)
     .map(
       (cat) =>
-        `<span class="exp-cat-summary-pill"><i class="exp-cat-dot" style="background:${cat.color}" aria-hidden="true"></i>${escapeAttr(cat.label.split(",")[0].split("&")[0].trim())} · ${m(cat.amount)} (${formatExpSharePct(cat.pct)})</span>`,
+        html`<span class="exp-cat-summary-pill"
+          ><i
+            class="exp-cat-dot"
+            style="background:${cat.color}"
+            aria-hidden="true"
+          ></i
+          >${cat.label.split(",")[0].split("&")[0].trim()} ·
+          ${raw(m(cat.amount))} (${formatExpSharePct(cat.pct)})</span
+        >`,
     )
     .join("");
 
@@ -174,7 +193,7 @@ function buildExpenseModalBodyHTML(ep, r, newlyAddedId = null, s = null) {
           <span><strong>${ep.lifestyleLabel}</strong> is a fixed preset (${m(ep.total, "/mo")}) for today’s budget; projections step up HealthShield premiums with age. Switch to Custom to edit items.</span>
           <button type="button" class="button button-small button-accent" data-exp-enter-custom>Switch to Custom →</button>
         </div>
-        ${catSummaryBar ? `<div class="exp-cat-summary-pills" aria-label="Category summary">${catSummaryBar}</div>` : ""}
+        ${catSummaryBar ? `<div class="exp-cat-summary-pills" role="group" aria-label="Category summary">${catSummaryBar}</div>` : ""}
         ${renderReadOnlyExpenseTable(ep.items, catLabelMap, `${ep.lifestyleLabel} preset monthly expense breakdown`, catColorMap)}
       </div>`
     : `<div class="exp-modal-section">
@@ -188,27 +207,27 @@ function buildExpenseModalBodyHTML(ep, r, newlyAddedId = null, s = null) {
           !ep.itemizedActive
             ? `<div class="exp-figure-panel">
                 <div class="exp-figure-hero">
-                  <label class="exp-figure-field" for="exp-total-input">
-                    <span>Custom monthly retirement budget (today’s $)</span>
+                  <div class="exp-figure-field">
+                    <label for="exp-total-input">Custom monthly retirement budget (today’s $)</label>
                     <div class="input-wrap">
                       <span>$</span>
                       <input type="number" id="exp-total-input" min="0" max="1000000" step="any" inputmode="decimal" value="${ep.total}" />
                     </div>
                     <small>Scales all ${ep.items.length} retirement items proportionally in today’s dollars.</small>
-                  </label>
-                  <div class="exp-figure-controls" aria-label="Quick budget adjustments">
+                  </div>
+                  <div class="exp-figure-controls" role="group" aria-label="Quick budget adjustments">
                     <div class="exp-step-row">
                       <button type="button" class="exp-step-btn" data-exp-step-delta="-200">−$200</button>
                       <button type="button" class="exp-step-btn" data-exp-step-delta="-100">−$100</button>
                       <button type="button" class="exp-step-btn" data-exp-step-delta="100">+$100</button>
                       <button type="button" class="exp-step-btn" data-exp-step-delta="200">+$200</button>
                     </div>
-                    <div class="exp-quick-chips">
+                    <div class="exp-quick-chips" role="group" aria-label="Quick monthly budget anchors">
                       <span class="exp-quick-label">Anchors:</span>
                       ${quickTotals
                         .map(
                           (amt) =>
-                            `<button type="button" class="exp-quick-chip${roundedTotal === amt ? " is-active" : ""}" data-exp-quick-total="${amt}">$${amt.toLocaleString("en-SG")}</button>`,
+                            `<button type="button" class="exp-quick-chip${roundedTotal === amt ? " is-active" : ""}" data-exp-quick-total="${amt}" aria-pressed="${roundedTotal === amt}">${m(amt)}</button>`,
                         )
                         .join("")}
                     </div>
@@ -216,7 +235,7 @@ function buildExpenseModalBodyHTML(ep, r, newlyAddedId = null, s = null) {
                 </div>
                 <div id="exp-figure-table-slot" class="exp-modal-section">
                   <div class="exp-breakdown-subhead">
-                    <div class="exp-cat-summary-pills" aria-label="Category summary">${catSummaryBar}</div>
+                    <div class="exp-cat-summary-pills" role="group" aria-label="Category summary">${catSummaryBar}</div>
                     <button type="button" class="text-button" data-exp-custom-mode="itemized">Customize individual items →</button>
                   </div>
                   ${renderReadOnlyExpenseTable(ep.items, catLabelMap, "Proportionally scaled custom monthly expense breakdown", catColorMap)}
@@ -226,57 +245,97 @@ function buildExpenseModalBodyHTML(ep, r, newlyAddedId = null, s = null) {
                 <span class="exp-itemized-sum">Total: <strong id="exp-editor-sum">${m(ep.total, "/mo")}</strong> <small>(updates Retire Budget)</small></span>
                 <button type="button" class="button button-small button-accent" data-exp-add>+ Add item</button>
               </div>
-              <div class="exp-items-table" role="region" aria-label="Editable monthly expense items">
-                <div class="exp-items-head" aria-hidden="true">
-                  <span>Category</span>
-                  <span>Expense item</span>
-                  <span>Monthly ($)</span>
-                  <span>Share</span>
-                  <span></span>
+              <div class="exp-items-table" role="table" aria-label="Editable monthly expense items">
+                <div class="exp-items-head" role="row">
+                  <span role="columnheader">Category</span>
+                  <span role="columnheader">Expense item</span>
+                  <span role="columnheader">Monthly ($)</span>
+                  <span role="columnheader">Share</span>
+                  <span role="columnheader" aria-label="Remove item"></span>
                 </div>
-                <div class="exp-items-body" id="exp-items-body">
-                  ${ep.items
-                    .map(
-                      (
-                        it,
-                        idx,
-                      ) => `<div class="exp-item-row${newlyAddedId && it.id === newlyAddedId ? " is-new-row" : ""}" data-exp-row="${idx}">
-                        <div class="input-wrap select-wrap exp-cat-select-wrap">
-                          <select name="exp-cat-${idx}" data-exp-field="category" data-exp-idx="${idx}" aria-label="Category for item ${idx + 1}">
-                            ${catOptions(it.category)}
-                          </select>
-                        </div>
-                        <div class="input-wrap">
-                          <input type="text" name="exp-name-${idx}" data-exp-field="name" data-exp-idx="${idx}" value="${escapeAttr(it.name)}" placeholder="e.g. Groceries, WiFi" maxlength="60" aria-label="Expense item name ${idx + 1}" />
-                        </div>
-                        <div class="input-wrap">
-                          <span>$</span>
-                          <input type="number" name="exp-amt-${idx}" min="0" max="1000000" step="any" inputmode="decimal" data-exp-field="amount" data-exp-idx="${idx}" value="${it.amount}" aria-label="Monthly amount for ${escapeAttr(it.name)}" />
-                        </div>
-                        <span class="exp-item-pct" data-exp-pct="${idx}">${formatExpSharePct(it.pct)}</span>
-                        <button type="button" class="exp-remove-btn" data-exp-remove="${idx}" aria-label="Remove ${escapeAttr(it.name)}" title="Remove item">×</button>
-                      </div>`,
-                    )
-                    .join("")}
+                <div class="exp-items-body" id="exp-items-body" role="rowgroup">
+                  ${
+                    ep.items.length === 0
+                      ? `<div class="exp-empty-state" role="row"><div role="cell">No monthly expense items yet. Add an item to build your itemized retirement budget.</div><button type="button" class="button button-small button-accent" data-exp-add>+ Add first item</button></div>`
+                      : ep.items
+                          .map(
+                            (it, idx) =>
+                              html`<div
+                                class="exp-item-row${
+                                  newlyAddedId && it.id === newlyAddedId
+                                    ? " is-new-row"
+                                    : ""
+                                }"
+                                data-exp-row="${idx}"
+                                role="row"
+                              >
+                                <div
+                                  class="input-wrap select-wrap exp-cat-select-wrap"
+                                  role="cell"
+                                >
+                                  <select
+                                    name="exp-cat-${idx}"
+                                    data-exp-field="category"
+                                    data-exp-idx="${idx}"
+                                    aria-label="Category for item ${idx + 1}"
+                                  >
+                                    ${raw(catOptions(it.category))}
+                                  </select>
+                                </div>
+                                <div class="input-wrap" role="cell">
+                                  <input
+                                    type="text"
+                                    name="exp-name-${idx}"
+                                    data-exp-field="name"
+                                    data-exp-idx="${idx}"
+                                    value="${it.name}"
+                                    placeholder="e.g. Groceries, WiFi"
+                                    maxlength="60"
+                                    aria-label="Expense item name ${idx + 1}"
+                                  />
+                                </div>
+                                <div class="input-wrap" role="cell">
+                                  <span>$</span>
+                                  <input
+                                    type="number"
+                                    name="exp-amt-${idx}"
+                                    min="0"
+                                    max="1000000"
+                                    step="any"
+                                    inputmode="decimal"
+                                    data-exp-field="amount"
+                                    data-exp-idx="${idx}"
+                                    value="${it.amount}"
+                                    aria-label="Monthly amount for ${it.name}"
+                                  />
+                                </div>
+                                <span
+                                  class="exp-item-pct"
+                                  data-exp-pct="${idx}"
+                                  role="cell"
+                                  >${formatExpSharePct(it.pct)}</span
+                                >
+                                <span role="cell"
+                                  ><button
+                                    type="button"
+                                    class="exp-remove-btn"
+                                    data-exp-remove="${idx}"
+                                    aria-label="Remove ${it.name}"
+                                    title="Remove item"
+                                  >
+                                    ×
+                                  </button></span
+                                >
+                              </div>`,
+                          )
+                          .join("")
+                  }
                 </div>
               </div>`
         }
       </div>`;
 
-  const cpfPlanRow = `<div class="exp-modal-plan-row">
-    <div class="qe-field">
-      <label for="exp-modal-plan">CPF LIFE payout plan</label>
-      <div class="input-wrap select-wrap">
-        <select id="exp-modal-plan">
-          <option value="standard"${planVal === "standard" ? " selected" : ""}>Standard Plan (Level payouts)</option>
-          <option value="escalating"${planVal === "escalating" ? " selected" : ""}>Escalating Plan (+2% yearly)</option>
-        </select>
-      </div>
-      <p class="qe-hint">Escalating starts ~20% lower and rises +2%/yr on payout anniversaries, overtaking Standard around age 77–78.</p>
-    </div>
-  </div>`;
-
-  return `${sourceBar}${impactStrip}${mainSection}${cpfPlanRow}`;
+  return `${sourceBar}${impactStrip}${mainSection}`;
 }
 
 function buildExpenseCardHTML(ep, r) {
@@ -405,7 +464,9 @@ function buildExpenseCardHTML(ep, r) {
               ? topPreview
                   .map(
                     (it) =>
-                      `<span class="exp-item-chip">${escapeAttr(it.name)} · <b>${m(it.amount)}</b></span>`,
+                      html`<span class="exp-item-chip"
+                        >${it.name} · <b>${raw(m(it.amount))}</b></span
+                      >`,
                   )
                   .join("")
               : '<span class="exp-item-chip">No expense items ($0/mo)</span>'
@@ -416,10 +477,4 @@ function buildExpenseCardHTML(ep, r) {
   </section>`;
 }
 
-export {
-  describePieSlicePath,
-  buildExpensePieSVG,
-  renderReadOnlyExpenseTable,
-  buildExpenseModalBodyHTML,
-  buildExpenseCardHTML,
-};
+export { buildExpensePieSVG, buildExpenseModalBodyHTML, buildExpenseCardHTML };

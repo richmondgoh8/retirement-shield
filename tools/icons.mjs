@@ -5,14 +5,17 @@ import { fileURLToPath } from "node:url";
 const source = await readFile(new URL("../assets/icon.svg", import.meta.url));
 const full = sharp(source, { density: 192 });
 const sourceText = source.toString();
-const bgPath = '<path fill="url(#bg)" d="M0 0h512v512H0z"/>';
-if (!sourceText.includes(bgPath) || !sourceText.includes("</svg>")) {
-  throw new Error("assets/icon.svg is missing expected background path or </svg> tag.");
+const bgPathRe =
+  /<path\b(?=[^>]*fill="url\(#bg\)")(?=[^>]*d="M0 0h512v512H0z")[^>]*\/>/;
+if (!bgPathRe.test(sourceText) || !sourceText.includes("</svg>")) {
+  throw new Error(
+    "assets/icon.svg is missing expected background path or </svg> tag.",
+  );
 }
 const standard = Buffer.from(
   sourceText
     .replace(
-      bgPath,
+      bgPathRe,
       '<rect width="512" height="512" rx="112" fill="url(#bg)"/><g transform="translate(-25.6 -25.6) scale(1.1)">',
     )
     .replace("</svg>", "</g></svg>"),

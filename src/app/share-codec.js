@@ -11,12 +11,12 @@ const LEGACY_SHARE_KEY_RE =
 export function isPlanShareHash(h) {
   return Boolean(
     h &&
-      h.length > 2 &&
-      (h.startsWith("#p=") || LEGACY_SHARE_KEY_RE.test(h.slice(1))),
+    h.length > 2 &&
+    (h.startsWith("#p=") || LEGACY_SHARE_KEY_RE.test(h.slice(1))),
   );
 }
 
-export function toBase64Url(str) {
+function toBase64Url(str) {
   const bytes = new TextEncoder().encode(str);
   let bin = "";
   for (let i = 0; i < bytes.length; i++) {
@@ -25,7 +25,7 @@ export function toBase64Url(str) {
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-export function fromBase64Url(token) {
+function fromBase64Url(token) {
   const b64 = String(token || "")
     .replace(/-/g, "+")
     .replace(/_/g, "/");
@@ -38,27 +38,47 @@ export function fromBase64Url(token) {
   return new TextDecoder().decode(bytes);
 }
 
+const UNSAFE_OBJECT_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
 export function buildShareDefaultEntries(defaultPlan, defaultDob) {
+  const dp = defaultPlan || {};
+  const str = (val, fallback = "") => String(val ?? fallback);
   return {
-    lifestyle: String(defaultPlan.lifestyle || "cca"),
+    lifestyle: str(dp.lifestyle),
     dob: defaultDob,
-    salary: String(defaultPlan.salary ?? 5500),
-    retire: String(defaultPlan.retire ?? 65),
-    equities: String(defaultPlan.equities ?? 34000),
-    sgDividends: String(defaultPlan.sgDividends ?? 6000),
-    ssbCash: String(defaultPlan.ssbCash ?? 20000),
-    srsAge: String(defaultPlan.srsAge ?? 63),
-    srsInvestedIn: String(defaultPlan.srsInvestedIn || "global"),
-    existingReliefs: String(defaultPlan.existingReliefs ?? 1000),
-    targetEquityPct: String(defaultPlan.targetEquityPct ?? 80),
-    sgSleevePct: String(defaultPlan.sgSleevePct ?? 15),
-    plan: String(defaultPlan.plan || "standard"),
-    returnRate: String(defaultPlan.returnRate ?? 0.05),
-    inflationRate: String(defaultPlan.inflationRate ?? 0.025),
-    post55Work: String(Boolean(defaultPlan.post55Work ?? false)),
-    reserveReturn: String(defaultPlan.reserveReturn ?? 0),
-    housingMode: String(defaultPlan.housingMode || "all-oa"),
-    housingParties: String(defaultPlan.housingParties ?? 1),
+    salary: str(dp.salary),
+    retire: str(dp.retire),
+    oa: str(dp.oa),
+    sa: str(dp.sa),
+    ma: str(dp.ma),
+    saInvested: str(dp.saInvested, 0),
+    maSpend: str(dp.maSpend, 0),
+    cpfExtra: str(dp.cpfExtra, 0),
+    equities: str(dp.equities),
+    sgDividends: str(dp.sgDividends),
+    ssbCash: str(dp.ssbCash),
+    cashReturnRate: str(dp.cashReturnRate, ""),
+    srs: str(dp.srs),
+    srsAge: str(dp.srsAge),
+    srsAnnual: str(dp.srsAnnual),
+    srsInvestedIn: str(dp.srsInvestedIn),
+    annualBonus: str(dp.annualBonus),
+    existingReliefs: str(dp.existingReliefs),
+    familyRstuAnnual: str(dp.familyRstuAnnual, 0),
+    longevityAge: str(dp.longevityAge, 95),
+    bridgeIncome: str(dp.bridgeIncome, 0),
+    targetEquityPct: str(dp.targetEquityPct),
+    sgSleevePct: str(dp.sgSleevePct),
+    plan: str(dp.plan),
+    returnRate: str(dp.returnRate),
+    inflationRate: str(dp.inflationRate),
+    post55Work: String(Boolean(dp.post55Work)),
+    reserveReturn: str(dp.reserveReturn),
+    housingMode: str(dp.housingMode),
+    housingBalance: str(dp.housingBalance),
+    housingYears: str(dp.housingYears),
+    housingRate: str(dp.housingRate),
+    housingParties: str(dp.housingParties),
     selected: "frs",
     learningTarget: "frs",
     version: PLAN_STORAGE_VERSION,
@@ -69,7 +89,8 @@ export function encodeShareToken(search, shareDefaults) {
   const entries = Object.fromEntries(search.entries());
   const diff = {};
   for (const [k, rawVal] of Object.entries(entries)) {
-    if (k === "age" && (entries.dob || shareDefaults.dob)) {
+    // Only skip redundant age when an explicit dob is actually present in entries.
+    if (k === "age" && entries.dob) {
       continue;
     }
     if (k === "savings") {
@@ -111,11 +132,16 @@ export function decodeShareHashToParams(hash, shareDefaults) {
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
         return null;
       }
-      const merged = { ...shareDefaults };
+      const merged = Object.assign(Object.create(null), shareDefaults);
       for (const [k, v] of Object.entries(parsed)) {
+        if (UNSAFE_OBJECT_KEYS.has(k)) continue;
         if (v === "" || v == null) {
           delete merged[k];
-        } else {
+        } else if (
+          typeof v === "string" ||
+          typeof v === "number" ||
+          typeof v === "boolean"
+        ) {
           merged[k] = String(v);
         }
       }

@@ -423,7 +423,14 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
     // 13. Custom cash account XSS payload in #p= is escaped in Cash Parking banner
     const xssPayload = encodeURIComponent(
       JSON.stringify([
-        ["custom", "<img src=x onerror=window.__xss=1>", 150000, 100000, 3, 0.05],
+        [
+          "custom",
+          "<img src=x onerror=window.__xss=1>",
+          150000,
+          100000,
+          3,
+          0.05,
+        ],
       ]),
     );
     await browser.navigate(
@@ -437,7 +444,11 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       fired: Boolean(window.__xss),
       renderedHtml: document.querySelector('#cash-parking-slot')?.innerHTML || '',
     })`);
-    assert.equal(xssCheck.fired, false, "Cash account names must be HTML-escaped");
+    assert.equal(
+      xssCheck.fired,
+      false,
+      "Cash account names must be HTML-escaped",
+    );
     assert.ok(
       xssCheck.renderedHtml.includes("&lt;img"),
       "Escaped cash account name must render in Cash Parking banner",
@@ -467,6 +478,1021 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       document.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     })()`);
     await new Promise((r) => setTimeout(r, 80));
+
+    // 16. Dividend Calculator preset chips stay active on live input & Trajectory chart supports keyboard scrubbing
+    await browser.evaluate(
+      `document.querySelector('button[data-tab="dividend-calc"]')?.click()`,
+    );
+    await new Promise((r) => setTimeout(r, 150));
+    await browser.evaluate(`(() => {
+      document.querySelector('[data-div-mode="lump"]')?.click();
+    })()`);
+    await new Promise((r) => setTimeout(r, 100));
+    await browser.evaluate(`(() => {
+      const capInput = document.getElementById("div-calc-capital");
+      if (capInput) {
+        capInput.value = "500000";
+        capInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    })()`);
+    await new Promise((r) => setTimeout(r, 220));
+    const divPresetSync = await browser.evaluate(`(() => {
+      const chip = document.querySelector('.div-preset-chip[data-div-cap-pick="500000"]');
+      return {
+        ok: Boolean(chip?.classList.contains("is-active") && chip?.getAttribute("aria-pressed") === "true"),
+      };
+    })()`);
+    assert.equal(
+      divPresetSync.ok,
+      true,
+      "Dividend Calculator preset chip must stay active after live input",
+    );
+
+    await browser.evaluate(
+      `document.querySelector('button[data-tab="trajectory"]')?.click()`,
+    );
+    await new Promise((r) => setTimeout(r, 150));
+    const chartKeyRes = await browser.evaluate(`(() => {
+      const chart = document.getElementById("trajectory-chart");
+      if (!chart) return { ok: false };
+      chart.focus();
+      chart.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+      const sr = document.getElementById("sr-status")?.textContent || "";
+      const ttVisible = !document.getElementById("chart-tooltip")?.hidden;
+      return { ok: chart.getAttribute("tabindex") === "0" && ttVisible && sr.includes("Age") };
+    })()`);
+    assert.equal(
+      chartKeyRes.ok,
+      true,
+      "Trajectory chart must be keyboard-focusable and show tooltip + live announcement on ArrowRight",
+    );
+
+    // 17. WAI-ARIA tablist arrow traversal keeps focus in tablist, Settings preserves tabindex="0", tabpanels have aria-labelledby, and MAS securities show SG Gov Backed
+    const tabA11yAudit = await browser.evaluate(`(() => {
+      const nav = document.querySelector(".sidebar-nav");
+      const firstTab = nav.querySelector('[role="tab"][data-tab="overview"]');
+      firstTab.click();
+      firstTab.focus();
+      firstTab.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+      const activeAfter1 = document.activeElement?.dataset?.tab || "";
+      document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+      const activeAfter2 = document.activeElement?.dataset?.tab || "";
+      const panels = [...document.querySelectorAll('[role="tabpanel"]')];
+      const allPanelsLabelled = panels.length === 7 && panels.every((p) => {
+        const ref = p.getAttribute("aria-labelledby");
+        return Boolean(ref && document.getElementById(ref));
+      });
+      document.querySelector(".sidebar-settings-btn")?.click();
+      const tabbableWhileSettings = nav.querySelectorAll('[role="tab"][tabindex="0"]').length;
+      document.querySelector("#settings-header-back")?.click();
+      document.querySelector('.sidebar-nav [data-tab="cash-parking"]')?.click();
+      const cashText = document.getElementById("cash-parking-slot")?.textContent || "";
+      return {
+        activeAfter1,
+        activeAfter2,
+        allPanelsLabelled,
+        tabbableWhileSettings,
+        hasSgGovBacked: cashText.includes("SG Gov Backed"),
+      };
+    })()`);
+    assert.equal(tabA11yAudit.activeAfter1, "trajectory");
+    assert.equal(tabA11yAudit.activeAfter2, "allocator");
+    assert.equal(tabA11yAudit.allPanelsLabelled, true);
+    assert.ok(
+      tabA11yAudit.tabbableWhileSettings >= 1,
+      "Sidebar tablist must keep at least one tabindex=0 tab while Settings is open",
+    );
+    assert.equal(
+      tabA11yAudit.hasSgGovBacked,
+      true,
+      "Cash Parking must badge MAS SSB / T-Bills as SG Gov Backed",
+    );
+
+    // 18. Phase 1-5 regressions: Stacked NW keyboard nav (no TypeError), Trajectory Inspector non-zero balances, lump-sum Rebalance preserves #known-savings, and Expense modal remove button role
+    const phaseRegRes = await browser.evaluate(`(() => {
+      // (a) Stacked Net Worth chart keyboard nav on Overview
+      document.querySelector('.sidebar-nav [data-tab="overview"]')?.click();
+      const nwChart = document.getElementById("dash-networth-chart");
+      nwChart?.focus();
+      nwChart?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+      const nwSr = document.getElementById("sr-status")?.textContent || "";
+
+      // (b) Trajectory Year Inspector on working-age year (step +1 to age+1 so balances are non-zero)
+      document.querySelector('.sidebar-nav [data-tab="trajectory"]')?.click();
+      const trajRow =
+        document.querySelector('#trajectory-values tr[data-inspect-age]') ||
+        document.querySelector('tr[data-inspect-age]');
+      trajRow?.click();
+      document.querySelector('[data-inspect-step="1"]')?.click();
+      const inspText = document.getElementById("trajectory-year-inspector")?.textContent || "";
+
+      // (c) Lump-sum #known-savings + Rebalance preserves total instead of wiping to $0
+      document.querySelector('.sidebar-nav [data-tab="overview"]')?.click();
+      const savEl = document.getElementById("known-savings");
+      for (const id of ["known-equities", "known-sg-dividends", "known-ssb-cash", "known-srs"]) {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+      }
+      if (savEl) {
+        savEl.value = "150000";
+        savEl.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      document.getElementById("known-target-equity").value = "90";
+      document.getElementById("known-target-equity").dispatchEvent(new Event("input", { bubbles: true }));
+      const rebBtn = document.querySelector('[data-money-move="rebalance-portfolio"]');
+      let afterRebTotal = null;
+      if (rebBtn) {
+        rebBtn.click();
+        afterRebTotal = Number(document.getElementById("known-savings")?.value || 0);
+      }
+
+      // (d) Expense modal remove button does not carry role="cell"
+      const budgetBtn = document.querySelector('[data-quick-edit="budget"]');
+      budgetBtn?.click();
+      document.querySelector('[data-exp-enter-custom]')?.click();
+      document.querySelector('[data-exp-custom-mode="itemized"]')?.click();
+      const removeBtn = document.querySelector(".exp-remove-btn");
+      const removeRole = removeBtn ? removeBtn.getAttribute("role") : "missing";
+      document.getElementById("exp-dialog")?.close();
+
+      return {
+        nwSrOk: nwSr.includes("Age") && nwSr.includes("total net worth"),
+        inspText,
+        inspOk:
+          inspText.includes("Audit Breakdown") &&
+          inspText.includes("Accumulating") &&
+          !inspText.includes("OA $0 · SA $0 · MA $0") &&
+          !inspText.includes("Equities $0"),
+        afterRebTotal,
+        removeRole,
+      };
+    })()`);
+    assert.equal(
+      phaseRegRes.nwSrOk,
+      true,
+      "Stacked Net Worth chart keyboard ArrowRight must update #sr-status without throwing",
+    );
+    assert.equal(
+      phaseRegRes.inspOk,
+      true,
+      `Trajectory Year Inspector must render Audit Breakdown with non-zero CPF balances (got: ${phaseRegRes.inspText})`,
+    );
+    if (phaseRegRes.afterRebTotal != null) {
+      assert.ok(
+        Math.abs(phaseRegRes.afterRebTotal - 150000) <= 5,
+        `Rebalance on lump-sum $150,000 must preserve total (~$150,000), got $${phaseRegRes.afterRebTotal}`,
+      );
+    }
+    assert.equal(
+      phaseRegRes.removeRole,
+      null,
+      "Expense modal remove <button> must not override its button role with role='cell'",
+    );
+
+    // 19. Phase 2 UI regressions: dynamic srsZeroTaxCap in 4-Tap SRS UI, Money Moves srsAge: 64 & 0% rate safety, and Print Sheet basis === "nominal" consistency
+    const phase2UiRes = await browser.evaluate(`(() => {
+      document.querySelector('.sidebar-nav [data-tab="overview"]')?.click();
+      const setVal = (id, val) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = String(val);
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      };
+
+      // (a) Dynamic srsZeroTaxCap in Overview 4-Tap SRS card & aria-label (5% global return => ~$309k, not $400k)
+      setVal("known-return", "0.05");
+      setVal("known-srs", 100000);
+      setVal("known-srs-annual", 10000);
+      setVal("known-srs-invested", "global");
+      const tapsCard = document.getElementById("retirement-taps-card");
+      const tapsText = tapsCard?.textContent || "";
+      const tap2Aria =
+        tapsCard?.querySelector('[aria-label*="Tap 2 SRS pot toward"]')?.getAttribute("aria-label") || "";
+
+      // (b) Money Moves srsAge: 64 shows "until age 64" (not "until age 63")
+      setVal("known-srs-age", "64");
+      setVal("known-srs-invested", "cash");
+      const movesTextAge64 = document.getElementById("overview-slot")?.textContent || "";
+
+      // (c) Money Moves 0% return rate & 0% cash rate safety (no falsy-zero || fallback)
+      setVal("known-srs-invested", "global");
+      setVal("known-srs", 0);
+      setVal("known-srs-annual", 0);
+      setVal("known-savings", "");
+      setVal("known-equities", 0);
+      setVal("known-sg-dividends", 0);
+      setVal("known-ssb-cash", 120000);
+      setVal("known-target-equity", 80);
+      setVal("known-return", "0.05");
+      setVal("known-cash-return", "0");
+      const extractRebBoost = () => {
+        const btn = document.querySelector('[data-money-move="rebalance-portfolio"]');
+        const cardText = btn?.closest(".fin-move-card")?.textContent || "";
+        const m = cardText.match(/\\+\\$([\\d,]+)\\/yr/);
+        return m ? Number(m[1].replace(/,/g, "")) : null;
+      };
+      const boostZeroCash = extractRebBoost();
+      setVal("known-cash-return", "2.39");
+      const boostDefaultCash = extractRebBoost();
+      setVal("known-return", "0");
+      const boostZeroReturn = extractRebBoost();
+
+      return {
+        tapsText,
+        tap2Aria,
+        movesTextAge64,
+        boostZeroCash,
+        boostDefaultCash,
+        boostZeroReturn,
+      };
+    })()`);
+    assert.ok(
+      phase2UiRes.tapsText.includes("$309k") &&
+        !phase2UiRes.tapsText.includes("vs $400k") &&
+        !phase2UiRes.tapsText.includes("≤$400k"),
+      `Overview 4-Tap SRS card must display dynamic srsZeroTaxCap ($309k) instead of hardcoded $400k`,
+    );
+    assert.ok(
+      phase2UiRes.tap2Aria.includes("$308,869") &&
+        !phase2UiRes.tap2Aria.includes("$400,000"),
+      `Tap 2 progressbar aria-label must reflect dynamic srsZeroTaxCap, got: ${phase2UiRes.tap2Aria}`,
+    );
+    assert.ok(
+      phase2UiRes.movesTextAge64.includes("until age 64") &&
+        !phase2UiRes.movesTextAge64.includes("until age 63"),
+      "Money Moves idle SRS cash card must interpolate srsStartAge (age 64), not hardcoded age 63",
+    );
+    assert.ok(
+      phase2UiRes.boostZeroCash != null &&
+        phase2UiRes.boostDefaultCash != null &&
+        phase2UiRes.boostZeroReturn != null,
+      `Expected rebalance boost numbers for 0% rate checks, got ${JSON.stringify(phase2UiRes)}`,
+    );
+    assert.ok(
+      phase2UiRes.boostZeroCash > phase2UiRes.boostDefaultCash * 1.5,
+      `0% cash rate must not fall back to 2.39% (boostZeroCash=${phase2UiRes.boostZeroCash} vs boostDefaultCash=${phase2UiRes.boostDefaultCash})`,
+    );
+    assert.ok(
+      phase2UiRes.boostZeroReturn < phase2UiRes.boostDefaultCash,
+      `0% equity return rate must not fall back to 5% (boostZeroReturn=${phase2UiRes.boostZeroReturn} vs boostDefaultCash=${phase2UiRes.boostDefaultCash})`,
+    );
+
+    // (d) Print Sheet basis === "nominal" consistency via dev ESM import in live DOM
+    const { server: devServer, baseUrl: devBaseUrl } =
+      await startStaticServer(__dirname);
+    try {
+      await browser.navigate(`${devBaseUrl}/index.html`);
+      await new Promise((r) => setTimeout(r, 250));
+      const printNominalRes = await browser.evaluate(`(async () => {
+        const { renderPrintSheet } = await import("/src/app/print-sheet.js");
+        const { getMilestoneNodes, buildFundingSourcesList } = await import("/src/app/views-overview.js");
+        const M = window.RetirementModel;
+        const p = {
+          ...M.SG_DEFAULT_PLAN,
+          age: 35,
+          retire: 65,
+          salary: 9000,
+          srs: 80000,
+          srsAnnual: 10000,
+          srsInvestedIn: "global",
+        };
+        const solved = M.solveBucketAwareSimulation(p, "frs");
+        const r = M.todayPlan(solved.summary);
+        const s = M.todayPlan({ ...solved.summary, scenarios: [solved.simulation.selectedScenario] }).scenarios[0];
+        const bogle = M.bogleheadAllocation(p, solved.simulation.invest);
+        const tax = M.taxSweetSpot(p, solved.summary);
+        const guide = M.outsideAllocationGuide(r, solved.simulation);
+        const basePayload = {
+          r,
+          s,
+          simulation: solved.simulation,
+          fire: solved.fire,
+          bogle,
+          tax,
+          guide,
+          p,
+        };
+        renderPrintSheet({ ...basePayload, basis: "today" });
+        const todaySourcesText = document.querySelector("#print-sheet .poster-source-list")?.textContent || "";
+        const todayMilestones = getMilestoneNodes(solved.fire, r, s, solved.simulation, "today");
+
+        renderPrintSheet({ ...basePayload, basis: "nominal" });
+        const nominalSourcesText = document.querySelector("#print-sheet .poster-source-list")?.textContent || "";
+        const nominalHeaderText = document.querySelector("#print-sheet .poster-strategy-panel")?.textContent || "";
+        const nominalMilestones = getMilestoneNodes(solved.fire, r, s, solved.simulation, "nominal");
+        const pmNom = M.buildPrintReportModel({
+          summary: r,
+          selectedScenario: s,
+          simulation: solved.simulation,
+          fire: solved.fire,
+          bogle,
+          tax,
+          guide,
+          params: p,
+          basis: "nominal",
+        });
+        const { fundingSources: nomFs } = buildFundingSourcesList(pmNom.taps, r, s, pmNom.cpfCovPct, "nominal");
+        const { fundingSources: todFs } = buildFundingSourcesList(pmNom.taps, r, s, pmNom.cpfCovPct, "today");
+        const parseFirstDollar = (str) => {
+          const plain = String(str || "").replace(/<[^>]+>/g, "");
+          const m = plain.match(/\\$([\\d,]+)/);
+          return m ? Number(m[1].replace(/,/g, "")) : 0;
+        };
+
+        // 4-combination (r.moneyBasis x basis) parity: raw nominal solved.summary vs M.todayPlan(solved.summary)
+        const p4 = {
+          ...M.SG_DEFAULT_PLAN,
+          age: 35,
+          retire: 60,
+          salary: 9000,
+          oa: 100000,
+          sa: 80000,
+          ma: 50000,
+          investments: 150000,
+          ssbCash: 60000,
+          srs: 20000,
+          srsAnnual: 3000,
+          srsInvestedIn: "global",
+          inflation: 0.025,
+          returnRate: 0.055,
+          cashSaving: 500,
+          invest: 2000,
+        };
+        const solved4 = M.solveBucketAwareSimulation(p4, "frs");
+        const rNom4 = solved4.summary;
+        const sNom4 = solved4.simulation.selectedScenario;
+        const rTod4 = M.todayPlan(rNom4);
+        const sTod4 = M.todayPlan({ ...rNom4, scenarios: [sNom4] }).scenarios[0];
+        const bogle4 = M.bogleheadAllocation(p4, solved4.simulation.invest);
+        const tax4 = M.taxSweetSpot(p4, rNom4);
+        const guideNom4 = M.outsideAllocationGuide(rNom4, solved4.simulation);
+        const guideTod4 = M.outsideAllocationGuide(rTod4, solved4.simulation);
+
+        const runCombo = (rIn, sIn, guideIn, basisVal) => {
+          const pm = M.buildPrintReportModel({
+            summary: rIn,
+            selectedScenario: sIn,
+            simulation: solved4.simulation,
+            fire: solved4.fire,
+            bogle: bogle4,
+            tax: tax4,
+            guide: guideIn,
+            params: p4,
+            basis: basisVal,
+          });
+          const milestones = getMilestoneNodes(
+            solved4.fire,
+            rIn,
+            sIn,
+            solved4.simulation,
+            basisVal,
+          ).map((x) => ({ badge: x.badge, metric: x.metric, sub: x.sub }));
+          const sources = buildFundingSourcesList(
+            pm.taps,
+            rIn,
+            sIn,
+            pm.cpfCovPct,
+            basisVal,
+          ).fundingSources.map((x) => ({ name: x.name, count: x.count, score: x.score }));
+          renderPrintSheet({
+            r: rIn,
+            s: sIn,
+            simulation: solved4.simulation,
+            fire: solved4.fire,
+            bogle: bogle4,
+            tax: tax4,
+            guide: guideIn,
+            p: p4,
+            basis: basisVal,
+          });
+          const printBudgetHeader =
+            document.querySelector("#print-sheet .poster-budget-panel .poster-panel-head small")
+              ?.textContent || "";
+          const printSourcesText =
+            document.querySelector("#print-sheet .poster-source-list")?.textContent || "";
+          const printStrategyRows = Array.from(
+            document.querySelectorAll("#print-sheet .poster-mini-table tbody tr"),
+          ).map((tr) => tr.textContent.replace(/\\s+/g, " ").trim());
+          return { milestones, sources, printBudgetHeader, printSourcesText, printStrategyRows };
+        };
+
+        const comboTodayFromToday = runCombo(rTod4, sTod4, guideTod4, "today");
+        const comboTodayFromNom = runCombo(rNom4, sNom4, guideNom4, "today");
+        const comboNomFromToday = runCombo(rTod4, sTod4, guideTod4, "nominal");
+        const comboNomFromNom = runCombo(rNom4, sNom4, guideNom4, "nominal");
+
+        return {
+          todayHasTodaysDollar: todaySourcesText.includes("(today’s $)"),
+          nominalHasTodaysDollar: nominalSourcesText.includes("(today’s $)"),
+          nominalHasHeader: nominalHeaderText.includes("Future Nominal $"),
+          todayRetMetric: parseFirstDollar(todayMilestones[2].metric),
+          nominalRetMetric: parseFirstDollar(nominalMilestones[2].metric),
+          todayTap1Payout: parseFirstDollar(todFs[0].count),
+          nominalTap1Payout: parseFirstDollar(nomFs[0].count),
+          todayTap2Draw: parseFirstDollar(todFs[1].count),
+          nominalTap2Draw: parseFirstDollar(nomFs[1].count),
+          comboTodayFromToday,
+          comboTodayFromNom,
+          comboNomFromToday,
+          comboNomFromNom,
+        };
+      })()`);
+      assert.equal(
+        printNominalRes.todayHasTodaysDollar,
+        true,
+        "Print Sheet in today basis should label Tap 2 SRS draw with (today’s $)",
+      );
+      assert.equal(
+        printNominalRes.nominalHasTodaysDollar,
+        false,
+        "Print Sheet in nominal basis must NOT render (today’s $) in Tap 2 SRS funding source",
+      );
+      assert.equal(
+        printNominalRes.nominalHasHeader,
+        true,
+        "Print Sheet in nominal basis must display Future Nominal $ header",
+      );
+      assert.ok(
+        printNominalRes.nominalRetMetric > printNominalRes.todayRetMetric,
+        `Nominal retirement milestone net worth (${printNominalRes.nominalRetMetric}) must exceed today's $ (${printNominalRes.todayRetMetric})`,
+      );
+      assert.ok(
+        printNominalRes.nominalTap1Payout > printNominalRes.todayTap1Payout,
+        `Nominal Tap 1 CPF LIFE payout (${printNominalRes.nominalTap1Payout}) must exceed today's $ (${printNominalRes.todayTap1Payout})`,
+      );
+      assert.ok(
+        printNominalRes.nominalTap2Draw > printNominalRes.todayTap2Draw,
+        `Nominal Tap 2 SRS draw (${printNominalRes.nominalTap2Draw}) must exceed today's $ (${printNominalRes.todayTap2Draw})`,
+      );
+      assert.deepEqual(
+        printNominalRes.comboTodayFromNom,
+        printNominalRes.comboTodayFromToday,
+        "basis='today' outputs must match whether r/s come from raw nominal solved.summary or todayPlan(solved.summary)",
+      );
+      assert.deepEqual(
+        printNominalRes.comboNomFromNom,
+        printNominalRes.comboNomFromToday,
+        "basis='nominal' outputs must match whether r/s come from raw nominal solved.summary or todayPlan(solved.summary)",
+      );
+      assert.notEqual(
+        printNominalRes.comboNomFromNom.printBudgetHeader,
+        printNominalRes.comboTodayFromNom.printBudgetHeader,
+        "Print Sheet budget header must differ between basis='nominal' and basis='today' when inflation > 0",
+      );
+
+      // 20. Phase 3 regressions: Mobile responsive SVG viewBox (< 520px), compactPrint guard,
+      // collapsible #retirement-taps-card hash-routing & h3 heading, 320px tick legibility,
+      // resize 520->1280 sync, table <caption> + .num-col, and clean aria-labels
+      await browser.send("Emulation.setDeviceMetricsOverride", {
+        width: 375,
+        height: 812,
+        deviceScaleFactor: 2,
+        mobile: true,
+      });
+      await browser.evaluate(`(() => {
+        window.dispatchEvent(new Event("resize"));
+      })()`);
+      await new Promise((r) => setTimeout(r, 250));
+      const m3Res = await browser.evaluate(`(() => {
+        const dashSvg = document.querySelector("#dash-networth-chart svg");
+        const dashVb = (dashSvg?.getAttribute("viewBox") || "").split(/\\s+/).map(Number);
+        const printNwSvg = document.querySelector("#print-nw-chart svg");
+        const printNwVb = (printNwSvg?.getAttribute("viewBox") || "").split(/\\s+/).map(Number);
+        const chartArea = document.querySelector("#dash-networth-chart");
+        const chartMinH = chartArea ? getComputedStyle(chartArea).minHeight : "";
+        const tapsEl = document.getElementById("retirement-taps-card");
+        const tapsTag = tapsEl?.tagName || "";
+        const tapsHeading = Boolean(
+          document.querySelector("#retirement-taps-card summary h3#taps-blueprint-title"),
+        );
+        if (tapsEl && tapsEl.tagName === "DETAILS") tapsEl.open = false;
+        location.hash = "#retirement-taps-card";
+        window.dispatchEvent(new HashChangeEvent("hashchange"));
+        const tapsOpenedByHash = Boolean(tapsEl?.open);
+        const finTable = document.querySelector("#overview-slot .fin-table");
+        const finCaption = Boolean(finTable?.querySelector("caption"));
+        const finNumCols = finTable?.querySelectorAll("thead th.num-col").length || 0;
+        const printTable = document.querySelector("#print-sheet .poster-mini-table");
+        const printCaption = Boolean(printTable?.querySelector("caption"));
+        const printNumCols = printTable?.querySelectorAll("thead th.num-col").length || 0;
+        const badAria = Array.from(document.querySelectorAll("[aria-label]")).some((el) =>
+          (el.getAttribute("aria-label") || "").includes("curr-wrap"),
+        );
+        return {
+          dashVbW: dashVb[2] || 0,
+          printNwVbW: printNwVb[2] || 0,
+          chartMinH,
+          tapsTag,
+          tapsHeading,
+          tapsOpenedByHash,
+          finCaption,
+          finNumCols,
+          printCaption,
+          printNumCols,
+          badAria,
+        };
+      })()`);
+
+      // Narrow 320x568 viewport check: viewBox in [240, 520) and effective tick font >= 8.5px
+      await browser.send("Emulation.setDeviceMetricsOverride", {
+        width: 320,
+        height: 568,
+        deviceScaleFactor: 2,
+        mobile: true,
+      });
+      await browser.evaluate(`(() => {
+        window.dispatchEvent(new Event("resize"));
+      })()`);
+      await new Promise((r) => setTimeout(r, 250));
+      const m3NarrowRes = await browser.evaluate(`(() => {
+        const dashSvg = document.querySelector("#dash-networth-chart svg");
+        const dashVb = (dashSvg?.getAttribute("viewBox") || "").split(/\\s+/).map(Number);
+        const vbW = dashVb[2] || 0;
+        const rectW = dashSvg?.getBoundingClientRect().width || 0;
+        const scale = vbW > 0 ? rectW / vbW : 0;
+        const tickSizes = Array.from(dashSvg?.querySelectorAll("text[font-size]") || [])
+          .map((t) => Number(t.getAttribute("font-size")) * scale)
+          .filter((n) => Number.isFinite(n) && n > 0)
+          .sort((a, b) => a - b);
+        const medianTickPx = tickSizes.length
+          ? tickSizes[Math.floor(tickSizes.length / 2)]
+          : 0;
+        return { vbW, medianTickPx };
+      })()`);
+
+      // Resize transition 520x812 -> 1280x900 on Trajectory tab must update #trajectory-chart to desktop
+      await browser.send("Emulation.setDeviceMetricsOverride", {
+        width: 520,
+        height: 812,
+        deviceScaleFactor: 1,
+        mobile: false,
+      });
+      await browser.evaluate(`(() => {
+        document.querySelector('[data-tab="trajectory"]')?.click();
+        window.dispatchEvent(new Event("resize"));
+      })()`);
+      await new Promise((r) => setTimeout(r, 250));
+      const trajAt520W = await browser.evaluate(`(() => {
+        const svg = document.querySelector("#trajectory-chart svg");
+        const vb = (svg?.getAttribute("viewBox") || "").split(/\\s+/).map(Number);
+        return vb[2] || 0;
+      })()`);
+      await browser.send("Emulation.setDeviceMetricsOverride", {
+        width: 1280,
+        height: 900,
+        deviceScaleFactor: 1,
+        mobile: false,
+      });
+      await browser.evaluate(`(() => {
+        window.dispatchEvent(new Event("resize"));
+      })()`);
+      await new Promise((r) => setTimeout(r, 250));
+      const trajAt1280W = await browser.evaluate(`(() => {
+        const svg = document.querySelector("#trajectory-chart svg");
+        const vb = (svg?.getAttribute("viewBox") || "").split(/\\s+/).map(Number);
+        return vb[2] || 0;
+      })()`);
+      await browser.send("Emulation.clearDeviceMetricsOverride");
+      assert.ok(
+        m3Res.dashVbW >= 240 && m3Res.dashVbW < 520,
+        `Mobile #dash-networth-chart viewBox width must be in [240, 520), got ${m3Res.dashVbW}`,
+      );
+      assert.ok(
+        m3NarrowRes.vbW >= 240 && m3NarrowRes.vbW < 520,
+        `320x568 #dash-networth-chart viewBox width must be in [240, 520), got ${m3NarrowRes.vbW}`,
+      );
+      assert.ok(
+        m3NarrowRes.medianTickPx >= 8.5,
+        `320x568 #dash-networth-chart effective median tick font must be >= 8.5px, got ${m3NarrowRes.medianTickPx.toFixed(2)}px`,
+      );
+      assert.ok(
+        trajAt520W >= 240 && trajAt520W < 520,
+        `520x812 #trajectory-chart viewBox width should be mobile (< 520), got ${trajAt520W}`,
+      );
+      assert.ok(
+        trajAt1280W >= 760,
+        `Resize 520x812 -> 1280x900 must update #trajectory-chart viewBox width to desktop (>= 760), got ${trajAt1280W}`,
+      );
+      assert.equal(
+        m3Res.printNwVbW,
+        680,
+        "Print sheet #print-nw-chart (compactPrint: true) must retain desktop 680 viewBox width on mobile",
+      );
+      assert.equal(
+        m3Res.chartMinH,
+        "0px",
+        `Mobile .chart-area min-height should be 0px, got ${m3Res.chartMinH}`,
+      );
+      assert.equal(
+        m3Res.tapsTag,
+        "DETAILS",
+        "#retirement-taps-card should be a <details> disclosure",
+      );
+      assert.equal(
+        m3Res.tapsHeading,
+        true,
+        "#retirement-taps-card summary must contain <h3 id='taps-blueprint-title'>",
+      );
+      assert.equal(
+        m3Res.tapsOpenedByHash,
+        true,
+        "Hash navigation to #retirement-taps-card must auto-open the <details> disclosure",
+      );
+      assert.equal(
+        m3Res.finCaption,
+        true,
+        "Overview CPF Path table must have a <caption>",
+      );
+      assert.equal(
+        m3Res.finNumCols,
+        4,
+        "Overview CPF Path table must have 4 numeric .num-col headers",
+      );
+      assert.equal(
+        m3Res.printCaption,
+        true,
+        "Print Sheet table must have a <caption>",
+      );
+      assert.equal(
+        m3Res.printNumCols,
+        4,
+        "Print Sheet table must have 4 numeric .num-col headers",
+      );
+      assert.equal(
+        m3Res.badAria,
+        false,
+        "No aria-label may contain raw curr-wrap HTML",
+      );
+
+      // Phase 4 (F16): XSS regression test across custom expenses, cash accounts, URL hash, search, and print sheet
+      const xssPayload = "<img src=x onerror=window.__xss=1>";
+      const xssSearch = "<img src=x onerror=window.__xss=2>";
+      const xssExpItems = JSON.stringify([
+        [xssPayload, "food", 1800],
+        ["Utilities & WiFi", "housing", 500],
+      ]);
+      const xssCashItems = JSON.stringify([
+        ["custom", xssPayload, 150000, 100000, 3.0, 0.05],
+      ]);
+      const xssHash =
+        "#version=3&lifestyle=cca&salary=6000&spend=2300&expMode=itemized&expItems=" +
+        encodeURIComponent(xssExpItems) +
+        "&cashMode=itemized&cashItems=" +
+        encodeURIComponent(xssCashItems);
+      await browser.navigate(`${devBaseUrl}/${xssHash}`);
+      await new Promise((r) => setTimeout(r, 250));
+
+      const xssCheck = await browser.evaluate(`(async () => {
+        const payload = ${JSON.stringify(xssPayload)};
+        const searchPayload = ${JSON.stringify(xssSearch)};
+        const overviewChipText = Array.from(document.querySelectorAll("#overview-slot .exp-item-chip"))
+          .map((el) => el.textContent || "")
+          .join(" ");
+
+        // Open custom expense modal to verify editable rows
+        document.querySelector('#exp-card-dropdown-btn')?.click();
+        document.querySelector('[data-select-custom]')?.click();
+        await new Promise((r) => setTimeout(r, 120));
+        const expNameVal = document.querySelector('#exp-items-body input[data-exp-field="name"]')?.value || "";
+        document.querySelector('#expense-modal')?.close();
+
+        // Switch to Cash Parking tab to verify custom account editor, overflow alert, and search empty state
+        document.querySelector('[data-tab="cash-parking"]')?.click();
+        await new Promise((r) => setTimeout(r, 150));
+        const cashNameVal = document.querySelector('#cash-parking-slot input[data-cash-acc-field="name"]')?.value || "";
+        const cashAlertText = document.querySelector('#cash-acc-alerts-page')?.textContent || "";
+        const searchInput = document.querySelector('#cash-search-input');
+        if (searchInput) {
+          searchInput.value = searchPayload;
+          searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+        await new Promise((r) => setTimeout(r, 120));
+        const cashEmptyText = document.querySelector('.cash-empty-state')?.textContent || "";
+
+        // Trigger print sheet render
+        window.dispatchEvent(new Event("beforeprint"));
+        await new Promise((r) => setTimeout(r, 120));
+        const printSheetReady = Boolean(document.querySelector('#print-sheet .poster-sheet'));
+
+        return {
+          xssGlobal: window.__xss,
+          injectedImgs: document.querySelectorAll('img[src="x"]').length,
+          overviewHasLiteral: overviewChipText.includes(payload),
+          expModalHasLiteral: expNameVal === payload,
+          cashNameHasLiteral: cashNameVal === payload,
+          cashAlertHasLiteral: cashAlertText.includes(payload),
+          cashSearchHasLiteral: cashEmptyText.includes(searchPayload),
+          printSheetReady,
+        };
+      })()`);
+
+      assert.equal(
+        xssCheck.xssGlobal,
+        undefined,
+        "XSS payload must NEVER execute",
+      );
+      assert.equal(
+        xssCheck.injectedImgs,
+        0,
+        "XSS payload must NEVER inject an <img> element into the DOM",
+      );
+      assert.equal(
+        xssCheck.overviewHasLiteral,
+        true,
+        "Overview expense chip must render escaped literal payload text",
+      );
+      assert.equal(
+        xssCheck.expModalHasLiteral,
+        true,
+        "Expense modal input must preserve literal payload value",
+      );
+      assert.equal(
+        xssCheck.cashNameHasLiteral,
+        true,
+        "Cash Parking account input must preserve literal payload value",
+      );
+      assert.equal(
+        xssCheck.cashAlertHasLiteral,
+        true,
+        "Cash Parking overflow alert must render escaped literal payload text",
+      );
+      assert.equal(
+        xssCheck.cashSearchHasLiteral,
+        true,
+        "Cash Parking empty-search state must render escaped literal payload text",
+      );
+      assert.equal(
+        xssCheck.printSheetReady,
+        true,
+        "Print sheet must render cleanly with XSS payloads in state",
+      );
+
+      // Phase 4 (F17): Quick Edit 3-way monthly routing must display SRS deduction suffix when srsAnnual > 0
+      await browser.navigate(
+        `${devBaseUrl}/#version=3&salary=8000&invest=2500&srs=15300`,
+      );
+      await new Promise((r) => setTimeout(r, 200));
+      const qeSrsCheck = await browser.evaluate(`(async () => {
+        const srsEl = document.querySelector('#known-srs-annual');
+        if (srsEl) {
+          srsEl.value = '15300';
+          srsEl.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        const invEl = document.querySelector('#known-invest');
+        if (invEl) {
+          invEl.value = '2500';
+          invEl.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        await new Promise((r) => setTimeout(r, 120));
+        document.querySelector('[data-quick-edit="invest"]')?.click();
+        await new Promise((r) => setTimeout(r, 120));
+        const summaryText = (document.querySelector('#qe-invest-summary')?.textContent || '').replace(/\\s+/g, ' ').trim();
+        document.querySelector('#quick-edit-modal')?.close();
+        return { summaryText };
+      })()`);
+      assert.match(
+        qeSrsCheck.summaryText,
+        /\(after \$1,275\/mo SRS\)/,
+        `Quick Edit #qe-invest-summary must render SRS deduction suffix, got: ${qeSrsCheck.summaryText}`,
+      );
+
+      // Tier 5 (Fix 1): Cash Parking overflow-suppression UI regression test when baseRatePct >= ssbBenchmarkPct
+      const highBaseCashItems = JSON.stringify([
+        ["custom", "HighBase Bank", 120000, 50000, 4.0, 5.0],
+      ]);
+      await browser.navigate(
+        `${devBaseUrl}/?t=t5-cash#version=3&lifestyle=cca&salary=6000&cashMode=itemized&cashItems=${encodeURIComponent(highBaseCashItems)}`,
+      );
+      for (let i = 0; i < 60; i++) {
+        const loaded = await browser.evaluate(
+          'location.search === "?t=t5-cash" && document.readyState === "complete" && Boolean(document.querySelector("#overview-slot .fin-top-kpis"))',
+        );
+        if (loaded) break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      await new Promise((r) => setTimeout(r, 150));
+      const highBaseCheck = await browser.evaluate(`(async () => {
+        document.querySelector('[data-tab="cash-parking"]')?.click();
+        await new Promise((r) => setTimeout(r, 150));
+        const summaryText = (document.querySelector('#cash-acc-summary-page')?.textContent || '').replace(/\\s+/g, ' ').trim();
+        const alertsText = (document.querySelector('#cash-acc-alerts-page')?.textContent || '').replace(/\\s+/g, ' ').trim();
+        return { summaryText, alertsText };
+      })()`);
+      assert.ok(
+        highBaseCheck.summaryText.length > 0,
+        "Cash Accounts summary should render for custom HighBase Bank account",
+      );
+      for (const forbidden of [
+        "Bonus Cap Overflow Detected",
+        "dragging account EIR",
+        "Dragged down by",
+        "Sweep adds +$0/yr",
+      ]) {
+        assert.ok(
+          !highBaseCheck.summaryText.includes(forbidden) &&
+            !highBaseCheck.alertsText.includes(forbidden),
+          `HighBase Bank (baseRatePct >= SSB, sweepAnnualGain === 0) must not show "${forbidden}", got summary="${highBaseCheck.summaryText}" alerts="${highBaseCheck.alertsText}"`,
+        );
+      }
+      assert.ok(
+        highBaseCheck.alertsText.includes("SDIC"),
+        `HighBase Bank ($120k) should still show SDIC notice, got: ${highBaseCheck.alertsText}`,
+      );
+
+      // Tier 5 (Fix 2): Mobile 4-milestone SVG pill non-overlap regression test across chart modes + compactPrint invariant
+      await browser.navigate(
+        `${devBaseUrl}/?t=t5-charts#version=3&lifestyle=cca&age=35&retire=60&salary=8000&srs=15300&srsAge=63`,
+      );
+      for (let i = 0; i < 60; i++) {
+        const loaded = await browser.evaluate(
+          'location.search === "?t=t5-charts" && document.readyState === "complete" && Boolean(document.querySelector("#overview-slot .fin-top-kpis"))',
+        );
+        if (loaded) break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      await new Promise((r) => setTimeout(r, 150));
+      for (const vp of [
+        { width: 375, height: 812 },
+        { width: 320, height: 568 },
+      ]) {
+        await browser.send("Emulation.setDeviceMetricsOverride", {
+          width: vp.width,
+          height: vp.height,
+          deviceScaleFactor: 2,
+          mobile: true,
+        });
+        await browser.evaluate(`(() => {
+          document.querySelector('[data-tab="trajectory"]')?.click();
+          window.dispatchEvent(new Event("resize"));
+        })()`);
+        await new Promise((r) => setTimeout(r, 250));
+        const pillCheck = await browser.evaluate(`(async () => {
+          const checkSvg = (svg) => {
+            const rects = Array.from(svg?.querySelectorAll(".nw-milestone-flag rect") || []).map((r) => ({
+              x: Number(r.getAttribute("x")),
+              y: Number(r.getAttribute("y")),
+              w: Number(r.getAttribute("width")),
+              h: Number(r.getAttribute("height")),
+            }));
+            const overlaps = [];
+            for (let i = 0; i < rects.length; i++) {
+              for (let j = i + 1; j < rects.length; j++) {
+                const a = rects[i], b = rects[j];
+                const hit = !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y);
+                if (hit) overlaps.push([i, j, a, b]);
+              }
+            }
+            return { count: rects.length, overlaps };
+          };
+          const modes = {};
+          for (const mode of ["networth", "waterfall", "cashflow", "portfolio"]) {
+            document.querySelector('[data-chart-mode="' + mode + '"]')?.click();
+            await new Promise((r) => setTimeout(r, 100));
+            modes[mode] = checkSvg(document.querySelector("#trajectory-chart svg"));
+          }
+          window.dispatchEvent(new Event("beforeprint"));
+          await new Promise((r) => setTimeout(r, 120));
+          const printVb = document.querySelector("#print-nw-chart svg")?.getAttribute("viewBox") || "";
+          return { modes, printVb };
+        })()`);
+        for (const mode of ["networth", "waterfall", "cashflow", "portfolio"]) {
+          assert.ok(
+            pillCheck.modes[mode].count >= 4,
+            `${vp.width}x${vp.height} ${mode} chart should render >= 4 milestone pills, got ${pillCheck.modes[mode].count}`,
+          );
+          assert.equal(
+            pillCheck.modes[mode].overlaps.length,
+            0,
+            `${vp.width}x${vp.height} ${mode} chart must have 0 milestone pill overlaps, got ${JSON.stringify(pillCheck.modes[mode].overlaps)}`,
+          );
+        }
+        assert.equal(
+          pillCheck.printVb,
+          "0 0 680 176",
+          `${vp.width}x${vp.height} compactPrint #print-nw-chart must keep viewBox="0 0 680 176", got "${pillCheck.printVb}"`,
+        );
+      }
+      await browser.send("Emulation.clearDeviceMetricsOverride");
+
+      // Regression: deferred tab (CPF Milestones) must seed animation baselines on first visit
+      // so the very first BRS/FRS/ERS toggle glides dynamically instead of snapping statically.
+      await browser.navigate(`${devBaseUrl}/index.html`);
+      await new Promise((r) => setTimeout(r, 250));
+      const firstToggleMorph = await browser.evaluate(`(() => {
+        document.querySelector('[data-tab="cpf-rules"]')?.click();
+        const ersBtn = document.querySelector('#cpf-rules-slot button[data-learn="ers"]');
+        if (!ersBtn) return { ok: false, reason: "no-ers-btn" };
+        ersBtn.click();
+        const targetEl = document.querySelector('#cpf-rules-slot [data-anim-key="lesson-target"]');
+        const nomEl = document.querySelector('#cpf-rules-slot [data-anim-key="lesson-target-nom"]');
+        return {
+          ok: true,
+          targetMorphing: Boolean(targetEl?.classList.contains("is-morphing")),
+          nomMorphing: Boolean(nomEl?.classList.contains("is-morphing")),
+        };
+      })()`);
+      assert.equal(
+        firstToggleMorph.ok,
+        true,
+        `CPF Milestones tab should render ERS toggle button: ${JSON.stringify(firstToggleMorph)}`,
+      );
+      assert.equal(
+        firstToggleMorph.targetMorphing,
+        true,
+        "First BRS/FRS/ERS toggle on deferred CPF Milestones tab must trigger dynamic number motion (is-morphing)",
+      );
+      assert.equal(
+        firstToggleMorph.nomMorphing,
+        true,
+        "First BRS/FRS/ERS toggle must also animate nominal target (lesson-target-nom)",
+      );
+
+      // Regression: custom Calendar Date Picker (DD MMM YYYY + Day / Month / Decade popover)
+      const dpCheck = await browser.evaluate(`(async () => {
+        document.querySelector('[data-tab="overview"]')?.click();
+        await new Promise((r) => setTimeout(r, 80));
+        document.querySelector('[data-quick-edit="age"]')?.click();
+        await new Promise((r) => setTimeout(r, 100));
+        const dlgOpenBefore = Boolean(document.querySelector('#quick-edit-modal')?.open);
+        const dispBefore = document.querySelector('#qe-dob-display')?.value || "";
+        const trig = document.querySelector('#qe-panel-age .dp-trigger-btn');
+        trig?.click();
+        const popOpen1 = Boolean(document.querySelector('.dp-popover'));
+        // Switch to Decade/Year view -> pick 1988 -> pick Aug -> pick 15
+        document.querySelector('.dp-popover [data-dp-mode="years"]')?.click();
+        const decadeLabelBefore = document.querySelector('.dp-popover .dp-decade-label')?.textContent || "";
+        if (!document.querySelector('.dp-popover [data-dp-year="1988"]')) {
+          document.querySelector('.dp-popover [data-dp-nav="prev"]')?.click();
+        }
+        document.querySelector('.dp-popover [data-dp-year="1988"]')?.click();
+        document.querySelector('.dp-popover [data-dp-month="7"]')?.click();
+        document.querySelector('.dp-popover [data-dp-day="1988-08-15"]')?.click();
+        await new Promise((r) => setTimeout(r, 80));
+        const popClosedAfterPick = !document.querySelector('.dp-popover');
+        const isoAfter = document.querySelector('#person-dob')?.value || "";
+        const dispAfter = document.querySelector('#qe-dob-display')?.value || "";
+        // Verify Escape closes calendar popover WITHOUT closing #quick-edit-modal
+        trig?.click();
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+        const popClosedOnEsc = !document.querySelector('.dp-popover');
+        const dlgStillOpen = Boolean(document.querySelector('#quick-edit-modal')?.open);
+        document.querySelector('#quick-edit-modal')?.close("done");
+        return {
+          dlgOpenBefore,
+          dispBefore,
+          popOpen1,
+          decadeLabelBefore,
+          popClosedAfterPick,
+          isoAfter,
+          dispAfter,
+          popClosedOnEsc,
+          dlgStillOpen,
+        };
+      })()`);
+      assert.equal(
+        dpCheck.dlgOpenBefore,
+        true,
+        "Quick Edit age modal should open",
+      );
+      assert.match(
+        dpCheck.dispBefore,
+        /^\d{2} [A-Z][a-z]{2} \d{4}$/,
+        `Display input should use DD MMM YYYY format, got "${dpCheck.dispBefore}"`,
+      );
+      assert.equal(
+        dpCheck.popOpen1,
+        true,
+        "Clicking calendar icon must open .dp-popover",
+      );
+      assert.equal(
+        dpCheck.popClosedAfterPick,
+        true,
+        "Picking a day must close .dp-popover",
+      );
+      assert.equal(
+        dpCheck.isoAfter,
+        "1988-08-15",
+        "Picking 15 Aug 1988 must update ISO #person-dob",
+      );
+      assert.equal(
+        dpCheck.dispAfter,
+        "15 Aug 1988",
+        "Picking 15 Aug 1988 must display '15 Aug 1988'",
+      );
+      assert.equal(
+        dpCheck.popClosedOnEsc,
+        true,
+        "Escape must close .dp-popover",
+      );
+      assert.equal(
+        dpCheck.dlgStillOpen,
+        true,
+        "Escape on .dp-popover must keep #quick-edit-modal open",
+      );
+    } finally {
+      devServer.close();
+    }
 
     assert.deepEqual(
       browser.exceptions,

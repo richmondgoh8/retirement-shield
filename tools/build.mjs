@@ -1,4 +1,12 @@
-import { readFile, writeFile, mkdir, rm, cp, readdir, access } from "node:fs/promises";
+import {
+  readFile,
+  writeFile,
+  mkdir,
+  rm,
+  cp,
+  readdir,
+  access,
+} from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { transform, build } from "esbuild";
 
@@ -79,12 +87,21 @@ for (const [file, loader] of [
   const output = `assets/${file.replace(/\.(css|js)$/, "")}.${hash(code)}.${loader}`;
   await writeFile(`dist/${output}`, code);
   const attrName = loader === "css" ? "href" : "src";
-  html = assertReplace(
-    html,
-    `${attrName}="${file}"`,
-    `${attrName}="${output}"`,
-    `HTML asset ${file}`,
-  );
+  if (file === "app.js") {
+    html = assertReplace(
+      html,
+      `<script type="module" src="${file}"></script>`,
+      `<script src="${output}" defer></script>`,
+      `HTML asset ${file}`,
+    );
+  } else {
+    html = assertReplace(
+      html,
+      `${attrName}="${file}"`,
+      `${attrName}="${output}"`,
+      `HTML asset ${file}`,
+    );
+  }
   outputs.push(output);
 }
 for (const file of ["manifest.webmanifest", "favicon.svg", "favicon.ico"])

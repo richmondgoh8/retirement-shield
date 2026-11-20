@@ -1,6 +1,7 @@
 import {
   $,
   formatFundedPct,
+  deriveReadinessSummary,
   money,
   m,
   signedM,
@@ -14,57 +15,20 @@ import {
 import { buildExpenseCardHTML } from "./views-expense.js";
 
 export function computeRebalanceTargets(bogle, p, r) {
-  const hol = bogle?.holistic || {};
-  const curEqPct = Math.round(hol.effectiveEquityPct || 0);
-  const tgtEqPct = Math.round(p?.targetEquityPct ?? 80);
-  const eqDriftPct = Math.abs(curEqPct - tgtEqPct);
-  const curCashBucket = Math.round(bogle?.buckets?.ssbCash || 0);
-  const emergencyReserveFloor = Math.max(
-    20000,
-    Math.round((r?.todaySpend || 2800) * 6),
-  );
-  const deployableExcessCash = Math.max(
-    0,
-    curCashBucket - emergencyReserveFloor,
-  );
-  const curLiqEq = Math.round(
-    (bogle?.buckets?.equities || 0) + (bogle?.buckets?.sgDividends || 0),
-  );
-  const liqTotal = curLiqEq + curCashBucket;
-  const holTot = Math.max(1, Math.round(hol.totalNetWorth || liqTotal));
-  const targetTotalEq = Math.round(holTot * (tgtEqPct / 100));
-  const srsMode = p?.srsInvestedIn || "global";
-  const srsBal = Math.round(bogle?.buckets?.srs || 0);
-  const srsEq =
-    srsMode === "global" || srsMode === "equities"
-      ? srsBal
-      : srsMode === "balanced"
-        ? Math.round(srsBal * 0.6)
-        : 0;
-  const rawNewLiqEq = Math.min(liqTotal, Math.max(0, targetTotalEq - srsEq));
-  const isUnderweightEq = rawNewLiqEq > curLiqEq;
-  const shiftAmt = isUnderweightEq
-    ? Math.min(rawNewLiqEq - curLiqEq, deployableExcessCash)
-    : curLiqEq - rawNewLiqEq;
-  const newLiqEq = isUnderweightEq ? curLiqEq + shiftAmt : curLiqEq - shiftAmt;
-  const newCash = Math.max(0, liqTotal - newLiqEq);
-  return {
-    curEqPct,
-    tgtEqPct,
-    eqDriftPct,
-    curCashBucket,
-    emergencyReserveFloor,
-    deployableExcessCash,
-    curLiqEq,
-    liqTotal,
-    isUnderweightEq,
-    shiftAmt,
-    newLiqEq,
-    newCash,
-  };
+  return RetirementModel.computeRebalanceTargets(bogle, p, r);
 }
 
-export function getMilestoneNodes(fire, r, s, simulation) {
+export function getMilestoneNodes(fire, r, s, simulation, basis = "today") {
+  const isNominal = basis === "nominal";
+  const ptVal = (pt) => (isNominal ? pt : pt?.today);
+  const toDisplayMoney = (val, targetAge) => {
+    const factor = Math.pow(
+      1 + (r.inflation || 0),
+      Math.max(0, targetAge - r.age),
+    );
+    if (isNominal) return r.moneyBasis === "today" ? val * factor : val;
+    return r.moneyBasis === "today" ? val : val / factor;
+  };
   const pts = fire?.points || [];
   const ptAt = (age) =>
     pts.find((x) => x.age === age) ||
@@ -74,19 +38,24 @@ export function getMilestoneNodes(fire, r, s, simulation) {
   const age55Target = fire.age < 55 ? 55 : fire.age;
   const pt55 = ptAt(age55Target);
   const ptRet = ptAt(fire.retire);
-  const pt75 = ptAt(Math.min(fire.endAge, Math.max(75, fire.retire)));
+  const age75Target = Math.min(fire.endAge, Math.max(75, fire.retire));
+  const pt75 = ptAt(age75Target);
   const pt95 = pts[pts.length - 1];
   const totalMoSave =
     (simulation?.cpfExtra || 0) +
     (simulation?.cashSaving || 0) +
     (simulation?.invest ?? s.privateSaving);
+  const spendAtRetire = toDisplayMoney(r.futureSpend, fire.retire);
+  const spendAt75 =
+    ptVal(pt75)?.monthlySpend ?? toDisplayMoney(r.spend75, age75Target);
+  const payoutAt65 = toDisplayMoney(s.payout, 65);
 
   return [
     {
       badge: "Now",
       tag: `Age ${fire.age}`,
       title: "Starting Base",
-      metric: m(nowPt?.today?.totalNetWorth ?? 0),
+      metric: m(ptVal(nowPt)?.totalNetWorth ?? 0),
       pill: r.retiringNow ? "Active" : `Save ${compactMoney(totalMoSave)}/mo`,
       sub: r.retiringNow
         ? "Immediate retirement transition"
@@ -98,9 +67,9 @@ export function getMilestoneNodes(fire, r, s, simulation) {
       badge: fire.age < 55 ? "55" : String(fire.age),
       tag: fire.age < 55 ? "Age 55 · SA → RA" : `Age ${fire.age} · Post-55`,
       title: fire.age < 55 ? "Total CPF (RA + OA + MA)" : "RA Locked Floor",
-      metric: m(pt55?.today?.cpfTotal ?? 0),
+      metric: m(ptVal(pt55)?.cpfTotal ?? 0),
       pill: "CPF Check",
-      sub: `Total net worth ${money(pt55?.today?.totalNetWorth ?? 0)}`,
+      sub: `Total net worth ${money(ptVal(pt55)?.totalNetWorth ?? 0)}`,
       color: "#0F766E",
       softBg: "#E6F7F5",
     },
@@ -108,9 +77,9 @@ export function getMilestoneNodes(fire, r, s, simulation) {
       badge: String(fire.retire),
       tag: `Age ${fire.retire}`,
       title: "Retirement Launch",
-      metric: m(ptRet?.today?.totalNetWorth ?? 0),
+      metric: m(ptVal(ptRet)?.totalNetWorth ?? 0),
       pill: fire.retire < 65 ? "Bridge" : "CPF LIFE",
-      sub: `Budget ${money(r.futureSpend)}/mo · ${fire.retire < 65 ? "Liquid bridge" : "CPF LIFE active"}`,
+      sub: `Budget ${money(spendAtRetire)}/mo · ${fire.retire < 65 ? "Liquid bridge" : "CPF LIFE active"}`,
       color: "#1D4ED8",
       softBg: "#EFF6FF",
     },
@@ -120,30 +89,50 @@ export function getMilestoneNodes(fire, r, s, simulation) {
       title: fire.fireNumber.fullyFundedTo95
         ? `Age ${fire.endAge ?? 95}+ Runway`
         : `Funded to ${Math.floor(fire.fireNumber.depletionAge ?? 90)}`,
-      metric: m(pt95?.today?.totalNetWorth ?? 0),
+      metric: m(ptVal(pt95)?.totalNetWorth ?? 0),
       pill: fire.fireNumber.fullyFundedTo95 ? "Sustained" : "Watch Gap",
-      sub: `Spend ${money(pt75?.today?.monthlySpend ?? r.spend75)}/mo · CPF ${money(s.payout)}/mo`,
+      sub: `Spend ${money(spendAt75)}/mo · CPF ${money(payoutAt65)}/mo`,
       color: fire.fireNumber.fullyFundedTo95 ? "#7C3AED" : "#B91C1C",
       softBg: fire.fireNumber.fullyFundedTo95 ? "#F5F3FF" : "#FEF2F2",
     },
   ];
 }
 
-export function buildFundingSourcesList(taps, r, s, cpfCovPct) {
-  const srsTodayDraw =
-    taps.tap2Srs.tenYearMonthlyDrawToday ?? taps.tap2Srs.tenYearMonthlyDraw;
-  const srsTodayPot =
-    taps.tap2Srs.projectedAt63Today ?? taps.tap2Srs.projectedAt63;
+export function buildFundingSourcesList(
+  taps,
+  r,
+  s,
+  cpfCovPct,
+  basis = "today",
+) {
+  const isNominal = basis === "nominal";
+  const toDisplayMoney = (val, targetAge) => {
+    const factor = Math.pow(
+      1 + (r.inflation || 0),
+      Math.max(0, targetAge - r.age),
+    );
+    if (isNominal) return r.moneyBasis === "today" ? val * factor : val;
+    return r.moneyBasis === "today" ? val : val / factor;
+  };
+  const srsDisplayDraw = isNominal
+    ? taps.tap2Srs.tenYearMonthlyDraw
+    : (taps.tap2Srs.tenYearMonthlyDrawToday ?? taps.tap2Srs.tenYearMonthlyDraw);
+  const srsDisplayPot = isNominal
+    ? taps.tap2Srs.projectedAt63
+    : (taps.tap2Srs.projectedAt63Today ?? taps.tap2Srs.projectedAt63);
+  const srsTrapFloorLabel = compactMoney(
+    taps.tap2Srs.trapFloorAt63 || RetirementModel.C.srsTrapFloorAt63,
+  ).replace(/^\$/, "");
   const srsMarginalPct = Number(
     ((taps.tap2Srs.marginalRate || 0) * 100).toFixed(1).replace(/\.0$/, ""),
   );
   const srsDrawPill =
     taps.tap2Srs.trapStatus === "balloon-trap"
-      ? ">450k!"
+      ? `>${srsTrapFloorLabel}!`
       : taps.tap2Srs.verdictStatus === "idle-cash"
         ? "0.05%!"
         : taps.tap2Srs.projectedAt63 > 0
-          ? `${compactMoney(srsTodayPot)}`
+          ? `${compactMoney(srsDisplayPot)}`
           : taps.tap2Srs.verdictStatus === "worth-it"
             ? `Save ${compactMoney(taps.tap2Srs.taxSavedPerYear)}/yr`
             : taps.tap2Srs.verdictStatus === "rstu-first"
@@ -153,7 +142,7 @@ export function buildFundingSourcesList(taps, r, s, cpfCovPct) {
                 : `Skip (${srsMarginalPct}%)`;
   const srsCountSub =
     taps.tap2Srs.projectedAt63 > 0
-      ? `Age ${taps.tap2Srs.startAge}–${taps.tap2Srs.endAge} · ${money(srsTodayDraw)}/mo (today’s $)`
+      ? `Age ${taps.tap2Srs.startAge}–${taps.tap2Srs.endAge} · ${money(srsDisplayDraw)}/mo${isNominal ? "" : " (today’s $)"}`
       : taps.tap2Srs.verdictStatus === "worth-it"
         ? `Age ${taps.tap2Srs.startAge}–${taps.tap2Srs.endAge} · ${srsMarginalPct}% tax (${compactMoney(taps.tap2Srs.effectiveRoom)} room)`
         : taps.tap2Srs.verdictStatus === "rstu-first"
@@ -172,12 +161,38 @@ export function buildFundingSourcesList(taps, r, s, cpfCovPct) {
     taps.tap4Ssb.currentSsbCash > 0
       ? (taps.tap4Ssb.currentMonthlyYield ?? taps.tap4Ssb.monthlyYieldAt150k)
       : taps.tap4Ssb.monthlyYieldAt150k;
+  const todayToDisplay = (val, targetAge) =>
+    isNominal
+      ? val * Math.pow(1 + (r.inflation || 0), Math.max(0, targetAge - r.age))
+      : val;
+  const tap1PayoutDisplay = toDisplayMoney(s.payout, 65);
+  const tap1Spend65Display = toDisplayMoney(r.spend65, 65);
+  const tap3AtRetireDisplay = todayToDisplay(
+    taps.tap3Equities.projectedInvestAtRetireToday ??
+      taps.tap3Equities.portfolioAtRetireToday,
+    r.retire,
+  );
+  const tap3DrawDisplay = todayToDisplay(
+    taps.tap3Equities.projectedMonthlyDrawToday,
+    s.gap65 > 0 ? 65 : r.retire,
+  );
+  const tap3Gap65Display = toDisplayMoney(s.gap65, 65);
+  const tap4AtRetireDisplay = todayToDisplay(
+    taps.tap4Ssb.projectedSsbCashAtRetireToday ?? taps.tap4Ssb.currentSsbCash,
+    r.retire,
+  );
+  const oaAt55Display = isNominal
+    ? taps.tap1Cpf.oaAt55Nominal
+    : taps.tap1Cpf.oaAt55Today;
+  const oaInterestMoDisplay = isNominal
+    ? taps.tap1Cpf.oaInterestMonthlyNominal
+    : taps.tap1Cpf.oaInterestMonthlyToday;
   return {
     ssbPctOf150k,
     fundingSources: [
       {
         name: `Tap 1 · CPF LIFE (${r.plan === "escalating" ? "Esc" : "Std"})`,
-        count: `${money(s.payout)}/mo of ${money(r.spend65)} need${taps.tap1Cpf.monthlyExtraCpf > 0 ? ` (+${money(taps.tap1Cpf.monthlyExtraCpf)}/mo)` : ""}`,
+        count: `${money(tap1PayoutDisplay)}/mo of ${money(tap1Spend65Display)} need${taps.tap1Cpf.monthlyExtraCpf > 0 ? ` (+${money(taps.tap1Cpf.monthlyExtraCpf)}/mo)` : ""}`,
         score: `${cpfCovPct}%`,
         color: "#047857",
         badgeBg: "#ECFDF5",
@@ -205,7 +220,7 @@ export function buildFundingSourcesList(taps, r, s, cpfCovPct) {
       },
       {
         name: "Tap 3 · Equity & Dividend",
-        count: `${!r.retiringNow ? `+${money(taps.tap3Equities.monthlyInvest)}/mo (${taps.tap3Equities.globalSplitPct}/${taps.tap3Equities.sgDividendSplitPct} G/SG) → ` : ""}${compactMoney(taps.tap3Equities.projectedInvestAtRetireToday ?? taps.tap3Equities.portfolioAtRetireToday)} at ${r.retire} · ${s.gap65 > 0 ? `${money(taps.tap3Equities.projectedMonthlyDrawToday)}/mo of ${money(s.gap65)} gap` : `+${money(taps.tap3Equities.projectedMonthlyDrawToday)}/mo draw`}`,
+        count: `${!r.retiringNow ? `+${money(taps.tap3Equities.monthlyInvest)}/mo (${taps.tap3Equities.globalSplitPct}/${taps.tap3Equities.sgDividendSplitPct} G/SG) → ` : ""}${compactMoney(tap3AtRetireDisplay)} at ${r.retire} · ${s.gap65 > 0 ? `${money(tap3DrawDisplay)}/mo of ${money(tap3Gap65Display)} gap` : `+${money(tap3DrawDisplay)}/mo draw`}`,
         score: `${taps.tap3Equities.targetEquityPct ?? 80}/${taps.tap3Equities.targetBondPct ?? 20}`,
         color: "#1D4ED8",
         badgeBg: "#EFF6FF",
@@ -224,9 +239,10 @@ export function buildFundingSourcesList(taps, r, s, cpfCovPct) {
         count:
           taps.tap4Ssb.cashAccountsActive ||
           taps.tap4Ssb.hasCustomCashRate ||
-          (taps.tap4Ssb.monthlyCashSaving ?? 0) > 0
-            ? `${!r.retiringNow && (taps.tap4Ssb.monthlyCashSaving ?? 0) > 0 ? `+${money(taps.tap4Ssb.monthlyCashSaving)}/mo → ` : `${compactMoney(taps.tap4Ssb.currentSsbCash)} → `}${compactMoney(taps.tap4Ssb.projectedCashOnlyAtRetireToday ?? taps.tap4Ssb.currentSsbCash)} at ${r.retire} · ~${money(ssbYieldMo)}/mo @ ${taps.tap4Ssb.effectiveRatePct.toFixed(2)}%`
-            : `${compactMoney(taps.tap4Ssb.currentSsbCash)} → ${compactMoney(taps.tap4Ssb.projectedCashOnlyAtRetireToday ?? taps.tap4Ssb.currentSsbCash)} at ${r.retire} · ~${money(ssbYieldMo)}/mo${taps.tap4Ssb.currentSsbCash > 0 ? "" : " @ cap"}`,
+          (taps.tap4Ssb.monthlyCashSaving ?? 0) > 0 ||
+          (taps.tap3Equities.monthlyBondBuy ?? 0) > 0
+            ? `${!r.retiringNow && (taps.tap4Ssb.monthlyCashSaving ?? 0) > 0 ? `+${money(taps.tap4Ssb.monthlyCashSaving)}/mo → ` : `${compactMoney(taps.tap4Ssb.currentSsbCash)} → `}${compactMoney(tap4AtRetireDisplay)} at ${r.retire} · ~${money(ssbYieldMo)}/mo @ ${taps.tap4Ssb.effectiveRatePct.toFixed(2)}%`
+            : `${compactMoney(taps.tap4Ssb.currentSsbCash)} → ${compactMoney(tap4AtRetireDisplay)} at ${r.retire} · ~${money(ssbYieldMo)}/mo${taps.tap4Ssb.currentSsbCash > 0 ? "" : " @ cap"}`,
         score:
           taps.tap4Ssb.cashAccountsActive ||
           taps.tap4Ssb.hasCustomCashRate ||
@@ -248,8 +264,8 @@ export function buildFundingSourcesList(taps, r, s, cpfCovPct) {
       {
         name: "Age-55 OA Interest Tap",
         count:
-          taps.tap1Cpf.oaAt55Today > 0
-            ? `${money(taps.tap1Cpf.oaInterestMonthlyToday)}/mo liquid`
+          oaAt55Display > 0
+            ? `${money(oaInterestMoDisplay)}/mo liquid`
             : "$0 excess OA at 55",
         score: "2.5% p.a.",
         color: "#0F766E",
@@ -279,6 +295,7 @@ export function buildFinReadinessGaugeSVG(
   endAge = 95,
 ) {
   const pctVal = Math.max(0, Math.round(Number(pctFunded) || 0));
+  const pctDisplay = formatFundedPct(pctFunded);
   const ratio = Math.max(0.05, Math.min(1, pctVal / 100));
   const cx = 120;
   const cy = 114;
@@ -320,10 +337,10 @@ export function buildFinReadinessGaugeSVG(
       <path d="M ${startX} ${startY} A ${r} ${r} 0 0 1 ${endX} ${endY}" fill="none" stroke="#E2E8F0" stroke-width="12" stroke-linecap="round" />
       <path d="M ${startX} ${startY} A ${r} ${r} 0 0 1 ${knobX.toFixed(1)} ${knobY.toFixed(1)}" fill="none" stroke="url(#${uid}-arc-grad)" stroke-width="12" stroke-linecap="round" />
       <circle cx="${knobX.toFixed(1)}" cy="${knobY.toFixed(1)}" r="6.5" fill="#E83E8C" stroke="#FFFFFF" stroke-width="2.8" />
-      <text x="120" y="90" text-anchor="middle" fill="#0F172A" font-size="25" font-weight="800" letter-spacing="-0.03em">${pctVal}%</text>
+      <text x="120" y="90" text-anchor="middle" fill="#0F172A" font-size="25" font-weight="800" letter-spacing="-0.03em">${pctDisplay}</text>
       <text x="120" y="108" text-anchor="middle" fill="#64748B" font-size="9.5" font-weight="600" letter-spacing="0.03em">FUNDED TO ${endAge}</text>
     </svg>
-    <span class="sr-only">${pctVal}% funded to age ${endAge}</span>
+    <span class="sr-only">${pctDisplay} funded to age ${endAge}</span>
     <div class="swell-gauge-status" style="color:${statusColor};">${statusWord}</div>
     <div class="fin-gauge-center swell-gauge-readout">
       <strong>${readyText}</strong>
@@ -366,65 +383,24 @@ function computeMonthlyTakeHomeCashflow({
   tax,
   expenseData,
 }) {
-  const hMode = p.housingMode || "all-oa";
-  const hInfo = RetirementModel.computeHousingPayment({
-    mode: hMode,
-    loanBalance: p.housingBalance,
-    loanRate: p.housingRate,
-    loanYears: p.housingYears,
-    loanParties: p.housingParties,
-    manualMonthly: p.housing,
+  const cf = RetirementModel.computeMonthlyTakeHomeCashflow({
+    r,
+    simulation,
+    contribution,
+    p,
+    tax,
+    expenseData,
   });
-  const housingTotalMo =
-    hMode === "paid-up"
-      ? 0
-      : hMode === "all-oa"
-        ? Math.round(r.currentOA || 0)
-        : Math.round(hInfo.monthlyShare || 0);
-  const housingOaMo = Math.min(Math.round(r.currentOA || 0), housingTotalMo);
-  const housingCashMo = Math.max(0, housingTotalMo - housingOaMo);
-  const exactTax =
-    tax?.activeTax ||
-    RetirementModel.computeTaxSummary(p, simulation).activeTax;
-  const monthlyTax = Math.max(0, Math.round(exactTax.monthlyTax || 0));
-  const allItems = expenseData?.items || [];
-  const fixedMatcher =
-    /insurance|healthshield|multiplier life|accident|term|utilities|s&cc|town council|wifi|mobile|streaming|subscription|broadband|telco|levy|helper/i;
-  const recurringItems = allItems
-    .filter(
-      (it) =>
-        it.category === "housing" ||
-        it.category === "digital" ||
-        fixedMatcher.test(it.name),
-    )
-    .sort((a, b) => b.amount - a.amount);
-  const recurringTotal = Math.round(
-    recurringItems.reduce((acc, it) => acc + (it.amount || 0), 0),
-  );
-  const fixedOutMo = Math.round(monthlyTax + housingCashMo + recurringTotal);
-  const leftAfterSave = Math.round(r.afterCpf - contribution);
-  const netCashSurplus = Math.round(r.afterCpf - contribution - fixedOutMo);
-  const maxAffordableSaveMo = Math.max(0, Math.round(r.afterCpf - fixedOutMo));
   const housingMetaLabel =
-    hMode === "paid-up"
+    cf.hMode === "paid-up"
       ? "Paid-up property ($0 OA)"
-      : hMode === "all-oa"
-        ? `Up to ${m(housingOaMo)} CPF OA ($0 cash)`
-        : housingCashMo > 0
-          ? `${m(housingCashMo)} cash + ${m(housingOaMo)} CPF OA`
-          : `${m(housingOaMo)} via CPF OA`;
+      : cf.hMode === "all-oa"
+        ? `Up to ${m(cf.housingOaMo)} CPF OA ($0 cash)`
+        : cf.housingCashMo > 0
+          ? `${m(cf.housingCashMo)} cash + ${m(cf.housingOaMo)} CPF OA`
+          : `${m(cf.housingOaMo)} via CPF OA`;
   return {
-    hMode,
-    housingTotalMo,
-    housingOaMo,
-    housingCashMo,
-    monthlyTax,
-    recurringItems,
-    recurringTotal,
-    fixedOutMo,
-    leftAfterSave,
-    netCashSurplus,
-    maxAffordableSaveMo,
+    ...cf,
     housingMetaLabel,
   };
 }
@@ -441,6 +417,7 @@ function buildFinBentoGridHTML({
   taps,
   paycheck,
   tax,
+  cashflow: passedCashflow,
   startingCpf,
   startingSrs,
   startingTotalAssets,
@@ -468,21 +445,28 @@ function buildFinBentoGridHTML({
   const eqBal = Math.round(
     (bogle.buckets.equities || 0) + (bogle.buckets.sgDividends || 0),
   );
-  const cpfSrsBal = Math.round(startingCpf + startingSrs);
+  const cpfBal = Math.round(startingCpf);
+  const srsBal = Math.round(startingSrs);
+  const cpfSrsBal = cpfBal + srsBal;
   const assetDenom = Math.max(1, cashBal + eqBal + cpfSrsBal);
   const cashShareW = Math.round((cashBal / assetDenom) * 100);
   const eqShareW = Math.round((eqBal / assetDenom) * 100);
+  const srsShareW =
+    srsBal > 0 ? Math.max(1, Math.round((srsBal / assetDenom) * 100)) : 0;
+  const cpfOnlyShareW = Math.max(0, 100 - cashShareW - eqShareW - srsShareW);
   const cpfShareW = Math.max(0, 100 - cashShareW - eqShareW);
 
   // Housing, IRAS tax & fixed bills reconciliation
-  const cashflow = computeMonthlyTakeHomeCashflow({
-    r,
-    simulation,
-    contribution,
-    p,
-    tax,
-    expenseData,
-  });
+  const cashflow =
+    passedCashflow ||
+    computeMonthlyTakeHomeCashflow({
+      r,
+      simulation,
+      contribution,
+      p,
+      tax,
+      expenseData,
+    });
   const {
     housingOaMo,
     housingCashMo,
@@ -603,14 +587,15 @@ function buildFinBentoGridHTML({
           <button type="button" class="fin-link-pill" data-quick-edit="balances">Edit balances</button>
         </div>
         <div class="fin-bento-bar" aria-hidden="true">
-          <span data-bento-seg="0" style="width:${cpfShareW}%;background:var(--sem-cpf);" title="CPF + SRS (${cpfShareW}%)"></span>
+          <span data-bento-seg="0" style="width:${cpfOnlyShareW}%;background:var(--sem-cpf);" title="CPF Locked (${cpfOnlyShareW}%)"></span>
+          ${srsShareW > 0 ? `<span data-bento-seg="3" style="width:${srsShareW}%;background:var(--sem-srs);" title="SRS Locked (${srsShareW}%)"></span>` : ""}
           <span data-bento-seg="1" style="width:${eqShareW}%;background:var(--sem-equities);" title="Equities (${eqShareW}%)"></span>
           <span data-bento-seg="2" style="width:${cashShareW}%;background:var(--sem-cash);" title="Cash &amp; SSB (${cashShareW}%)"></span>
         </div>
         <ul class="fin-bento-list">
           <li data-bento-seg="0">
-            <span class="fin-bento-item-label"><i style="background:var(--sem-cpf);"></i>CPF + SRS Locked</span>
-            <span class="fin-bento-item-meta">OA ${compactMoney(p.oa || 0)} · SA ${compactMoney(p.sa || 0)} · MA ${compactMoney(p.ma || 0)}</span>
+            <span class="fin-bento-item-label"><i style="background:var(--sem-cpf);"></i>${srsBal > 0 ? "CPF + SRS Locked" : "CPF Locked"}</span>
+            <span class="fin-bento-item-meta">OA ${compactMoney(p.oa || 0)} · SA ${compactMoney(p.sa || 0)} · MA ${compactMoney(p.ma || 0)}${srsBal > 0 ? ` · SRS ${compactMoney(srsBal)}` : ""}</span>
             <strong>${m(cpfSrsBal)} <small class="fin-bento-share-pill">${cpfShareW}%</small></strong>
           </li>
           <li data-bento-seg="1">
@@ -684,7 +669,7 @@ function buildFinBentoGridHTML({
         <div class="fin-bento-head">
           <div>
             <span class="fin-bento-eyebrow">Portfolio Distribution &amp; Yield</span>
-            <h3 class="fin-bento-title">+${centsHtml(passiveMoNow)}<span class="fin-bento-unit">/mo</span> <small>passive yield now</small></h3>
+            <h3 class="fin-bento-title">+${centsHtml(passiveMoNow, "/mo")} <small>passive yield now</small></h3>
           </div>
           <button type="button" class="fin-link-pill" data-go-tab="dividend-calc">Yield calculator →</button>
         </div>
@@ -701,12 +686,12 @@ function buildFinBentoGridHTML({
           </li>
           <li data-bento-seg="1">
             <span class="fin-bento-item-label"><i style="background:var(--sem-equities-sg);"></i>SG Dividend Sleeve</span>
-            <span class="fin-bento-item-meta">~${centsHtml(sgDivMoNow)}/mo @ 5% · +${m(taps.tap3Equities.monthlySgBuy, "/mo")} buy</span>
+            <span class="fin-bento-item-meta">~${centsHtml(sgDivMoNow, "/mo")} @ 5% · +${m(taps.tap3Equities.monthlySgBuy, "/mo")} buy</span>
             <strong>${m(sgDivBal)} <small class="fin-bento-share-pill">${sgEqW}%</small></strong>
           </li>
           <li data-bento-seg="2">
             <span class="fin-bento-item-label"><i style="background:var(--sem-cpf);"></i>CPF + SSB Safe Floor</span>
-            <span class="fin-bento-item-meta">~${centsHtml(cashMoNow)}/mo cash interest (${taps.tap4Ssb.effectiveRatePct.toFixed(2)}%)</span>
+            <span class="fin-bento-item-meta">~${centsHtml(cashMoNow, "/mo")} cash interest (${taps.tap4Ssb.effectiveRatePct.toFixed(2)}%)</span>
             <strong>${m(safeBondBal)} <small class="fin-bento-share-pill">${safeW}%</small></strong>
           </li>
           <li>
@@ -767,6 +752,7 @@ function buildMoneyMovesStripHTML({
   taps,
   tax,
   expenseData,
+  cashflow: passedCashflow,
   pctOfPay = 0,
 }) {
   const fn = fire.fireNumber;
@@ -780,7 +766,8 @@ function buildMoneyMovesStripHTML({
     recurringTotal,
     netCashSurplus: rawSurplusMo,
     maxAffordableSaveMo,
-  } = computeMonthlyTakeHomeCashflow({
+  } = passedCashflow ||
+  computeMonthlyTakeHomeCashflow({
     r,
     simulation,
     contribution,
@@ -825,7 +812,7 @@ function buildMoneyMovesStripHTML({
     moves.push({
       score: 5000 + (100 - fn.pctFunded) * 20,
       badge: closesFullGap
-        ? `${fn.pctFunded}% → 100% funded`
+        ? `${formatFundedPct(fn.pctFunded)} → 100% funded`
         : `Uses ${m(affordableDeltaMo, "/mo")} surplus`,
       tone: "is-amber",
       title: closesFullGap
@@ -842,17 +829,39 @@ function buildMoneyMovesStripHTML({
   // 2. CPF SA RSTU Tax Relief (7%+ IRAS bracket with SA room < FRS AND sufficient Unallocated Cash Surplus)
   const curCpfExtraMo = Math.round(simulation.cpfExtra || 0);
   const curCpfExtraYr = curCpfExtraMo * 12;
-  const rstuRoomYr = Math.max(0, (tax?.maxRstu || 0) - curCpfExtraYr);
-  const fullTargetCpfMo = Math.ceil(
-    (tax?.maxRstu || RetirementModel.C.rstuReliefCap) / 12,
-  );
+  const maxRstuYr = tax?.maxRstu ?? RetirementModel.C.rstuReliefCap;
+  const activeSelfRstuYr =
+    tax?.activeSelfRstu ?? Math.min(curCpfExtraYr, maxRstuYr);
+  const rstuRoomYr = Math.max(0, maxRstuYr - activeSelfRstuYr);
+  const fullTargetCpfMo = Math.ceil(maxRstuYr / 12);
   const affordableCpfDeltaMo = Math.min(
     Math.max(0, fullTargetCpfMo - curCpfExtraMo),
     unallocatedSurplusMo,
   );
   const targetCpfMo = curCpfExtraMo + affordableCpfDeltaMo;
   const effectiveRstuRoomYr = Math.min(rstuRoomYr, affordableCpfDeltaMo * 12);
-  const rstuSaveYr = Math.round(effectiveRstuRoomYr * margRate);
+  // Compute progressive IRAS tax deltas from activeChargeableIncome (which already caps
+  // RSTU at $8k / SA room, counts familyRstuAnnual, and enforces the $80k personal relief cap).
+  const baseChargeable = Math.max(0, Number(tax?.chargeableIncome || 0));
+  const curSrsYr = Math.round(p.srsAnnual || 0);
+  const currentChargeable = Math.max(
+    0,
+    Number(
+      tax?.activeChargeableIncome ??
+        Math.max(0, baseChargeable - activeSelfRstuYr - curSrsYr),
+    ),
+  );
+  const currentAnnualTax =
+    RetirementModel.residentTax(currentChargeable).annualTax;
+  const rstuSaveYr = Math.max(
+    0,
+    Math.round(
+      currentAnnualTax -
+        RetirementModel.residentTax(
+          Math.max(0, currentChargeable - effectiveRstuRoomYr),
+        ).annualTax,
+    ),
+  );
   if (
     (tax?.tier === "rstu-first" || tax?.tier === "max-both") &&
     unallocatedSurplusMo >= 50 &&
@@ -872,15 +881,34 @@ function buildMoneyMovesStripHTML({
   }
 
   // 3. SRS Tax Shelter — strictly gated: ONLY when taps.tap2Srs.worthIt is true AND user has Unallocated Cash Surplus
-  const curSrsYr = Math.round(p.srsAnnual || 0);
+  const srsStartAge = tax?.srsWithdrawalStartAge ?? tax?.srsLockInAge ?? 63;
+  const srsCapCompact = compactMoney(
+    tax?.srsZeroTaxCap || RetirementModel.C.srsSoftCapAt63,
+  );
   const maxAffordableSrsYr = curSrsYr + unallocatedSurplusMo * 12;
+  const maxSrsEligibleYr =
+    maxRstuYr + (tax?.eligibleFamilyRstu || 0) > 0
+      ? (tax?.maxSrsAfterRstu ?? RetirementModel.C.srsCap)
+      : (tax?.maxSrsStandalone ?? RetirementModel.C.srsCap);
   const safeSrsTargetYr = Math.min(
-    tax?.maxSrsAfterRstu || RetirementModel.C.srsCap,
+    maxSrsEligibleYr,
     Math.max(0, Math.floor(tax?.srsMaxSafeAnnualTo400k || 0)),
     maxAffordableSrsYr,
   );
   const remSafeSrsYr = Math.max(0, safeSrsTargetYr - curSrsYr);
-  const remSafeSrsSaveYr = Math.round(remSafeSrsYr * margRate);
+  const postRstuChargeable = Math.max(
+    0,
+    currentChargeable - (effectiveRstuRoomYr >= 240 ? effectiveRstuRoomYr : 0),
+  );
+  const remSafeSrsSaveYr = Math.max(
+    0,
+    Math.round(
+      RetirementModel.residentTax(postRstuChargeable).annualTax -
+        RetirementModel.residentTax(
+          Math.max(0, postRstuChargeable - remSafeSrsYr),
+        ).annualTax,
+    ),
+  );
   const srsWorthIt = Boolean(taps?.tap2Srs?.worthIt);
 
   if (
@@ -896,7 +924,7 @@ function buildMoneyMovesStripHTML({
       badge: `+${m(remSafeSrsSaveYr, "/yr")} tax saved`,
       tone: "is-emerald",
       title: `Shelter ${m(safeSrsTargetYr, "/yr")} in SRS (${rateLabel}% bracket)`,
-      desc: `At your ${rateLabel}% bracket, SRS saves ${m(remSafeSrsSaveYr, "/yr")} in IRAS tax while staying inside the $400k age-63 tax-free cap.`,
+      desc: `At your ${rateLabel}% bracket, SRS saves ${m(remSafeSrsSaveYr, "/yr")} in IRAS tax while staying inside the ${srsCapCompact} age-${srsStartAge} $0-tax cap.`,
       ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="apply-srs" data-move-val="${safeSrsTargetYr}">Apply ${m(safeSrsTargetYr, "/yr")} SRS →</button>`,
       subHtml: `<button type="button" class="fin-move-link" data-go-tab="tax">Tax Relief</button>`,
     });
@@ -905,10 +933,10 @@ function buildMoneyMovesStripHTML({
     const rateLabel = (margRate * 100).toFixed(1).replace(/\.0$/, "");
     moves.push({
       score: 2750,
-      badge: `Avoid age-63 lock-in`,
+      badge: `Avoid age-${srsStartAge} lock-in`,
       tone: "is-amber",
       title: `Skip ${m(curSrsYr, "/yr")} SRS at ${rateLabel}% tax bracket`,
-      desc: `At a ${rateLabel}% bracket (<11.5%), locking cash in SRS until age 63 (50% taxable on withdrawal) underperforms liquid ETFs & CPF SA.`,
+      desc: `At a ${rateLabel}% bracket (<11.5%), locking cash in SRS until age ${srsStartAge} (50% taxable on withdrawal) underperforms liquid ETFs & CPF SA.`,
       ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="apply-srs" data-move-val="0">Set SRS to $0/yr →</button>`,
       subHtml: `<button type="button" class="fin-move-link" data-go-tab="tax">Tax Relief</button>`,
     });
@@ -918,10 +946,10 @@ function buildMoneyMovesStripHTML({
   ) {
     moves.push({
       score: 2900,
-      badge: `Avoid $450k+ SRS tax trap`,
+      badge: `Avoid SRS tax trap`,
       tone: "is-amber",
-      title: `Cap SRS at ${m(safeSrsTargetYr, "/yr")} to stay ≤$400k`,
-      desc: `Your projected SRS exceeds $450k at age 63, triggering withdrawal tax. Capping at ${m(safeSrsTargetYr, "/yr")} keeps drawdowns $0-tax.`,
+      title: `Cap SRS at ${m(safeSrsTargetYr, "/yr")} to stay ≤${srsCapCompact}`,
+      desc: `Your projected SRS exceeds the age-${srsStartAge} $0-tax threshold, triggering withdrawal tax. Capping at ${m(safeSrsTargetYr, "/yr")} keeps drawdowns $0-tax.`,
       ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="apply-srs" data-move-val="${safeSrsTargetYr}">Cap at ${m(safeSrsTargetYr, "/yr")} →</button>`,
       subHtml: `<button type="button" class="fin-move-link" data-go-tab="tax">Tax Relief</button>`,
     });
@@ -947,7 +975,7 @@ function buildMoneyMovesStripHTML({
       badge: `0.05% → ${targetRetPct}% p.a.`,
       tone: "is-amber",
       title: `Invest idle SRS cash into Global ETFs`,
-      desc: `Uninvested SRS cash earns 0.05% p.a. Deploying into low-cost indexed funds compounds tax-deferred until age 63.`,
+      desc: `Uninvested SRS cash earns 0.05% p.a. Deploying into low-cost indexed funds compounds tax-deferred until age ${srsStartAge}.`,
       ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="invest-srs">Invest SRS in Global ETFs →</button>`,
       subHtml: `<button type="button" class="fin-move-link" data-go-tab="tax">Tax Relief</button>`,
     });
@@ -966,7 +994,7 @@ function buildMoneyMovesStripHTML({
       badge: `+${m(gainYr, "/yr")} risk-free`,
       tone: "is-blue",
       title: `Sweep ${m(cashBd.totalOverflowBalance)} overflow to MAS SSB`,
-      desc: `Moving 0.05% base-tier bank cash into MAS 10Y SSB (${taps.tap4Ssb.ssb10YrPct.toFixed(2)}%) lifts your cash EIR to ${cashBd.sweptEffectiveRatePct.toFixed(2)}%.`,
+      desc: `Moving ${cashBd.overflowAvgBaseRatePct.toFixed(2)}% base-tier bank cash into MAS 10Y SSB (${taps.tap4Ssb.ssb10YrPct.toFixed(2)}%) lifts your cash EIR to ${cashBd.sweptEffectiveRatePct.toFixed(2)}%.`,
       ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="sweep-cash">Sweep Overflow →</button>`,
       subHtml: `<button type="button" class="fin-move-link" data-go-tab="cash-parking">Cash Parking</button>`,
     });
@@ -1005,11 +1033,25 @@ function buildMoneyMovesStripHTML({
   } = reb;
   if (liqTotal >= 5000 && eqDriftPct >= 5) {
     if (shiftAmt >= 2000) {
-      const rateDiff = Math.max(
-        0.015,
-        (Number(p.returnRate ?? 0.05) || 0.05) -
-          (taps.tap4Ssb.effectiveRatePct || 2.39) / 100,
-      );
+      const defaultEqReturn = RetirementModel.SG_DEFAULT_PLAN.returnRate;
+      const defaultSsbReturnPct =
+        RetirementModel.DEFAULT_MAS_LIVE_RATES.ssb.year10Return;
+      const rawReturnRate =
+        p.returnRate == null || p.returnRate === ""
+          ? defaultEqReturn
+          : Number(p.returnRate);
+      const eqReturnRate = Number.isFinite(rawReturnRate)
+        ? rawReturnRate
+        : defaultEqReturn;
+      const rawCashRatePct =
+        taps.tap4Ssb.effectiveRatePct == null ||
+        taps.tap4Ssb.effectiveRatePct === ""
+          ? defaultSsbReturnPct
+          : Number(taps.tap4Ssb.effectiveRatePct);
+      const cashRatePct = Number.isFinite(rawCashRatePct)
+        ? rawCashRatePct
+        : defaultSsbReturnPct;
+      const rateDiff = Math.max(0.015, eqReturnRate - cashRatePct / 100);
       const annualBoost = Math.round(shiftAmt * rateDiff);
       moves.push({
         score: 2100 + annualBoost,
@@ -1056,7 +1098,7 @@ function buildMoneyMovesStripHTML({
       <div class="fin-moves-head">
         <div class="fin-moves-title-wrap">
           <span class="fin-moves-kicker">Actionable Insights</span>
-          <h3>${topMoves.length === 1 ? "1 Recommended Portfolio Action" : `Priority Portfolio Actions (${topMoves.length})`}</h3>
+          <h2>${topMoves.length === 1 ? "1 Recommended Portfolio Action" : `Priority Portfolio Actions (${topMoves.length})`}</h2>
         </div>
         <span class="fin-moves-subpill">Disappears once applied · Ranked by impact</span>
       </div>
@@ -1064,12 +1106,12 @@ function buildMoneyMovesStripHTML({
         ${topMoves
           .map(
             (mv, idx) => `
-          <article class="fin-move-card card-surface">
+          <article class="fin-move-card">
             <div class="fin-move-top">
               <span class="fin-move-rank">#${idx + 1}</span>
               <span class="fin-move-badge ${mv.tone}">${mv.badge}</span>
             </div>
-            <h4 class="fin-move-title">${mv.title}</h4>
+            <h3 class="fin-move-title">${mv.title}</h3>
             <p class="fin-move-desc">${mv.desc}</p>
             <div class="fin-move-actions">
               ${mv.ctaHtml}
@@ -1107,28 +1149,22 @@ export function buildFinOverviewGrid(
   const contribution = r.retiringNow
     ? simulation.cpfExtra + s.privateSaving
     : simulation.cpfExtra + cashSavingMo + simulation.invest;
-  const projFireAge = fn.projectedFireAge;
-  const readyText = projFireAge == null ? "After 80" : `Age ${projFireAge}`;
-  const diffYears = projFireAge == null ? null : fire.retire - projFireAge;
-  const depletionAgeDisplay =
-    fn.depletionAge != null ? Math.floor(fn.depletionAge) : fire.endAge;
-  const survivalAnswer = fn.fullyFundedTo95
-    ? `Lasts past age ${fire.endAge}+`
-    : `Lasts to age ${depletionAgeDisplay}`;
-  const safeAgeAnswer =
-    diffYears == null
-      ? "After age 80"
-      : diffYears > 0
-        ? `Age ${projFireAge} (${diffYears} yr${diffYears > 1 ? "s" : ""} earlier optional)`
-        : diffYears === 0
-          ? `Age ${projFireAge} (on target)`
-          : `Age ${projFireAge} (+${-diffYears} yr${-diffYears > 1 ? "s" : ""} later)`;
-  const deltaLine =
-    diffYears != null && diffYears > 0 && onTrack
-      ? `Can retire ${diffYears} yr${diffYears > 1 ? "s" : ""} earlier · ${pctLabel} funded`
-      : `${pctLabel} of age-${fire.endAge} goal`;
-  const deltaColor =
-    diffYears != null && diffYears >= 0 && onTrack ? "#047857" : "#B45309";
+  const {
+    projFireAge,
+    readyText,
+    diffYears,
+    depletionAgeDisplay,
+    survivalAnswer,
+    safeAgeAnswer,
+    deltaLine,
+    deltaColor,
+  } = deriveReadinessSummary({
+    fire,
+    endAge: fire.endAge,
+    pctFunded: fn.pctFunded,
+    onTrack,
+    compact: false,
+  });
 
   const cpfCov65Pct = Math.min(
     100,
@@ -1153,7 +1189,13 @@ export function buildFinOverviewGrid(
   const startingTotalAssets = startingCpf + startingOutside;
   const yearsToRetire = Math.max(0, fire.retire - fire.age);
   const selectedPathName =
-    s.key === "brs" ? "BRS Pledge" : s.key === "ers" ? "ERS Path" : "FRS Path";
+    s.key === "brs"
+      ? "BRS Pledge"
+      : s.key === "ers"
+        ? "ERS Path"
+        : s.key === "salary"
+          ? "CPF Salary Only"
+          : "FRS Path";
   const isItemizedTarget = Boolean(expenseData?.itemizedActive);
   const lifestyleCardLabel = isItemizedTarget
     ? "Custom itemized"
@@ -1213,12 +1255,15 @@ export function buildFinOverviewGrid(
     params: p,
     masRates,
   });
-  const { ssbPctOf150k, fundingSources } = buildFundingSourcesList(
-    taps,
+  const { ssbPctOf150k } = buildFundingSourcesList(taps, r, s, cpfCov65Pct);
+  const cashflow = computeMonthlyTakeHomeCashflow({
     r,
-    s,
-    cpfCov65Pct,
-  );
+    simulation,
+    contribution,
+    p,
+    tax,
+    expenseData,
+  });
 
   return `<section class="swell-section-block" aria-label="Plan snapshot key metrics">
     <div class="swell-section-head">
@@ -1231,7 +1276,7 @@ export function buildFinOverviewGrid(
           <span class="swell-kpi-icon" aria-hidden="true">${KPI_ICONS.age}</span>
         </div>
         <strong class="fin-kpi-val">${fire.age} <span class="swell-kpi-unit">yrs</span></strong>
-        <span class="fin-kpi-sub"><b class="swell-delta">Current</b> · ${Math.max(0, 55 - fire.age)} yrs to 55</span>
+        <span class="fin-kpi-sub"><b class="swell-delta">Current</b> · ${fire.age >= 55 ? "Age 55+ (RA open)" : `${55 - fire.age} yrs to 55`}</span>
       </button>
       <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="goal" aria-label="Edit target retirement age ${fire.retire}">
         <div class="fin-kpi-head">
@@ -1247,7 +1292,7 @@ export function buildFinOverviewGrid(
           <span class="swell-kpi-icon" aria-hidden="true">${KPI_ICONS.salary}</span>
         </div>
         <strong class="fin-kpi-val">${m(r.afterCpf, "/mo", "kpi-takehome")}</strong>
-        <span class="fin-kpi-sub"><b class="swell-delta is-up">${takeHomePctOfGross}% net</b> on ${m(r.salary)}/mo</span>
+        <span class="fin-kpi-sub"><b class="swell-delta is-up">${takeHomePctOfGross}% net</b> on ${m(r.salary, "/mo")}</span>
       </button>
       <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="balances" aria-label="Edit total assets ${money(startingTotalAssets)}">
         <div class="fin-kpi-head">
@@ -1276,6 +1321,7 @@ export function buildFinOverviewGrid(
           taps,
           paycheck,
           tax,
+          cashflow,
           startingCpf,
           startingSrs,
           startingTotalAssets,
@@ -1293,6 +1339,7 @@ export function buildFinOverviewGrid(
       taps,
       tax,
       expenseData,
+      cashflow,
       pctOfPay,
     })}
     ${expenseData ? buildExpenseCardHTML(expenseData, r) : ""}
@@ -1311,8 +1358,9 @@ export function buildFinOverviewGrid(
       <button type="button" class="fin-card fin-saving-card fin-planned-cpf-card card-surface is-interactive" data-quick-edit="cpf-extra" data-qe-focus="#qe-cpf-extra" aria-label="Edit extra CPF saving each month">
         ${(() => {
           const cpfExtraMo = simulation.cpfExtra || 0;
+          const rstuCap = RetirementModel.C.rstuReliefCap;
           const rstuYr = Math.round(
-            tax?.activeSelfRstu ?? Math.min(8000, cpfExtraMo * 12),
+            tax?.activeSelfRstu ?? Math.min(rstuCap, cpfExtraMo * 12),
           );
           return `<div class="fin-saving-top">
               <span class="fin-saving-title">Extra CPF saving</span>
@@ -1323,7 +1371,7 @@ export function buildFinOverviewGrid(
             </div>
             <div class="fin-saving-meta">
               <span>Age-55 CPF: <strong>${m(s.balance, "", "saving-cpf-55")}</strong> · CPF LIFE (65+): <strong>${m(s.payout, "/mo", "saving-cpf-life")}</strong></span>
-              <small>IRAS RSTU tax relief: <strong>${m(rstuYr, "/yr", "saving-cpf-rstu")}</strong> of $8,000/yr max cap${Math.abs(cpfExtraMo - s.cpfFunding) > 1 ? ` · Path target ${m(s.cpfFunding, "/mo")}` : ""}</small>
+              <small>IRAS RSTU tax relief: <strong>${m(rstuYr, "/yr", "saving-cpf-rstu")}</strong> of ${m(rstuCap, "/yr")} max cap${Math.abs(cpfExtraMo - s.cpfFunding) > 1 ? ` · Path target ${m(s.cpfFunding, "/mo")}` : ""}</small>
             </div>`;
         })()}
       </button>
@@ -1332,7 +1380,7 @@ export function buildFinOverviewGrid(
         ${(() => {
           const hysaRatePct = Number(taps.tap4Ssb.effectiveRatePct.toFixed(2));
           const curCashBal = taps.tap4Ssb.currentSsbCash;
-          const projCashAtRetire = taps.tap4Ssb.projectedCashOnlyAtRetireToday;
+          const projCashAtRetire = taps.tap4Ssb.projectedSsbCashAtRetireToday;
           const curCashYieldMo = taps.tap4Ssb.currentMonthlyYield;
           return `<div class="fin-saving-top">
               <span class="fin-saving-title is-cash-tone">Monthly planned savings</span>
@@ -1387,14 +1435,6 @@ export function buildFinOverviewGrid(
 
     ${(() => {
       if (r.retiringNow) return "";
-      const cashflowHealth = computeMonthlyTakeHomeCashflow({
-        r,
-        simulation,
-        contribution,
-        p,
-        tax,
-        expenseData,
-      });
       const exactPct = r.afterCpf > 0 ? (contribution / r.afterCpf) * 100 : 0;
       const clampedPct = Math.min(100, Math.max(0, exactPct));
       const {
@@ -1404,7 +1444,7 @@ export function buildFinOverviewGrid(
         monthlyTax,
         housingCashMo,
         recurringTotal,
-      } = cashflowHealth;
+      } = cashflow;
       const exceedsPay = leftAfterSave < 0;
       const hasCashDeficit = !exceedsPay && netCashSurplus < 0;
       const isCritical = exceedsPay || hasCashDeficit || pctOfPay > 85;
@@ -1422,7 +1462,7 @@ export function buildFinOverviewGrid(
                 ? "Healthy"
                 : "Comfortable";
       const pillText = hasCashDeficit
-        ? `${bandLabel} · −${money(-netCashSurplus)}/mo`
+        ? `${bandLabel} · −${m(-netCashSurplus, "/mo")}`
         : `${bandLabel} · ${pctOfPay}% of take-home`;
 
       const healthyFill =
@@ -1541,7 +1581,7 @@ export function buildFinOverviewGrid(
             <span class="status-pill is-${pillTone}">${pillText}</span>
           </div>
           <p class="fin-saving-health-sub">
-            Total planned saving <strong>${m(contribution, "/mo", "saving-monthly")}</strong> (${m(simulation.cpfExtra || 0)} CPF · ${m(cashSavingMo)} Savings · ${m(simulation.invest)} Investment)
+            Total planned saving <strong>${m(contribution, "/mo", "saving-monthly")}</strong>
             ${exceedsPay ? `exceeds ${m(r.afterCpf)} take-home by <strong>${m(-leftAfterSave, "/mo", "saving-left")}</strong>` : `leaves <strong>${m(leftAfterSave, "/mo", "saving-left")}</strong> before <strong>${m(fixedOutMo, "/mo")}</strong> tax &amp; fixed bills`}
           </p>
           ${statusHtml}
@@ -1594,7 +1634,7 @@ export function buildFinOverviewGrid(
             Math.round(r.spend65 - guaranteedFloorMo),
           );
           const marketPct = Math.max(0, 100 - guaranteedPct);
-          return `<div class="fin-security-split-bar" aria-label="Age-65 Guaranteed Sovereign Floor versus Market Drawdown">
+          return `<div class="fin-security-split-bar" role="group" aria-label="Age-65 Guaranteed Sovereign Floor versus Market Drawdown">
             <div class="fin-security-split-meta">
               <span><i style="background:var(--sem-cpf);"></i>Guaranteed Floor (CPF LIFE + SSB): <strong>${m(guaranteedFloorMo, "/mo")} (${guaranteedPct}%)</strong></span>
               <span><i style="background:var(--primary);"></i>Market Portfolio Draw: <strong>${m(marketDrawMo, "/mo")} (${marketPct}%)</strong></span>
@@ -1622,7 +1662,7 @@ export function buildFinOverviewGrid(
 
       <section class="fin-card fin-activity-card card-surface" aria-label="Key milestones and paycheck allocation">
         <div class="fin-activity-head">
-          <h2>Milestones &amp; Paycheck</h2>
+          <h3>Milestones &amp; Paycheck</h3>
           <button type="button" class="fin-link-pill" data-quick-edit="budget">Edit budget</button>
         </div>
         <div class="fin-segmented-tabs" id="fin-activity-tabs" data-seg-idx="${activeSegIdx}" style="--seg-idx:${activeSegIdx};--seg-count:2" role="tablist" aria-label="Cashflow and milestone views">
@@ -1654,15 +1694,15 @@ export function buildFinOverviewGrid(
           <div class="fin-coverage-card">
             <div class="fin-cov-head">
               <span>Age-65 income split</span>
-              <strong>${money(r.spend65)}/mo need</strong>
+              <strong>${m(r.spend65, "/mo")} need</strong>
             </div>
             <div class="fin-cov-track" aria-hidden="true">
               <span class="fin-cov-cpf" data-meter-key="cov-cpf" data-meter-w="${cpfCov65Pct}" style="width:${cpfCov65Pct}%"></span>
               <span class="fin-cov-out" data-meter-key="cov-out" data-meter-w="${Math.max(0, 100 - cpfCov65Pct)}" style="width:${Math.max(0, 100 - cpfCov65Pct)}%"></span>
             </div>
             <div class="fin-cov-legend">
-              <span><i style="background:#10B981;"></i><b>${money(s.payout)}/mo</b> CPF LIFE (${cpfCov65Pct}%)</span>
-              <span><i style="background:#2563EB;"></i><b>${money(s.gap65)}/mo</b> savings (${Math.max(0, 100 - cpfCov65Pct)}%)</span>
+              <span><i style="background:#10B981;"></i><b>${m(s.payout, "/mo")}</b> CPF LIFE (${cpfCov65Pct}%)</span>
+              <span><i style="background:#2563EB;"></i><b>${m(s.gap65, "/mo")}</b> savings (${Math.max(0, 100 - cpfCov65Pct)}%)</span>
             </div>
           </div>
         </div>
@@ -1677,7 +1717,7 @@ export function buildFinOverviewGrid(
                 );
                 return `<div class="ember-bar-row" style="--item-idx:${idx}">
                   <div class="ember-bar-meta">
-                    <span><i style="background:${row.color};"></i>${row.label} <small>(${money(row.amt)})</small></span>
+                    <span><i style="background:${row.color};"></i>${row.label} <small>(${m(row.amt)})</small></span>
                     <span class="swell-slate-pill">${w}%</span>
                   </div>
                   <div class="ember-bar-track" aria-hidden="true">
@@ -1696,11 +1736,11 @@ export function buildFinOverviewGrid(
 
       <button type="button" class="fin-card fin-gauge-card card-surface is-interactive" data-quick-edit="goal" aria-label="Edit target retirement age. Earliest safe age ${readyText}, ${survivalAnswer}">
         <div class="fin-gauge-head">
-          <h2>Retirement Readiness</h2>
+          <h3>Retirement Readiness</h3>
           <span class="fin-target-pill">Goal: Age ${fire.retire}</span>
         </div>
         ${buildFinReadinessGaugeSVG(
-          pct,
+          fn.pctFunded,
           "Earliest Safe Retirement Age",
           readyText,
           deltaLine,
@@ -1730,7 +1770,7 @@ export function buildFinOverviewGrid(
     <section class="fin-card fin-table-card card-surface swell-path-full-card" aria-labelledby="ledger-title">
       <div class="ember-card-head">
         <div>
-          <h2 id="ledger-title">CPF Retirement Path</h2>
+          <h3 id="ledger-title">CPF Retirement Path</h3>
           <p>${r.retiringNow ? "With retirement set to now, BRS, FRS and ERS model Age-55 Retirement Sum levels using current balances or lump-sum top-ups." : "Compare BRS (Property Pledge), FRS Target, and ERS Maximum to set your Age-55 Retirement Sum and lifelong CPF LIFE income."}</p>
         </div>
         <div class="ember-card-actions">
@@ -1742,13 +1782,14 @@ export function buildFinOverviewGrid(
       </div>
       <div class="table-scroll">
         <table class="ember-ledger-table fin-table is-row-selectable">
+          <caption class="sr-only">CPF Retirement Path comparison across BRS, FRS, and ERS strategies</caption>
           <thead>
             <tr>
               <th scope="col">Strategy Path</th>
-              <th scope="col">Age-55 CPF</th>
-              <th scope="col">Extra CPF</th>
-              <th scope="col">Outside Save</th>
-              <th scope="col">CPF LIFE (65+)</th>
+              <th scope="col" class="num-col">Age-55 CPF</th>
+              <th scope="col" class="num-col">Extra CPF</th>
+              <th scope="col" class="num-col">Outside Save</th>
+              <th scope="col" class="num-col">CPF LIFE (65+)</th>
             </tr>
           </thead>
           <tbody>
@@ -1794,10 +1835,10 @@ export function buildFinOverviewGrid(
                       </span>
                     </button>
                   </td>
-                  <td class="num-cell" data-label="Age-55 CPF">${m(rowBal, "", `path-${path.key}-bal`)}</td>
-                  <td class="num-cell" data-label="Extra CPF">${m(rowCpf, r.retiringNow ? " now" : "/mo", `path-${path.key}-cpf`)}${cpfDiffers ? `<small class="ledger-cell-sub">Path: ${m(path.cpfFunding, "/mo")}</small>` : ""}</td>
-                  <td class="num-cell" data-label="Outside Save">${m(rowOut, r.retiringNow ? " now" : "/mo", `path-${path.key}-out`)}${outDiffers ? `<small class="ledger-cell-sub">Target: ${m(s.privateSaving, "/mo")}</small>` : ""}</td>
-                  <td class="num-cell" data-label="CPF LIFE (65+)"><strong>${m(rowLife, "/mo", `path-${path.key}-life`)}</strong></td>
+                  <td class="num-cell num-col" data-label="Age-55 CPF">${m(rowBal, "", `path-${path.key}-bal`)}</td>
+                  <td class="num-cell num-col" data-label="Extra CPF">${m(rowCpf, r.retiringNow ? " now" : "/mo", `path-${path.key}-cpf`)}${cpfDiffers ? `<small class="ledger-cell-sub">Path: ${m(path.cpfFunding, "/mo")}</small>` : ""}</td>
+                  <td class="num-cell num-col" data-label="Outside Save">${m(rowOut, r.retiringNow ? " now" : "/mo", `path-${path.key}-out`)}${outDiffers ? `<small class="ledger-cell-sub">Target: ${m(s.privateSaving, "/mo")}</small>` : ""}</td>
+                  <td class="num-cell num-col" data-label="CPF LIFE (65+)"><strong>${m(rowLife, "/mo", `path-${path.key}-life`)}</strong></td>
                 </tr>`;
               })
               .join("")}
@@ -1819,27 +1860,37 @@ export function buildFinOverviewGrid(
         <div class="ember-disclaimer-body">
           <ul>
             <li><strong>Purchasing power &amp; return:</strong> Shows today’s dollars (${Number((r.inflation * 100).toFixed(1))}% inflation, ${Number((r.investmentReturn * 100).toFixed(1))}% blended net outside return including ETFs/SSB; ${r.post55Work ? "post-55 salary CPF included" : "post-55 work contributions excluded"}).</li>
-            <li><strong>2026 CPF &amp; IRAS rules:</strong> OW ceiling ${money(RetirementModel.C.wageCap)}/mo, Basic Healthcare Sum ${money(RetirementModel.C.bhs)}, FRS ${money(RetirementModel.C.frs)}, ERS ${money(RetirementModel.C.ers)}, and ${money(RetirementModel.C.personalReliefCap)} personal relief cap.</li>
+            <li><strong>2026 CPF &amp; IRAS rules:</strong> OW ceiling ${m(RetirementModel.C.wageCap, "/mo")}, Basic Healthcare Sum ${m(RetirementModel.C.bhs)}, FRS ${m(RetirementModel.C.frs)}, ERS ${m(RetirementModel.C.ers)}, and ${m(RetirementModel.C.personalReliefCap)} personal relief cap.</li>
             <li><strong>Irreversible actions:</strong> Cash RSTU and OA-to-SA transfers before 55 cannot be reversed and receive $0 tax relief once SA/RA hits FRS. <button type="button" class="footnote-link-btn" commandfor="plan-settings" command="show-modal" aria-haspopup="dialog">Review assumptions ↗</button></li>
           </ul>
         </div>
       </details>
     </section>
 
-    <section class="fin-card card-surface swell-taps-card" id="retirement-taps-card" aria-labelledby="taps-blueprint-title">
-      <div class="ember-card-head">
-        <div>
-          <h2 id="taps-blueprint-title">4-Tap Retirement Income Architecture &amp; Guardrails</h2>
-          <p>How your CPF LIFE floor, SRS 10-year tax-concession bridge, ${100 - Math.round(Number(p.sgSleevePct ?? 15))}/${Math.round(Number(p.sgSleevePct ?? 15))} Global &amp; SG Dividend portfolio, and $150k SSB buffer stack together.</p>
-        </div>
-        <span class="swell-slate-pill">4 Income Taps</span>
-      </div>
-      <div class="swell-taps-grid">
+    <details class="overview-disclosure-card swell-taps-card" id="retirement-taps-card" ${taps.tap2Srs.verdictStatus === "trap-alert" || taps.tap2Srs.verdictStatus === "idle-cash" ? "open" : ""} aria-labelledby="taps-blueprint-title">
+      <summary class="overview-disclosure-summary">
+        <h3 id="taps-blueprint-title">4-Tap Retirement Income Architecture &amp; Guardrails</h3>
+        <span class="overview-disclosure-meta">CPF ${m(s.payout, "/mo")} · SRS ${escapeAttr(taps.tap2Srs.verdictLabel || "≤$40k/yr")} · Equities ${m(taps.tap3Equities.projectedMonthlyDrawToday, "/mo")} · SSB ${ssbPctOf150k}%</span>
+      </summary>
+      <div class="overview-disclosure-body">
+        <div class="swell-taps-grid">
         ${(() => {
           const tap1Pct = taps.tap1Cpf.budgetCoveragePct ?? cpfCov65Pct;
+          const srsZeroTaxCap =
+            taps.tap2Srs.srsZeroTaxCap || RetirementModel.C.srsSoftCapAt63;
+          const srsZeroTaxCapCompact = compactMoney(srsZeroTaxCap);
+          const srsTrapFloor =
+            taps.tap2Srs.trapFloorAt63 || RetirementModel.C.srsTrapFloorAt63;
+          const srsTrapFloorCompact = compactMoney(srsTrapFloor);
+          const srsTrapCeilingCompact = compactMoney(
+            taps.tap2Srs.trapCeilingAt63 ||
+              RetirementModel.C.srsTrapCeilingAt63,
+          );
           const tap2Pct = Math.min(
             100,
-            Math.round((taps.tap2Srs.projectedAt63 / 400000) * 100),
+            Math.round(
+              (taps.tap2Srs.projectedAt63 / Math.max(1, srsZeroTaxCap)) * 100,
+            ),
           );
           const tap3Pct =
             s.gap65 > 0
@@ -1863,17 +1914,19 @@ export function buildFinOverviewGrid(
                 : taps.tap2Srs.verdictStatus === "rstu-first"
                   ? "is-good"
                   : "is-neutral";
-          const srsTaxSavedVal =
-            taps.tap2Srs.maxRstu > 0
-              ? taps.tap2Srs.srsTaxSavedAfterRstu
-              : taps.tap2Srs.srsStandaloneTaxSaved;
-          const srsEligibleCap =
-            taps.tap2Srs.maxRstu > 0
-              ? taps.tap2Srs.maxSrsAfterRstu
-              : taps.tap2Srs.annualCap;
+          const hasAnyRstu =
+            (taps.tap2Srs.maxRstu || 0) +
+              (taps.tap2Srs.eligibleFamilyRstu || 0) >
+            0;
+          const srsTaxSavedVal = hasAnyRstu
+            ? taps.tap2Srs.srsTaxSavedAfterRstu
+            : taps.tap2Srs.srsStandaloneTaxSaved;
+          const srsEligibleCap = hasAnyRstu
+            ? taps.tap2Srs.maxSrsAfterRstu
+            : (taps.tap2Srs.maxSrsStandalone ?? taps.tap2Srs.annualCap);
           let tap2BodyHTML;
           if (taps.tap2Srs.verdictStatus === "trap-alert") {
-            tap2BodyHTML = `<strong>Ballooning Trap Alert:</strong> Projected <strong>${m(taps.tap2Srs.projectedAt63)}</strong> nominal pot at age <strong>${taps.tap2Srs.startAge}</strong> exceeds $450k (~<strong>${m(taps.tap2Srs.withdrawalTaxAnnual, "/yr")}</strong> withdrawal tax). Cap annual SRS at <strong>≤${m(taps.tap2Srs.maxSafeAnnualTo400k, "/yr")}</strong> and invest overflow in brokerage.`;
+            tap2BodyHTML = `<strong>Ballooning Trap Alert:</strong> Projected <strong>${m(taps.tap2Srs.projectedAt63)}</strong> nominal pot at age <strong>${taps.tap2Srs.startAge}</strong> exceeds ${srsTrapFloorCompact} (~<strong>${m(taps.tap2Srs.withdrawalTaxAnnual, "/yr")}</strong> withdrawal tax). Cap annual SRS at <strong>≤${m(taps.tap2Srs.maxSafeAnnualTo400k, "/yr")}</strong> and invest overflow in brokerage.`;
           } else if (taps.tap2Srs.verdictStatus === "idle-cash") {
             tap2BodyHTML = `<strong>Action needed:</strong> Your SRS (<strong>${m(taps.tap2Srs.srsBalanceToday)}</strong> balance${taps.tap2Srs.srsAnnualPlanned > 0 ? ` + ${m(taps.tap2Srs.srsAnnualPlanned, "/yr")}` : ""}) is set to <strong>0.05% idle cash</strong>. Switch SRS mode to Global ETFs, 60/40, or SSBs so inflation doesn’t erode your tax relief.`;
           } else if (taps.tap2Srs.verdictStatus === "cap-full") {
@@ -1889,9 +1942,9 @@ export function buildFinOverviewGrid(
           }
           const tap2MetaLabel =
             taps.tap2Srs.projectedAt63 > 0
-              ? `Age-${taps.tap2Srs.startAge} pot (${m(taps.tap2Srs.projectedAt63)} nom.) vs $400k cap`
+              ? `Age-${taps.tap2Srs.startAge} pot (${m(taps.tap2Srs.projectedAt63)} nom.) vs ${srsZeroTaxCapCompact} cap`
               : taps.tap2Srs.worthIt
-                ? `Age-${taps.tap2Srs.startAge} pot ($0/yr set) vs $400k soft cap`
+                ? `Age-${taps.tap2Srs.startAge} pot ($0/yr set) vs ${srsZeroTaxCapCompact} soft cap`
                 : `${srsMarginalPct}% tax bracket · $0 SRS pot planned`;
           return `
         <article class="swell-tap-box">
@@ -1899,7 +1952,7 @@ export function buildFinOverviewGrid(
             <span class="swell-tap-badge is-tap1">Tap 1 · Age 55 &amp; 65+</span>
             <span class="tap-verdict-pill is-good">${m(s.payout, "/mo")}${taps.tap1Cpf.oaInterestMonthlyToday >= 1 ? ` + ${m(taps.tap1Cpf.oaInterestMonthlyToday, "/mo")} OA` : ""}</span>
           </div>
-          <h3>CPF LIFE (${r.plan === "escalating" ? "Escalating +2%/yr" : "Standard"}) &amp; OA Interest</h3>
+          <h4>CPF LIFE (${r.plan === "escalating" ? "Escalating +2%/yr" : "Standard"}) &amp; OA Interest</h4>
           <div class="tap-progress-wrap">
             <div class="tap-progress-meta">
               <span>Covers ${tap1Pct}% of ${m(r.spend65, "/mo")} age-65 need</span>
@@ -1920,20 +1973,20 @@ export function buildFinOverviewGrid(
             <span class="swell-tap-badge is-tap2">Tap 2 · Age ${taps.tap2Srs.startAge}–${taps.tap2Srs.endAge}</span>
             <span class="tap-verdict-pill ${tap2PillTone}">${escapeAttr(taps.tap2Srs.verdictLabel || "≤$40k/yr 0% Tax")}</span>
           </div>
-          <h3>SRS 10-Year Tax-Concession Bridge</h3>
+          <h4>SRS 10-Year Tax-Concession Bridge</h4>
           <div class="tap-progress-wrap">
             <div class="tap-progress-meta">
               <span>${tap2MetaLabel}</span>
               <strong>${tap2Pct}%</strong>
             </div>
-            <div class="tap-progress-track" role="progressbar" aria-valuenow="${tap2Pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Tap 2 SRS pot toward $400,000 soft cap">
+            <div class="tap-progress-track" role="progressbar" aria-valuenow="${tap2Pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Tap 2 SRS pot toward ${money(srsZeroTaxCap)} soft cap">
               <span class="tap-progress-fill ${taps.tap2Srs.trapStatus === "balloon-trap" ? "is-danger" : "is-tap2"}" style="width:${tap2Pct}%"></span>
             </div>
           </div>
           <p>${tap2BodyHTML}</p>
           <details class="tap-accordion" ${taps.tap2Srs.trapStatus === "balloon-trap" ? "open" : ""}>
-            <summary class="tap-accordion-summary"><span>Ballooning trap guardrail ($450k–$500k)</span><span class="tap-accordion-chevron" aria-hidden="true">▾</span></summary>
-            <small class="swell-tap-sub ${taps.tap2Srs.trapStatus === "balloon-trap" ? "is-danger" : ""}"><strong>Critical Trap Guardrail:</strong> Projected age-${taps.tap2Srs.startAge} pot is <b>${m(taps.tap2Srs.projectedAt63)}</b> nominal (<b>${m(taps.tap2Srs.projectedAt63Today ?? taps.tap2Srs.projectedAt63)}</b> today’s $ · <b>${m(taps.tap2Srs.tenYearMonthlyDrawToday ?? taps.tap2Srs.tenYearMonthlyDraw, "/mo")}</b> real draw). Keep nominal SRS ≤<b>$400k</b> (≤${money(taps.tap2Srs.maxSafeAnnualTo400k)}/yr) so 50%-concession withdrawals stay tax-free.</small>
+            <summary class="tap-accordion-summary"><span>Ballooning trap guardrail (${srsTrapFloorCompact}–${srsTrapCeilingCompact})</span><span class="tap-accordion-chevron" aria-hidden="true">▾</span></summary>
+            <small class="swell-tap-sub ${taps.tap2Srs.trapStatus === "balloon-trap" ? "is-danger" : ""}"><strong>Critical Trap Guardrail:</strong> Projected age-${taps.tap2Srs.startAge} pot is <b>${m(taps.tap2Srs.projectedAt63)}</b> nominal (<b>${m(taps.tap2Srs.projectedAt63Today ?? taps.tap2Srs.projectedAt63)}</b> today’s $ · <b>${m(taps.tap2Srs.tenYearMonthlyDrawToday ?? taps.tap2Srs.tenYearMonthlyDraw, "/mo")}</b> real draw). Keep nominal SRS ≤<b>${srsZeroTaxCapCompact}</b> (≤${m(taps.tap2Srs.maxSafeAnnualTo400k, "/yr")}) so 50%-concession withdrawals stay tax-free.</small>
           </details>
         </article>
         <article class="swell-tap-box">
@@ -1941,7 +1994,7 @@ export function buildFinOverviewGrid(
             <span class="swell-tap-badge is-tap3">Tap 3 · Brokerage</span>
             <span class="tap-verdict-pill is-info">${taps.tap3Equities.targetEquityPct}/${taps.tap3Equities.targetBondPct} · ${taps.tap3Equities.globalSplitPct}/${taps.tap3Equities.sgDividendSplitPct} G/SG</span>
           </div>
-          <h3>Global Growth &amp; SG Dividend Equities</h3>
+          <h4>Global Growth &amp; SG Dividend Equities</h4>
           <div class="tap-progress-wrap">
             <div class="tap-progress-meta">
               <span>${s.gap65 > 0 ? `Covers ${tap3Pct}% of ${m(s.gap65, "/mo")} post-CPF gap` : "Full post-CPF gap covered · Surplus draw"}</span>
@@ -1962,7 +2015,7 @@ export function buildFinOverviewGrid(
             <span class="swell-tap-badge is-tap4">Tap 4 · Sovereign Buffer</span>
             <span class="tap-verdict-pill is-warn">${taps.tap4Ssb.cashAccountsActive || taps.tap4Ssb.hasCustomCashRate || taps.tap4Ssb.monthlyCashSaving > 0 ? `${!r.retiringNow && taps.tap4Ssb.monthlyCashSaving > 0 ? `+${m(taps.tap4Ssb.monthlyCashSaving, "/mo")} · ` : `${m(taps.tap4Ssb.currentSsbCash)} · `}${taps.tap4Ssb.effectiveRatePct.toFixed(2)}%` : `${m(taps.tap4Ssb.currentSsbCash)} / $150k`}</span>
           </div>
-          <h3>SSB After All Done &amp; $150k Buffer</h3>
+          <h4>SSB After All Done &amp; $150k Buffer</h4>
           <div class="tap-progress-wrap">
             <div class="tap-progress-meta">
               <span>Current SSB &amp; cash vs $150k target</span>
@@ -1972,15 +2025,16 @@ export function buildFinOverviewGrid(
               <span class="tap-progress-fill is-tap4" style="width:${tap4Pct}%"></span>
             </div>
           </div>
-          <p>Your 6–12m emergency floor is <strong>${m(taps.tap4Ssb.emergencyMin)}–${m(taps.tap4Ssb.emergencyMax)}</strong>. Current cash/SSB (<strong>${m(taps.tap4Ssb.currentSsbCash)}</strong>${!r.retiringNow && taps.tap4Ssb.monthlyCashSaving > 0 ? ` + <strong>${m(taps.tap4Ssb.monthlyCashSaving, "/mo")}</strong> planned savings → <strong>${m(taps.tap4Ssb.projectedCashOnlyAtRetireToday)}</strong> at age ${r.retire}` : ""}) earns ~<strong>${m(taps.tap4Ssb.currentMonthlyYield, "/mo")}</strong> at ${taps.tap4Ssb.cashAccountsActive ? `your blended <strong>${taps.tap4Ssb.effectiveRatePct.toFixed(2)}%</strong> EIR across <strong>${taps.tap4Ssb.accountCount} account${taps.tap4Ssb.accountCount === 1 ? "" : "s"}</strong>${taps.tap4Ssb.overflowBalance > 0 ? ` (${m(taps.tap4Ssb.overflowBalance)} above bonus caps)` : ""}` : taps.tap4Ssb.hasCustomCashRate ? `your <strong>${taps.tap4Ssb.effectiveRatePct.toFixed(2)}% p.a.</strong> projected HYSA / SSB rate` : `live <strong>${taps.tap4Ssb.effectiveRatePct.toFixed(2)}%</strong> 10Y SSB yield`} (~<strong>${money(taps.tap4Ssb.monthlyYieldAt150k)}/mo</strong> at $150k).</p>
+          <p>Your 6–12m emergency floor is <strong>${m(taps.tap4Ssb.emergencyMin)}–${m(taps.tap4Ssb.emergencyMax)}</strong>. Current cash/SSB (<strong>${m(taps.tap4Ssb.currentSsbCash)}</strong>${!r.retiringNow && (taps.tap4Ssb.monthlyCashSaving > 0 || (taps.tap3Equities.monthlyBondBuy || 0) > 0) ? `${taps.tap4Ssb.monthlyCashSaving > 0 ? ` + <strong>${m(taps.tap4Ssb.monthlyCashSaving, "/mo")}</strong> planned savings` : ""}${(taps.tap3Equities.monthlyBondBuy || 0) > 0 ? ` + <strong>${m(taps.tap3Equities.monthlyBondBuy, "/mo")}</strong> bond sleeve` : ""} → <strong>${m(taps.tap4Ssb.projectedSsbCashAtRetireToday)}</strong> at age ${r.retire}` : ""}) earns ~<strong>${m(taps.tap4Ssb.currentMonthlyYield, "/mo")}</strong> at ${taps.tap4Ssb.cashAccountsActive ? `your blended <strong>${taps.tap4Ssb.effectiveRatePct.toFixed(2)}%</strong> EIR across <strong>${taps.tap4Ssb.accountCount} account${taps.tap4Ssb.accountCount === 1 ? "" : "s"}</strong>${taps.tap4Ssb.overflowBalance > 0 ? ` (${m(taps.tap4Ssb.overflowBalance)} above bonus caps)` : ""}` : taps.tap4Ssb.hasCustomCashRate ? `your <strong>${taps.tap4Ssb.effectiveRatePct.toFixed(2)}% p.a.</strong> projected HYSA / SSB rate` : `live <strong>${taps.tap4Ssb.effectiveRatePct.toFixed(2)}%</strong> 10Y SSB yield`} (~<strong>${m(taps.tap4Ssb.monthlyYieldAt150k, "/mo")}</strong> at $150k).</p>
           <details class="tap-accordion">
             <summary class="tap-accordion-summary"><span>Redemption &amp; MAS cap mechanics</span><span class="tap-accordion-chevron" aria-hidden="true">▾</span></summary>
             <small class="swell-tap-sub">100% Singapore Government-backed principal within the $200,000 MAS individual limit, with 10-year step-up coupons and penalty-free monthly redemption.</small>
           </details>
         </article>`;
         })()}
+        </div>
       </div>
-    </section>
+    </details>
   </section>`;
 }
 

@@ -101,6 +101,7 @@
             <div class="sidebar-group" role="presentation">
               <button
                 type="button"
+                id="tab-overview"
                 class="sidebar-tab is-active"
                 data-tab="overview"
                 role="tab"
@@ -134,6 +135,7 @@
               </button>
               <button
                 type="button"
+                id="tab-trajectory"
                 class="sidebar-tab"
                 data-tab="trajectory"
                 role="tab"
@@ -165,6 +167,7 @@
               </button>
               <button
                 type="button"
+                id="tab-allocator"
                 class="sidebar-tab"
                 data-tab="allocator"
                 role="tab"
@@ -196,6 +199,7 @@
               </button>
               <button
                 type="button"
+                id="tab-cash-parking"
                 class="sidebar-tab"
                 data-tab="cash-parking"
                 role="tab"
@@ -233,6 +237,7 @@
                 >
                 <button
                   type="button"
+                  id="tab-tax"
                   class="sidebar-tab is-child"
                   data-tab="tax"
                   role="tab"
@@ -265,6 +270,7 @@
                 </button>
                 <button
                   type="button"
+                  id="tab-cpf-rules"
                   class="sidebar-tab is-child"
                   data-tab="cpf-rules"
                   role="tab"
@@ -295,10 +301,13 @@
                   >
                 </button>
               </div>
-              <div class="sidebar-subgroup">
-                <span class="sidebar-group-heading">Utility</span>
+              <div class="sidebar-subgroup" role="presentation">
+                <span class="sidebar-group-heading" aria-hidden="true"
+                  >Utility</span
+                >
                 <button
                   type="button"
+                  id="tab-dividend-calc"
                   class="sidebar-tab is-child"
                   data-tab="dividend-calc"
                   role="tab"
@@ -331,56 +340,56 @@
                 </button>
               </div>
             </div>
-            <div class="sidebar-divider" aria-hidden="true"></div>
-            <div class="sidebar-group">
-              <button
-                type="button"
-                class="sidebar-tab sidebar-settings-btn"
-                data-open-profile
-                title="My Settings"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  width="18"
-                  height="18"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.75"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
-                  />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-                <span class="sidebar-tab-label">My Settings</span>
-              </button>
-              <button
-                type="button"
-                class="sidebar-tab"
-                data-sg-reset
-                title="Reset defaults"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  width="18"
-                  height="18"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.75"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                  <path d="M3 3v5h5" />
-                </svg>
-                <span class="sidebar-tab-label">Reset defaults</span>
-              </button>
-            </div>
           </nav>
+          <div class="sidebar-divider" aria-hidden="true"></div>
+          <div class="sidebar-group">
+            <button
+              type="button"
+              class="sidebar-tab sidebar-settings-btn"
+              data-open-profile
+              title="My Settings"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path
+                  d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+                />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+              <span class="sidebar-tab-label">My Settings</span>
+            </button>
+            <button
+              type="button"
+              class="sidebar-tab"
+              data-sg-reset
+              title="Reset defaults"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+              <span class="sidebar-tab-label">Reset defaults</span>
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -664,7 +673,7 @@
                       <h2 id="settings-personas-heading">
                         Singapore Starter Archetypes
                       </h2>
-                      <p class="settings-card-sub">
+                      <p class="settings-page-sub">
                         Load a realistic Singapore profile to explore CPF,
                         housing, SRS, and early retirement trade-offs in one
                         click.
@@ -1411,7 +1420,7 @@
                 id="tab-panel-overview"
                 class="tab-panel"
                 role="tabpanel"
-                aria-label="Overview"
+                aria-labelledby="tab-overview"
               >
                 <div id="overview-slot"></div>
               </section>
@@ -1420,7 +1429,7 @@
                 id="tab-panel-trajectory"
                 class="tab-panel"
                 role="tabpanel"
-                aria-label="Trajectory"
+                aria-labelledby="tab-trajectory"
                 hidden
               >
                 <section
@@ -1742,7 +1751,6 @@
                     </p>
                     <div
                       id="trajectory-year-inspector"
-                      class="traj-inspector-card"
                       role="region"
                       aria-label="Single-year cashflow and CPF audit inspector"
                       hidden
@@ -1792,7 +1800,7 @@
                 id="tab-panel-allocator"
                 class="tab-panel"
                 role="tabpanel"
-                aria-label="Allocator"
+                aria-labelledby="tab-allocator"
                 hidden
               >
                 <nav class="ui-breadcrumb" aria-label="Breadcrumb">
@@ -1843,7 +1851,7 @@
                 id="tab-panel-cash-parking"
                 class="tab-panel"
                 role="tabpanel"
-                aria-label="Cash Parking"
+                aria-labelledby="tab-cash-parking"
                 hidden
               >
                 <nav class="ui-breadcrumb" aria-label="Breadcrumb">
@@ -1854,6 +1862,8 @@
                   >
                     Overview
                   </button>
+                  <span class="ui-breadcrumb-sep" aria-hidden="true">/</span>
+                  <span class="ui-breadcrumb-group">Planning</span>
                   <span class="ui-breadcrumb-sep" aria-hidden="true">/</span>
                   <span class="ui-breadcrumb-cur" aria-current="page"
                     >Cash Parking &amp; Yield Mediums</span
@@ -1866,7 +1876,7 @@
                 id="tab-panel-dividend-calc"
                 class="tab-panel"
                 role="tabpanel"
-                aria-label="Dividend &amp; Yield Calculator"
+                aria-labelledby="tab-dividend-calc"
                 hidden
               >
                 <nav class="ui-breadcrumb" aria-label="Breadcrumb">
@@ -1917,7 +1927,7 @@
                 id="tab-panel-tax"
                 class="tab-panel"
                 role="tabpanel"
-                aria-label="Tax Relief"
+                aria-labelledby="tab-tax"
                 hidden
               >
                 <nav class="ui-breadcrumb" aria-label="Breadcrumb">
@@ -1968,7 +1978,7 @@
                 id="tab-panel-cpf-rules"
                 class="tab-panel"
                 role="tabpanel"
-                aria-label="CPF Milestones"
+                aria-labelledby="tab-cpf-rules"
                 hidden
               >
                 <nav class="ui-breadcrumb" aria-label="Breadcrumb">
@@ -2151,7 +2161,7 @@
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
           <path d="m9 12 2 2 4-4" />
         </svg>
-        <span>Tax &amp; Rules</span>
+        <span>Tax &amp; CPF</span>
       </button>
     </nav>
 
@@ -2198,15 +2208,15 @@
               <label for="known-return">Net investment return</label>
               <div class="input-wrap select-wrap">
                 <select id="known-return">
-                  <option value="0">0% / year (No growth)</option>
-                  <option value="0.03">3.0% / year (Conservative)</option>
-                  <option value="0.04">4.0% / year (Cautious)</option>
+                  <option value="0">0% p.a. (No growth)</option>
+                  <option value="0.03">3.0% p.a. (Conservative)</option>
+                  <option value="0.04">4.0% p.a. (Cautious)</option>
                   <option value="0.05" selected>
-                    5.0% / year (Balanced default)
+                    5.0% p.a. (Balanced default)
                   </option>
-                  <option value="0.055">5.5% / year (Growth-balanced)</option>
+                  <option value="0.055">5.5% p.a. (Growth-balanced)</option>
                   <option value="0.06">
-                    6.0% / year (Growth / equity-tilted)
+                    6.0% p.a. (Growth / equity-tilted)
                   </option>
                 </select>
               </div>
@@ -2219,12 +2229,12 @@
               <label for="known-inflation">Long-term inflation</label>
               <div class="input-wrap select-wrap">
                 <select id="known-inflation">
-                  <option value="0.02">2.0% / year (Low)</option>
+                  <option value="0.02">2.0% p.a. (Low)</option>
                   <option value="0.025" selected>
-                    2.5% / year (Baseline default)
+                    2.5% p.a. (Baseline default)
                   </option>
-                  <option value="0.03">3.0% / year (Elevated)</option>
-                  <option value="0.035">3.5% / year (High)</option>
+                  <option value="0.03">3.0% p.a. (Elevated)</option>
+                  <option value="0.035">3.5% p.a. (High)</option>
                 </select>
               </div>
               <small
@@ -2270,9 +2280,9 @@
               >
               <div class="input-wrap select-wrap">
                 <select id="known-reserve-return">
-                  <option value="0" selected>0% / year (Default)</option>
-                  <option value="0.02">2% / year (HYSA / T-Bills)</option>
-                  <option value="0.04">4% / year (Fixed Income)</option>
+                  <option value="0" selected>0% p.a. (Default)</option>
+                  <option value="0.02">2% p.a. (HYSA / T-Bills)</option>
+                  <option value="0.04">4% p.a. (Fixed Income)</option>
                 </select>
               </div>
               <small
@@ -2649,14 +2659,14 @@
                   class="qe-picker-chip"
                   data-qe-pick-cpf-extra="0"
                 >
-                  $0 / mo
+                  $0/mo
                 </button>
                 <button
                   type="button"
                   class="qe-picker-chip"
                   data-qe-pick-cpf-extra="300"
                 >
-                  $300 / mo
+                  $300/mo
                 </button>
                 <button
                   type="button"
@@ -2734,28 +2744,28 @@
                   class="qe-picker-chip"
                   data-qe-pick-cash-saving="0"
                 >
-                  $0 / mo
+                  $0/mo
                 </button>
                 <button
                   type="button"
                   class="qe-picker-chip"
                   data-qe-pick-cash-saving="250"
                 >
-                  $250 / mo
+                  $250/mo
                 </button>
                 <button
                   type="button"
                   class="qe-picker-chip"
                   data-qe-pick-cash-saving="500"
                 >
-                  $500 / mo
+                  $500/mo
                 </button>
                 <button
                   type="button"
                   class="qe-picker-chip"
                   data-qe-pick-cash-saving="1000"
                 >
-                  $1,000 / mo
+                  $1,000/mo
                 </button>
               </div>
               <p class="qe-hint" id="qe-cash-saving-hint">
@@ -2909,21 +2919,21 @@
                   class="qe-picker-chip"
                   data-qe-pick-invest="500"
                 >
-                  $500 / mo
+                  $500/mo
                 </button>
                 <button
                   type="button"
                   class="qe-picker-chip"
                   data-qe-pick-invest="1000"
                 >
-                  $1,000 / mo
+                  $1,000/mo
                 </button>
                 <button
                   type="button"
                   class="qe-picker-chip"
                   data-qe-pick-invest="2000"
                 >
-                  $2,000 / mo
+                  $2,000/mo
                 </button>
               </div>
               <p class="qe-hint" id="qe-invest-hint">
@@ -2946,14 +2956,8 @@
                   >
                 </div>
                 <div class="bogle-stage1-bar" aria-hidden="true">
-                  <span
-                    id="qe-stage1-eq-bar"
-                    style="width: 80%; background: var(--primary)"
-                  ></span>
-                  <span
-                    id="qe-stage1-bond-bar"
-                    style="width: 20%; background: var(--sem-cash)"
-                  ></span>
+                  <span id="qe-stage1-eq-bar"></span>
+                  <span id="qe-stage1-bond-bar"></span>
                 </div>
                 <div class="bogle-funnel-controls">
                   <div class="saving-stepper bogle-stepper">
@@ -3617,6 +3621,14 @@
         </div>
       </div>
     </dialog>
+
+    <div
+      id="sr-status"
+      class="sr-only"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    ></div>
 
     <div
       id="ui-toast"
