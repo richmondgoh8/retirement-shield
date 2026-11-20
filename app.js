@@ -219,6 +219,12 @@ function setupSimplePlan() {
   let divAnnuityDeferYears = 5;
   let divAnnuityDrawYears = 15;
   let divAnnuityQuotedMo = 1150;
+  let divAnnuityMonthlyDividends = 0;
+  let divAnnuityStepUpPct = 5;
+  let divAnnuityTerminalDividend = 0;
+  let divAnnuityPaymentMode = "monthly";
+  let divAnnuityBonusRealization = 1;
+  let divAnnuityInflationPct = 2.5;
   let divAnnuityBenchRatePct = 5.0;
   let cashParkingSearch = "";
   let cashParkingTag = "all";
@@ -2239,6 +2245,12 @@ function setupSimplePlan() {
         deferYears: divAnnuityDeferYears,
         payoutYears: divAnnuityDrawYears,
         quotedMonthlyPayout: divAnnuityQuotedMo,
+        nonGuaranteedMonthlyDividends: divAnnuityMonthlyDividends,
+        dividendStepUpRatePct: divAnnuityStepUpPct,
+        terminalDividend: divAnnuityTerminalDividend,
+        paymentMode: divAnnuityPaymentMode,
+        bonusRealization: divAnnuityBonusRealization,
+        inflationRatePct: divAnnuityInflationPct,
         benchmarkRatePct: divAnnuityBenchRatePct,
         masRates: liveMasRates,
       });
@@ -2254,6 +2266,8 @@ function setupSimplePlan() {
         "div-target-mo-save",
         "div-annuity-mo-save",
         "div-annuity-quoted-mo",
+        "div-annuity-monthly-dividends",
+        "div-annuity-terminal",
         "div-annuity-pay-yrs",
         "div-annuity-defer-yrs",
         "div-annuity-draw-yrs",
@@ -2797,6 +2811,12 @@ function setupSimplePlan() {
     divAnnuityDeferYears = 5;
     divAnnuityDrawYears = 15;
     divAnnuityQuotedMo = 1150;
+    divAnnuityMonthlyDividends = 0;
+    divAnnuityStepUpPct = 5;
+    divAnnuityTerminalDividend = 0;
+    divAnnuityPaymentMode = "monthly";
+    divAnnuityBonusRealization = 1;
+    divAnnuityInflationPct = 2.5;
     divAnnuityBenchRatePct = 5.0;
     setTrajectoryInspectedAge(null);
     trajectoryBasis = "today";
@@ -3265,6 +3285,26 @@ function setupSimplePlan() {
       }
       return;
     }
+    const realizationBtn = event.target.closest(
+      "[data-div-annuity-realization]",
+    );
+    if (realizationBtn) {
+      const realization = Number(realizationBtn.dataset.divAnnuityRealization);
+      if ([0, 0.5, 1].includes(realization)) {
+        divAnnuityBonusRealization = realization;
+        dividendCalcSlot
+          ?.querySelectorAll("[data-div-annuity-realization]")
+          .forEach((button) => {
+            const active =
+              Number(button.dataset.divAnnuityRealization) === realization;
+            button.classList.toggle("is-active", active);
+            button.setAttribute("aria-pressed", String(active));
+          });
+        if (renderDividendTabOnly) renderDividendTabOnly();
+        else scheduleRender();
+      }
+      return;
+    }
     if (
       handleDividendPresetClick(
         event.target,
@@ -3323,6 +3363,16 @@ function setupSimplePlan() {
           set divAnnuityQuotedMo(v) {
             divAnnuityQuotedMo = v;
           },
+          get divAnnuityMonthlyDividends() { return divAnnuityMonthlyDividends; },
+          set divAnnuityMonthlyDividends(v) { divAnnuityMonthlyDividends = v; },
+          get divAnnuityStepUpPct() { return divAnnuityStepUpPct; },
+          set divAnnuityStepUpPct(v) { divAnnuityStepUpPct = v; },
+          get divAnnuityTerminalDividend() { return divAnnuityTerminalDividend; },
+          set divAnnuityTerminalDividend(v) { divAnnuityTerminalDividend = v; },
+          get divAnnuityPaymentMode() { return divAnnuityPaymentMode; },
+          set divAnnuityPaymentMode(v) { divAnnuityPaymentMode = v; },
+          get divAnnuityBonusRealization() { return divAnnuityBonusRealization; },
+          set divAnnuityBonusRealization(v) { divAnnuityBonusRealization = v; },
           get divAnnuityPayYears() {
             return divAnnuityPayYears;
           },
@@ -4341,7 +4391,7 @@ function setupSimplePlan() {
       divAnnuityMoSave =
         raw === ""
           ? 100
-          : Math.min(500000, Math.max(1, Math.round(Number(raw) || 100)));
+          : Math.min(500000, Math.max(1, Math.round(Number(raw.replace(/,/g, "")) || 100)));
       scheduleDividendOnlyRender();
       return;
     }
@@ -4350,7 +4400,25 @@ function setupSimplePlan() {
       divAnnuityQuotedMo =
         raw === ""
           ? 0
-          : Math.min(1000000, Math.max(0, Math.round(Number(raw) || 0)));
+          : Math.min(1000000, Math.max(0, Math.round(Number(raw.replace(/,/g, "")) || 0)));
+      scheduleDividendOnlyRender();
+      return;
+    }
+    if (event.target.id === "div-annuity-monthly-dividends") {
+      const raw = event.target.value.trim();
+      divAnnuityMonthlyDividends =
+        raw === ""
+          ? 0
+          : Math.min(10000000, Math.max(0, Math.round(Number(raw.replace(/,/g, "")) || 0)));
+      scheduleDividendOnlyRender();
+      return;
+    }
+    if (event.target.id === "div-annuity-terminal") {
+      const raw = event.target.value.trim();
+      divAnnuityTerminalDividend =
+        raw === ""
+          ? 0
+          : Math.min(100000000, Math.max(0, Math.round(Number(raw.replace(/,/g, "")) || 0)));
       scheduleDividendOnlyRender();
       return;
     }

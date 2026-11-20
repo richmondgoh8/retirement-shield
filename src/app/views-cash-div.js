@@ -1593,6 +1593,11 @@ function buildTargetBenchmarksHTML(targetModel) {
 
 function buildAnnuityResultsHTML(annuityModel) {
   if (!annuityModel) return "";
+  const nominalIrr = Number(annuityModel.impliedAnnualIrrPct || 0);
+  const realIrr = Number(annuityModel.realAnnualIrrPct || 0);
+  const participatingLine = annuityModel.startingMonthlyPayout > annuityModel.quotedMonthlyPayout
+    ? ` · +${m(Math.round(annuityModel.startingMonthlyPayout - annuityModel.quotedMonthlyPayout), "/mo")} non-guaranteed in Year 1`
+    : "";
   const irrStr =
     annuityModel.impliedAnnualIrrPct <= -99
       ? "−100%"
@@ -1604,10 +1609,10 @@ function buildAnnuityResultsHTML(annuityModel) {
         ? "is-danger"
         : "is-amber";
   const vsCpfDelta = Math.round(
-    annuityModel.diyCpfSa.monthlyPayout - annuityModel.quotedMonthlyPayout,
+    annuityModel.diyCpfSa.monthlyPayout - annuityModel.blendedMonthlyPayout,
   );
   const vsDiyDelta = Math.round(
-    annuityModel.diyBench.monthlyPayout - annuityModel.quotedMonthlyPayout,
+    annuityModel.diyBench.monthlyPayout - annuityModel.blendedMonthlyPayout,
   );
 
   return `
@@ -1615,9 +1620,37 @@ function buildAnnuityResultsHTML(annuityModel) {
       <div class="div-payout-main">
         <span class="div-payout-eyebrow">Implied Annualized Return (IRR)</span>
         <strong class="div-payout-amount ${irrTone}" id="div-annuity-irr-readout">${irrStr}</strong>
-        <p class="div-payout-sub"><strong>${m(annuityModel.monthlyContribution, "/mo")}</strong> × <strong>${annuityModel.contributeYears} yrs</strong>${annuityModel.deferYears > 0 ? ` · <strong>${annuityModel.deferYears} yrs</strong> deferment` : ""} → <strong>${m(annuityModel.quotedMonthlyPayout, "/mo")}</strong> × <strong>${annuityModel.payoutYears} yrs</strong></p>
+        <p class="div-payout-sub">Nominal IRR: <strong>${nominalIrr >= 0 ? "+" : ""}${nominalIrr.toFixed(2)}%</strong> · Real IRR: <strong>${realIrr >= 0 ? "+" : ""}${realIrr.toFixed(2)}%</strong> at ${Number(annuityModel.inflationRatePct || 2.5).toFixed(1)}% inflation</p>
+        <div class="div-annuity-realization-row">
+          <span>Bonus Realization</span>
+          <div class="div-segmented-inline div-segmented-realization" role="group" aria-label="Bonus realization">
+            ${[0, 0.5, 1].map((realization) => {
+              const currentRealization = Number.isFinite(Number(annuityModel.bonusRealization))
+                ? Number(annuityModel.bonusRealization)
+                : 1;
+              const isActive = Math.abs(currentRealization - realization) < 0.01;
+              return `<button type="button" class="div-segment-btn${isActive ? " is-active" : ""}" data-div-annuity-realization="${realization}" aria-pressed="${isActive}">${realization === 0 ? "0% Guaranteed" : realization === 0.5 ? "50% Haircut" : "100% Full"}</button>`;
+            }).join("")}
+          </div>
+        </div>
+        <p class="div-payout-sub"><strong>${m(annuityModel.monthlyContribution, "/mo")}</strong> × <strong>${annuityModel.contributeYears} yrs</strong>${annuityModel.deferYears > 0 ? ` · <strong>${annuityModel.deferYears} yrs</strong> deferment` : ""} → <strong>${m(annuityModel.quotedMonthlyPayout, "/mo")} guaranteed</strong> × <strong>${annuityModel.payoutYears} yrs</strong>${participatingLine}</p>
       </div>
       <div class="div-payout-subgrid">
+        <div class="div-payout-stat">
+          <span>Starting Monthly Payout (Year 1)</span>
+          <strong>${m(Math.round(annuityModel.startingMonthlyPayout || 0), "/mo")}</strong>
+          <small>${m(Math.round(annuityModel.quotedMonthlyPayout || 0), "/mo")} guaranteed + participating dividends</small>
+        </div>
+        <div class="div-payout-stat">
+          <span>Final Monthly Payout (Final Year)</span>
+          <strong>${m(Math.round(annuityModel.finalMonthlyPayout || 0), "/mo")}</strong>
+          <small>${annuityModel.dividendStepUpRatePct || 5}% annual dividend step-up</small>
+        </div>
+        <div class="div-payout-stat">
+          <span>Maturity Lump Sum</span>
+          <strong>${m(annuityModel.scaledTerminalDividend || 0)}</strong>
+          <small>Paid in the final payout month · ${Math.round((annuityModel.bonusRealization || 1) * 100)}% realization</small>
+        </div>
         <div class="div-payout-stat">
           <span>Total Premium → Total Payout</span>
           <strong id="div-annuity-mult-readout">${annuityModel.payoutMultiple.toFixed(2)}x (${m(annuityModel.totalPayoutReceived)})</strong>
@@ -1869,104 +1902,103 @@ function buildDividendCalculatorSection({
     benchHTML = buildTargetBenchmarksHTML(targetModel);
   } else if (mode === "annuity" && annuityModel) {
     controlsHTML = `
-      <div class="div-subcontrols-grid">
-        <div class="div-control-block">
-          <div class="div-control-label-row">
-            <label for="div-annuity-mo-save" id="div-calc-heading">Monthly Premium</label>
-            <span class="div-control-hint">Regular contribution</span>
+      <section class="div-annuity-card div-annuity-card-primary">
+        <div class="div-annuity-card-head">
+          <div>
+            <h2>Contribution &amp; Timeline</h2>
+            <p>Premium schedule and accumulation horizon</p>
           </div>
-          <div class="input-prefix div-cap-input-wrap">
-            <span>$</span>
-            <input id="div-annuity-mo-save" type="number" inputmode="numeric" min="50" max="500000" step="50" value="${Math.round(annuityModel.monthlyContribution)}" aria-label="Monthly contribution to annuity plan" />
-          </div>
-          <div class="div-chip-row" role="group" aria-label="Monthly pay-in presets">
-            ${saveMoPresets
-              .slice(0, 5)
-              .map((sp) => {
-                const active =
-                  Math.round(annuityModel.monthlyContribution) === sp.val;
-                return `<button type="button" class="div-preset-chip${active ? " is-active" : ""}" data-div-annuity-save-pick="${sp.val}" aria-pressed="${active}">${sp.label}</button>`;
-              })
-              .join("")}
+          <div class="div-segmented-inline" role="group" aria-label="Premium payment mode">
+            ${["monthly", "annual"].map((paymentMode) => `<button type="button" class="div-segment-btn${annuityModel.paymentMode === paymentMode ? " is-active" : ""}" data-div-annuity-payment="${paymentMode}" aria-pressed="${annuityModel.paymentMode === paymentMode}">${paymentMode === "monthly" ? "Monthly" : "Annual"}</button>`).join("")}
           </div>
         </div>
-
-        <div class="div-control-block">
-          <div class="div-control-label-row">
-            <label for="div-annuity-quoted-mo">Quoted Monthly Payout</label>
-            <span class="div-control-hint">Projected monthly income</span>
+        <div class="div-annuity-premium-row">
+          <div class="div-annuity-field">
+            <label for="div-annuity-mo-save">Monthly Premium</label>
+            <small>Enter once; Annual mode pays this amount × 12 upfront each year</small>
           </div>
-          <div class="input-prefix div-cap-input-wrap">
-            <span>$</span>
-            <input id="div-annuity-quoted-mo" type="number" inputmode="numeric" min="0" max="1000000" step="50" value="${Math.round(annuityModel.quotedMonthlyPayout)}" aria-label="Quoted monthly payout from annuity" />
-          </div>
-          <div class="div-chip-row" role="group" aria-label="Quoted monthly payout presets">
-            ${[800, 1000, 1150, 1350, 1800]
-              .map((qp) => {
-                const active =
-                  Math.round(annuityModel.quotedMonthlyPayout) === qp;
-                return `<button type="button" class="div-preset-chip${active ? " is-active" : ""}" data-div-annuity-payout-pick="${qp}" aria-pressed="${active}">$${qp.toLocaleString("en-SG")}/mo</button>`;
-              })
-              .join("")}
+          <div class="div-annuity-premium-stack">
+            <div class="div-compact-currency">
+              <span>$</span>
+              <input id="div-annuity-mo-save" type="text" inputmode="decimal" value="${annuityModel.monthlyContribution.toLocaleString("en-SG")}" aria-label="Monthly premium" />
+            </div>
+            ${annuityModel.paymentMode === "annual" ? `<small>Annual equivalent: ${m(annuityModel.monthlyContribution * 12, "/yr")}</small>` : ""}
           </div>
         </div>
-      </div>
-
-      <div class="div-subcontrols-grid is-three-cols">
-        <div class="div-control-block">
-          <div class="div-control-label-row">
+        <div class="div-annuity-timeline-grid">
+          <div class="div-annuity-field">
             <label for="div-annuity-pay-yrs">Premium Term</label>
+            <div class="div-annuity-unit-input">
+              <input id="div-annuity-pay-yrs" type="number" inputmode="numeric" min="1" max="50" step="1" value="${annuityModel.contributeYears}" />
+              <span>yrs</span>
+            </div>
           </div>
-          <div class="input-suffix div-rate-num-wrap">
-            <input id="div-annuity-pay-yrs" type="number" inputmode="numeric" min="1" max="50" step="1" value="${annuityModel.contributeYears}" aria-label="Number of years paying premiums" />
-            <span>yrs</span>
+          <div class="div-annuity-field">
+            <label for="div-annuity-defer-yrs">Deferment</label>
+            <div class="div-annuity-unit-input">
+              <input id="div-annuity-defer-yrs" type="number" inputmode="numeric" min="0" max="30" step="1" value="${annuityModel.deferYears}" />
+              <span>yrs</span>
+            </div>
           </div>
-          <div class="div-chip-row" role="group" aria-label="Premium term presets">
-            ${[5, 10, 15, 20]
-              .map(
-                (y) =>
-                  `<button type="button" class="div-preset-chip${annuityModel.contributeYears === y ? " is-active" : ""}" data-div-annuity-pay-yrs="${y}" aria-pressed="${annuityModel.contributeYears === y}">${y}y</button>`,
-              )
-              .join("")}
-          </div>
-        </div>
-
-        <div class="div-control-block">
-          <div class="div-control-label-row">
-            <label for="div-annuity-defer-yrs">Deferment Period</label>
-          </div>
-          <div class="input-suffix div-rate-num-wrap">
-            <input id="div-annuity-defer-yrs" type="number" inputmode="numeric" min="0" max="30" step="1" value="${annuityModel.deferYears}" aria-label="Deferment years before payout starts" />
-            <span>yrs</span>
-          </div>
-          <div class="div-chip-row" role="group" aria-label="Deferment period presets">
-            ${[0, 5, 10, 15]
-              .map(
-                (y) =>
-                  `<button type="button" class="div-preset-chip${annuityModel.deferYears === y ? " is-active" : ""}" data-div-annuity-defer-yrs="${y}" aria-pressed="${annuityModel.deferYears === y}">${y}y</button>`,
-              )
-              .join("")}
-          </div>
-        </div>
-
-        <div class="div-control-block">
-          <div class="div-control-label-row">
+          <div class="div-annuity-field">
             <label for="div-annuity-draw-yrs">Payout Duration</label>
-          </div>
-          <div class="input-suffix div-rate-num-wrap">
-            <input id="div-annuity-draw-yrs" type="number" inputmode="numeric" min="1" max="50" step="1" value="${annuityModel.payoutYears}" aria-label="Number of years receiving payouts" />
-            <span>yrs</span>
-          </div>
-          <div class="div-chip-row" role="group" aria-label="Payout duration presets">
-            ${[10, 15, 20, 30]
-              .map(
-                (y) =>
-                  `<button type="button" class="div-preset-chip${annuityModel.payoutYears === y ? " is-active" : ""}" data-div-annuity-draw-yrs="${y}" aria-pressed="${annuityModel.payoutYears === y}">${y}y</button>`,
-              )
-              .join("")}
+            <div class="div-annuity-unit-input">
+              <input id="div-annuity-draw-yrs" type="number" inputmode="numeric" min="1" max="50" step="1" value="${annuityModel.payoutYears}" />
+              <span>yrs</span>
+            </div>
           </div>
         </div>
-      </div>`;
+      </section>
+
+      <section class="div-annuity-card">
+        <div class="div-annuity-card-head">
+          <div>
+            <h2>Guaranteed Payout</h2>
+            <p>Base contract payout excluding bonuses</p>
+          </div>
+        </div>
+        <div class="div-annuity-premium-row">
+          <label for="div-annuity-quoted-mo">Guaranteed Monthly Payout</label>
+          <div class="div-compact-currency">
+            <span>$</span>
+            <input id="div-annuity-quoted-mo" type="text" inputmode="decimal" value="${annuityModel.quotedMonthlyPayout.toLocaleString("en-SG")}" aria-label="Guaranteed monthly payout" />
+          </div>
+        </div>
+      </section>
+
+      <details class="div-annuity-card div-annuity-bonus-card" open>
+        <summary class="div-annuity-card-head">
+          <div>
+            <h2>Non-Guaranteed Bonuses</h2>
+            <p>Optional participating dividends and maturity benefit</p>
+          </div>
+          <span class="div-annuity-disclosure" aria-hidden="true"></span>
+        </summary>
+        <div class="div-annuity-bonus-body">
+          <div class="div-annuity-two-col">
+            <div class="div-annuity-field">
+              <label for="div-annuity-monthly-dividends">Total Monthly Dividends</label>
+              <div class="div-compact-currency">
+                <span>$</span>
+                <input id="div-annuity-monthly-dividends" type="text" inputmode="decimal" value="${Math.round(annuityModel.nonGuaranteedMonthlyDividends || 0).toLocaleString("en-SG")}" aria-label="Total non-guaranteed monthly dividends" />
+              </div>
+            </div>
+            <div class="div-annuity-field">
+              <label for="div-annuity-terminal">Terminal Dividend at Maturity</label>
+              <div class="div-compact-currency">
+                <span>$</span>
+                <input id="div-annuity-terminal" type="text" inputmode="decimal" value="${Math.round(annuityModel.terminalDividend || 0).toLocaleString("en-SG")}" aria-label="Terminal non-guaranteed dividend" />
+              </div>
+            </div>
+          </div>
+          <div class="div-annuity-step-row">
+            <span>Annual Dividend Step-Up</span>
+            <div class="div-segmented-inline" role="group" aria-label="Dividend step-up presets">
+              ${[0, 3, 5].map((pct) => `<button type="button" class="div-segment-btn${Math.abs((annuityModel.dividendStepUpRatePct || 5) - pct) < 0.01 ? " is-active" : ""}" data-div-annuity-step-up="${pct}" aria-pressed="${Math.abs((annuityModel.dividendStepUpRatePct || 5) - pct) < 0.01}">${pct}%</button>`).join("")}
+            </div>
+          </div>
+        </div>
+      </details>`;
     resultsHTML = buildAnnuityResultsHTML(annuityModel);
     benchHTML = buildAnnuityBenchmarksHTML(annuityModel);
   } else {

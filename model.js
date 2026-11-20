@@ -7006,197 +7006,161 @@
     deferYears = 5,
     payoutYears = 15,
     quotedMonthlyPayout = 1150,
+    nonGuaranteedMonthlyDividends = 0,
+    dividendStepUpRatePct = 5,
+    terminalDividend = 0,
+    paymentMode = "monthly",
+    bonusRealization = 1,
+    inflationRatePct = 2.5,
     benchmarkRatePct = 5.0,
     masRates = null,
   } = {}) {
-    const moPayIn = Math.max(
-      1,
-      Number.isFinite(Number(monthlyContribution))
-        ? Number(monthlyContribution)
-        : 1000,
-    );
-    const cYrs = Math.max(
-      1,
-      Math.min(
-        50,
-        Math.round(
-          Number.isFinite(Number(contributeYears))
-            ? Number(contributeYears)
-            : 15,
-        ),
-      ),
-    );
-    const dYrs = Math.max(
-      0,
-      Math.min(
-        30,
-        Math.round(
-          Number.isFinite(Number(deferYears)) ? Number(deferYears) : 0,
-        ),
-      ),
-    );
-    const pYrs = Math.max(
-      1,
-      Math.min(
-        50,
-        Math.round(
-          Number.isFinite(Number(payoutYears)) ? Number(payoutYears) : 20,
-        ),
-      ),
-    );
-    const quotedMo = Math.max(
-      0,
-      Number.isFinite(Number(quotedMonthlyPayout))
-        ? Number(quotedMonthlyPayout)
-        : 0,
-    );
-    const benchRatePct = Math.max(
-      0.5,
-      Math.min(
-        20,
-        Number.isFinite(Number(benchmarkRatePct))
-          ? Number(benchmarkRatePct)
-          : 5.0,
-      ),
-    );
-    const ssbRatePct = Number(
-      masRates?.ssb?.tenYearAvgReturn ??
-        masRates?.ssb?.year10Return ??
-        DEFAULT_MAS_LIVE_RATES.ssb.year10Return,
-    );
+    const moPayIn = Math.max(1, Number.isFinite(Number(monthlyContribution)) ? Number(monthlyContribution) : 1000);
+    const cYrs = Math.max(1, Math.min(50, Math.round(Number.isFinite(Number(contributeYears)) ? Number(contributeYears) : 15)));
+    const dYrs = Math.max(0, Math.min(30, Math.round(Number.isFinite(Number(deferYears)) ? Number(deferYears) : 0)));
+    const pYrs = Math.max(1, Math.min(50, Math.round(Number.isFinite(Number(payoutYears)) ? Number(payoutYears) : 20)));
+    const quotedMo = Math.max(0, Number.isFinite(Number(quotedMonthlyPayout)) ? Number(quotedMonthlyPayout) : 0);
+    const baseMonthlyDividends = Math.max(0, Number.isFinite(Number(nonGuaranteedMonthlyDividends)) ? Number(nonGuaranteedMonthlyDividends) : 0);
+    const realization = Math.max(0, Math.min(1, Number.isFinite(Number(bonusRealization)) ? Number(bonusRealization) : 1));
+    const stepUp = Math.max(0, Math.min(1, (Number.isFinite(Number(dividendStepUpRatePct)) ? Number(dividendStepUpRatePct) : 5) / 100));
+    const baseTerminalDividend = Math.max(0, Number.isFinite(Number(terminalDividend)) ? Number(terminalDividend) : 0);
+    const inflation = Math.max(-0.99, Math.min(1, (Number.isFinite(Number(inflationRatePct)) ? Number(inflationRatePct) : 2.5) / 100));
+    const mode = paymentMode === "annual" ? "annual" : "monthly";
+    const benchRatePct = Math.max(0.5, Math.min(20, Number.isFinite(Number(benchmarkRatePct)) ? Number(benchmarkRatePct) : 5));
+    const ssbRatePct = Number(masRates?.ssb?.tenYearAvgReturn ?? masRates?.ssb?.year10Return ?? DEFAULT_MAS_LIVE_RATES.ssb.year10Return);
 
-    const nIn = cYrs * 12;
-    const nDefer = dYrs * 12;
-    const nOut = pYrs * 12;
-    const totalPrincipalPaid = Math.round(moPayIn * nIn);
-    const totalPayoutReceived = Math.round(quotedMo * nOut);
-    const netProfitNominal = totalPayoutReceived - totalPrincipalPaid;
-    const payoutMultiple =
-      totalPrincipalPaid > 0
-        ? Math.round((totalPayoutReceived / totalPrincipalPaid) * 100) / 100
-        : 0;
+    const premiumMonths = cYrs * 12;
+    const payoutStartMonth = (cYrs + dYrs) * 12;
+    const payoutMonths = pYrs * 12;
+    const totalMonths = (cYrs + dYrs + pYrs) * 12;
+    const flows = Array(totalMonths + 1).fill(0);
 
-    // Solve exact monthly IRR where NPV(rMo) = 0, expressed as effective annual return ((1 + rMo)^12 - 1)
-    let impliedAnnualIrrPct = 0;
-    if (quotedMo <= 0) {
-      impliedAnnualIrrPct = -100;
-    } else if (Math.abs(totalPayoutReceived - totalPrincipalPaid) < 1) {
-      impliedAnnualIrrPct = 0;
+    if (mode === "monthly") {
+      for (let m = 0; m < premiumMonths; m++) flows[m] -= moPayIn;
     } else {
-      const npvAtMonthlyRate = (rm) => {
-        if (Math.abs(rm) < 1e-9)
-          return totalPayoutReceived - totalPrincipalPaid;
-        const pvIn = moPayIn * ((1 - (1 + rm) ** -nIn) / rm);
-        const pvOutAtStartOfPayout = quotedMo * ((1 - (1 + rm) ** -nOut) / rm);
-        const pvOut = pvOutAtStartOfPayout * (1 + rm) ** -(nIn + nDefer);
-        return pvOut - pvIn;
-      };
-      let lo = -0.5;
-      let hi = 0.03;
-      while (npvAtMonthlyRate(hi) > 0 && hi < 0.25) hi *= 2;
-      for (let i = 0; i < 50; i++) {
-        const mid = (lo + hi) / 2;
-        if (npvAtMonthlyRate(mid) > 0) lo = mid;
-        else hi = mid;
-      }
-      const rMoSolved = (lo + hi) / 2;
-      const effectiveAnnualPct = ((1 + rMoSolved) ** 12 - 1) * 100;
-      impliedAnnualIrrPct = Math.round(effectiveAnnualPct * 100) / 100;
+      for (let m = 0; m < premiumMonths; m += 12) flows[m] -= moPayIn * 12;
     }
 
-    // Helper: what monthly payout does investing moPayIn at effective annualPct produce over pYrs?
+    const scaledMonthlyDividends = baseMonthlyDividends * realization;
+    let year1AnnualDividend = 0;
+    if (scaledMonthlyDividends > 0 && pYrs > 0) {
+      if (stepUp === 0) {
+        year1AnnualDividend = scaledMonthlyDividends / pYrs;
+      } else {
+        let divisor = 0;
+        for (let y = 0; y < pYrs; y++) divisor += (1 + stepUp) ** y;
+        year1AnnualDividend = divisor > 0 ? scaledMonthlyDividends / divisor : 0;
+      }
+    }
+    const scaledTerminalDividend = baseTerminalDividend * realization;
+
+    for (let y = 0; y < pYrs; y++) {
+      const annualDividend = year1AnnualDividend * (1 + stepUp) ** y;
+      const monthlyDividend = annualDividend / 12;
+      for (let month = 0; month < 12; month++) {
+        const flowIndex = payoutStartMonth + y * 12 + month + 1;
+        flows[flowIndex] += quotedMo + monthlyDividend;
+      }
+    }
+    flows[totalMonths] += scaledTerminalDividend;
+
+    const totalPrincipalPaid = Math.round(mode === "monthly" ? moPayIn * premiumMonths : moPayIn * 12 * cYrs);
+    const guaranteedPayoutReceived = Math.round(quotedMo * payoutMonths);
+    const nonGuaranteedPayoutReceived = Math.round(scaledMonthlyDividends + scaledTerminalDividend);
+    const totalPayoutReceived = Math.round(guaranteedPayoutReceived + nonGuaranteedPayoutReceived);
+    const netProfitNominal = totalPayoutReceived - totalPrincipalPaid;
+    const payoutMultiple = totalPrincipalPaid > 0 ? Math.round((totalPayoutReceived / totalPrincipalPaid) * 100) / 100 : 0;
+
+    const solveMonthlyIrr = (cashFlows) => {
+      if (!cashFlows.some((v) => v > 0)) return -1;
+      const npv = (rm) => cashFlows.reduce((sum, flow, i) => sum + flow / (1 + rm) ** i, 0);
+      const derivative = (rm) => cashFlows.reduce((sum, flow, i) => i === 0 ? sum : sum - i * flow / (1 + rm) ** (i + 1), 0);
+      let rm = 0.004;
+      for (let i = 0; i < 100; i++) {
+        const value = npv(rm);
+        if (Math.abs(value) < 0.01) break;
+        const slope = derivative(rm);
+        if (!Number.isFinite(slope) || Math.abs(slope) < 1e-12) break;
+        const next = rm - value / slope;
+        if (!Number.isFinite(next) || next <= -0.99) break;
+        rm = next;
+      }
+      let lo = -0.99;
+      let hi = 1;
+      if (npv(lo) * npv(hi) > 0) {
+        for (let i = 0; i < 200 && npv(lo) * npv(hi) > 0; i++) hi *= 2;
+      }
+      if (npv(lo) * npv(hi) <= 0) {
+        for (let i = 0; i <= 100; i++) {
+          const mid = (lo + hi) / 2;
+          if (npv(mid) === 0) { lo = hi = mid; break; }
+          if (npv(lo) * npv(mid) <= 0) hi = mid;
+          else lo = mid;
+        }
+        rm = (lo + hi) / 2;
+      }
+      return rm;
+    };
+    const monthlyIrr = solveMonthlyIrr(flows);
+    const impliedAnnualIrrPct = Math.round((((1 + monthlyIrr) ** 12 - 1) * 100) * 100) / 100;
+    const realAnnualIrrPct = Math.round((((1 + impliedAnnualIrrPct / 100) / (1 + inflation) - 1) * 100) * 100) / 100;
+
     const calcDiyAnnuity = (annualPct) => {
-      const clampedAnnual = Math.max(-99.9, Number(annualPct) || 0) / 100;
-      const rm = clampedAnnual === 0 ? 0 : (1 + clampedAnnual) ** (1 / 12) - 1;
-      const fvContribute =
-        Math.abs(rm) > 1e-9
-          ? moPayIn * (((1 + rm) ** nIn - 1) / rm)
-          : moPayIn * nIn;
-      const potAtPayoutStart = Math.max(0, fvContribute * (1 + rm) ** nDefer);
-      const monthlyDraw =
-        Math.abs(rm) > 1e-9
-          ? (potAtPayoutStart * rm) / (1 - (1 + rm) ** -nOut)
-          : potAtPayoutStart / nOut;
-      const perpetualInterestMo = Math.max(0, potAtPayoutStart * rm);
+      const rm = (1 + annualPct / 100) ** (1 / 12) - 1;
+      let pot = 0;
+      for (let m = 0; m < premiumMonths; m++) {
+        pot = (pot + (mode === "monthly" ? moPayIn : (m % 12 === 0 ? moPayIn * 12 : 0))) * (1 + rm);
+      }
+      for (let m = premiumMonths; m < payoutStartMonth; m++) pot *= 1 + rm;
+      const monthlyDraw = rm === 0 ? pot / payoutMonths : pot * rm / (1 - (1 + rm) ** -payoutMonths);
+      const totalPayout = monthlyDraw * payoutMonths;
       return {
         ratePct: annualPct,
-        potAtPayoutStart: Math.round(potAtPayoutStart),
+        potAtPayoutStart: Math.round(pot),
         monthlyPayout: Math.round(monthlyDraw * 100) / 100,
-        totalPayout: Math.round(monthlyDraw * nOut),
-        perpetualMonthly: Math.round(perpetualInterestMo * 100) / 100,
-        monthlyDeltaVsQuoted: Math.round((monthlyDraw - quotedMo) * 100) / 100,
+        totalPayout: Math.round(totalPayout),
+        perpetualMonthly: Math.round(pot * rm * 100) / 100,
+        monthlyDeltaVsQuoted: Math.round((monthlyDraw - (quotedMo + (scaledMonthlyDividends / payoutMonths))) * 100) / 100,
       };
     };
-
     const diySsb = calcDiyAnnuity(ssbRatePct);
-    const diyCpfSa = calcDiyAnnuity(4.0);
+    const diyCpfSa = calcDiyAnnuity(4);
     const diyBench = calcDiyAnnuity(benchRatePct);
 
+    const startingMonthlyPayout = quotedMo + (pYrs > 0 ? year1AnnualDividend / 12 : 0);
+    const finalMonthlyPayout = quotedMo + (pYrs > 0 ? year1AnnualDividend * (1 + stepUp) ** (pYrs - 1) / 12 : 0);
     let verdictKey = "fair";
     let tone = "info";
     let badge = "Fair Risk-Free Floor";
     let headline = `Implied return is ${impliedAnnualIrrPct.toFixed(2)}% p.a.`;
-    let summary = "";
-
+    let summary = `Guaranteed payout: $${quotedMo.toLocaleString("en-SG")}/mo. Participating income: $${Math.round(startingMonthlyPayout - quotedMo).toLocaleString("en-SG")}/mo in Year 1, step-up to $${Math.round(finalMonthlyPayout - quotedMo).toLocaleString("en-SG")}/mo in the final year. Maturity dividend: $${scaledTerminalDividend.toLocaleString("en-SG")}.`;
     if (impliedAnnualIrrPct < 2.5) {
       verdictKey = "endowment-trap";
       tone = "danger";
-      badge = "Sub-Benchmark · Trails 2.5% Inflation & CPF OA";
-      headline = `Implied yield is only ${impliedAnnualIrrPct.toFixed(2)}% p.a. — trails 2.5% inflation & CPF OA`;
-      summary = `Although ${payoutMultiple.toFixed(2)}x total payout (\$${totalPayoutReceived.toLocaleString("en-SG")}) looks higher than your \$${totalPrincipalPaid.toLocaleString("en-SG")} principal, locking money for ${cYrs + dYrs + pYrs} years at ${impliedAnnualIrrPct.toFixed(2)}% p.a. loses to CPF SA (4.0%, which pays \$${Math.round(diyCpfSa.monthlyPayout).toLocaleString("en-SG")}/mo) and DIY investing at ${benchRatePct.toFixed(1)}% (\$${Math.round(diyBench.monthlyPayout).toLocaleString("en-SG")}/mo).`;
-    } else if (impliedAnnualIrrPct < 4.0) {
+      badge = "Sub-Benchmark · Trails 2.5% Inflation";
+      headline = `Implied yield is only ${impliedAnnualIrrPct.toFixed(2)}% p.a.`;
+    } else if (impliedAnnualIrrPct < 4) {
       verdictKey = "below-cpf-sa";
       tone = "warn";
       badge = "Below Hurdle · Trails 4.0% Risk-Free Rate";
-      headline = `${impliedAnnualIrrPct.toFixed(2)}% p.a. beats inflation but trails risk-free CPF SA (4.0%)`;
-      summary = `Paying \$${moPayIn.toLocaleString("en-SG")}/mo for ${cYrs} yrs into a 4.0% floor builds \$${diyCpfSa.potAtPayoutStart.toLocaleString("en-SG")} and pays \$${Math.round(diyCpfSa.monthlyPayout).toLocaleString("en-SG")}/mo (+\$${Math.round(Math.max(0, diyCpfSa.monthlyPayout - quotedMo)).toLocaleString("en-SG")}/mo more than this plan).`;
+      headline = `${impliedAnnualIrrPct.toFixed(2)}% p.a. trails the 4.0% CPF SA benchmark`;
     } else if (impliedAnnualIrrPct <= 6.5) {
       verdictKey = "worth-it";
       tone = "good";
       badge = "Outperforms · Beats 4.0% Risk-Free Hurdle";
-      headline = `Strong ${impliedAnnualIrrPct.toFixed(2)}% p.a. implied return across ${cYrs + dYrs + pYrs} years`;
-      summary = `Receiving \$${quotedMo.toLocaleString("en-SG")}/mo for ${pYrs} yrs delivers ${impliedAnnualIrrPct.toFixed(2)}% p.a., outperforming the 4.0% CPF SA floor (\$${Math.round(diyCpfSa.monthlyPayout).toLocaleString("en-SG")}/mo). Verify how much of the payout is guaranteed vs non-guaranteed bonus.`;
+      headline = `Strong ${impliedAnnualIrrPct.toFixed(2)}% p.a. nominal implied return`;
     } else {
       verdictKey = "high-risk-projection";
       tone = "warn";
       badge = "Elevated · Non-Guaranteed Projection";
       headline = `${impliedAnnualIrrPct.toFixed(2)}% p.a. exceeds typical guaranteed annuity floors`;
-      summary = `No Singapore endowment or annuity guarantees ${impliedAnnualIrrPct.toFixed(2)}% p.a. Check the policy illustration’s guaranteed surrender value, or invest directly in low-cost Global/SG ETFs with full liquidity.`;
     }
 
     const comparisons = [
-      {
-        key: "quoted",
-        label: "Quoted Annuity Plan",
-        sub: `$${moPayIn.toLocaleString("en-SG")}/mo × ${cYrs}y term${dYrs > 0 ? ` · ${dYrs}y deferment` : ""} · ${pYrs}y payout`,
-        ratePct: impliedAnnualIrrPct,
-        potAtPayoutStart: Math.round(
-          calcDiyAnnuity(impliedAnnualIrrPct).potAtPayoutStart,
-        ),
-        monthlyPayout: quotedMo,
-        totalPayout: totalPayoutReceived,
-        perpetualMonthly: 0,
-        monthlyDeltaVsQuoted: 0,
-        isQuoted: true,
-      },
-      {
-        key: "ssb",
-        label: "DIY · MAS 10Y SSB Floor",
-        sub: "100% liquid sovereign floor · $0 lock-in penalty",
-        ...diySsb,
-      },
-      {
-        key: "cpf-sa",
-        label: "DIY · CPF SA / RA (4.0% Floor)",
-        sub: "AAA risk-free statutory rate",
-        ...diyCpfSa,
-      },
-      {
-        key: "diy-bench",
-        label: `DIY · Portfolio @ ${benchRatePct.toFixed(1)}% p.a.`,
-        sub: `$${diyBench.potAtPayoutStart.toLocaleString("en-SG")} accumulated value · ~$${Math.round(diyBench.perpetualMonthly).toLocaleString("en-SG")}/mo perpetual yield`,
-        ...diyBench,
-      },
+      { key: "quoted", label: "Participating Annuity", sub: `${mode === "annual" ? "Annual" : "Monthly"} premium · ${pYrs}y payout`, ratePct: impliedAnnualIrrPct, potAtPayoutStart: Math.round(calcDiyAnnuity(impliedAnnualIrrPct).potAtPayoutStart), monthlyPayout: startingMonthlyPayout, totalPayout: totalPayoutReceived, perpetualMonthly: 0, monthlyDeltaVsQuoted: 0, isQuoted: true },
+      { key: "ssb", label: "DIY · MAS 10Y SSB Floor", sub: "100% liquid sovereign floor · $0 lock-in penalty", ...diySsb },
+      { key: "cpf-sa", label: "DIY · CPF SA / RA (4.0% Floor)", sub: "AAA risk-free statutory rate · same premium cash flows", ...diyCpfSa },
+      { key: "diy-bench", label: `DIY · Portfolio @ ${benchRatePct.toFixed(1)}% p.a.`, sub: "Same premium, deferment and payout duration", ...diyBench },
     ];
 
     return {
@@ -7205,12 +7169,28 @@
       deferYears: dYrs,
       payoutYears: pYrs,
       quotedMonthlyPayout: quotedMo,
+      nonGuaranteedMonthlyDividends: baseMonthlyDividends,
+      dividendStepUpRatePct: dividendStepUpRatePct,
+      terminalDividend: baseTerminalDividend,
+      paymentMode: mode,
+      bonusRealization: realization,
+      inflationRatePct: inflationRatePct,
+      year1AnnualDividend,
+      scaledMonthlyDividends,
+      scaledTerminalDividend,
+      startingMonthlyPayout,
+      finalMonthlyPayout,
+      blendedMonthlyPayout: startingMonthlyPayout,
+      guaranteedPayoutReceived,
+      nonGuaranteedPayoutReceived,
       benchmarkRatePct: benchRatePct,
       totalPrincipalPaid,
       totalPayoutReceived,
       netProfitNominal,
       payoutMultiple,
       impliedAnnualIrrPct,
+      realAnnualIrrPct,
+      flows,
       diySsb,
       diyCpfSa,
       diyBench,
