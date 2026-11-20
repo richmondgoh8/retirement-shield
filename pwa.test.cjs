@@ -55,6 +55,14 @@ test("manifest identity, scope, launch and shortcuts remain within the app", () 
   assert.equal(new URL(manifest.scope, base).href, base.href);
 });
 
+test("narrow PWA header keeps the update banner bounded", () => {
+  const css = fs.readFileSync("styles.css", "utf8");
+  assert.match(
+    css,
+    /@media \(max-width: 370px\)\s*\{[^]*?\.header-actions \.update-ready-button\s*\{[^]*?max-width:\s*112px;[^]*?min-width:\s*112px;/,
+  );
+});
+
 test("production HTML and CSS reference existing local hashed files and no external font CDN", () => {
   const html = fs.readFileSync("dist/index.html", "utf8");
   assert.equal(html.includes("fonts.googleapis.com"), false);
