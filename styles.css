@@ -9809,6 +9809,53 @@ button.fin-saving-card:hover {
     box-shadow var(--duration-fast) ease;
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  .div-mode-tab {
+    transition:
+      transform var(--duration-fast) var(--ease),
+      border-color var(--duration-fast) ease,
+      background var(--duration-fast) ease,
+      box-shadow var(--duration-fast) ease;
+  }
+
+  .div-mode-tab:not(:disabled):active {
+    transform: scale(0.985);
+  }
+
+  @keyframes divTabActivate {
+    from {
+      transform: translateY(2px);
+      box-shadow: 0 0 0 0 var(--primary-border);
+    }
+    to {
+      transform: translateY(0);
+      box-shadow: 0 0 0 1px var(--primary-border);
+    }
+  }
+
+  .div-mode-tab.is-active {
+    animation: divTabActivate 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  @keyframes divPanelUpdate {
+    from {
+      opacity: 0.72;
+      transform: translateY(5px);
+      filter: blur(2px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+    }
+  }
+
+  .div-calc-results.is-div-updating,
+  .div-bench-card.is-div-updating {
+    animation: divPanelUpdate 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+}
+
 .div-mode-tab:hover {
   border-color: var(--border-strong);
   background: var(--surface-subtle);
@@ -10435,7 +10482,7 @@ code {
   }
 }
 
-/* Print Layout (FinScope Porcelain-Slate A4 Landscape 1-Page Blueprint Poster) */
+/* Print Layout (FinScope Porcelain-Slate A4 Landscape 1-Page Blueprint Summary) */
 
 @media print {
   @page {

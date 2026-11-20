@@ -2199,6 +2199,22 @@ function setupSimplePlan() {
     });
 
     const marginalTaxPct = `${(tax.taxBefore.marginalRate * 100).toFixed(1).replace(/\.0$/, "")}%`;
+    const animateDividendUpdate = () => {
+      if (
+        window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
+      ) return;
+      const targets = [
+        dividendCalcSlot?.querySelector("#div-calc-results-pane"),
+        dividendCalcSlot?.querySelector("#dividend-benchmarks-card"),
+      ].filter(Boolean);
+      requestAnimationFrame(() => {
+        targets.forEach((target) => {
+          target.classList.remove("is-div-updating");
+          void target.offsetWidth;
+          target.classList.add("is-div-updating");
+        });
+      });
+    };
     const renderDividendTabNow = () => {
       if (!dividendCalcSlot) return;
       const ssbRefPct =
@@ -2348,6 +2364,7 @@ function setupSimplePlan() {
               ? `${Number(annuityModel.impliedAnnualIrrPct || 0).toFixed(1)}%`
               : `${Number(divCalcRatePct || 0).toFixed(1)}%`;
       }
+      animateDividendUpdate();
     };
     renderDividendTabOnly = renderDividendTabNow;
     renderOrDeferTab("dividend-calc", renderDividendTabNow);
@@ -4720,7 +4737,7 @@ function setupSimplePlan() {
     if (flushed) render();
   };
 
-  const triggerPrintPoster = () => {
+  const triggerPrintSummary = () => {
     flushPendingRender();
     flushPrintSheet();
     window.print();
@@ -4729,7 +4746,7 @@ function setupSimplePlan() {
     flushPendingRender();
     flushPrintSheet();
   });
-  $("#print-plan-btn")?.addEventListener("click", triggerPrintPoster);
+  $("#print-plan-btn")?.addEventListener("click", triggerPrintSummary);
 
   const exportPlanJson = (btn) => {
     flushPendingRender();
@@ -4887,7 +4904,7 @@ function setupSimplePlan() {
   });
   document.addEventListener("click", (event) => {
     if (event.target?.closest?.("[data-print-trigger]")) {
-      triggerPrintPoster();
+      triggerPrintSummary();
     }
   });
   const scrollTopBtn = $("#scroll-top-btn");

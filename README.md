@@ -20,7 +20,7 @@ For browser development with the service worker active, enable DevTools -> Appli
 
 ## Structure
 
-- `index.html`, `styles.css`, `app.js` — 6-tab FinScope workspace (`Overview`, `Trajectory`, `Allocator`, `Cash Parking`, `Tax Relief`, `CPF Milestones`), `My Settings`, focused `<dialog>` modals, and 1-page A4 print poster.
+- `index.html`, `styles.css`, `app.js` — 6-tab FinScope workspace (`Overview`, `Trajectory`, `Allocator`, `Cash Parking`, `Tax Relief`, `CPF Milestones`), `My Settings`, focused `<dialog>` modals, and 1-page A4 Print Summary.
 - `model.js` — Pure calculation engine (`RetirementModel`) for CPF projections, scenario targets, SRS/Boglehead/MAS taps, housing loan checks, and print report models.
 - `DESIGN.md`, `PRODUCT.md` — Authoritative Porcelain-Slate design system specification and product brief.
 - `sw.js`, `manifest.webmanifest`, `assets/` — Offline service worker, PWA manifest, self-hosted Inter Variable font (`assets/inter-latin.woff2`, `assets/OFL.txt`), and unified Swell Rose-Pink SVG/PNG icons.

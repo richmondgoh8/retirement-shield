@@ -3800,7 +3800,7 @@
     };
   }
 
-  // Unified multi-bucket simulation & Auto-investment solver so Overview, Trajectory, and Print Poster share 100% identical numbers.
+  // Unified multi-bucket simulation & Auto-investment solver so Overview, Trajectory, and Print Summary share 100% identical numbers.
   function solveBucketAwareSimulation(
     rawP,
     selectedKey = "salary",

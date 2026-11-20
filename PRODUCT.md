@@ -43,7 +43,7 @@ Used on desktop browsers for deep multi-tab scenario modeling (`Overview`, `Traj
 ## Product Principles
 
 1. **Real-Dollar Honesty:** Present future retirement spending and multi-tap drawdowns in today's purchasing power first, explicitly labeling nominal statutory figures whenever IRAS or CPF rules fix caps in nominal dollars.
-2. **One Coherent Plan Across Every Surface:** Changing a salary, lifestyle preset, custom expense item, or Trajectory saving override must reconcile identically across Overview KPIs, charts, modals, and the 1-page A4 Print Poster.
+2. **One Coherent Plan Across Every Surface:** Changing a salary, lifestyle preset, custom expense item, or Trajectory saving override must reconcile identically across Overview KPIs, charts, modals, and the 1-page A4 Print Summary.
 3. **Statutory Guardrails Over Guesswork:** Proactively surface CPF wage ceilings, Basic Healthcare Sum overflows, mortgage OA shortfalls, idle `0.05%` SRS cash drag, and SRS ballooning tax traps before they distort a plan.
 4. **Zero-Trust Local Privacy:** Never add external fonts, analytics pixels, or server round-trips; the app must load and print cleanly completely offline.
 

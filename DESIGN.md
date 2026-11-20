@@ -235,14 +235,14 @@ components:
 
 Retirement Shield operates as a quiet, daylight-first Singapore financial planning desk. Long-horizon decisions about CPF LIFE, housing adequacy, SRS tax bridges, and outside investments carry high cognitive weight; the interface lowers anxiety through crisp porcelain-slate ground (`#f4f6fa`), pure white bento cards (`#ffffff`), generous breathing room between analytical modules, and crisp tabular numerals that align to the pixel across interactive views and exported A4 print sheets.
 
-Density is deliberate and structured rather than sparse or cramped: top-level executive KPIs summarize readiness at a glance, progressive-disclosure `<dialog>` modals isolate focused parameter edits without cluttering the dashboard, and multi-series charts pair clean hairline geometry with invariant semantic asset colors. Legacy dark-navy slabs, sage-parchment cards, warm cream canvases, and decorative thick side-border stripes are explicitly retired so every surface—from mobile standalone PWA to the 1-page A4 Print Poster—reads as one cohesive FinScope / Swell workspace.
+Density is deliberate and structured rather than sparse or cramped: top-level executive KPIs summarize readiness at a glance, progressive-disclosure `<dialog>` modals isolate focused parameter edits without cluttering the dashboard, and multi-series charts pair clean hairline geometry with invariant semantic asset colors. Legacy dark-navy slabs, sage-parchment cards, warm cream canvases, and decorative thick side-border stripes are explicitly retired so every surface—from mobile standalone PWA to the 1-page A4 Print Summary—reads as one cohesive FinScope / Swell workspace.
 
 **Key Characteristics:**
 
 - **Porcelain-Slate Daylight Ground:** Cool porcelain canvas (`#f4f6fa`) paired with pure white cards (`#ffffff`) and subtle hairline borders (`#edf0f7`) for effortless scanning in bright ambient light and ink-light A4 printing.
 - **Invariant Semantic Asset Coding:** Every financial bucket (CPF, Global/SG Equities, SRS, Cash/SSB, Shortfall) retains one dedicated hue across charts, 4-Tap drawdown cards, paycheck waterfalls, modals, and print.
 - **Tabular Actuarial Numerals:** Self-hosted `Inter Variable` with `font-variant-numeric: tabular-nums` and optical currency unit de-emphasis (`.curr-wrap`) so dollar columns never jitter as sliders move.
-- **Screen-to-Print 1:1 Identity:** The 1-page A4 Print Poster mirrors the live FinScope header card, brand mark, semantic palette, and computed model state without switching to an alien dark-banner template.
+- **Screen-to-Print 1:1 Identity:** The 1-page A4 Print Summary mirrors the live FinScope header card, brand mark, semantic palette, and computed model state without switching to an alien dark-banner template.
 
 ## Token Architecture & Modes
 
@@ -283,7 +283,7 @@ The palette balances authoritative cobalt action controls and signature Swell ro
 
 ### Named Rules
 
-**The Semantic Asset Invariant Rule.** Every wealth bucket owns one immutable color across all 7 workspace views, all 4 modals, and the A4 Print Poster (`CPF = Emerald`, `Equities = Cobalt/Sky`, `SRS = Violet`, `Cash/SSB = Amber`, `Post-55 OA Tap = Teal`, `Deficit/Trap = Crimson`). Never repurpose Shortfall Crimson (`#dc2626`) for safe Cash/SSB buffers or swap CPF and Equities colors between adjacent widgets.
+**The Semantic Asset Invariant Rule.** Every wealth bucket owns one immutable color across all 7 workspace views, all 4 modals, and the A4 Print Summary (`CPF = Emerald`, `Equities = Cobalt/Sky`, `SRS = Violet`, `Cash/SSB = Amber`, `Post-55 OA Tap = Teal`, `Deficit/Trap = Crimson`). Never repurpose Shortfall Crimson (`#dc2626`) for safe Cash/SSB buffers or swap CPF and Equities colors between adjacent widgets.
 
 **The Rose Restraint Rule.** Swell Rose (`#e83e8c` / `#ec4899`) marks brand identity, active navigation cues, and the print action—never validation errors or body paragraphs. Whenever rose text appears on `#fdf2f8`, use Deep Rose Ink (`#be185d`, `5.53:1`) so small label contrast stays comfortably above `4.5:1`.
 
@@ -343,7 +343,7 @@ Retirement Shield uses a **quiet-resting, crisp-floating** hybrid depth model: r
 ## Shapes
 
 - **Outer Bento & Modal Radius (`16px` / `--radius-lg`):** Primary analytical cards, hero containers, and `<dialog>` modal frames.
-- **Secondary Card & Callout Radius (`12px` / `--radius-md`):** Executive KPI cards, 4-Tap income cards, Cash Parking tiles, and Print Poster modules.
+- **Secondary Card & Callout Radius (`12px` / `--radius-md`):** Executive KPI cards, 4-Tap income cards, Cash Parking tiles, and Print Summary modules.
 - **Control & Input Radius (`8px` / `--radius-sm`):** Text/number inputs, `<select>` menus, standard action buttons, segmented sub-blocks, and brand badge squircle.
 - **Pill Geometry (`999px`):** Status verdicts (`.status-pill`), header Print button, lifestyle switcher pill, filter chips, toggle tracks, and segmented control gliders.
 - **Clean Hairline Framing:** Containers are bounded by uniform `1px solid` borders (`#edf0f7` at rest, `#d8dee9` on inputs/print). Thick `3px–4px` colored `border-left` or `border-top` stripes on rounded cards are banned; semantic status is signaled via compact dots, icon badges, or soft pill fills.
@@ -409,7 +409,7 @@ Grounded in Figma's **5 Dimensions of Interaction Design** (Words, Visuals, Phys
 - **Desktop Sidebar:** `244px` white rail with Swell Rose `.fin-brand-badge` header, `role="tablist"` navigation buttons showing live tabular status badges (`83%`, `Age 65`, `60/40`, `2.86%`, `SRS`, `Sal`/`FRS`/`ERS`), and collapsible `72px` icon mode.
 - **Mobile Tabbar (`<= 960px`):** Fixed bottom 5-item bar (grouping `Allocator` + `Dividend & Yield` and `Tax Relief` + `CPF Milestones`) with clear active Cobalt/Rose indicator and safe-area inset padding.
 
-### Signature Component: 1-Page A4 Print Poster (`#print-sheet`)
+### Signature Component: 1-Page A4 Print Summary (`#print-sheet`)
 
 - **Purpose:** Self-contained executive retirement blueprint designed specifically for `A4 landscape` (`6.5mm 8mm` margins) physical printing and PDF export.
 - **Structure:** Opens with a light Porcelain-Slate & White FinScope masthead card (`.fin-brand-badge` SVG + plan title + assumption chips + readiness status pill), followed by the 5-card KPI strip, starting CPF/outside portfolio breakdown, full-series net worth area chart (`forcedSeries: "all"`), readiness gauge, Age-65 spending donut, 4-Tap retirement income table in real today-dollars, paycheck allocation bars, life milestones, strategy comparison table, 5-row action checklist, and statutory methodology colophon.
@@ -427,7 +427,7 @@ Grounded in Figma's **5 Dimensions of Interaction Design** (Words, Visuals, Phys
 - **Do** format all dollar figures with `tabular-nums` and `.curr-wrap` unit de-emphasis across both interactive DOM views and `#print-sheet`.
 - **Do** express retirement income taps in **today's real purchasing power** whenever rendered side-by-side, explicitly tagging any nominal statutory cap (such as the `$40,000/yr` tax-free SRS drawdown band) as nominal.
 - **Do** separate locked `SRS` balances from liquid outside investments (`Global Equities`, `SG Dividends`, `Cash/SSB`) in asset summaries and breakdowns.
-- **Do** self-host all fonts (`assets/inter-latin.woff2`) and inline SVG icons so the PWA and A4 print poster render identically with zero network connectivity.
+- **Do** self-host all fonts (`assets/inter-latin.woff2`) and inline SVG icons so the PWA and A4 Print Summary render identically with zero network connectivity.
 - **Do** hide transient viewport chrome (`#ui-toast`, `.app-sidebar`, `.mobile-tabbar`, `<dialog>` backdrops, help popovers) in `@media print` and omit `tabindex` inside `aria-hidden="true"` print containers.
 - **Do** pair disabled controls with explanatory context and keep every interactive state (`hover`, `active`, `focus-visible`, `disabled`, `loading`, `confirmed`, `error`, `pressed`) consistent across buttons.
 
