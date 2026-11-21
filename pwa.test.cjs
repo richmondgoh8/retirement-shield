@@ -1,8 +1,11 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const vm = require("node:vm");
+const { execFileSync } = require("node:child_process");
+const { buildSync } = require("esbuild");
 const sharp = require("sharp");
 
 const manifest = JSON.parse(fs.readFileSync("dist/manifest.webmanifest"));
@@ -63,7 +66,7 @@ test("narrow PWA header keeps the update banner bounded", () => {
   );
 });
 
-test("Account, housing and profile inputs have one editor in Settings", () => {
+test("Account, housing and profile inputs share one contextual form", () => {
   const html = fs.readFileSync("index.html", "utf8");
   const quickEdit = html
     .split('id="quick-edit-modal"')[1]
@@ -144,12 +147,7 @@ test("service worker is valid JS with concrete build revision, bounded cache, an
     /<meta name="app-revision" content="([a-f0-9]{12})"/,
   );
   assert.ok(revMatch, "index.html should embed 12-hex app-revision meta tag");
-  assert.ok(
-    distSw.includes(`retirement-shield-${revMatch[1]}`),
-    "dist/sw.js cache version should match dist/index.html app-revision",
-  );
-
-  const app = fs.readFileSync("app.js", "utf8");
+  const app = fs.readFileSync("src/app/pwa-updates.js", "utf8");
   assert.match(app, /register\("sw\.js", \{ updateViaCache: "none" \}\)/);
   assert.match(
     app,
@@ -160,6 +158,54 @@ test("service worker is valid JS with concrete build revision, bounded cache, an
     app,
     /if \(reloadingOnSwChange\) \{\s*window\.location\.reload\(\)/,
   );
+});
+
+test("a worker-only change generates a new production revision", () => {
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "rs-worker-build-"));
+  try {
+    for (const asset of [
+      "tools/build.mjs",
+      "src",
+      "assets",
+      "app.js",
+      "model.js",
+      "index.html",
+      "styles.css",
+      "manifest.webmanifest",
+      "favicon.ico",
+      "favicon.svg",
+      "sw.js",
+    ]) {
+      fs.cpSync(asset, path.join(fixture, asset), { recursive: true });
+    }
+    fs.symlinkSync(
+      path.resolve("node_modules"),
+      path.join(fixture, "node_modules"),
+      "junction",
+    );
+    const build = () => {
+      execFileSync(process.execPath, ["tools/build.mjs"], { cwd: fixture });
+      const html = fs.readFileSync(
+        path.join(fixture, "dist/index.html"),
+        "utf8",
+      );
+      return html.match(
+        /<meta name="app-revision" content="([a-f0-9]{12})"/,
+      )[1];
+    };
+    const before = build();
+    const worker = path.join(fixture, "sw.js");
+    const source = fs.readFileSync(worker, "utf8");
+    const changed = source.replace(
+      "Offline asset unavailable.",
+      "Asset unavailable offline.",
+    );
+    assert.notEqual(changed, source);
+    fs.writeFileSync(worker, changed);
+    assert.notEqual(build(), before);
+  } finally {
+    fs.rmSync(fixture, { recursive: true, force: true });
+  }
 });
 
 test("static structural invariants: defined CSS tokens, print font floor, and unique HTML IDs", () => {
@@ -279,11 +325,12 @@ test("service worker runtime behavior: install precache, stale cache eviction, s
       },
     ],
   });
-  const builtCacheName = swSrc.match(/CACHE_NAME="([^"]+)"/)?.[1];
+  const builtRevision = fs
+    .readFileSync("dist/index.html", "utf8")
+    .match(/<meta name="app-revision" content="([a-f0-9]{12})"/)[1];
   assert.deepEqual(JSON.parse(JSON.stringify(versionMessage)), {
-    cacheVersion: builtCacheName,
+    cacheVersion: `retirement-shield-${builtRevision}`,
   });
-  assert.match(builtCacheName || "", /^retirement-shield-[a-f0-9]{12}$/);
   listeners.get("message")({ data: { type: "SKIP_WAITING" } });
   assert.equal(skipWaitingCalls, 1);
 
@@ -296,13 +343,18 @@ test("service worker runtime behavior: install precache, stale cache eviction, s
   });
   await waitPromise;
   const activeCacheName = [...cacheMap.keys()][0];
-  assert.ok(activeCacheName.startsWith("retirement-shield-"));
+  const cachePrefix = `retirement-shield:${encodeURIComponent(sandbox.self.registration.scope)}:`;
+  assert.equal(activeCacheName, cachePrefix + builtRevision);
   const activeStore = cacheMap.get(activeCacheName);
   const shellUrl = "https://example.test/retirement-shield/index.html";
   assert.ok(activeStore.has(shellUrl), "install must precache index.html");
 
-  // 2. Activate deletes stale caches with same prefix
-  cacheMap.set("retirement-shield-oldrev", new Map());
+  // 2. Activate evicts previous revisions of this installation only.
+  const oldCacheName = cachePrefix + "oldrev";
+  const otherScopeCache = `retirement-shield:${encodeURIComponent("https://example.test/preview/")}:${builtRevision}`;
+  cacheMap.set(oldCacheName, new Map());
+  cacheMap.set(otherScopeCache, new Map());
+  cacheMap.set("retirement-shield-legacyrev", new Map());
   cacheMap.set("unrelated-cache", new Map());
   listeners.get("activate")({
     waitUntil(p) {
@@ -310,7 +362,9 @@ test("service worker runtime behavior: install precache, stale cache eviction, s
     },
   });
   await waitPromise;
-  assert.equal(cacheMap.has("retirement-shield-oldrev"), false);
+  assert.equal(cacheMap.has(oldCacheName), false);
+  assert.equal(cacheMap.has(otherScopeCache), true);
+  assert.equal(cacheMap.has("retirement-shield-legacyrev"), true);
   assert.equal(cacheMap.has("unrelated-cache"), true);
   assert.equal(cacheMap.has(activeCacheName), true);
 
@@ -359,24 +413,57 @@ test("service worker runtime behavior: install precache, stale cache eviction, s
   // 5. mas-rates.json uses network-first and falls back to precached JSON offline
   const masUrl = "https://example.test/retirement-shield/assets/mas-rates.json";
   listeners.get("fetch")({
-    request: { method: "GET", mode: "cors", url: masUrl },
+    request: { method: "GET", mode: "cors", url: masUrl + "?sync=1" },
     respondWith(p) {
       respPromise = p;
     },
   });
   const masOfflineResp = await respPromise;
   assert.equal(await masOfflineResp.text(), `body-v1:${masUrl}`);
+  listeners.get("fetch")({
+    request: {
+      method: "GET",
+      mode: "cors",
+      url: "https://example.test/other-app/assets/mas-rates.json",
+    },
+    respondWith() {
+      assert.fail("Rates outside this installation must pass through");
+    },
+  });
 });
 
-test("dev SW precaches all src/app modules and dist/index.html loads IIFE app bundle as classic defer script", () => {
+test("dev SW precaches the browser import graph and dist loads the classic defer bundle", () => {
   const devSw = fs.readFileSync("sw.js", "utf8");
-  const appModules = fs
-    .readdirSync(path.join("src", "app"))
-    .filter((f) => f.endsWith(".js"));
-  for (const mod of appModules) {
+  const shell = new Set(
+    vm.runInNewContext(devSw + "\nAPP_SHELL;", {
+      URL,
+      self: {
+        registration: { scope: "https://example.test/retirement-shield/" },
+        addEventListener() {},
+      },
+    }),
+  );
+  const { metafile } = buildSync({
+    entryPoints: ["app.js"],
+    bundle: true,
+    write: false,
+    metafile: true,
+  });
+  for (const file of [
+    ...Object.keys(metafile.inputs),
+    "index.html",
+    "model.js",
+    "styles.css",
+  ]) {
     assert.ok(
-      devSw.includes(`./src/app/${mod}`),
-      `Dev sw.js APP_SHELL must include ./src/app/${mod}`,
+      shell.has(`./${file}`),
+      `Missing ./${file} from the source precache`,
+    );
+  }
+  for (const file of shell) {
+    assert.ok(
+      fs.existsSync(file),
+      `Source precache file does not exist: ${file}`,
     );
   }
   const distHtml = fs.readFileSync(path.join("dist", "index.html"), "utf8");

@@ -1,15 +1,41 @@
-import {
-  $,
-  m,
-  compactMoney,
-  svgCompactMoney,
-  svgMoney,
-  buildSmoothSpline,
-  niceAxis,
-} from "./format.js";
+import { $, m, compactMoney, svgCompactMoney, svgMoney } from "./format.js";
 
 let trajectoryInspectedAge = null;
 let onTrajectoryInspectAge = null;
+
+function buildSmoothSpline(coords, minY, maxY) {
+  if (!coords.length) return "";
+  if (coords.length === 1) return `M ${coords[0].x} ${coords[0].y}`;
+  const clampY = (y) => Math.max(minY, Math.min(maxY, y));
+  let d = `M ${coords[0].x.toFixed(1)} ${clampY(coords[0].y).toFixed(1)}`;
+  for (let i = 0; i < coords.length - 1; i++) {
+    const p0 = coords[Math.max(0, i - 1)];
+    const p1 = coords[i];
+    const p2 = coords[i + 1];
+    const p3 = coords[Math.min(coords.length - 1, i + 2)];
+    const tension = 0.22;
+    const cp1x = p1.x + (p2.x - p0.x) * tension;
+    const cp1y = clampY(p1.y + (p2.y - p0.y) * tension);
+    const cp2x = p2.x - (p3.x - p1.x) * tension;
+    const cp2y = clampY(p2.y - (p3.y - p1.y) * tension);
+    d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${clampY(p2.y).toFixed(1)}`;
+  }
+  return d;
+}
+
+function niceAxis(rawMax, steps = 4) {
+  const safeMax = Math.max(1000, rawMax);
+  const rawStep = safeMax / steps;
+  const mag = 10 ** Math.floor(Math.log10(rawStep));
+  const norm = rawStep / mag;
+  const niceNorm =
+    norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10;
+  const step = niceNorm * mag;
+  const maxVal = step * Math.ceil((safeMax * 1.05) / step);
+  const actualSteps = Math.round(maxVal / step);
+  const ticks = Array.from({ length: actualSteps + 1 }, (_, i) => i * step);
+  return { maxVal, ticks };
+}
 
 function announceChartStatus(text) {
   const sr = document.getElementById("sr-status");

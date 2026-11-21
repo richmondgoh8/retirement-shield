@@ -134,7 +134,8 @@ const precache = [
   "./favicon.ico",
   ...assets,
 ];
-let revision = html;
+const workerSource = await readFile("sw.js", "utf8");
+let revision = html + hash(workerSource);
 for (const file of precache.filter((file) => file !== "./index.html"))
   revision += hash(await readFile(`dist/${file.slice(2)}`));
 const buildRev = hash(revision);
@@ -145,12 +146,12 @@ html = assertReplace(
   "app-revision meta tag",
 );
 await writeFile("dist/index.html", html);
-let sw = await readFile("sw.js", "utf8");
+let sw = workerSource;
 sw = assertReplace(
   sw,
-  /const CACHE_NAME = "retirement-shield-[^"]*";/,
-  `const CACHE_NAME = "retirement-shield-${buildRev}";`,
-  "SW CACHE_NAME",
+  /const CACHE_REVISION = "dev";/,
+  `const CACHE_REVISION = "${buildRev}";`,
+  "SW CACHE_REVISION",
 );
 sw = assertReplace(
   sw,

@@ -11235,7 +11235,7 @@ code {
   color: var(--ink-soft);
 }
 
-#overview-slot .fin-expense-card {
+#budget-slot .fin-expense-card {
   margin-bottom: 18px;
   gap: 8px;
 }
@@ -11307,7 +11307,7 @@ code {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  #overview-slot .fin-expense-head {
+  #budget-slot .fin-expense-head {
     gap: 8px;
   }
 
@@ -11316,7 +11316,7 @@ code {
     gap: 6px 12px;
   }
 
-  #overview-slot .exp-card-dropdown-menu {
+  #budget-slot .exp-card-dropdown-menu {
     left: 0;
     right: auto;
     max-width: calc(100vw - 64px);
@@ -11733,16 +11733,18 @@ code {
   grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 2px 16px;
   padding-block-start: 8px;
   border-block-start: 1px solid var(--border-strong);
 }
 
 .overview-hero-summary > .text-button {
+  display: inline-block;
   color: var(--ink-soft);
-  gap: 4px;
   padding: 4px 0;
-  font-size: 0.875rem;
+  font-size: inherit;
+  line-height: inherit;
   text-align: start;
 }
 
@@ -12011,7 +12013,7 @@ code {
 
 .overview-savings .overview-disclosure-card,
 #overview-methodology,
-#overview-slot .exp-breakdown-disclosure,
+#budget-slot .exp-breakdown-disclosure,
 #overview-slot .tap-accordion {
   box-shadow: none;
 }
@@ -12061,23 +12063,23 @@ code {
 }
 
 @media (max-width: 720px) {
-  #overview-slot .ember-ledger-table.fin-table tbody {
+  #cpf-strategy-slot .ember-ledger-table.fin-table tbody {
     gap: 0;
   }
 
-  #overview-slot .ember-ledger-table.fin-table tbody tr {
+  #cpf-strategy-slot .ember-ledger-table.fin-table tbody tr {
     padding-block: 16px;
     border: 0;
     border-block-end: 1px solid var(--border);
     border-radius: 0;
   }
 
-  #overview-slot .ember-ledger-table.fin-table td:first-child {
+  #cpf-strategy-slot .ember-ledger-table.fin-table td:first-child {
     padding-block-end: 0;
     border-block-end: 0;
   }
 
-  #overview-slot .ember-ledger-table.fin-table td.num-cell::before {
+  #cpf-strategy-slot .ember-ledger-table.fin-table td.num-cell::before {
     white-space: normal;
     color: var(--ink-soft);
   }
@@ -12104,19 +12106,19 @@ code {
   padding: 16px 0 0;
 }
 
-#overview-slot #overview-methodology .overview-disclosure-body {
+#cpf-strategy-slot #overview-methodology .overview-disclosure-body {
   border-block-start: 0;
 }
 
-#overview-slot .fin-table-card .ledger-row-radio.is-active {
+#cpf-strategy-slot .fin-table-card .ledger-row-radio.is-active {
   box-shadow: none;
 }
 
-#overview-slot .swell-path-full-card {
+#cpf-strategy-slot .swell-path-full-card {
   margin-block-end: 0;
 }
 
-#overview-slot .fin-table-card .ember-card-head {
+#cpf-strategy-slot .fin-table-card .ember-card-head {
   gap: 16px;
   margin-block-end: 16px;
 }
@@ -12190,34 +12192,34 @@ code {
   border-block-start: 0;
 }
 
-#overview-slot .fin-expense-card {
+#budget-slot .fin-expense-card {
   gap: 16px;
 }
 
-#overview-slot .exp-breakdown-disclosure .fin-expense-body {
+#budget-slot .exp-breakdown-disclosure .fin-expense-body {
   margin-top: 16px;
 }
 
 @supports selector(details::details-content) {
-  #overview-slot .fin-expense-card {
+  #budget-slot .fin-expense-card {
     grid-template-columns: minmax(0, 1fr) auto auto;
     margin-block: 0;
     align-items: center;
   }
 
-  #overview-slot .fin-expense-head,
-  #overview-slot .fin-expense-title-col,
-  #overview-slot .fin-expense-title-row,
-  #overview-slot .exp-breakdown-disclosure,
-  #overview-slot .exp-breakdown-disclosure::details-content {
+  #budget-slot .fin-expense-head,
+  #budget-slot .fin-expense-title-col,
+  #budget-slot .fin-expense-title-row,
+  #budget-slot .exp-breakdown-disclosure,
+  #budget-slot .exp-breakdown-disclosure::details-content {
     display: contents;
   }
 
-  #overview-slot .overview-budget-total {
+  #budget-slot .overview-budget-total {
     margin: 0;
   }
 
-  #overview-slot .exp-breakdown-disclosure > .overview-disclosure-summary {
+  #budget-slot .exp-breakdown-disclosure > .overview-disclosure-summary {
     gap: 4px;
     color: var(--primary-ink);
   }
@@ -12228,55 +12230,55 @@ code {
     display: none;
   }
 
-  #overview-slot .exp-breakdown-disclosure > .overview-disclosure-body {
+  #budget-slot .exp-breakdown-disclosure > .overview-disclosure-body {
     grid-column: 1 / -1;
     border-block-start-color: var(--border-strong);
   }
 
   @media (max-width: 700px) {
-    #overview-slot .fin-expense-card {
+    #budget-slot .fin-expense-card {
       grid-template-columns: auto minmax(0, 1fr);
       gap: 8px 16px;
     }
 
-    #overview-slot .fin-expense-actions {
+    #budget-slot .fin-expense-actions {
       display: contents;
     }
 
-    #overview-slot :is(.overview-budget-total, .exp-card-dropdown-wrap) {
+    #budget-slot :is(.overview-budget-total, .exp-card-dropdown-wrap) {
       grid-column: 1 / -1;
     }
   }
 }
 
 @media (max-width: 700px) {
-  #overview-slot :is(.fin-expense-actions, .exp-card-dropdown-wrap) {
+  #budget-slot :is(.fin-expense-actions, .exp-card-dropdown-wrap) {
     width: 100%;
     min-width: 0;
   }
 
-  #overview-slot #exp-card-dropdown-label {
+  #budget-slot #exp-card-dropdown-label {
     min-width: 0;
     white-space: normal;
   }
 
-  #overview-slot .exp-card-dropdown-pill {
+  #budget-slot .exp-card-dropdown-pill {
     width: 100%;
     justify-content: space-between;
     padding-inline: 12px;
     text-align: start;
   }
 
-  #overview-slot .exp-card-dropdown-pill .header-account-avatar {
+  #budget-slot .exp-card-dropdown-pill .header-account-avatar {
     display: none;
   }
 
-  #overview-slot :is(.exp-edit-items, .exp-breakdown-disclosure > summary) {
+  #budget-slot :is(.exp-edit-items, .exp-breakdown-disclosure > summary) {
     justify-self: start;
     padding-inline: 0;
   }
 
-  #overview-slot .exp-top-list li > span {
+  #budget-slot .exp-top-list li > span {
     white-space: normal;
     overflow-wrap: anywhere;
   }
@@ -12545,39 +12547,13 @@ code {
 
 @media (max-width: 960px) {
   .mobile-tabbar {
-    grid-template-columns: minmax(0, 5fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .mobile-primary-tabs {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     min-inline-size: 0;
-  }
-
-  .mobile-more {
-    position: relative;
-  }
-
-  .mobile-more > summary {
-    list-style: none;
-    cursor: pointer;
-  }
-
-  .mobile-more > summary::-webkit-details-marker {
-    display: none;
-  }
-
-  .mobile-more-actions {
-    inset-block: auto calc(100% + 8px);
-  }
-
-  .mobile-more[open]::details-content {
-    overflow: visible;
-  }
-
-  .mobile-more[open] > summary {
-    color: var(--primary-ink);
-    background: var(--primary-soft);
   }
 
   body[data-view="overview"] #scroll-top-btn,
@@ -12686,40 +12662,40 @@ code {
     margin-inline: 0;
   }
 
-  #overview-slot .ember-ledger-table.fin-table :is(tbody, tr) {
+  #cpf-strategy-slot .ember-ledger-table.fin-table :is(tbody, tr) {
     display: grid;
   }
 
-  #overview-slot .ember-ledger-table.fin-table thead {
+  #cpf-strategy-slot .ember-ledger-table.fin-table thead {
     display: none;
   }
 
-  #overview-slot .ember-ledger-table.fin-table tbody {
+  #cpf-strategy-slot .ember-ledger-table.fin-table tbody {
     gap: 0;
   }
 
-  #overview-slot .ember-ledger-table.fin-table tr {
+  #cpf-strategy-slot .ember-ledger-table.fin-table tr {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     padding: 16px 8px;
   }
 
-  #overview-slot .ember-ledger-table.fin-table td {
+  #cpf-strategy-slot .ember-ledger-table.fin-table td {
     padding: 0;
     text-align: start;
   }
 
-  #overview-slot .ember-ledger-table.fin-table td:first-child {
+  #cpf-strategy-slot .ember-ledger-table.fin-table td:first-child {
     grid-column: 1 / -1;
   }
 
-  #overview-slot .ember-ledger-table.fin-table td.num-cell::before {
+  #cpf-strategy-slot .ember-ledger-table.fin-table td.num-cell::before {
     display: block;
     content: attr(data-label);
     color: var(--ink-soft);
     font-size: 0.72rem;
   }
 
-  #overview-slot .ember-ledger-table.fin-table .fin-table-path {
+  #cpf-strategy-slot .ember-ledger-table.fin-table .fin-table-path {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     gap: 4px 8px;
@@ -12727,21 +12703,21 @@ code {
     text-align: start;
   }
 
-  #overview-slot .fin-table-path > span:last-child {
+  #cpf-strategy-slot .fin-table-path > span:last-child {
     display: contents;
   }
 
-  #overview-slot .fin-table-path > .fin-path-icon {
+  #cpf-strategy-slot .fin-table-path > .fin-path-icon {
     display: none;
   }
 
-  #overview-slot .ledger-path-cell {
+  #cpf-strategy-slot .ledger-path-cell {
     display: flex;
     flex-wrap: wrap;
     gap: 0 8px;
   }
 
-  #overview-slot .ledger-sub {
+  #cpf-strategy-slot .ledger-sub {
     grid-column: 1 / -1;
   }
 
@@ -12779,7 +12755,7 @@ code {
   }
 }
 
-#overview-slot .ledger-path-select-btn {
+#cpf-strategy-slot .ledger-path-select-btn {
   display: flex;
   align-items: center;
   min-block-size: 44px;
@@ -14348,16 +14324,8 @@ code {
     flex: 1 1 0;
   }
 
-  body[data-view="profile"]:has(
-      .settings-inline-editor :is(input, select):focus
-    )
-    .mobile-tabbar {
+  body:has(.settings-inline-editor :is(input, select):focus) .mobile-tabbar {
     display: none;
-  }
-
-  body[data-view="profile"]
-    :is(#plan-overflow > summary, #settings-header-back) {
-    min-block-size: 44px;
   }
 }
 
@@ -14573,4 +14541,65 @@ code {
   .settings-invest-card {
     --investment-control-size: 44px;
   }
+}
+
+.workspace-sections {
+  display: flex;
+  flex-wrap: wrap;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  margin-block-end: 16px;
+}
+
+.workspace-sections > button {
+  flex: 1 1 auto;
+  min-block-size: 44px;
+}
+
+.workspace-inputs {
+  margin-block-start: 16px;
+}
+.workspace-inputs > summary {
+  min-block-size: 44px;
+}
+
+.workspace-inputs::details-content {
+  transition: none;
+}
+
+#workspace-plan .settings-page,
+#workspace-accounts .settings-page,
+#workspace-cpf-tax .settings-page {
+  padding: 0;
+}
+
+#top .settings-shell {
+  width: 100%;
+}
+
+.overview-hero-summary > .overview-budget-link,
+.overview-chart-head > .overview-projection-link {
+  min-block-size: 44px;
+}
+
+#cash-accounts {
+  padding: 12px 16px;
+}
+#cash-accounts-title {
+  font-size: 1rem;
+}
+
+@media (max-width: 960px) {
+  .workspace-sections {
+    inline-size: 100%;
+  }
+  #plan-overflow > summary {
+    min-block-size: 44px;
+  }
+}
+
+.workspace-tab-badge:not(:empty) {
+  margin-inline-start: 4px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
 }

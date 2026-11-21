@@ -4,13 +4,12 @@ import {
   fmtInt,
   formatFundedPct,
   money,
+  formatMoneyInput,
   m,
   centsHtml,
   ageLabel,
   ICONS,
-  svgWrap,
   resetControl,
-  syncCustomBudgetReset,
   bindDialogBackdropDismiss,
   escapeAttr,
   html,
@@ -29,7 +28,10 @@ import {
   createQuickEditController,
   getMinRetireAge,
 } from "./src/app/quick-edit.js";
-import { buildExpenseModalBodyHTML } from "./src/app/views-expense.js";
+import {
+  buildExpenseCardHTML,
+  buildExpenseModalBodyHTML,
+} from "./src/app/views-expense.js";
 import {
   buildCpfRulesTabHTML,
   buildTaxTabHTML,
@@ -43,15 +45,15 @@ import {
   decodeShareHashToParams as decodeShareHashWithDefaults,
 } from "./src/app/share-codec.js";
 import {
-  buildBogleheadSection,
   buildCashCardsMarkup,
   buildCashAccountReadoutHTML,
   buildCashAccountInterestHTML,
   buildCashFreshnessHTML,
-  formatCashInput,
   buildCashAccountsEditorHTML,
   buildCashPlanCardHTML,
-  buildCashParkingSection,
+  buildCashOptionsView,
+} from "./src/app/views-cash-options.js";
+import {
   buildDividendResultsHTML,
   buildDividendBenchmarksHTML,
   buildTargetResultsHTML,
@@ -60,7 +62,7 @@ import {
   buildAnnuityBenchmarksHTML,
   formatAnnuityBadge,
   buildDividendCalculatorSection,
-} from "./src/app/views-cash-div.js";
+} from "./src/app/views-dividend-yield.js";
 import {
   renderTrajectoryChart,
   renderStackedNetWorthSVG,
@@ -75,7 +77,13 @@ import {
   setFinActivityTab,
 } from "./src/app/views-overview.js";
 import { renderPrintSheet } from "./src/app/print-sheet.js";
-import { attachDatePicker, syncDatePickers } from "./src/app/date-picker.js";
+import { syncDatePickers } from "./src/app/date-picker.js";
+import { buildAllocatorView } from "./src/app/views-allocator.js";
+import {
+  setupInlineSettings,
+  syncSettingsCashBalance,
+} from "./src/app/settings-editor.js";
+import { setupServiceWorkerUpdates } from "./src/app/pwa-updates.js";
 
 function setupSimplePlan() {
   const DEFAULT_DOB = RetirementModel.defaultDobForAge(35);
@@ -144,6 +152,8 @@ function setupSimplePlan() {
   };
   const planRoot = $("#retirement-plan");
   const overviewSlot = $("#overview-slot");
+  const budgetSlot = $("#budget-slot");
+  const cashAccounts = $("#cash-accounts");
   const allocatorSlot = $("#allocator-slot");
   let allocatorIncludesCpf = true;
   let allocatorDrag;
@@ -816,14 +826,11 @@ function setupSimplePlan() {
     "known-retire": { panel: "goal", qeId: "qe-retire" },
     "known-lifestyle": { panel: "budget", qeId: null },
     "known-spend": { panel: "budget", qeId: null },
-    "person-salary": { panel: "salary", qeId: "qe-salary" },
     "known-cpf-extra": { panel: "cpf-extra", qeId: "qe-cpf-extra" },
     "known-cash-saving": { panel: "cash-saving", qeId: "qe-cash-saving" },
     "sim-cash-saving": { panel: "cash-saving", qeId: "qe-cash-saving" },
     "known-invest": { panel: "invest", qeId: "qe-invest" },
     "sim-invest": { panel: "invest", qeId: "qe-invest" },
-    "known-target-equity": { panel: "invest", qeId: "qe-target-equity" },
-    "known-sg-sleeve": { panel: "invest", qeId: "qe-sg-sleeve" },
   };
   const getCustomSpendState = (rLifestyle = null) => {
     const lifestyleKey = rLifestyle || $("#known-lifestyle")?.value || "cca";
@@ -954,7 +961,7 @@ function setupSimplePlan() {
         } else {
           settingsBtn.setAttribute("data-open-profile", "");
         }
-        settingsBtn.textContent = "Open My Settings";
+        settingsBtn.textContent = "Edit plan inputs";
         actions.append(settingsBtn);
       }
       if (invalidEl && invalidEl.id !== "person-dob") {
@@ -1501,10 +1508,7 @@ function setupSimplePlan() {
             liveMasRates,
           )
         : null;
-    syncCustomBudgetReset({
-      customBudgetActive,
-      useItemizedExpenses,
-      itemizedCount: customExpenseItems.length,
+    syncSettingsCashBalance({
       useItemizedCashAccounts: Boolean(
         useItemizedCashAccounts && customCashAccounts.length > 0,
       ),
@@ -1960,7 +1964,7 @@ function setupSimplePlan() {
       suggested,
     );
 
-    const bogleHTML = buildBogleheadSection(bogle, allocatorIncludesCpf);
+    const bogleHTML = buildAllocatorView(bogle, allocatorIncludesCpf);
 
     const overviewDisclosures = [
       ".exp-breakdown-disclosure",
@@ -1986,6 +1990,8 @@ function setupSimplePlan() {
       ? document.activeElement.id
       : null;
     overviewSlot.innerHTML = finGridHTML;
+    $("#cpf-strategy-slot").replaceChildren($("#cpf-strategy-comparison"));
+    budgetSlot.innerHTML = buildExpenseCardHTML(expenseData);
     if (activeSavingsField) {
       const replacement = document.getElementById(activeSavingsField.id);
       if (replacement) {
@@ -2189,9 +2195,8 @@ function setupSimplePlan() {
       ensureCashPlan();
       if (!cashParkingSlot) return;
       const planSlot = $(".cash-plan-slot", cashParkingSlot);
-      const accounts = $("#cash-accounts", cashParkingSlot);
-      if (!planSlot || !accounts) {
-        cashParkingSlot.innerHTML = buildCashParkingSection(
+      if (!planSlot) {
+        cashParkingSlot.innerHTML = buildCashOptionsView(
           currentCashPlan,
           cashComparison,
         );
@@ -2200,6 +2205,11 @@ function setupSimplePlan() {
       planSlot.innerHTML = buildCashPlanCardHTML(currentCashPlan);
       $(".cash-sync-pill", cashParkingSlot).innerHTML =
         buildCashFreshnessHTML(currentCashPlan);
+      refreshCashProducts();
+    });
+    renderOrDeferTab("cash-accounts", () => {
+      ensureCashPlan();
+      const accounts = cashAccounts;
       const active = document.activeElement;
       const editor = $(".cash-accounts-page-slot", accounts);
       const editorHTML = buildCashAccountsEditorHTML(currentCashPlan);
@@ -2239,7 +2249,6 @@ function setupSimplePlan() {
             editor,
           )?.focus({ preventScroll: true });
       }
-      refreshCashProducts();
     });
 
     const marginalTaxPct = `${(tax.taxBefore.marginalRate * 100).toFixed(1).replace(/\.0$/, "")}%`;
@@ -2412,7 +2421,9 @@ function setupSimplePlan() {
           divCalcMode === "target"
             ? `${money(divTargetMonthly)}/m`
             : divCalcMode === "annuity"
-              ? formatAnnuityIrr(annuityModel.impliedAnnualIrrPct, { digits: 1 })
+              ? formatAnnuityIrr(annuityModel.impliedAnnualIrrPct, {
+                  digits: 1,
+                })
               : `${Number(divCalcRatePct || 0).toFixed(1)}%`;
       }
       animateDividendUpdate();
@@ -2806,7 +2817,10 @@ function setupSimplePlan() {
     const pending = replacement;
     replacement = null;
     if (!pending) return;
-    restoreInvokerFocus(pending.invoker, "#settings-header-back");
+    restoreInvokerFocus(
+      pending.invoker?.getClientRects().length ? pending.invoker : null,
+      "#plan-overflow summary",
+    );
     if (replacementDialog.returnValue === "replace") pending.apply();
   });
 
@@ -3416,7 +3430,7 @@ function setupSimplePlan() {
       render();
       const newIdx = customCashAccounts.length - 1;
       requestAnimationFrame(() => {
-        const host = $("#cash-parking-slot");
+        const host = cashAccounts;
         const row = host?.querySelector(`[data-cash-acc-row="${newIdx}"]`);
         row?.scrollIntoView({ behavior: "smooth", block: "nearest" });
         const focusEl =
@@ -3470,15 +3484,6 @@ function setupSimplePlan() {
           `Swept ${money(beforeBd.totalOverflowBalance)} overflow to MAS SSB (+${money(beforeBd.sweepAnnualGain)}/yr → ${beforeBd.sweptEffectiveRatePct.toFixed(2)}% EIR)`,
         );
       }
-      return;
-    }
-    const openExpModalBtn = event.target.closest("[data-open-expense-modal]");
-    if (openExpModalBtn) {
-      event.preventDefault();
-      openExpenseModal(
-        openExpModalBtn.dataset.openExpenseModal || "auto",
-        openExpModalBtn,
-      );
       return;
     }
     const expEnterCustomBtn = event.target.closest("[data-exp-enter-custom]");
@@ -3735,6 +3740,7 @@ function setupSimplePlan() {
                   : "";
             }
             markStarterPlan(key);
+            $("#starter-plan-dialog").close();
             render();
             flushPersistState();
             showToast(`Loaded ${title}`, 12000, undo);
@@ -3894,7 +3900,7 @@ function setupSimplePlan() {
       if (event.target.closest("#exp-modal-open-settings")) {
         expDialog.dataset.flowNavigation = "true";
         expDialog.close();
-        document.querySelector("[data-open-profile]")?.click();
+        $("#section-profile").click();
         return;
       }
       if (event.target.closest("[data-exp-modal-close]")) {
@@ -4091,13 +4097,13 @@ function setupSimplePlan() {
             !Number.isFinite(Number(raw))))
       ) {
         if (event.type === "change")
-          event.target.value = formatCashInput(acc[field]);
+          event.target.value = formatMoneyInput(acc[field]);
         return true;
       }
       acc[field] =
         raw === "" ? 0 : Math.round(Math.max(0, Number(raw) || 0) * 100) / 100;
       if (event.type === "change")
-        event.target.value = formatCashInput(acc[field]);
+        event.target.value = formatMoneyInput(acc[field]);
     } else if (field === "bonusRatePct") {
       const raw = event.target.value.trim();
       acc.bonusRatePct =
@@ -4120,17 +4126,17 @@ function setupSimplePlan() {
     }
     return true;
   };
-  cashParkingSlot.addEventListener("focusin", (event) => {
+  cashAccounts.addEventListener("focusin", (event) => {
     const input = event.target;
     if (input.hasAttribute("data-cash-money"))
       input.value = input.value.replaceAll(",", "");
   });
-  cashParkingSlot.addEventListener("focusout", (event) => {
+  cashAccounts.addEventListener("focusout", (event) => {
     const input = event.target;
     if (!input.hasAttribute("data-cash-money")) return;
     const account = customCashAccounts[Number(input.dataset.cashAccIdx)];
     if (account)
-      input.value = formatCashInput(account[input.dataset.cashAccField]);
+      input.value = formatMoneyInput(account[input.dataset.cashAccField]);
   });
   document.addEventListener("change", (event) => {
     handleCashAccountFieldEvent(event);
@@ -5012,11 +5018,7 @@ function setupSimplePlan() {
     showToast,
   });
 
-  setupInlineSettings(fields, formatFieldRangeError, {
-    getCustomSpendState,
-    enterCustomExpenseMode,
-    selectLifestylePreset,
-  });
+  const finishSettingsEdit = setupInlineSettings(fields, formatFieldRangeError);
   if (
     !($("#known-savings")?.value || "").trim() &&
     bucketIds.some((id) => ($("#" + id)?.value || "").trim() !== "")
@@ -5024,681 +5026,26 @@ function setupSimplePlan() {
     syncBucketsToTotal();
   }
   render();
-}
-
-function buildSettingsSections() {
-  const sections = [
-    [
-      "profile",
-      "Profile & budget",
-      [
-        ["birth", "Date of birth", [["person-dob", "date"]]],
-        ["retire", "Retirement age", [["known-retire"]]],
-        ["salary", "Gross monthly salary", [["person-salary", "monthly"]]],
-        ["bonus", "Annual bonus", [["known-annual-bonus", "yearly"]]],
-        [
-          "lifestyle",
-          "Lifestyle",
-          [["known-lifestyle"]],
-          { directSelect: true },
-        ],
-        [
-          "budget",
-          "Monthly budget",
-          [["known-spend", "monthly", "", "budget"]],
-          {
-            readOnly: true,
-            extra: `<p id="settings-itemized-note" class="settings-itemized-note" hidden></p>
-          <button type="button" class="text-button" data-open-expense-modal="auto">Itemized expenses</button>
-          <button type="button" class="text-button" id="use-preset-budget" hidden></button>`,
-          },
-        ],
-      ],
-    ],
-    [
-      "cpf",
-      "CPF",
-      [
-        [
-          "cpf",
-          "CPF balances and deductions",
-          [
-            ["known-oa", "money", "OA"],
-            ["known-sa", "money", "SA"],
-            ["known-ma", "money", "MA"],
-            ["known-sa-invested", "money", "CPFIS-SA"],
-            ["known-ma-spend", "monthly", "MediSave deductions"],
-          ],
-          { className: "settings-cpf-group" },
-        ],
-      ],
-    ],
-    [
-      "housing",
-      "Housing",
-      [
-        [
-          "housing",
-          "Housing arrangement",
-          [["known-housing-mode", "option"]],
-          {
-            extra:
-              '<p class="housing-calc-preview" id="known-housing-preview" aria-live="polite"></p>',
-          },
-        ],
-        [
-          "loan",
-          "Loan details",
-          [
-            ["known-housing-balance", "money", "Loan left"],
-            ["known-housing-years", "text", "Years left"],
-            ["known-housing-rate", "text", "Interest (% p.a.)"],
-            ["known-housing-parties", "option", "Split across"],
-          ],
-          { modes: "hdb bank" },
-        ],
-        [
-          "manual",
-          "Monthly housing from OA",
-          [["known-housing", "monthly"]],
-          { modes: "custom" },
-        ],
-      ],
-    ],
-    [
-      "invest",
-      "Investments",
-      [
-        [
-          "holdings",
-          "Investment balances",
-          [
-            ["known-equities", "money", "Global equities"],
-            ["known-sg-dividends", "money", "SG dividends"],
-          ],
-        ],
-        [
-          "cash",
-          "Cash & SSB",
-          [["known-ssb-cash", "money"]],
-          {
-            readOnly: true,
-            extra: `<p id="settings-cash-accounts-note" class="settings-itemized-note" hidden><span></span></p>
-          <button type="button" class="text-button" id="open-cash-breakdown-settings" data-go-tab="cash-parking" data-open-page-cash-accounts>Edit accounts →</button>`,
-          },
-        ],
-      ],
-    ],
-    [
-      "srs",
-      "SRS",
-      [
-        ["srs-balance", "SRS balance today", [["known-srs", "money"]]],
-        ["srs-annual", "Planned annual SRS", [["known-srs-annual", "yearly"]]],
-        ["srs-age", "Withdrawal age", [["known-srs-age", "option"]]],
-        ["srs-invest", "Funds invested in", [["known-srs-invested", "option"]]],
-      ],
-    ],
-    [
-      "tax",
-      "Tax reliefs",
-      [
-        [
-          "reliefs",
-          "Existing IRAS reliefs",
-          [["known-existing-reliefs", "yearly"]],
-        ],
-        [
-          "top-up",
-          "Spouse or family CPF top-up",
-          [["known-family-rstu", "yearly"]],
-        ],
-      ],
-    ],
-  ];
-
-  const pencil = svgWrap(
-    '<path d="m13.5 6.5 4 4M4 20l4.5-1 11-11a2.8 2.8 0 0 0-4-4l-11 11L4 20Z"/>',
-    15,
-  );
-  const buildReadout = ([id, format = "text", caption, display = id]) => {
-    const value = html`<span
-      data-plan-value="${display}"
-      data-value-format="${format}"
-    ></span>`;
-    if (caption)
-      return html`<span
-        class="settings-value-pair${id === "known-ma-spend" ? " settings-value-monthly" : ""}"
-        ><span class="settings-value-caption">${caption}</span
-        >${raw(value)}</span
-      >`;
-    if (id === "person-dob") {
-      return `${value}<span class="dob-age-pill" id="person-dob-age-badge" aria-live="polite"></span>`;
-    }
-    return value;
-  };
-
-  return sections
-    .map(
-      ([category, heading, rows]) =>
-        html`<section
-          class="card-surface settings-card settings-value-card settings-${category}-card"
-          aria-labelledby="settings-${category}-heading"
-        >
-          <div class="settings-card-heading">
-            <h2 id="settings-${category}-heading">${heading}</h2>
-            ${
-              category === "cpf"
-                ? raw(
-                    html`<button
-                      type="button"
-                      class="button button-small settings-cpf-edit"
-                      data-settings-cpf-edit
-                      aria-label="Edit CPF"
-                    >
-                      ${raw(pencil)}
-                    </button>`,
-                  )
-                : ""
-            }
-          </div>
-          ${rows.map(
-            ([
-              key,
-              label,
-              fields,
-              { modes, readOnly, extra, className, directSelect } = {},
-            ]) =>
-              raw(
-                html`<div
-                  class="settings-value-row${className ? ` ${className}` : ""}${readOnly && key !== "budget" ? " is-readonly" : ""}"
-                  data-settings-row="${key}"
-                  data-settings-edit-label="${label}"
-                  ${readOnly && key !== "budget" ? 'data-settings-static-readonly="true"' : ""}
-                  ${
-                    directSelect || (readOnly && key !== "budget")
-                      ? ""
-                      : raw(
-                          html`role="button" tabindex="0" aria-label="Edit
-                          ${label}" aria-expanded="false"
-                          aria-controls="settings-editor-${key}"`,
-                        )
-                  }
-                  ${modes ? raw(html`data-settings-when="${modes}" hidden`) : ""}
-                >
-                  <div class="settings-row-label">
-                    <span
-                      id="settings-label-${key}"
-                      class="${className === "settings-cpf-group" ? "sr-only" : ""}"
-                      >${label}</span
-                    >
-                  </div>
-                  ${
-                    directSelect
-                      ? ""
-                      : raw(
-                          html`<span
-                            class="overview-saving-figure settings-value-button"
-                            data-settings-edit
-                            aria-hidden="true"
-                            ${readOnly && key !== "budget" ? "hidden" : ""}
-                          >
-                            <span class="settings-value-readout"
-                              >${fields.map((field) => raw(buildReadout(field)))}</span
-                            >
-                            ${key === "cpf" ? "" : raw(pencil)}
-                          </span>`,
-                        )
-                  }
-                  ${readOnly ? raw(html`<span class="settings-readonly-value" data-plan-value="${fields[0][3] || fields[0][0]}" data-value-format="${fields[0][1]}" hidden></span>`) : ""}
-                  <div
-                    class="settings-inline-editor"
-                    id="settings-editor-${key}"
-                    data-settings-sources="${fields.map(([id]) => id).join(" ")}"
-                    role="group"
-                    aria-labelledby="settings-label-${key}"
-                    ${directSelect ? "" : "hidden"}
-                  ></div>
-                  ${extra ? raw(`<div class="settings-row-extra">${extra}</div>`) : ""}
-                </div>`,
-              ),
-          )}
-        </section>`,
-    )
-    .join("");
-}
-
-function setupInlineSettings(
-  fields,
-  formatRangeError,
-  { getCustomSpendState, enterCustomExpenseMode, selectLifestylePreset },
-) {
-  const form = $("#quick-form");
-  const fieldKeys = new Map(
-    Object.entries(fields).map(([key, id]) => [id, key]),
-  );
-  const rows = new Map();
-  let active = null;
-  $(".settings-sections", form).insertAdjacentHTML(
-    "afterbegin",
-    buildSettingsSections(),
-  );
-
-  const saveIcon = svgWrap('<path d="m5 12 4 4L19 6"/>', 18);
-  const cancelIcon = svgWrap('<path d="m6 6 12 12M18 6 6 18"/>', 18);
-  const writeButton = (label, action, icon, isPrimary = false) =>
-    html`<button
-      type="button"
-      class="button button-small settings-action-icon${isPrimary ? " button-primary" : ""}"
-      data-settings-action="${action}"
-      aria-label="${label}"
-      title="${label}"
-      ${action === "save" ? "disabled" : ""}
-    >
-      ${raw(icon)}
-    </button>`;
-
-  for (const row of $$("[data-settings-row]", form)) {
-    const editor = $("[data-settings-sources]", row);
-    const trigger = $("[data-settings-edit]", row);
-    const controls = editor.dataset.settingsSources.split(" ").map((id) => {
-      const source = document.getElementById(id);
-      const sourceField = source.closest(".field");
-      const draftField = sourceField.cloneNode(true);
-      const draft = draftField.querySelector("input, select");
-      const label = draftField.querySelector("label");
-      const help = draftField.querySelector("small");
-      const moneyInput =
-        draft.type === "number" &&
-        draft.previousElementSibling?.textContent.trim() === "$";
-      draft.id = `settings-draft-${id}`;
-      draft.removeAttribute("name");
-      draft.dataset.settingsDraft = id;
-      label.htmlFor = draft.id;
-      if (moneyInput) {
-        draft.type = "text";
-        draft.inputMode = "decimal";
-        draft.autocomplete = "off";
-      }
-      const shortLabel = {
-        "known-oa": ["OA", "Ordinary Account (OA)"],
-        "known-sa": ["SA", "Special Account (SA)"],
-        "known-ma": ["MA", "MediSave Account (MA)"],
-        "known-sa-invested": [
-          "CPFIS-SA",
-          "CPF Investment Scheme–Special Account (CPFIS-SA)",
-        ],
-        "known-ma-spend": [
-          "MediSave deductions",
-          "Monthly MediSave deductions",
-        ],
-      }[id];
-      if (shortLabel) {
-        label.dataset.settingsFullLabel = shortLabel[1];
-        label.textContent = shortLabel[0];
-        if (help) help.prepend(`${shortLabel[1]}. `);
-      }
-      if (id === "known-ma-spend") {
-        draftField
-          .querySelector(".input-wrap")
-          ?.insertAdjacentHTML(
-            "beforeend",
-            '<span class="input-suffix">/mo</span>',
-          );
-      }
-      editor.append(draftField);
-      if (id === "person-dob") attachDatePicker(draft);
-      return { source, draft, moneyInput };
-    });
-
-    if (!trigger) {
-      const [{ source, draft }] = controls;
-      draft.add(new Option("Custom budget", "custom"));
-      const syncLifestyle = () => {
-        draft.value = getCustomSpendState().isCustom ? "custom" : source.value;
-      };
-      draft.addEventListener("change", () => {
-        const selected = draft.value;
-        if (!commit(false)) {
-          syncLifestyle();
-          return;
-        }
-        if (selected === "custom") enterCustomExpenseMode(draft);
-        else selectLifestylePreset(selected);
-      });
-      document.addEventListener("plan-rendered", syncLifestyle);
-      syncLifestyle();
-      continue;
-    }
-
-    const actions = document.createElement("div");
-    actions.className = "settings-editor-actions";
-    actions.innerHTML =
-      writeButton("Save changes", "save", saveIcon, true) +
-      writeButton("Discard changes", "cancel", cancelIcon);
-    const error = document.createElement("p");
-    error.id = `${editor.id}-error`;
-    error.className = "settings-inline-error";
-    error.setAttribute("role", "status");
-    error.hidden = true;
-    editor.append(error, actions);
-    rows.set(row, {
-      row,
-      editor,
-      trigger,
-      controls,
-      error,
-      cpfEditButton: row
-        .closest(".settings-value-card")
-        .querySelector("[data-settings-cpf-edit]"),
-      saveButton: $('[data-settings-action="save"]', actions),
-    });
-  }
-
-  const canonicalValue = (control, value) => {
-    let canonical = value.trim();
-    if (control.moneyInput) canonical = canonical.replaceAll(",", "");
-    if (!canonical && control.source.type === "number") canonical = "0";
-    if (control.source.type === "number" && canonical !== "") {
-      const numeric = Number(canonical);
-      if (Number.isFinite(numeric)) return String(numeric);
-    }
-    return canonical;
-  };
-  const syncSaveButton = (editing) => {
-    editing.saveButton.disabled = !editing.controls.some(
-      (control) =>
-        !control.draft.disabled &&
-        canonicalValue(control, control.draft.value) !==
-          canonicalValue(control, control.initialValue),
-    );
-  };
-
-  const visibleControl = ({ draft }) =>
-    document.getElementById(`${draft.id}-display`) ||
-    $(
-      `[data-choice-for="${draft.dataset.settingsDraft}"] input:checked`,
-      draft.closest(".field"),
-    ) ||
-    draft;
-
-  const clearError = (editing) => {
-    editing.error.hidden = true;
-    editing.error.textContent = "";
-    for (const control of editing.controls) {
-      const input = visibleControl(control);
-      input.removeAttribute("aria-invalid");
-      input.removeAttribute("aria-errormessage");
-    }
-  };
-
-  const close = (refocus) => {
-    const editing = active;
-    editing.row.dataset.settingsEditing = "false";
-    active = null;
-    clearError(editing);
-    editing.editor.hidden = true;
-    editing.row.setAttribute("aria-expanded", "false");
-    syncEditability(editing);
-    if (refocus && canEdit(editing)) editing.row.focus({ preventScroll: true });
-  };
-
-  const canEdit = (editing) =>
-    editing.row.dataset.settingsStaticReadonly !== "true" &&
-    editing.row.dataset.cashDriven !== "true" &&
-    editing.row.dataset.itemizedBudget !== "true";
-  const syncEditability = (editing) => {
-    const editable = canEdit(editing);
-    editing.row.dataset.settingsEditable = String(editable);
-    editing.trigger.hidden = !editable || active === editing;
-    if (editing.cpfEditButton)
-      editing.cpfEditButton.hidden = !editable || active === editing;
-    if (editable && active !== editing) {
-      editing.row.setAttribute("role", "button");
-      editing.row.tabIndex = 0;
-      editing.row.setAttribute(
-        "aria-label",
-        `Edit ${editing.row.dataset.settingsEditLabel}`,
-      );
-    } else {
-      editing.row.removeAttribute("role");
-      editing.row.removeAttribute("aria-label");
-      if (active === editing) editing.row.tabIndex = -1;
-      else editing.row.removeAttribute("tabindex");
-    }
-  };
-
-  for (const editing of rows.values()) syncEditability(editing);
-
-  const commit = (refocus = false) => {
-    if (!active) return true;
-    const editing = active;
-    const changes = [];
-    clearError(editing);
-    for (const control of editing.controls) {
-      const { source, draft, moneyInput } = control;
-      if (
-        draft.disabled ||
-        (source.id === "known-ssb-cash" &&
-          editing.row.dataset.cashDriven === "true")
-      )
-        continue;
-
-      const entered = draft.value.trim();
-      const value = canonicalValue(control, draft.value);
-      if (
-        !draft.validity.badInput &&
-        value === canonicalValue(control, control.initialValue)
-      )
-        continue;
-      const probe = source.cloneNode();
-      probe.value = value;
-      let problem = "";
-      if (
-        moneyInput &&
-        entered &&
-        (!Number.isFinite(Number(value)) ||
-          probe.value === "" ||
-          (entered.includes(",") &&
-            !/^[+-]?\d{1,3}(?:,\d{3})+(?:\.\d*)?(?:e[-+]?\d+)?$/i.test(
-              entered,
-            )))
-      ) {
-        problem = "Enter an amount, for example 1,250.50.";
-      } else if (draft.validity.badInput || !probe.validity.valid) {
-        problem = formatRangeError(probe, fieldKeys.get(source.id));
-      } else if (source.id === "person-dob") {
-        const dob = RetirementModel.computeAgeFromDob(value);
-        if (!dob.valid || dob.age < 18 || dob.age > 54)
-          problem = "Enter a valid date of birth for ages 18–54.";
-      }
-      if (problem) {
-        const input = visibleControl(control);
-        editing.error.textContent = problem;
-        editing.error.hidden = false;
-        input.setAttribute("aria-invalid", "true");
-        input.setAttribute("aria-errormessage", editing.error.id);
-        if (refocus) input.focus();
-        return false;
-      }
-      if (
-        canonicalValue(control, source.value) !== canonicalValue(control, value)
-      )
-        changes.push([source, value]);
-    }
-    close(refocus);
-    for (const [source, value] of changes) {
-      source.value = value;
-      source.dispatchEvent(new Event("input", { bubbles: true }));
-    }
-    changes.at(-1)?.[0].dispatchEvent(new Event("change", { bubbles: true }));
-    return true;
-  };
-
-  const start = (editing) => {
-    if (!canEdit(editing)) return;
-    if (active) {
-      if (active !== editing)
-        visibleControl(
-          active.controls.find((control) => !control.draft.disabled) ||
-            active.controls[0],
-        )?.focus();
-      return;
-    }
-    active = editing;
-    editing.row.dataset.settingsEditing = "true";
-    editing.trigger.hidden = true;
-    if (editing.cpfEditButton) editing.cpfEditButton.hidden = true;
-    editing.row.setAttribute("aria-expanded", "true");
-    editing.row.removeAttribute("role");
-    editing.row.removeAttribute("aria-label");
-    editing.row.tabIndex = -1;
-    editing.editor.hidden = false;
-    for (const control of editing.controls) {
-      const { source, draft, moneyInput } = control;
-      draft.disabled = source.disabled;
-      draft.value =
-        moneyInput && source.value !== ""
-          ? formatCashInput(source.value)
-          : source.value;
-      control.initialValue = draft.value;
-      if (draft.type === "number") {
-        draft.min = source.min;
-        draft.max = source.max;
-      }
-      draft.dispatchEvent(new Event("settings-draft-ready"));
-    }
-    syncDatePickers();
-    syncSaveButton(editing);
-    const input = editing.controls
-      .map(visibleControl)
-      .find((field) => !field.disabled);
-    input?.focus({ preventScroll: true });
-    input?.scrollIntoView({ block: "nearest", behavior: "instant" });
-  };
-
-  const isNestedControl = (target) =>
-    Boolean(
-      target.closest(
-        'a[href], button, input, select, textarea, summary, [role="radio"], [data-settings-action]',
-      ),
-    );
-  const handleRowClick = (event) => {
-    const target = event.target instanceof Element ? event.target : null;
-    if (!target) return;
-    const cpfEditButton = target.closest("[data-settings-cpf-edit]");
-    const row = cpfEditButton
-      ? cpfEditButton
-          .closest(".settings-value-card")
-          .querySelector('[data-settings-row="cpf"]')
-      : target.closest("[data-settings-row]");
-    const editing = rows.get(row);
-    const action = target.closest("[data-settings-action]")?.dataset
-      .settingsAction;
-
-    if (cpfEditButton && editing) {
-      if (active && active !== editing && !commit(false)) return;
-      if (!active) start(editing);
-      return;
-    }
-
-    if (active && editing === active && action) {
-      if (action === "save") commit(true);
-      if (action === "cancel") close(true);
-      return;
-    }
-
-    if (active && editing !== active) {
-      if (!commit(false)) return;
-      if (editing && !isNestedControl(target)) start(editing);
-      return;
-    }
-    if (editing && !active && !isNestedControl(target)) start(editing);
-  };
-  form.addEventListener("click", handleRowClick);
-  document.addEventListener("click", (event) => {
-    if (!active || form.contains(event.target)) return;
-    commit(false);
-  });
-  form.addEventListener("input", (event) => {
-    if (!active?.editor.contains(event.target)) return;
-    active.error.hidden = true;
-    active.error.textContent = "";
-    syncSaveButton(active);
-  });
-  form.addEventListener("keydown", (event) => {
-    const target = event.target instanceof Element ? event.target : null;
-    const row = target?.closest("[data-settings-row]");
-    const rowEditing = rows.get(row);
-    if (
-      rowEditing &&
-      row === target &&
-      row.getAttribute("role") === "button" &&
-      !isNestedControl(target)
-    ) {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        start(rowEditing);
-        return;
-      }
-      if (event.key === " ") {
-        event.preventDefault();
-        row.dataset.settingsSpacePending = "true";
-        return;
-      }
-    }
-    if (
-      !active ||
-      !target ||
-      !active.editor.contains(target) ||
-      event.isComposing ||
-      event.keyCode === 229 ||
-      $(".dp-popover")?.hidden === false
-    )
-      return;
-    if (event.key === "Escape") {
-      event.preventDefault();
-      close(true);
-    } else if (event.key === "Enter" && event.target.matches("input, select")) {
-      event.preventDefault();
-      commit(true);
-    }
-  });
-  form.addEventListener("keyup", (event) => {
-    const target = event.target instanceof Element ? event.target : null;
-    const row = target?.closest("[data-settings-row]");
-    const editing = rows.get(row);
-    if (
-      editing &&
-      row === target &&
-      row.dataset.settingsSpacePending === "true"
-    ) {
-      delete row.dataset.settingsSpacePending;
-      start(editing);
-    }
-  });
-  form.addEventListener("change", (event) => {
-    if (active?.editor.contains(event.target)) syncSaveButton(active);
-  });
-  document.addEventListener("plan-rendered", () => {
-    const housing = $("#known-housing-mode").value;
-    for (const row of $$("[data-settings-when]", form)) {
-      row.hidden = !row.dataset.settingsWhen.split(" ").includes(housing);
-    }
-    for (const editing of rows.values()) {
-      syncEditability(editing);
-      if (!canEdit(editing) && active === editing) close(false);
-    }
-    if (
-      active?.row.dataset.cashDriven === "true" ||
-      active?.row.dataset.itemizedBudget === "true"
-    )
-      close(false);
-  });
+  return finishSettingsEdit;
 }
 
 function setupSettings() {
   const dialog = $("#plan-settings");
+  const starterDialog = $("#starter-plan-dialog");
+  bindDialogBackdropDismiss(starterDialog);
+  starterDialog.addEventListener("close", () => {
+    if (!$("#replace-plan-dialog").open) $("#plan-overflow summary").focus();
+  });
+  document.addEventListener("click", (event) => {
+    const starterAction = event.target?.closest?.(
+      '[commandfor="starter-plan-dialog"]',
+    );
+    if (!starterAction) return;
+    event.preventDefault();
+    if (starterAction.getAttribute("command") === "close")
+      starterDialog.close();
+    else starterDialog.showModal();
+  });
   let lastInvoker = null;
 
   document.addEventListener("click", (event) => {
@@ -5761,27 +5108,25 @@ function setupDeepLinks() {
   revealHash(location.hash);
 }
 
-function setupGuidedFlow() {
-  const TABS = [
-    "overview",
-    "trajectory",
-    "allocator",
-    "cash-parking",
-    "dividend-calc",
-    "tax",
-    "cpf-rules",
-  ];
-  const TAB_LABELS = {
-    overview: "Overview",
-    trajectory: "Trajectory",
-    allocator: "Allocator",
-    "cash-parking": "Cash Parking",
-    "dividend-calc": "Dividend & Yield",
-    tax: "Tax Relief",
-    "cpf-rules": "CPF Milestones",
+function setupGuidedFlow(finishSettingsEdit) {
+  const destinations = {
+    overview: ["overview"],
+    plan: ["profile", "budget", "trajectory"],
+    accounts: ["balances", "cash-accounts", "cash-parking"],
+    invest: ["allocator", "dividend-calc"],
+    "cpf-tax": ["cpf-rules", "tax"],
+  };
+  const destinationByTab = new Map(
+    Object.entries(destinations).flatMap(([destination, tabs]) =>
+      tabs.map((tab) => [tab, destination]),
+    ),
+  );
+  const inputSlots = {
+    profile: "#plan-inputs-slot",
+    balances: "#balances-inputs-slot",
+    tax: "#tax-inputs-slot",
   };
   let activeTab = "overview";
-  let profileOpen = false;
   const form = $("#quick-form");
 
   form.addEventListener(
@@ -5795,92 +5140,61 @@ function setupGuidedFlow() {
     },
     true,
   );
-  $("#use-preset-budget")?.addEventListener("click", () => {
-    $("#known-spend").value = "";
-    $("#known-spend").dispatchEvent(new Event("input", { bubbles: true }));
-    $("#known-spend").focus({ preventScroll: true });
-  });
-
   const applyViewState = (focus = true, push = false) => {
-    document.body.dataset.view = profileOpen ? "profile" : activeTab;
-    $("#top").hidden = !profileOpen;
-    $("#retirement-plan").hidden = profileOpen;
-
-    TABS.forEach((tab) => {
-      const panel = $(`#tab-panel-${tab}`);
-      if (panel) panel.hidden = profileOpen || tab !== activeTab;
-    });
-
-    $$("[data-tab]").forEach((btn) => {
-      const inTaxGroup =
-        btn.dataset.tabGroup === "tax" &&
-        ["tax", "cpf-rules"].includes(activeTab);
-      const inAllocatorGroup =
-        btn.dataset.tabGroup === "allocator" &&
-        ["allocator", "dividend-calc"].includes(activeTab);
-      const matchesActiveTab =
-        btn.dataset.tab === activeTab || inTaxGroup || inAllocatorGroup;
-      const isSelected = !profileOpen && matchesActiveTab;
-      if (btn.dataset.tabGroup) {
-        const visibleTab =
-          inTaxGroup || inAllocatorGroup ? activeTab : btn.dataset.tab;
-        btn.querySelector("span").textContent = TAB_LABELS[visibleTab];
-        btn.setAttribute("aria-controls", `tab-panel-${visibleTab}`);
-      }
-      btn.classList.toggle("is-active", isSelected);
-      btn.setAttribute("aria-selected", String(isSelected));
-      if (btn.getAttribute("role") === "tab") {
-        // Keep the last active tab focusable even while Settings is open so tablists remain keyboard-reachable.
-        btn.setAttribute("tabindex", matchesActiveTab ? "0" : "-1");
-      }
-    });
-
-    const sidebarSettingsBtn = $(".sidebar-settings-btn");
-    if (sidebarSettingsBtn) {
-      sidebarSettingsBtn.classList.toggle("is-active", profileOpen);
-      sidebarSettingsBtn.setAttribute("aria-expanded", String(profileOpen));
+    const currentDestination = destinationByTab.get(activeTab);
+    document.body.dataset.view = activeTab;
+    for (const destination of Object.keys(destinations)) {
+      $(`#workspace-${destination}`).hidden =
+        destination !== currentDestination;
     }
-    const settingsReturnTab = activeTab;
-    const returnLabel = TAB_LABELS[settingsReturnTab] || "Overview";
-    if ($("#settings-header-back")) {
-      $("#settings-header-back").textContent = `← Back to ${returnLabel}`;
+    for (const tab of destinationByTab.keys()) {
+      $(`#tab-panel-${tab}`).hidden = tab !== activeTab;
     }
 
-    const viewChanged =
-      applyViewState._lastTab !== activeTab ||
-      applyViewState._lastProfileOpen !== profileOpen;
-    applyViewState._lastTab = activeTab;
-    applyViewState._lastProfileOpen = profileOpen;
-    if (viewChanged) {
+    for (const button of $$("[data-destination], [data-tab]")) {
+      const selected = button.dataset.destination
+        ? button.dataset.destination === currentDestination
+        : button.dataset.tab === activeTab;
+      button.classList.toggle("is-active", selected);
+      button.setAttribute("aria-selected", String(selected));
+      button.tabIndex = selected ? 0 : -1;
+    }
+
+    const inputs = $("#top");
+    const inputSlot = inputSlots[activeTab] && $(inputSlots[activeTab]);
+    inputs.hidden = !inputSlot;
+    if (inputSlot && inputs.parentElement !== inputSlot)
+      inputSlot.append(inputs);
+    for (const group of $$("[data-settings-scope]", inputs)) {
+      group.hidden = group.dataset.settingsScope !== activeTab;
+    }
+
+    if (applyViewState.lastTab !== activeTab) {
+      applyViewState.lastTab = activeTab;
       window.dispatchEvent(
-        new CustomEvent("rs:tabchange", {
-          detail: { tab: activeTab, profileOpen },
-        }),
+        new CustomEvent("rs:tabchange", { detail: { tab: activeTab } }),
       );
     }
-
     if (push) {
+      const url = new URL(location.href);
+      if (!isPlanShareHash(url.hash)) url.hash = activeTab;
       history.pushState(
-        { ...history.state, plannerTab: activeTab, profileOpen },
+        { ...history.state, plannerTab: activeTab, profileOpen: false },
         "",
-        location.href,
+        url,
       );
     }
 
     if (focus) {
-      const targetEl = profileOpen
-        ? $("#hero-title")
-        : $(`#tab-panel-${activeTab}`);
+      const targetEl = $(`#tab-panel-${activeTab}`);
       targetEl?.setAttribute("tabindex", "-1");
       targetEl?.focus({ preventScroll: true });
       window.scrollTo({ top: 0, behavior: "instant" });
     }
   };
 
-  const navigateTo = (
-    { tab = activeTab, profile = false } = {},
-    focus = true,
-  ) => {
+  const navigateTo = ({ tab = activeTab } = {}, focus = true) => {
+    if (!finishSettingsEdit()) return false;
     if ($("#plan-settings").open)
       $("#plan-settings").dataset.flowNavigation = "true";
     $("#plan-settings").close();
@@ -5892,25 +5206,22 @@ function setupGuidedFlow() {
       $("#expense-modal").dataset.flowNavigation = "true";
       $("#expense-modal").close();
     }
-    const nextTab = TABS.includes(tab) ? tab : "overview";
-    const viewChanged =
-      nextTab !== activeTab || Boolean(profile) !== profileOpen;
+    const nextTab = destinationByTab.has(tab) ? tab : "overview";
+    const viewChanged = nextTab !== activeTab;
     activeTab = nextTab;
-    profileOpen = profile;
-    applyViewState(focus, true);
+    applyViewState(focus, viewChanged);
     if (
       viewChanged &&
       !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
     ) {
-      const targetPanel = profileOpen
-        ? $("#top")
-        : $(`#tab-panel-${activeTab}`);
+      const targetPanel = $(`#tab-panel-${activeTab}`);
       if (targetPanel) {
         targetPanel.classList.remove("is-tab-entering");
         void targetPanel.offsetWidth;
         targetPanel.classList.add("is-tab-entering");
       }
     }
+    return true;
   };
 
   // WAI-ARIA Tabs Pattern keyboard arrow navigation & roving tabindex across all role="tablist" controls
@@ -5939,13 +5250,14 @@ function setupGuidedFlow() {
     else if (event.key === "Home") nextIdx = 0;
     else if (event.key === "End") nextIdx = tabs.length - 1;
     const targetTab = tabs[nextIdx];
-    tabs.forEach((t) =>
-      t.setAttribute("tabindex", t === targetTab ? "0" : "-1"),
-    );
-    if (targetTab.dataset.tab) {
-      navigateTo({ tab: targetTab.dataset.tab, profile: false }, false);
-      targetTab.focus();
+    const destinationTab = destinations[targetTab.dataset.destination]?.[0];
+    if (targetTab.dataset.tab || destinationTab) {
+      if (navigateTo({ tab: targetTab.dataset.tab || destinationTab }, false))
+        targetTab.focus();
     } else {
+      tabs.forEach((t) =>
+        t.setAttribute("tabindex", t === targetTab ? "0" : "-1"),
+      );
       targetTab.focus();
       targetTab.click();
     }
@@ -5954,10 +5266,17 @@ function setupGuidedFlow() {
   // Unified click handlers for tabs, deep links inside cards, and Profile Editor
   document.addEventListener("click", (event) => {
     if (!(event.target instanceof Element)) return;
-    const tabBtn = event.target.closest("button[data-tab]");
+    const tabBtn = event.target.closest(
+      "button[data-tab], button[data-destination]",
+    );
     if (tabBtn) {
       event.preventDefault();
-      navigateTo({ tab: tabBtn.dataset.tab, profile: false });
+      const tabs = destinations[tabBtn.dataset.destination];
+      navigateTo({
+        tab:
+          tabBtn.dataset.tab ||
+          (tabs.includes(activeTab) ? activeTab : tabs[0]),
+      });
       return;
     }
 
@@ -5965,16 +5284,8 @@ function setupGuidedFlow() {
       "[data-open-page-cash-accounts]",
     );
     if (cashEditorLink) {
-      if (cashEditorLink.hasAttribute("data-go-tab")) {
-        navigateTo({ tab: "cash-parking", profile: false }, false);
-      }
-      requestAnimationFrame(() => {
-        const accounts = $("#cash-accounts");
-        if (!accounts) return;
-        accounts.open = true;
-        accounts.querySelector("summary")?.focus({ preventScroll: true });
-        accounts.scrollIntoView({ block: "start", behavior: "instant" });
-      });
+      event.preventDefault();
+      navigateTo({ tab: "cash-accounts" });
       return;
     }
 
@@ -5990,7 +5301,7 @@ function setupGuidedFlow() {
       )
         return;
       event.preventDefault();
-      navigateTo({ tab: goTabBtn.dataset.goTab, profile: false });
+      navigateTo({ tab: goTabBtn.dataset.goTab });
       return;
     }
 
@@ -6000,12 +5311,17 @@ function setupGuidedFlow() {
         settingsField.dataset.openSettingsField,
       );
       if (field) {
-        if (!profileOpen) navigateTo({ profile: true });
         const row = $$("[data-settings-sources]", form)
           .find((editor) =>
             editor.dataset.settingsSources.split(" ").includes(field.id),
           )
           ?.closest("[data-settings-row]");
+        const tab =
+          row?.closest("[data-settings-scope]")?.dataset.settingsScope ||
+          "profile";
+        if (!navigateTo({ tab }, false)) return;
+        const disclosure = $("#top").closest("details");
+        if (disclosure) disclosure.open = true;
         if (row) {
           const edit = $("[data-settings-edit]", row);
           if (edit?.hidden && $("[data-settings-sources]", row).hidden) {
@@ -6038,16 +5354,7 @@ function setupGuidedFlow() {
 
     if (event.target.closest("[data-open-profile]")) {
       event.preventDefault();
-      navigateTo({ profile: true });
-      return;
-    }
-
-    if (event.target.closest("[data-close-profile]")) {
-      event.preventDefault();
-      navigateTo({
-        tab: activeTab,
-        profile: false,
-      });
+      navigateTo({ tab: "profile" });
     }
   });
 
@@ -6077,137 +5384,74 @@ function setupGuidedFlow() {
     } catch (_) {}
   });
 
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    if (!form.reportValidity()) return;
-    navigateTo({
-      tab: activeTab,
-      profile: false,
-    });
-  });
+  form.addEventListener("submit", (event) => event.preventDefault());
 
   document.addEventListener("plan-rendered", () =>
     applyViewState(false, false),
   );
 
-  window.addEventListener("popstate", (event) => {
-    activeTab = TABS.includes(event.state?.plannerTab)
-      ? event.state.plannerTab
-      : "overview";
-    profileOpen = Boolean(event.state?.profileOpen);
-    applyViewState(false, false);
-  });
-
-  $$(".brand").forEach((b) =>
-    b.addEventListener("click", (event) => {
+  $$(".brand").forEach((brand) =>
+    brand.addEventListener("click", (event) => {
       event.preventDefault();
-      navigateTo({ tab: "overview", profile: false });
+      navigateTo({ tab: "overview" });
     }),
   );
 
+  const hashAliases = {
+    top: ["profile"],
+    "retirement-plan": ["overview"],
+    "retirement-budget": ["budget", "expense-breakdown-card"],
+    "expense-breakdown-card": ["budget", "expense-breakdown-card"],
+    "retirement-taps-card": ["overview", "retirement-taps-card"],
+    "savings-simulator": ["trajectory", "savings-simulator"],
+    "trajectory-section": ["trajectory", "trajectory-section"],
+    "cash-accounts": ["cash-accounts", "cash-accounts"],
+    "boglehead-allocator": ["allocator", "boglehead-allocator"],
+    "dividend-calculator-card": ["dividend-calc", "dividend-calculator-card"],
+    "tax-sweet-spot": ["tax", "tax-sweet-spot"],
+    "salary-cpf-caps": ["tax", "salary-cpf-caps"],
+    "cpf-goal-guide": ["cpf-rules", "cpf-goal-guide"],
+    "cpf-position-details": ["cpf-rules", "cpf-position-details"],
+    "overview-methodology": ["cpf-rules", "overview-methodology"],
+    "cpf-strategy-comparison": ["cpf-rules", "cpf-strategy-comparison"],
+  };
   const openRoute = () => {
     const id = location.hash.slice(1);
-    if (!id || id.includes("=")) return;
-    if (id === "top") {
-      profileOpen = true;
-      applyViewState(false, false);
-      return;
+    if (!id || id.includes("=")) return false;
+    const [tab, targetId] = hashAliases[id] || [
+      destinations[id.replace(/^workspace-/, "")]?.[0] ||
+        id.replace(/^tab-panel-/, ""),
+    ];
+    if (!destinationByTab.has(tab)) return false;
+    activeTab = tab;
+    applyViewState(false, false);
+    if (targetId) {
+      const target = document.getElementById(targetId);
+      if (target instanceof HTMLDetailsElement) target.open = true;
+      const budgetDetails = target?.querySelector(".exp-breakdown-disclosure");
+      if (budgetDetails) budgetDetails.open = true;
+      requestAnimationFrame(() => target?.scrollIntoView());
     }
-    if (
-      [
-        "retirement-plan",
-        "tab-panel-overview",
-        "retirement-budget",
-        "expense-breakdown-card",
-        "retirement-taps-card",
-      ].includes(id)
-    ) {
-      profileOpen = false;
-      activeTab = "overview";
-      applyViewState(false, false);
-      const targetId =
-        id === "retirement-budget" ? "expense-breakdown-card" : id;
-      const targetEl = $("#" + targetId);
-      if (targetEl && id !== "retirement-plan" && id !== "tab-panel-overview") {
-        if (targetEl.tagName === "DETAILS") targetEl.open = true;
-        const budgetDetails = targetEl.querySelector(
-          ".exp-breakdown-disclosure",
-        );
-        if (budgetDetails) budgetDetails.open = true;
-        requestAnimationFrame(() => targetEl.scrollIntoView());
-      }
-      return;
-    }
-    if (["cash-parking", "tab-panel-cash-parking"].includes(id)) {
-      profileOpen = false;
-      activeTab = "cash-parking";
-      applyViewState(false, false);
-      return;
-    }
-    if (
-      [
-        "dividend-calc",
-        "tab-panel-dividend-calc",
-        "dividend-calculator-card",
-      ].includes(id)
-    ) {
-      profileOpen = false;
-      activeTab = "dividend-calc";
-      applyViewState(false, false);
-      return;
-    }
-    if (
-      [
-        "savings-simulator",
-        "trajectory-section",
-        "tab-panel-trajectory",
-      ].includes(id)
-    ) {
-      profileOpen = false;
-      activeTab = "trajectory";
-      applyViewState(false, false);
-      const targetEl = $("#" + id);
-      requestAnimationFrame(() => targetEl?.scrollIntoView());
-      return;
-    }
-    if (["boglehead-allocator", "tab-panel-allocator"].includes(id)) {
-      profileOpen = false;
-      activeTab = "allocator";
-      applyViewState(false, false);
-      const targetEl = $("#" + id);
-      requestAnimationFrame(() => targetEl?.scrollIntoView());
-      return;
-    }
-    if (
-      [
-        "tax-sweet-spot",
-        "salary-cpf-caps",
-        "tab-panel-tax",
-        "cpf-goal-guide",
-        "cpf-position-details",
-        "tab-panel-cpf-rules",
-      ].includes(id)
-    ) {
-      profileOpen = false;
-      activeTab = [
-        "cpf-goal-guide",
-        "cpf-position-details",
-        "tab-panel-cpf-rules",
-      ].includes(id)
-        ? "cpf-rules"
-        : "tax";
-      applyViewState(false, false);
-      const targetEl = $("#" + id);
-      requestAnimationFrame(() => targetEl?.scrollIntoView());
-    }
+    return true;
   };
+  window.addEventListener("popstate", (event) => {
+    const storedTab = event.state?.plannerTab;
+    if (!storedTab && openRoute()) return;
+    activeTab = event.state?.profileOpen
+      ? "profile"
+      : destinationByTab.has(storedTab)
+        ? storedTab
+        : "overview";
+    applyViewState(false, false);
+  });
   window.addEventListener("hashchange", openRoute);
   applyViewState(false, false);
   openRoute();
 }
 
 function setupPlanControls() {
-  for (const overflow of [$("#plan-overflow"), $("#mobile-more")]) {
+  {
+    const overflow = $("#plan-overflow");
     const overflowToggle = overflow.querySelector("summary");
     document.addEventListener("click", (event) => {
       if (!overflow.open) return;
@@ -6406,102 +5650,11 @@ function setupFieldHelp() {
   }
 }
 
-function setupServiceWorkerUpdates() {
-  if (!("serviceWorker" in navigator)) return;
-  const updateBtn = $("#app-update-btn");
-  const pageRev =
-    document.querySelector('meta[name="app-revision"]')?.content || "dev";
-  const hadController = Boolean(navigator.serviceWorker.controller);
-  let lastCheckAt = 0;
-
-  let swRegRef = null;
-  let reloadingOnSwChange = false;
-  const revealUpdate = () => {
-    if (updateBtn) updateBtn.hidden = false;
-  };
-
-  if (updateBtn) {
-    updateBtn.addEventListener("click", () => {
-      if (swRegRef?.waiting) {
-        reloadingOnSwChange = true;
-        swRegRef.waiting.postMessage({ type: "SKIP_WAITING" });
-      } else {
-        window.location.reload();
-      }
-    });
-  }
-
-  const verifyRevision = (worker) => {
-    if (!worker || pageRev === "dev" || typeof MessageChannel === "undefined")
-      return;
-    try {
-      const ch = new MessageChannel();
-      ch.port1.onmessage = (event) => {
-        const swRev = String(event.data?.cacheVersion || "").replace(
-          "retirement-shield-",
-          "",
-        );
-        if (swRev && swRev !== pageRev) revealUpdate();
-      };
-      worker.postMessage({ type: "GET_VERSION" }, [ch.port2]);
-    } catch {
-      // Ignore postMessage failure on torn-down workers
-    }
-  };
-
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (reloadingOnSwChange) {
-      window.location.reload();
-      return;
-    }
-    if (hadController) revealUpdate();
-    verifyRevision(navigator.serviceWorker.controller);
-  });
-
-  navigator.serviceWorker
-    .register("sw.js", { updateViaCache: "none" })
-    .then((reg) => {
-      swRegRef = reg;
-      verifyRevision(navigator.serviceWorker.controller || reg.active);
-      if (reg.waiting && navigator.serviceWorker.controller) revealUpdate();
-      reg.addEventListener("updatefound", () => {
-        const installing = reg.installing;
-        if (!installing) return;
-        installing.addEventListener("statechange", () => {
-          if (
-            installing.state === "installed" &&
-            navigator.serviceWorker.controller
-          ) {
-            revealUpdate();
-          }
-        });
-      });
-
-      const checkForUpdate = () => {
-        if (!navigator.onLine) return;
-        const now = Date.now();
-        if (now - lastCheckAt < 120_000) return;
-        lastCheckAt = now;
-        reg.update().catch(() => {});
-        verifyRevision(navigator.serviceWorker.controller || reg.active);
-      };
-
-      document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "visible") checkForUpdate();
-      });
-      window.addEventListener("online", checkForUpdate);
-      window.addEventListener("pageshow", (event) => {
-        if (event.persisted) checkForUpdate();
-      });
-    })
-    .catch(() => {});
-}
-
 setupServiceWorkerUpdates();
 
-setupSimplePlan();
+const finishSettingsEdit = setupSimplePlan();
 setupSettings();
 setupDeepLinks();
-setupGuidedFlow();
+setupGuidedFlow(finishSettingsEdit);
 setupFieldHelp();
 setupPlanControls();

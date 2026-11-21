@@ -14,17 +14,13 @@ import {
 } from "./format.js";
 export const QE_BINDINGS = [
   ["qe-retire", "known-retire"],
-  ["qe-salary", "person-salary"],
   ["qe-cpf-extra", "known-cpf-extra"],
   ["qe-cash-saving", "known-cash-saving"],
   ["qe-invest", "known-invest"],
-  ["qe-target-equity", "known-target-equity"],
-  ["qe-sg-sleeve", "known-sg-sleeve"],
 ];
 
 const QE_PANEL_META = {
   goal: { title: "Target Retirement Age", focus: "#qe-retire" },
-  salary: { title: "Salary & CPF", focus: "#qe-salary" },
   "cpf-extra": { title: "Extra CPF Saving", focus: "#qe-cpf-extra" },
   "cash-saving": {
     title: "Monthly Planned Savings (HYSA / SSB)",
@@ -71,7 +67,6 @@ export function createQuickEditController(ctx) {
   const rstuCap = RetirementModel.C.rstuReliefCap;
   const defEqPct = SG_DEFAULT_PLAN.targetEquityPct;
   const defSgPct = SG_DEFAULT_PLAN.sgSleevePct;
-  const defSalary = SG_DEFAULT_PLAN.salary;
   const defRetire = SG_DEFAULT_PLAN.retire;
   const defInflation = SG_DEFAULT_PLAN.inflationRate;
 
@@ -112,19 +107,6 @@ export function createQuickEditController(ctx) {
       chip.classList.toggle("is-active", active);
       chip.setAttribute("aria-pressed", String(active));
     });
-    const curSalary = Number($("#person-salary")?.value || defSalary);
-    $$("[data-qe-salary-delta]").forEach((btn) => {
-      const delta = Number(btn.dataset.qeSalaryDelta);
-      btn.disabled =
-        (delta < 0 && curSalary <= 751) || (delta > 0 && curSalary >= 1000000);
-    });
-    $$("[data-qe-pick-salary]").forEach((chip) => {
-      const salVal = Number(chip.dataset.qePickSalary);
-      const active = Math.round(curSalary) === salVal;
-      chip.classList.toggle("is-active", active);
-      chip.setAttribute("aria-pressed", String(active));
-    });
-
     if (r && simulation) {
       const capStr = String(Math.max(0, Math.floor(r.afterCpf)));
       if ($("#qe-cpf-extra")) {
@@ -204,18 +186,6 @@ export function createQuickEditController(ctx) {
         curEqPct,
         curSgPct,
       );
-      $$("#qe-sg-controls input, #qe-sg-controls button").forEach((control) => {
-        control.disabled = curEqPct === 0;
-      });
-      $$("#quick-edit-modal [data-bogle-preset]").forEach((chip) => {
-        const field = chip.dataset.boglePreset;
-        const val = Number(chip.dataset.val);
-        const active =
-          field === "known-target-equity" ? curEqPct === val : curSgPct === val;
-        chip.classList.toggle("is-active", active);
-        chip.setAttribute("aria-pressed", String(active));
-      });
-
       const cpfSumEl = $("#qe-cpf-extra-summary");
       if (cpfSumEl && fire) {
         const selected = getSelected();
@@ -400,42 +370,6 @@ export function createQuickEditController(ctx) {
           readyBtn.textContent = `Use ready age ${fn.projectedFireAge}`;
         }
       }
-      const salaryTakeHomeEl = $("#qe-salary-takehome");
-      if (salaryTakeHomeEl) {
-        const netPct =
-          r.salary > 0
-            ? Math.min(100, Math.round((r.afterCpf / r.salary) * 100))
-            : 80;
-        const cpfPct = Math.max(0, 100 - netPct);
-        salaryTakeHomeEl.innerHTML = html`
-          <div class="qe-split-bar" aria-hidden="true">
-            <span
-              class="qe-split-net"
-              data-meter-key="qe-net-bar"
-              data-meter-w="${netPct}"
-              style="width:${netPct}%"
-            ></span>
-            <span
-              class="qe-split-cpf"
-              data-meter-key="qe-cpf-bar"
-              data-meter-w="${cpfPct}"
-              style="width:${cpfPct}%"
-            ></span>
-          </div>
-          <div class="qe-split-legend">
-            <span
-              ><i style="background:var(--primary);"></i>Pay after CPF
-              <strong>${raw(m(r.afterCpf, "/mo", "qe-net-pay"))}</strong>
-              (${netPct}%)</span
-            >
-            <span
-              ><i style="background:var(--sem-cpf);"></i>Employee CPF
-              <strong>−${raw(m(r.employeeCpf, "/mo", "qe-emp-cpf"))}</strong>
-              (${cpfPct}%)</span
-            >
-          </div>
-        `;
-      }
       const qeSummary = $("#qe-live-summary");
       if (qeSummary) {
         const funded =
@@ -543,32 +477,6 @@ export function createQuickEditController(ctx) {
         }
         $("#known-retire").value = String(next);
         if ($("#qe-retire")) $("#qe-retire").value = String(next);
-        render();
-        return;
-      }
-      const salDeltaBtn = event.target.closest("[data-qe-salary-delta]");
-      if (salDeltaBtn) {
-        const curSal = Number($("#person-salary")?.value || defSalary);
-        const nextSal = Math.min(
-          1000000,
-          Math.max(
-            751,
-            Math.round(curSal + Number(salDeltaBtn.dataset.qeSalaryDelta)),
-          ),
-        );
-        $("#person-salary").value = String(nextSal);
-        if ($("#qe-salary")) $("#qe-salary").value = String(nextSal);
-        render();
-        return;
-      }
-      const pickSalBtn = event.target.closest("[data-qe-pick-salary]");
-      if (pickSalBtn) {
-        const nextSal = Math.min(
-          1000000,
-          Math.max(751, Number(pickSalBtn.dataset.qePickSalary || defSalary)),
-        );
-        $("#person-salary").value = String(nextSal);
-        if ($("#qe-salary")) $("#qe-salary").value = String(nextSal);
         render();
         return;
       }
@@ -689,51 +597,10 @@ export function createQuickEditController(ctx) {
         render();
         return;
       }
-      const boglePresetBtn = event.target.closest("[data-bogle-preset]");
-      if (boglePresetBtn) {
-        const field = boglePresetBtn.dataset.boglePreset;
-        const val = String(Number(boglePresetBtn.dataset.val || 0));
-        if ($("#" + field)) $("#" + field).value = val;
-        if (field === "known-target-equity" && $("#qe-target-equity")) {
-          $("#qe-target-equity").value = val;
-        }
-        if (field === "known-sg-sleeve" && $("#qe-sg-sleeve")) {
-          $("#qe-sg-sleeve").value = val;
-        }
-        render();
-        return;
-      }
-      const bogleStepBtn = event.target.closest("[data-bogle-step]");
-      if (bogleStepBtn) {
-        const field = bogleStepBtn.dataset.bogleStep;
-        const delta = Number(bogleStepBtn.dataset.delta || 0);
-        if (field === "known-target-equity") {
-          const rawCur = $("#known-target-equity")?.value;
-          const cur = Number(
-            rawCur !== undefined && rawCur !== "" ? rawCur : defEqPct,
-          );
-          const next = Math.min(100, Math.max(0, cur + delta));
-          if ($("#known-target-equity"))
-            $("#known-target-equity").value = String(next);
-          if ($("#qe-target-equity"))
-            $("#qe-target-equity").value = String(next);
-          render();
-        } else if (field === "known-sg-sleeve") {
-          const rawCur = $("#known-sg-sleeve")?.value;
-          const cur = Number(
-            rawCur !== undefined && rawCur !== "" ? rawCur : defSgPct,
-          );
-          const next = Math.min(100, Math.max(0, cur + delta));
-          if ($("#known-sg-sleeve")) $("#known-sg-sleeve").value = String(next);
-          if ($("#qe-sg-sleeve")) $("#qe-sg-sleeve").value = String(next);
-          render();
-        }
-        return;
-      }
       if (event.target.closest("#qe-open-full-settings")) {
         qeDialog.dataset.flowNavigation = "true";
         qeDialog.close();
-        document.querySelector("[data-open-profile]")?.click();
+        $("#section-profile").click();
         return;
       }
       if (event.target.closest("[data-qe-close]")) {
@@ -790,10 +657,6 @@ export function createQuickEditController(ctx) {
         const validatorEl = srcEl.type === "hidden" ? qeEl : srcEl;
         if (validatorEl.validity.badInput) {
           srcEl.value = lastValidFieldValues[srcId] ?? srcEl.defaultValue ?? "";
-          qeEl.value = srcEl.value;
-          corrected = true;
-        } else if (srcId === "person-salary" && rawVal === "") {
-          srcEl.value = lastValidFieldValues[srcId] || String(defSalary);
           qeEl.value = srcEl.value;
           corrected = true;
         } else if (rawVal !== "" && !validatorEl.validity.valid) {

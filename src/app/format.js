@@ -5,11 +5,10 @@ const $$ = (selector, root = document) => [
 ];
 const fmtInt = (value) =>
   Math.round(Math.max(0, value) || 0).toLocaleString("en-SG");
-const formatFundedPct = (pctFunded) => {
-  const rounded = Math.max(0, Math.round(Number(pctFunded) || 0));
-  return rounded > 100 ? "100%+" : `${rounded}%`;
-};
+const formatFundedPct = (pctFunded) => `${fmtInt(pctFunded)}%`;
 const money = (value) => `$${fmtInt(value)}`;
+const formatMoneyInput = (amount) =>
+  Number(amount).toLocaleString("en-SG", { maximumFractionDigits: 20 });
 const m = (value, suffix = "", animKey = "") => {
   const numVal = Math.round(Math.max(0, value) || 0);
   const animAttr = animKey
@@ -96,40 +95,6 @@ function buildAllocationMix(equity, sgSleeve) {
   </div>`;
 }
 
-function buildSmoothSpline(coords, minY, maxY) {
-  if (!coords.length) return "";
-  if (coords.length === 1) return `M ${coords[0].x} ${coords[0].y}`;
-  const clampY = (y) => Math.max(minY, Math.min(maxY, y));
-  let d = `M ${coords[0].x.toFixed(1)} ${clampY(coords[0].y).toFixed(1)}`;
-  for (let i = 0; i < coords.length - 1; i++) {
-    const p0 = coords[Math.max(0, i - 1)];
-    const p1 = coords[i];
-    const p2 = coords[i + 1];
-    const p3 = coords[Math.min(coords.length - 1, i + 2)];
-    const tension = 0.22;
-    const cp1x = p1.x + (p2.x - p0.x) * tension;
-    const cp1y = clampY(p1.y + (p2.y - p0.y) * tension);
-    const cp2x = p2.x - (p3.x - p1.x) * tension;
-    const cp2y = clampY(p2.y - (p3.y - p1.y) * tension);
-    d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${clampY(p2.y).toFixed(1)}`;
-  }
-  return d;
-}
-
-function niceAxis(rawMax, steps = 4) {
-  const safeMax = Math.max(1000, rawMax);
-  const rawStep = safeMax / steps;
-  const mag = 10 ** Math.floor(Math.log10(rawStep));
-  const norm = rawStep / mag;
-  const niceNorm =
-    norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10;
-  const step = niceNorm * mag;
-  const maxVal = step * Math.ceil((safeMax * 1.05) / step);
-  const actualSteps = Math.round(maxVal / step);
-  const ticks = Array.from({ length: actualSteps + 1 }, (_, i) => i * step);
-  return { maxVal, ticks };
-}
-
 function resetControl(el, clearTextInputs = false) {
   if (!el) return;
   el.value =
@@ -138,83 +103,6 @@ function resetControl(el, clearTextInputs = false) {
       : clearTextInputs && el.type !== "hidden"
         ? ""
         : el.defaultValue;
-}
-
-function syncCustomBudgetReset(opts = {}) {
-  const selected = $("#known-lifestyle")?.value || "cca";
-  const amount =
-    RetirementModel.lifestyles[selected]?.budget ||
-    RetirementModel.lifestyles.cca.budget;
-  const custom = $("#known-spend");
-  if (!custom) return;
-  custom.placeholder = String(amount);
-  const rawCustom = (custom.value || "").trim();
-  const hasNumericDiff =
-    rawCustom !== "" &&
-    custom.validity.valid &&
-    Number.isFinite(Number(rawCustom)) &&
-    Math.round(Number(rawCustom) * 100) !== Math.round(amount * 100);
-  const hasCustom = Boolean(
-    hasNumericDiff || opts.customBudgetActive || opts.useItemizedExpenses,
-  );
-  const reset = $("#use-preset-budget");
-  if (reset) {
-    reset.hidden = !hasCustom;
-    reset.textContent = `Reset to ${selected === "cca" ? "CCA ($2,800)" : "Home + Helper ($3,900)"} preset`;
-  }
-  const itemizedNote = $("#settings-itemized-note");
-  if (itemizedNote) {
-    const count = Number(opts.itemizedCount || 0);
-    const itemized = Boolean(opts.useItemizedExpenses && count > 0);
-    const row = itemizedNote.closest("[data-settings-row]");
-    if (row) {
-      row.dataset.itemizedBudget = String(itemized);
-      $("[data-settings-edit]", row).hidden =
-        itemized || !$("[data-settings-sources]", row).hidden;
-      $(".settings-readonly-value", row).hidden = !itemized;
-    }
-    if (itemized) {
-      const msg = `Driven by ${count} itemized expense item${count === 1 ? "" : "s"} (${money(Number(rawCustom || amount))}/mo).`;
-      const span = itemizedNote.querySelector("span");
-      if (span) span.textContent = msg;
-      else itemizedNote.textContent = msg;
-      itemizedNote.hidden = false;
-    } else {
-      const span = itemizedNote.querySelector("span");
-      if (span) span.textContent = "";
-      else itemizedNote.textContent = "";
-      itemizedNote.hidden = true;
-    }
-  }
-  const cashNote = $("#settings-cash-accounts-note");
-  if (cashNote) {
-    const active = Boolean(opts.useItemizedCashAccounts);
-    const count = Number(opts.cashAccountsCount || 0);
-    const row = cashNote.closest("[data-settings-row]");
-    if (row) {
-      row.dataset.cashDriven = String(active);
-      $("[data-settings-edit]", row).hidden =
-        active || !$("[data-settings-sources]", row).hidden;
-      $(".settings-readonly-value", row).hidden = !active;
-    }
-    if (active && count > 0) {
-      const rawCash = ($("#known-ssb-cash")?.value || "").trim();
-      const eirStr =
-        opts.cashEffectiveRatePct != null
-          ? ` @ ${Number(opts.cashEffectiveRatePct).toFixed(2)}% EIR`
-          : "";
-      const msg = `Driven by ${count} cash & SSB account${count === 1 ? "" : "s"} (${money(Number(rawCash || 0))}${eirStr}).`;
-      const span = cashNote.querySelector("span");
-      if (span) span.textContent = msg;
-      else cashNote.textContent = msg;
-      cashNote.hidden = false;
-    } else {
-      const span = cashNote.querySelector("span");
-      if (span) span.textContent = "";
-      else cashNote.textContent = "";
-      cashNote.hidden = true;
-    }
-  }
 }
 
 function bindDialogBackdropDismiss(dialog) {
@@ -372,6 +260,7 @@ export {
   formatFundedPct,
   deriveReadinessSummary,
   money,
+  formatMoneyInput,
   m,
   signedM,
   centsHtml,
@@ -381,10 +270,7 @@ export {
   ageLabel,
   svgWrap,
   ICONS,
-  buildSmoothSpline,
-  niceAxis,
   resetControl,
-  syncCustomBudgetReset,
   bindDialogBackdropDismiss,
   escapeAttr,
   escapeHtml,

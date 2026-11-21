@@ -110,7 +110,7 @@ export function renderPrintSheet({
   } = deriveReadinessSummary({
     fire,
     endAge: printEndAge,
-    pctFunded: pm.pctFunded,
+    pctFunded: pm.rawPctFunded,
     onTrack: pm.onTrack,
     compact: true,
   });
@@ -405,7 +405,7 @@ export function renderPrintSheet({
         </div>
         ${raw(
           buildFinReadinessGaugeSVG(
-            pm.pctFunded,
+            pm.rawPctFunded,
             "Earliest Safe Retirement Age",
             pm.earliestSafeAgeText,
             deltaLine,

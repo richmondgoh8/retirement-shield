@@ -1,5 +1,4 @@
-import { m, centsHtml } from "./format.js";
-import { buildTaxSweetSpotSection } from "./views-cash-div.js";
+import { m, centsHtml, compactMoney, ICONS } from "./format.js";
 
 /** Render the CPF position, OA-to-SA transfer comparison, Post-55 OA tap, and VHR section. */
 export function buildCpfDetailsHTML({
@@ -245,7 +244,7 @@ export function buildTaxTabHTML({ r, tax, marginalTaxPct }) {
           </div>
           <span class="fin-target-pill">Age ${r.age} · ${r.age >= 55 ? "Senior CPF rates" : "Under 55 rates"}</span>
         </div>
-        <button type="button" class="text-button" data-quick-edit="salary">Edit salary and bonus</button>
+        <button type="button" class="text-button" data-open-settings-field="person-salary">Edit salary and bonus</button>
         <div class="fin-bento-bar" aria-hidden="true">
           <span style="width:${takeHomePct.toFixed(1)}%;background:var(--sem-equities);"></span>
           <span style="width:${empCpfPct.toFixed(1)}%;background:var(--sem-cpf);"></span>
@@ -269,4 +268,185 @@ export function buildTaxTabHTML({ r, tax, marginalTaxPct }) {
           </li>
         </ul>
       </section>`;
+}
+
+function buildTaxSweetSpotSection(tax) {
+  const C = RetirementModel.C;
+  const marginalPct = `${(tax.taxBefore.marginalRate * 100).toFixed(1).replace(/\.0$/, "")}%`;
+  const capTotal = Math.max(1, C.personalReliefCap);
+  const baseReliefs = Math.max(0, Math.round(tax.reliefCapUsed || 0));
+  const activeSelfRstu = Math.max(0, Math.round(tax.activeSelfRstu || 0));
+  const activeFamRstu = Math.max(0, Math.round(tax.activeFamilyRstu || 0));
+  const activeSrs = Math.max(0, Math.round(tax.activeSrs || 0));
+  const totalClaimed = Math.min(
+    capTotal,
+    baseReliefs + activeSelfRstu + activeFamRstu + activeSrs,
+  );
+  const totalClaimedPct = Math.min(
+    100,
+    Math.round((totalClaimed / capTotal) * 100),
+  );
+  const remainingAfterActive = Math.max(0, capTotal - totalClaimed);
+  const basePct = Math.min(100, (baseReliefs / capTotal) * 100);
+  const selfRstuPct = Math.min(
+    100 - basePct,
+    (activeSelfRstu / capTotal) * 100,
+  );
+  const famRstuPct = Math.min(
+    100 - basePct - selfRstuPct,
+    (activeFamRstu / capTotal) * 100,
+  );
+  const srsPct = Math.min(
+    100 - basePct - selfRstuPct - famRstuPct,
+    (activeSrs / capTotal) * 100,
+  );
+  const tierTone =
+    tax.tier === "max-both" || tax.tier === "rstu-first"
+      ? "is-good"
+      : "is-warn";
+
+  return `<section class="tax-sweet-card card-surface" id="tax-sweet-spot" aria-labelledby="tax-sweet-title">
+    <div class="tax-sweet-head">
+      <div>
+        <h2 id="tax-sweet-title">CPF RSTU vs. SRS Tax Sweet-Spot</h2>
+        <p class="tax-guidance-copy">${tax.guidance}</p>
+      </div>
+      <span class="status-pill ${tierTone}">${tax.headline}</span>
+    </div>
+    <dl class="tax-metrics-grid">
+      <div class="tax-metric-box">
+        <dt>Chargeable Income (est.)</dt>
+        <dd>${m(tax.chargeableIncome, "/yr", "tax-chargeable")}</dd>
+        <small>${marginalPct} marginal bracket · ${m(tax.taxBefore.annualTax, "/yr")} tax</small>
+      </div>
+      <div class="tax-metric-box">
+        <dt>CPF RSTU ($8k cap to FRS)</dt>
+        <dd>${m(tax.rstuTaxSaved, "/yr saved", "tax-rstu-saved")}</dd>
+        <small>Eligible room: ${m(tax.maxRstu, "/yr")} (SA room ${m(tax.saRoom)})</small>
+      </div>
+      <div class="tax-metric-box">
+        <dt>SRS ($15.3k Citizen/PR cap)</dt>
+        <dd>${m(tax.srsTaxSavedAfterRstu, "/yr saved", "tax-srs-saved")}</dd>
+        <small>After RSTU (${m(tax.srsStandaloneTaxSaved, "/yr")} standalone) · Lock-in age ${tax.srsLockInAge}</small>
+      </div>
+      <div class="tax-metric-box">
+        <dt>$80k Relief Cap Used</dt>
+        <dd>${m(tax.reliefCapUsed, "", "tax-cap-used")} <span class="curr-muted">/ ${m(C.personalReliefCap)}</span></dd>
+        <small>${totalClaimedPct}% claimed · ${m(remainingAfterActive)} remaining</small>
+      </div>
+    </dl>
+    <article class="fin-bento-card card-surface tax-bento-embedded" aria-label="IRAS $80,000 personal relief cap waterfall">
+      <div class="fin-bento-head">
+        <div>
+          <span class="fin-bento-eyebrow">YA ${C.year} IRAS $80,000 Relief Cap</span>
+          <h3 class="fin-bento-title">${m(totalClaimed)} <small>claimed · ${m(remainingAfterActive)} room left</small></h3>
+        </div>
+        <span class="fin-bento-share-pill">${totalClaimedPct}%</span>
+      </div>
+      <div class="fin-bento-bar" role="progressbar" aria-valuenow="${totalClaimedPct}" aria-valuemin="0" aria-valuemax="100" aria-label="${totalClaimedPct}% of $80,000 personal income tax relief cap used">
+        <span data-meter-key="tax-wf-base" data-meter-w="${basePct.toFixed(1)}" style="width:${basePct.toFixed(1)}%;background:var(--sem-equities);"></span>
+        <span data-meter-key="tax-wf-rstu" data-meter-w="${selfRstuPct.toFixed(1)}" style="width:${selfRstuPct.toFixed(1)}%;background:var(--sem-cpf);"></span>
+        <span data-meter-key="tax-wf-fam" data-meter-w="${famRstuPct.toFixed(1)}" style="width:${famRstuPct.toFixed(1)}%;background:var(--sem-emerald);"></span>
+        <span data-meter-key="tax-wf-srs" data-meter-w="${srsPct.toFixed(1)}" style="width:${srsPct.toFixed(1)}%;background:var(--sem-srs);"></span>
+      </div>
+      <ul class="fin-bento-list">
+        <li>
+          <span class="fin-bento-item-label"><i style="background:var(--sem-equities);"></i>Mandatory CPF &amp; Existing Reliefs</span>
+          <span class="fin-bento-item-meta">Base IRAS reliefs before voluntary top-ups</span>
+          <strong>${m(baseReliefs)} <small class="fin-bento-share-pill">${Math.round(basePct)}%</small></strong>
+        </li>
+        <li>
+          <span class="fin-bento-item-label"><i style="background:var(--sem-cpf);"></i>Self CPF RSTU${activeFamRstu > 0 ? " + Family RSTU" : ""}</span>
+          <span class="fin-bento-item-meta">${activeSelfRstu > 0 || activeFamRstu > 0 ? `Saves ${m((tax.rstuTaxSaved || 0) + (tax.familyRstuTaxSaved || 0), "/yr")}` : `Up to ${m(tax.maxRstu, "/yr")} eligible room`}</span>
+          <strong>${m(activeSelfRstu + activeFamRstu)} <small class="fin-bento-share-pill">${Math.round(selfRstuPct + famRstuPct)}%</small></strong>
+        </li>
+        <li>
+          <span class="fin-bento-item-label"><i style="background:var(--sem-srs);"></i>SRS Contribution</span>
+          <span class="fin-bento-item-meta">${activeSrs > 0 ? `Locked until age ${tax.srsLockInAge}` : `Up to ${m(tax.maxSrsAfterRstu, "/yr")} after RSTU`}</span>
+          <strong>${m(activeSrs)} <small class="fin-bento-share-pill">${Math.round(srsPct)}%</small></strong>
+        </li>
+      </ul>
+    </article>
+    <div class="family-rstu-bar">
+      <div class="family-rstu-copy">
+        <strong>Spouse / Parents CPF Cash Top-Up (Family RSTU · Separate $8,000/yr Cap)</strong>
+        <p>${
+          tax.familyRstuPlanned > 0
+            ? `Claiming <strong>${m(tax.eligibleFamilyRstu, "/yr")}</strong> family RSTU — saving an extra <strong>${m(tax.familyRstuTaxSaved, "/yr")}</strong> in IRAS tax on top of your own SA top-up.`
+            : tax.potentialFamilyRstuTaxSaved > 0
+              ? `Topping up a loved one’s CPF SA/RA unlocks up to <strong>${m(tax.maxFamilyRstuRoom, "/yr")}</strong> additional IRAS relief (saves <strong>${m(tax.potentialFamilyRstuTaxSaved, "/yr")}</strong> at ${marginalPct}).`
+              : "Up to $8,000/yr separate IRAS tax relief when topping up a spouse, parent, or grandparent’s CPF SA/RA (subject to $80k personal relief cap)."
+        }</p>
+      </div>
+      <div class="family-rstu-actions">
+        ${
+          tax.familyRstuPlanned > 0
+            ? `<button type="button" class="fin-action-chip" data-apply-family-rstu="0">Clear family RSTU</button>`
+            : tax.maxFamilyRstuRoom > 0
+              ? `<button type="button" class="fin-action-chip" data-apply-family-rstu="${Math.round(tax.maxFamilyRstuRoom)}">Simulate +${m(tax.maxFamilyRstuRoom, "/yr")}</button>`
+              : ""
+        }
+      </div>
+    </div>
+    ${(() => {
+      const srsStartAge = tax.srsWithdrawalStartAge ?? tax.srsLockInAge;
+      const srsZeroTaxCap =
+        tax.srsZeroTaxCap || RetirementModel.C.srsSoftCapAt63;
+      const srsZeroTaxCapCompact = compactMoney(srsZeroTaxCap);
+      const srsCapFillPct = Math.min(
+        100,
+        Math.round((tax.srsProjectedAt63 / Math.max(1, srsZeroTaxCap)) * 100),
+      );
+      const srsBarTone =
+        tax.srsTrapStatus === "balloon-trap"
+          ? "is-danger"
+          : tax.srsTrapStatus === "near-cap"
+            ? "is-warn"
+            : "is-srs";
+      return `<div class="srs-trap-panel is-${tax.srsTrapStatus || "safe"}" role="region" aria-label="Tap 2 SRS Mechanics and Age-${srsStartAge} Ballooning Trap Guardrail">
+      <div class="srs-trap-head">
+        <div class="srs-trap-copy">
+          <strong>Tap 2 (SRS) Mechanics &amp; Age-${srsStartAge} Ballooning Guardrail</strong>
+          <p>${tax.srsTrapGuidance}</p>
+        </div>
+        <span class="status-pill ${tax.srsTrapTone || (tax.srsTrapStatus === "balloon-trap" ? "is-danger" : tax.srsTrapStatus === "near-cap" ? "is-warn" : "is-info")}">${tax.srsTrapHeadline}</span>
+      </div>
+      <div class="tap-progress-wrap">
+        <div class="tap-progress-meta">
+          <span>Projected age-${srsStartAge} pot vs ${srsZeroTaxCapCompact} $0-tax ceiling</span>
+          <strong>${srsCapFillPct}%</strong>
+        </div>
+        <div class="tap-progress-track" role="progressbar" aria-valuenow="${srsCapFillPct}" aria-valuemin="0" aria-valuemax="100" aria-label="Projected SRS pot vs $0-tax ceiling">
+          <span class="tap-progress-fill ${srsBarTone}" data-meter-key="tax-srs-cap-bar" data-meter-w="${srsCapFillPct}" style="width:${srsCapFillPct}%"></span>
+        </div>
+      </div>
+      <dl class="tax-metrics-grid srs-trap-metrics">
+        <div class="tax-metric-box">
+          <dt>Projected SRS at Age ${srsStartAge}</dt>
+          <dd>${m(tax.srsProjectedAt63, "", "tax-srs-proj63")}</dd>
+          <small>${tax.srsProjectedAt63 > 0 ? `${((tax.srsReturnRate ?? 0) * 100).toFixed(2).replace(/\.00$/, "")}% p.a. (${tax.srsInvestedIn === "cash" ? "idle cash" : tax.srsInvestedIn === "ssb" ? "SSB" : tax.srsInvestedIn === "balanced" ? "60/40" : "Global ETFs"}) · ${m(tax.srsBalanceToday)} now + ${m(tax.srsAnnualPlanned, "/yr")}` : `$0 balance · $0/yr planned (${((tax.srsReturnRate ?? 0) * 100).toFixed(2).replace(/\.00$/, "")}% ${tax.srsInvestedIn === "cash" ? "idle cash" : tax.srsInvestedIn === "ssb" ? "SSB" : tax.srsInvestedIn === "balanced" ? "60/40" : "Global ETFs"} assumed)`}</small>
+        </div>
+        <div class="tax-metric-box">
+          <dt>10-Yr Drawdown (${srsStartAge}–${srsStartAge + 10})</dt>
+          <dd>${m(tax.srsTenYearAnnualDraw, "/yr", "tax-srs-draw")}</dd>
+          <small>${tax.srsProjectedAt63 > 0 ? `${m(tax.srsTenYearMonthlyDraw, "/mo")} nominal · Tax-free ≤ $40k/yr` : `Up to $40,000/yr ($3,333/mo) tax-free at ${srsZeroTaxCapCompact} pot`}</small>
+        </div>
+        <div class="tax-metric-box">
+          <dt>Safe Annual Pace to ${srsZeroTaxCapCompact}</dt>
+          <dd>${m(tax.srsMaxSafeAnnualTo400k, "/yr", "tax-srs-safe-pace")}</dd>
+          <small>${tax.srsFullCapProjectedAt63 > tax.srsTrapFloorAt63 && tax.srsMaxSafeAnnualTo400k < 15250 ? `Over ${tax.srsYearsToLockIn ?? Math.max(0, srsStartAge - 35)} yrs @ ${((tax.srsReturnRate ?? 0) * 100).toFixed(2).replace(/\.00$/, "")}% · $15.3k/yr max → ${compactMoney(tax.srsFullCapProjectedAt63)} pot` : `Statutory cap $15,300/yr · Direct excess to brokerage`}</small>
+        </div>
+        <div class="tax-metric-box">
+          <dt>Est. Withdrawal Tax (50% Rule)</dt>
+          <dd>${m(tax.srsWithdrawalTaxAt63?.annualTax || 0, "/yr", "tax-srs-wdtax")}</dd>
+          <small>${tax.srsProjectedAt63 > 0 ? `50% taxable (${m(tax.srsTaxableAnnualAt63, "/yr")} vs $20k IRAS 0% threshold)` : `50% taxable · $0 tax when draw ≤ $40k/yr ($20k chargeable)`}</small>
+        </div>
+      </dl>
+    </div>`;
+    })()}
+    <div class="srs-callout-bar" role="note">
+      ${ICONS.warnTiny}
+      <span>${tax.srsIdleWarning}</span>
+    </div>
+  </section>`;
 }

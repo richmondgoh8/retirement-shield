@@ -1,6 +1,7 @@
 /* Build fills the revision and the bounded list of app-owned public assets. */
-const CACHE_PREFIX = "retirement-shield-";
-const CACHE_NAME = "retirement-shield-dev";
+const CACHE_REVISION = "dev";
+const CACHE_PREFIX = `retirement-shield:${encodeURIComponent(self.registration.scope)}:`;
+const CACHE_NAME = `${CACHE_PREFIX}${CACHE_REVISION}`;
 const APP_SHELL = [
   "./index.html",
   "./styles.css",
@@ -11,13 +12,17 @@ const APP_SHELL = [
   "./src/app/print-sheet.js",
   "./src/app/charts.js",
   "./src/app/views-overview.js",
-  "./src/app/views-cash-div.js",
+  "./src/app/views-allocator.js",
+  "./src/app/views-cash-options.js",
+  "./src/app/views-dividend-yield.js",
   "./src/app/views-cpf-tax.js",
   "./src/app/views-expense.js",
   "./src/app/dividend-presets.js",
   "./src/app/date-picker.js",
   "./src/app/modals.js",
   "./src/app/quick-edit.js",
+  "./src/app/settings-editor.js",
+  "./src/app/pwa-updates.js",
   "./manifest.webmanifest",
   "./favicon.svg",
   "./favicon.ico",
@@ -31,6 +36,7 @@ const APP_SHELL = [
 const appURL = (path) => new URL(path, self.registration.scope).href;
 const assetURLs = new Set(APP_SHELL.map(appURL));
 const shellURL = appURL("./index.html");
+const masRatesURL = new URL(appURL("./assets/mas-rates.json"));
 const isAppPage = (url) =>
   url.pathname === new URL(self.registration.scope).pathname ||
   url.href.split("?")[0] === shellURL;
@@ -53,7 +59,10 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("message", (event) => {
   if (event.data?.type === "GET_VERSION") {
-    event.ports?.[0]?.postMessage({ cacheVersion: CACHE_NAME });
+    // Preserve the revision format understood by already-open app pages.
+    event.ports?.[0]?.postMessage({
+      cacheVersion: `retirement-shield-${CACHE_REVISION}`,
+    });
   } else if (event.data?.type === "SKIP_WAITING") {
     self.skipWaiting();
   }
@@ -98,7 +107,7 @@ async function pageResponse(request) {
 
 async function networkFirstJson(request) {
   const cache = await caches.open(CACHE_NAME);
-  const canonicalKey = appURL("./assets/mas-rates.json");
+  const canonicalKey = masRatesURL.href;
   let lastResponse = null;
   try {
     const response = await fetch(request, { cache: "no-cache" });
@@ -131,7 +140,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(pageResponse(event.request));
     return;
   }
-  if (url.pathname.endsWith("/assets/mas-rates.json")) {
+  if (url.pathname === masRatesURL.pathname) {
     event.respondWith(networkFirstJson(event.request));
     return;
   }

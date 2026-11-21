@@ -185,7 +185,7 @@ async function launchChromeCDP(chromePath) {
   return { send, evaluate, navigate, exceptions, close };
 }
 
-test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload, malformed #p= safety, modal Escape autosave, Dividend badge plain text", async (t) => {
+test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRate reload, malformed #p= safety, modal Escape autosave, Dividend badge plain text", async (t) => {
   const chromePath = findChromeBinary();
   if (!chromePath) {
     t.skip("No local Chrome/Chromium binary found");
@@ -333,14 +333,40 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
     assert.equal(savings.initiallyHidden, true);
     assert.equal(savings.focusOpensEditor, true);
 
-    // 1. All 7 workspace tabs switch cleanly without runtime errors
-    const tabCount = await browser.evaluate(`(() => {
+    // 1. All five workspace destinations switch cleanly without runtime errors
+    const workspaceNav = await browser.evaluate(`(() => {
       const tabs = [...document.querySelectorAll('.sidebar-nav [role="tab"]')];
       for (const btn of tabs) btn.click();
       tabs[0]?.click();
-      return tabs.length;
+      const destinations = (selector) => [...document.querySelectorAll(selector)]
+        .map((button) => button.dataset.destination);
+      document.querySelector("#destination-plan").click();
+      const profileVisibleByDefault = Boolean(document.querySelector('#tab-panel-profile [data-settings-row="birth"]')?.getClientRects().length);
+      tabs[0]?.click();
+      const sections = [...document.querySelectorAll(".workspace-sections")]
+        .map((group) => [...group.querySelectorAll("[data-tab]")].map((tab) => tab.dataset.tab));
+      return {
+        desktop: destinations(".sidebar-nav [data-destination]"),
+        mobile: destinations(".mobile-tabbar [data-destination]"),
+        sections,
+        profileVisibleByDefault,
+      };
     })()`);
-    assert.equal(tabCount, 7);
+    assert.deepEqual(workspaceNav.desktop, [
+      "overview",
+      "plan",
+      "accounts",
+      "invest",
+      "cpf-tax",
+    ]);
+    assert.deepEqual(workspaceNav.mobile, workspaceNav.desktop);
+    assert.equal(workspaceNav.profileVisibleByDefault, true);
+    assert.deepEqual(workspaceNav.sections, [
+      ["profile", "budget", "trajectory"],
+      ["balances", "cash-accounts", "cash-parking"],
+      ["allocator", "dividend-calc"],
+      ["cpf-rules", "tax"],
+    ]);
 
     // 2. WAI-ARIA keyboard ArrowDown on vertical .sidebar-nav moves active tab & roving tabindex
     const ariaResult = await browser.evaluate(`(() => {
@@ -403,7 +429,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
 
     // 5. Settings edits use one Save/Cancel model, with keyboard and zero behavior
     const salaryEdit = await browser.evaluate(`(() => {
-      document.querySelector(".sidebar-settings-btn").click();
+      document.querySelector("#section-profile").click();
       const trigger = document.querySelector('[data-settings-row="salary"]');
       trigger.click();
       const draft = document.querySelector("#settings-draft-person-salary");
@@ -424,7 +450,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
         !document.querySelector("#settings-editor-salary").hidden;
       document.querySelector('#settings-editor-salary [data-settings-action="cancel"]').click();
       const focusReturnedAfterCancel = document.activeElement === trigger;
-      document.querySelector("#settings-header-back").click();
+      document.querySelector("#destination-overview").click();
       return {
         value: document.querySelector("#person-salary").value,
         initiallyDisabled,
@@ -442,14 +468,12 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
     assert.equal(salaryEdit.focusReturnedAfterCancel, true);
 
     const settingsRows = await browser.evaluate(`(async () => {
-      document.querySelector(".sidebar-settings-btn").click();
+      document.querySelector("#section-profile").click();
       const cases = [
         ["birth", "person-dob", "date"],
         ["retire", "known-retire", "number"],
         ["salary", "person-salary", "number"],
         ["bonus", "known-annual-bonus", "number"],
-        ["lifestyle", "known-lifestyle", "select"],
-        ["budget", "known-spend", "number"],
         ["cpf", "known-oa", "number"],
         ["housing", "known-housing-mode", "choice"],
         ["loan", "known-housing-balance", "number", "bank"],
@@ -524,6 +548,10 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
             await wait(80);
           }
           const row = document.querySelector('[data-settings-row="' + key + '"]');
+          const scope = row.closest("[data-settings-scope]").dataset.settingsScope;
+          document.querySelector("#section-" + scope).click();
+          const inputs = document.querySelector("#top").closest("details");
+          if (inputs) inputs.open = true;
           const editor = document.querySelector("#settings-editor-" + key);
           if (!row || !editor) throw new Error("Missing row/editor");
           if (key === "lifestyle") {
@@ -636,8 +664,9 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       }
       housing.value = originalHousing;
       document.dispatchEvent(new Event("plan-rendered"));
-      const toolActions = [...document.querySelectorAll("#persona-presets-strip button")];
-      const toolsHaveActions = toolActions.length >= 6 && !document.querySelector("#persona-presets-strip [data-settings-row]");
+      const toolActions = [...document.querySelectorAll("#plan-overflow button")];
+      const toolsHaveActions = toolActions.length >= 6 && !document.querySelector("#plan-overflow [data-settings-row]");
+      document.querySelector("#section-balances").click();
       const cashRow = document.querySelector('[data-settings-row="cash"]');
       cashRow.dataset.cashDriven = "true";
       cashRow.querySelector("[data-settings-edit]").hidden = true;
@@ -649,11 +678,11 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       cashRow.click();
       const readonlyCashStaysClosed = document.querySelector("#settings-editor-cash").hidden;
       cashRow.querySelector("#open-cash-breakdown-settings").click();
-      const accountsLinkStaysSeparate = document.querySelector("#settings-editor-cash").hidden;
+      const accountsLinkStaysSeparate = document.querySelector("#settings-editor-cash").hidden && document.body.dataset.view === "cash-accounts";
       cashRow.dataset.cashDriven = "false";
       cashRow.querySelector("[data-settings-edit]").hidden = false;
       document.dispatchEvent(new Event("plan-rendered"));
-      document.querySelector("#settings-header-back").click();
+      document.querySelector("#destination-overview").click();
       return {
         rows: cases.map(([key]) => key),
         failures,
@@ -686,7 +715,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
     assert.equal(settingsRows.accountsLinkStaysSeparate, true);
 
     const outsideCommit = await browser.evaluate(`(() => {
-      document.querySelector(".sidebar-settings-btn").click();
+      document.querySelector("#section-profile").click();
       const row = document.querySelector('[data-settings-row="salary"]');
       const editor = document.querySelector("#settings-editor-salary");
       const source = document.querySelector("#person-salary");
@@ -709,7 +738,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
     assert.equal(outsideCommit.unchangedClickClosed, true);
 
     const cpfInline = await browser.evaluate(`(() => {
-      document.querySelector(".sidebar-settings-btn").click();
+      document.querySelector("#section-balances").click();
       const row = document.querySelector('[data-settings-row="cpf"]');
       const oaSource = document.querySelector("#known-oa");
       const before = oaSource.value;
@@ -786,6 +815,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       mobile: false,
     });
     const settingsLayout = await browser.evaluate(`(() => {
+      document.querySelector("#section-profile").click();
       const profile = document.querySelector(".settings-profile-card");
       const profileRows = [...profile.querySelectorAll("[data-settings-row]")];
       const birthRow = profile.querySelector('[data-settings-row="birth"]');
@@ -842,6 +872,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       const retireInputHeight = Math.round(retireInput.getBoundingClientRect().height);
       retireEditor.querySelector('[data-settings-action="cancel"]').click();
 
+      document.querySelector("#section-balances").click();
       const cpfCard = document.querySelector(".settings-cpf-card");
       const cpfRow = cpfCard.querySelector('[data-settings-row="cpf"]');
       const cpfEdit = cpfCard.querySelector("[data-settings-cpf-edit]");
@@ -861,7 +892,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
         ...birthResult,
         retireFieldWidth,
         retireInputHeight,
-        subtitle: document.querySelector(".settings-page-sub").textContent.trim(),
+        cpfEditorInBalances: Boolean(cpfCard.closest("#tab-panel-balances")),
         cpfEditName: cpfEdit.getAttribute("aria-label"),
         cpfEditHiddenWhileEditing: cpfEdit.hidden,
         cpfSummaryColumns: summaryColumns,
@@ -905,10 +936,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
         1,
       JSON.stringify(settingsLayout.birthGeometry),
     );
-    assert.equal(
-      settingsLayout.subtitle,
-      "Edit and save one setting at a time.",
-    );
+    assert.equal(settingsLayout.cpfEditorInBalances, true);
     assert.equal(settingsLayout.cpfEditName, "Edit CPF");
     assert.equal(settingsLayout.cpfEditHiddenWhileEditing, true);
     assert.equal(settingsLayout.cpfSummaryColumns, 5);
@@ -954,6 +982,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       const monthlyColumn = getComputedStyle(monthly.closest(".field")).gridColumn;
       const overflow = document.documentElement.scrollWidth - innerWidth;
       editor.querySelector('[data-settings-action="cancel"]').click();
+      document.querySelector("#section-profile").click();
       const salaryRow = document.querySelector('[data-settings-row="salary"]');
       const salaryTrigger = salaryRow.querySelector("[data-settings-edit]");
       const closedHeight = salaryRow.getBoundingClientRect().height;
@@ -982,7 +1011,6 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       "retire",
       "salary",
       "bonus",
-      "budget",
       "cpf",
       "housing",
       "loan",
@@ -1030,6 +1058,10 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
             housing.dispatchEvent(new Event("change", { bubbles: true }));
           }
           const row = document.querySelector('[data-settings-row="${key}"]');
+          const scope = row.closest("[data-settings-scope]").dataset.settingsScope;
+          document.querySelector("#section-" + scope).click();
+          const inputs = document.querySelector("#top").closest("details");
+          if (inputs) inputs.open = true;
           row.scrollIntoView({ block: "center", behavior: "instant" });
           row.click();
         })()`);
@@ -1077,6 +1109,10 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
           await wait(80);
         }
         const row = document.querySelector('[data-settings-row="${key}"]');
+        const scope = row.closest("[data-settings-scope]").dataset.settingsScope;
+        document.querySelector("#section-" + scope).click();
+        const inputs = document.querySelector("#top").closest("details");
+        if (inputs) inputs.open = true;
         row.scrollIntoView({ block: "center", behavior: "instant" });
         await new Promise(requestAnimationFrame);
         const affordance = row.querySelector("[data-settings-edit]");
@@ -1148,12 +1184,12 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
     );
     await browser.send("Emulation.clearDeviceMetricsOverride");
     await browser.evaluate(
-      `document.querySelector("#settings-header-back").click()`,
+      `document.querySelector("#destination-overview").click()`,
     );
 
     // 6. Dividend & Yield Target Monthly Income live edit renders plain text in #div-header-badge (no raw HTML)
     const divBadge = await browser.evaluate(`(() => {
-      document.querySelector('.sidebar-nav [data-tab="dividend-calc"]').click();
+      document.querySelector('[data-tab="dividend-calc"]').click();
       const targetTab = document.querySelector('.div-mode-bar [data-div-mode="target"]');
       if (targetTab) targetTab.click();
       const inp = document.querySelector('#div-target-monthly');
@@ -1171,7 +1207,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
 
     // 7. Accessibility invariants: vertical tablist orientation, aria-controls, SVG chart labels
     const a11yAudit = await browser.evaluate(`(() => {
-      document.querySelector('.sidebar-nav [data-tab="overview"]').click();
+      document.querySelector('[data-destination="overview"]').click();
       const nav = document.querySelector('.sidebar-nav');
       const tabs = [...nav.querySelectorAll('[role="tab"]')];
       const allHaveControls = tabs.every((t) => {
@@ -1191,14 +1227,18 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
 
     // 8. Hidden-input validation & Quick Edit close clamping + keyboard focus return after edit
     const qeCheck = await browser.evaluate(`(async () => {
-      const trigger = document.querySelector('[data-quick-edit="invest"]');
-      trigger?.click();
+      const source = document.querySelector("#known-invest");
+      source.value = "-500";
+      source.dispatchEvent(new Event("change", { bubbles: true }));
+      const trigger = document.querySelector('#plan-error-banner [data-quick-edit="invest"]');
+      trigger.click();
       const dlg = document.querySelector('#quick-edit-modal');
+      if (!dlg.open) throw new Error("Fix value did not open Quick Edit");
       const inv = document.querySelector('#qe-invest');
       inv.value = '-500';
       inv.dispatchEvent(new Event('input', { bubbles: true }));
       await new Promise((r) => setTimeout(r, 60));
-      const errVisible = !document.querySelector('#plan-error')?.hidden;
+      const errVisible = !document.querySelector('#plan-error-banner').hidden;
       await new Promise((resolve) => {
         dlg.addEventListener("close", resolve, { once: true });
         dlg.close();
@@ -1240,8 +1280,9 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
 
     // 10. Fresh Grad persona preset selects 5.5% return without blanking #known-return
     const freshGradReturn = await browser.evaluate(`(async () => {
-      document.querySelector(".sidebar-settings-btn").click();
-      document.querySelector("#persona-presets-strip").open = true;
+      document.querySelector("#section-profile").click();
+      document.querySelector("#plan-overflow").open = true;
+      document.querySelector('[commandfor="starter-plan-dialog"][command="show-modal"]').click();
       const btn = document.querySelector('[data-persona-preset="fresh-grad"]');
       btn.click();
       const dialog = document.querySelector("#replace-plan-dialog");
@@ -1309,14 +1350,14 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       `${baseUrl}/#version=3&lifestyle=cca&age=35&retire=65&salary=8000&longevityAge=95&housingMode=bank&housingBalance=0&housingYears=0&cashMode=itemized&cashItems=${xssPayload}`,
     );
     await browser.evaluate(
-      `document.querySelector('button[data-tab="cash-parking"]')?.click()`,
+      `document.querySelector('button[data-tab="cash-accounts"]')?.click()`,
     );
     await new Promise((r) => setTimeout(r, 150));
     const xssCheck = await browser.evaluate(`({
       horizon: document.querySelector("#known-longevity")?.selectedOptions[0]?.text,
       legacyLoanAccepted: document.querySelector("#plan-error-banner")?.hidden,
       fired: Boolean(window.__xss),
-      renderedHtml: document.querySelector('#cash-parking-slot')?.innerHTML || '',
+      renderedHtml: document.querySelector('#cash-accounts')?.innerHTML || '',
     })`);
     assert.equal(xssCheck.horizon, "Age 95 (default)");
     assert.equal(xssCheck.legacyLoanAccepted, true);
@@ -1406,22 +1447,22 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
     // 17. WAI-ARIA tablist arrow traversal keeps focus in tablist, Settings preserves tabindex="0", tabpanels have aria-labelledby, and MAS securities show SG Gov Backed
     const tabA11yAudit = await browser.evaluate(`(() => {
       const nav = document.querySelector(".sidebar-nav");
-      const firstTab = nav.querySelector('[role="tab"][data-tab="overview"]');
+      const firstTab = nav.querySelector('[role="tab"][data-destination="overview"]');
       firstTab.click();
       firstTab.focus();
       firstTab.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
-      const activeAfter1 = document.activeElement?.dataset?.tab || "";
+      const activeAfter1 = document.activeElement?.dataset?.destination || "";
       document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
-      const activeAfter2 = document.activeElement?.dataset?.tab || "";
+      const activeAfter2 = document.activeElement?.dataset?.destination || "";
       const panels = [...document.querySelectorAll('[role="tabpanel"]')];
-      const allPanelsLabelled = panels.length === 7 && panels.every((p) => {
+      const allPanelsLabelled = panels.length === 15 && panels.every((p) => {
         const ref = p.getAttribute("aria-labelledby");
         return Boolean(ref && document.getElementById(ref));
       });
-      document.querySelector(".sidebar-settings-btn")?.click();
+      document.querySelector("#section-profile")?.click();
       const tabbableWhileSettings = nav.querySelectorAll('[role="tab"][tabindex="0"]').length;
-      document.querySelector("#settings-header-back")?.click();
-      document.querySelector('.sidebar-nav [data-tab="cash-parking"]')?.click();
+      document.querySelector("#destination-overview")?.click();
+      document.querySelector('[data-tab="cash-parking"]')?.click();
       const cashText = document.getElementById("cash-parking-slot")?.textContent || "";
       return {
         activeAfter1,
@@ -1431,8 +1472,8 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
         hasSgGovBacked: cashText.includes("SG Gov Backed"),
       };
     })()`);
-    assert.equal(tabA11yAudit.activeAfter1, "trajectory");
-    assert.equal(tabA11yAudit.activeAfter2, "allocator");
+    assert.equal(tabA11yAudit.activeAfter1, "plan");
+    assert.equal(tabA11yAudit.activeAfter2, "accounts");
     assert.equal(tabA11yAudit.allPanelsLabelled, true);
     assert.ok(
       tabA11yAudit.tabbableWhileSettings >= 1,
@@ -1455,7 +1496,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
         dialog.addEventListener("close", resolve, { once: true });
         dialog.querySelector(selector).click();
       });
-      find(".sidebar-settings-btn").click();
+      find("#section-profile").click();
       const salary = find("#person-salary");
       const summary = find('[data-plan-value="person-salary"]');
       const before = summary.textContent;
@@ -1479,10 +1520,12 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       editIncome.click();
       draft.value = original;
       key(draft, "Enter");
-      find('#top [data-open-expense-modal]').click();
+      find('#section-budget').click();
+      find('#budget-slot [data-quick-edit=budget]').click();
       const budgetDialog = find("#expense-modal");
       const editBudgetOpened = budgetDialog.open;
       await afterClose(budgetDialog, ".qe-footer-actions [data-exp-modal-close]");
+      find("#section-profile").click();
       const loan = find('[data-choice-for="known-housing-mode"]');
       const originalHousing = find("#known-housing-mode").value;
       find('[data-settings-row="housing"] [data-settings-edit]').click();
@@ -1496,20 +1539,20 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       find('[data-settings-row="housing"] [data-settings-edit]').click();
       Array.from(loan.querySelectorAll("input")).find((el) => el.value === originalHousing).click();
       find('#settings-editor-housing [data-settings-action="save"]').click();
-      const openAssumptions = find("#plan-overflow [command='show-modal']");
+      const openAssumptions = find('[commandfor="plan-settings"][command="show-modal"]');
       find("#plan-overflow").open = true;
       openAssumptions.click();
       const assumptionHorizonLabels = Array.from(find('[data-choice-for="known-longevity"]').querySelectorAll("span")).map((el) => el.textContent);
       const assumptionsOpened = find("#plan-settings").open;
       find("#plan-settings").close();
-      const backCount = find("#top").querySelectorAll("[data-close-profile]").length;
-      find("#settings-header-back").click();
-      const returnedToCash = !find("#tab-panel-cash-parking").hidden;
+      const planInputsInProfile = Boolean(find("#tab-panel-profile #top"));
+      find("#section-cash-parking").click();
+      const cashOptionsOpened = !find("#tab-panel-cash-parking").hidden;
       const age95Choices = Array.from(find("#known-longevity").options)
         .filter((option) => option.text.startsWith("Age 95")).length;
       return {
         before, salaryFocused, formattedInitially, draftIsolated, saved, restoredFocus, escaped,
-        editBudgetOpened, backCount, returnedToCash, age95Choices,
+        editBudgetOpened, planInputsInProfile, cashOptionsOpened, age95Choices,
         loanShown, paidUpHidesLoan, assumptionHorizonLabels, assumptionsOpened,
       };
     })()`);
@@ -1521,8 +1564,8 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
     assert.equal(settingsSummary.saved, "$6,250/mo");
     assert.equal(settingsSummary.restoredFocus, true);
     assert.equal(settingsSummary.editBudgetOpened, true);
-    assert.equal(settingsSummary.backCount, 1);
-    assert.equal(settingsSummary.returnedToCash, true);
+    assert.equal(settingsSummary.planInputsInProfile, true);
+    assert.equal(settingsSummary.cashOptionsOpened, true);
     assert.equal(settingsSummary.age95Choices, 1);
 
     assert.equal(settingsSummary.loanShown, true);
@@ -1538,8 +1581,9 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
     const replacements = await browser.evaluate(`(async () => {
       const find = (selector) => document.querySelector(selector);
       const settle = () => new Promise((resolve) => setTimeout(resolve, 90));
-      find(".sidebar-settings-btn").click();
-      find("#persona-presets-strip").open = true;
+      find("#section-profile").click();
+      find("#plan-overflow").open = true;
+      find('[commandfor="starter-plan-dialog"][command="show-modal"]').click();
       const before = find("#person-salary").value;
       const replace = find("#replace-plan-dialog");
       const example = find('[data-persona-preset="fresh-grad"]');
@@ -1567,7 +1611,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       const imported = find("#person-salary").value;
       find("[data-toast-undo]").click();
       const importUndone = find("#person-salary").value === before;
-      find("#settings-header-back").click();
+      find("#destination-overview").click();
       return { examplePrompt, exampleCanceled, loaded, exampleUndone, importPrompt, imported, importUndone };
     })()`);
     assert.deepEqual(replacements, {
@@ -1604,31 +1648,31 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
 
     const allocation = await browser.evaluate(`(async () => {
       const find = (selector) => document.querySelector(selector);
-      find('.sidebar-nav [data-tab="overview"]').click();
+      find('[data-destination="overview"]').click();
       find("#overview-saving-details").open = true;
-      find('#overview-saving-details [data-quick-edit="invest"]').click();
-      const dialog = find("#quick-edit-modal");
-      const equity = find("#qe-target-equity");
-      const sg = find("#qe-sg-sleeve");
+      find('#overview-saving-details [data-go-tab="allocator"]').click();
+      find(".allocator-exact-toggle").click();
+      const equity = find("#bogle-target-slider");
+      const sg = find("#bogle-sg-slider");
       const original = [equity.value, sg.value];
       const set = (field, value) => {
         field.value = value;
-        field.dispatchEvent(new Event("change", { bubbles: true }));
+        field.dispatchEvent(new Event("input", { bubbles: true }));
       };
-      const percentages = () => Array.from(find("#qe-allocation-mix").querySelectorAll("strong"))
-        .map((el) => el.textContent);
+      const settle = () => new Promise((resolve) => setTimeout(resolve, 120));
+      const percentages = () => [...find(".allocator-target-readout").querySelectorAll("strong")]
+        .map((element) => element.textContent);
       set(equity, "80");
       set(sg, "25");
+      await settle();
       const mixed = percentages();
       set(equity, "0");
+      await settle();
       const bondsOnly = percentages();
       const sgDisabled = sg.disabled;
       set(equity, original[0]);
       set(sg, original[1]);
-      await new Promise((resolve) => {
-        dialog.addEventListener("close", resolve, { once: true });
-        dialog.close();
-      });
+      await settle();
       return { mixed, bondsOnly, sgDisabled };
     })()`);
     assert.deepEqual(allocation.mixed, ["60%", "20%", "20%"]);
@@ -1638,14 +1682,14 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
     // 18. Phase 1-5 regressions: Stacked NW keyboard nav (no TypeError), Trajectory Inspector non-zero balances, lump-sum Rebalance preserves #known-savings, and Expense modal remove button role
     const phaseRegRes = await browser.evaluate(`(() => {
       // (a) Stacked Net Worth chart keyboard nav on Overview
-      document.querySelector('.sidebar-nav [data-tab="overview"]')?.click();
+      document.querySelector('[data-destination="overview"]')?.click();
       const nwChart = document.getElementById("dash-networth-chart");
       nwChart?.focus();
       nwChart?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
       const nwSr = document.getElementById("sr-status")?.textContent || "";
 
       // (b) Trajectory Year Inspector on working-age year (step +1 to age+1 so balances are non-zero)
-      document.querySelector('.sidebar-nav [data-tab="trajectory"]')?.click();
+      document.querySelector('[data-tab="trajectory"]')?.click();
       const trajRow =
         document.querySelector('#trajectory-values tr[data-inspect-age]') ||
         document.querySelector('tr[data-inspect-age]');
@@ -1654,7 +1698,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       const inspText = document.getElementById("trajectory-year-inspector")?.textContent || "";
 
       // (c) Lump-sum #known-savings + Rebalance preserves total instead of wiping to $0
-      document.querySelector('.sidebar-nav [data-tab="overview"]')?.click();
+      document.querySelector('[data-destination="overview"]')?.click();
       const savEl = document.getElementById("known-savings");
       for (const id of ["known-equities", "known-sg-dividends", "known-ssb-cash", "known-srs"]) {
         const el = document.getElementById(id);
@@ -1718,7 +1762,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
 
     // 19. Phase 2 UI regressions: dynamic srsZeroTaxCap in 4-Tap SRS UI, Money Moves srsAge: 64 & 0% rate safety, and Print Sheet basis === "nominal" consistency
     const phase2UiRes = await browser.evaluate(`(() => {
-      document.querySelector('.sidebar-nav [data-tab="overview"]')?.click();
+      document.querySelector('[data-destination="overview"]')?.click();
       const setVal = (id, val) => {
         const el = document.getElementById(id);
         if (!el) return;
@@ -2037,7 +2081,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
         location.hash = "#retirement-taps-card";
         window.dispatchEvent(new HashChangeEvent("hashchange"));
         const tapsOpenedByHash = Boolean(tapsEl?.open);
-        const finTable = document.querySelector("#overview-slot .fin-table");
+        const finTable = document.querySelector("#cpf-strategy-slot .fin-table");
         const finCaption = Boolean(finTable?.querySelector("caption"));
         const finNumCols = finTable?.querySelectorAll("thead th.num-col").length || 0;
         const printTable = document.querySelector("#print-sheet .poster-mini-table");
@@ -2169,12 +2213,12 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       assert.equal(
         m3Res.finCaption,
         true,
-        "Overview CPF Path table must have a <caption>",
+        "CPF Milestones path table must have a <caption>",
       );
       assert.equal(
         m3Res.finNumCols,
         4,
-        "Overview CPF Path table must have 4 numeric .num-col headers",
+        "CPF Milestones path table must have 4 numeric .num-col headers",
       );
       assert.equal(
         m3Res.printCaption,
@@ -2211,7 +2255,9 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       assert.equal(budgetMenu.custom.label, "Custom budget");
       assert.deepEqual(budgetMenu.custom.selected, ["Custom"]);
       assert.equal(budgetMenu.preset.label, "Community Care Apartments");
-      assert.deepEqual(budgetMenu.preset.selected, ["Community Care Apartments"]);
+      assert.deepEqual(budgetMenu.preset.selected, [
+        "Community Care Apartments",
+      ]);
       assert.match(budgetMenu.custom.total, /\$2,800/);
       assert.equal(budgetMenu.custom.total, budgetMenu.preset.total);
 
@@ -2236,7 +2282,8 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       const xssCheck = await browser.evaluate(`(async () => {
         const payload = ${JSON.stringify(xssPayload)};
         const searchPayload = ${JSON.stringify(xssSearch)};
-        const overviewChipText = document.querySelector("#overview-slot #exp-preview-slot")?.textContent || "";
+        document.querySelector("#section-budget").click();
+        const overviewChipText = document.querySelector("#budget-slot #exp-preview-slot")?.textContent || "";
 
         // Open custom expense modal to verify editable rows
         document.querySelector('#exp-card-dropdown-btn')?.click();
@@ -2245,11 +2292,12 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
         const expNameVal = document.querySelector('#exp-items-body input[data-exp-field="name"]')?.value || "";
         document.querySelector('#expense-modal')?.close();
 
-        // Switch to Cash Parking tab to verify custom account editor, overflow alert, and search empty state
-        document.querySelector('[data-tab="cash-parking"]')?.click();
+        // Check the editor in Cash accounts and the search empty state in Cash options.
+        document.querySelector('#section-cash-accounts').click();
         await new Promise((r) => setTimeout(r, 150));
-        const cashNameVal = document.querySelector('#cash-parking-slot input[data-cash-acc-field="name"]')?.value || "";
+        const cashNameVal = document.querySelector('#cash-accounts input[data-cash-acc-field="name"]')?.value || "";
         const cashAlertText = document.querySelector('#cash-acc-alerts-page')?.textContent || "";
+        document.querySelector('#section-cash-parking').click();
         const searchInput = document.querySelector('#cash-search-input');
         if (searchInput) {
           searchInput.value = searchPayload;
@@ -2316,12 +2364,12 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
         "Print sheet must render cleanly with XSS payloads in state",
       );
 
-      // Phase 4 (F17): Quick Edit 3-way monthly routing must display SRS deduction suffix when srsAnnual > 0
+      // Allocation must show the monthly SRS deduction from the investment pool.
       await browser.navigate(
         `${devBaseUrl}/#version=3&salary=8000&invest=2500&srs=15300`,
       );
       await new Promise((r) => setTimeout(r, 200));
-      const qeSrsCheck = await browser.evaluate(`(async () => {
+      const allocationSrsCheck = await browser.evaluate(`(async () => {
         const srsEl = document.querySelector('#known-srs-annual');
         if (srsEl) {
           srsEl.value = '15300';
@@ -2333,17 +2381,13 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
           invEl.dispatchEvent(new Event('input', { bubbles: true }));
         }
         await new Promise((r) => setTimeout(r, 120));
-        document.querySelector('[data-quick-edit="invest"]')?.click();
+        document.querySelector('#section-allocator').click();
         await new Promise((r) => setTimeout(r, 120));
-        const summaryText = (document.querySelector('#qe-invest-summary')?.textContent || '').replace(/\\s+/g, ' ').trim();
-        document.querySelector('#quick-edit-modal')?.close();
-        return { summaryText };
+        return [...document.querySelectorAll('.allocator-paycheck-detail')]
+          .find((row) => row.querySelector('dt')?.textContent === 'Allocated to SRS')
+          ?.querySelector('dd')?.textContent;
       })()`);
-      assert.match(
-        qeSrsCheck.summaryText,
-        /\(after \$1,275\/mo SRS\)/,
-        `Quick Edit #qe-invest-summary must render SRS deduction suffix, got: ${qeSrsCheck.summaryText}`,
-      );
+      assert.equal(allocationSrsCheck, "$1,275/mo");
 
       // Tier 5 (Fix 1): Cash Parking overflow-suppression UI regression test when baseRatePct >= ssbBenchmarkPct
       const highBaseCashItems = JSON.stringify([
@@ -2361,7 +2405,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       }
       await new Promise((r) => setTimeout(r, 150));
       const highBaseCheck = await browser.evaluate(`(async () => {
-        document.querySelector('[data-tab="cash-parking"]')?.click();
+        document.querySelector("#section-cash-accounts").click();
         await new Promise((r) => setTimeout(r, 150));
         const summaryText = (document.querySelector('#cash-acc-summary-page')?.textContent || '').replace(/\\s+/g, ' ').trim();
         const alertsText = (document.querySelector('#cash-acc-alerts-page')?.textContent || '').replace(/\\s+/g, ' ').trim();
@@ -2389,7 +2433,6 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       );
 
       const groupedMoney = await browser.evaluate(`(() => {
-        document.querySelector("#cash-accounts").open = true;
         const balance = document.querySelector("[data-cash-acc-field=balance]");
         const initial = balance.value;
         balance.focus();
@@ -2519,9 +2562,9 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
 
       // Regression: custom Calendar Date Picker (DD MMM YYYY + Day / Month / Decade popover)
       const dpCheck = await browser.evaluate(`(async () => {
-        document.querySelector('[data-tab="overview"]')?.click();
+        document.querySelector('[data-destination="overview"]')?.click();
         await new Promise((r) => setTimeout(r, 80));
-        document.querySelector(".sidebar-settings-btn")?.click();
+        document.querySelector("#section-profile")?.click();
         document.querySelector('[data-settings-row="birth"] [data-settings-edit]')?.click();
         await new Promise((r) => setTimeout(r, 100));
         const dlgOpenBefore = !document.querySelector("#settings-editor-birth").hidden;
@@ -2548,7 +2591,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
         const dlgStillOpen = !document.querySelector("#settings-editor-birth").hidden;
         document.querySelector("#settings-draft-person-dob-display").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
         const isoAfter = document.querySelector("#person-dob").value;
-        document.querySelector('#settings-header-back')?.click();
+        document.querySelector('#destination-overview')?.click();
         return {
           dlgOpenBefore,
           dispBefore,
@@ -2604,6 +2647,44 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
     } finally {
       devServer.close();
     }
+
+    await browser.send("Emulation.setDeviceMetricsOverride", {
+      width: 1440,
+      height: 900,
+      deviceScaleFactor: 1,
+      mobile: false,
+    });
+    await browser.navigate(
+      `${baseUrl}/?test=readiness#version=3&age=35&retire=65&lifestyle=cca&equities=650000`,
+    );
+    const readiness = await browser.evaluate(`(() => {
+      const hero = document.querySelector(".overview-verdict");
+      const funded = hero.querySelector(".overview-funded");
+      const footer = [...hero.querySelectorAll(".overview-hero-summary .curr-num")];
+      window.dispatchEvent(new Event("beforeprint"));
+      return {
+        earliestAge: hero.querySelector(".overview-hero-figure").textContent,
+        ageLabel: hero.querySelector(".overview-safe-age").textContent,
+        action: hero.querySelector(".overview-hero-actions button").textContent,
+        fundingLabel: funded.previousElementSibling.textContent,
+        funding: funded.textContent.trim(),
+        sidebarFunding: document.querySelector("#nav-badge-overview").textContent,
+        printFunding: document.querySelector("#print-sheet .fin-gauge-svg text").textContent,
+        valueTops: footer.map((value) => value.getBoundingClientRect().top),
+      };
+    })()`);
+    assert.equal(readiness.earliestAge, "Age 55");
+    assert.match(readiness.ageLabel, /^Earliest projected retirement/);
+    assert.equal(readiness.action, "Review retirement age");
+    assert.equal(readiness.fundingLabel, "Funded at target age 65");
+    assert.match(readiness.funding, /^\d+%$/);
+    assert.ok(Number.parseInt(readiness.funding, 10) > 150);
+    assert.equal(readiness.sidebarFunding, readiness.funding);
+    assert.equal(readiness.printFunding, readiness.funding);
+    assert.equal(readiness.valueTops.length, 3);
+    assert.ok(
+      Math.max(...readiness.valueTops) - Math.min(...readiness.valueTops) <= 1,
+    );
 
     assert.deepEqual(
       browser.exceptions,

@@ -322,8 +322,7 @@ function buildExpenseCardHTML(ep) {
     .sort((a, b) => b.amount - a.amount)
     .slice(0, 3);
 
-  return `<section class="swell-section-block" aria-labelledby="expense-card-title">
-    <div class="swell-section-head"><h2 id="expense-card-title">Retirement Living Budget</h2></div>
+  return `<section class="swell-section-block" aria-label="Monthly budget">
     <div class="fin-card fin-expense-card card-surface" id="expense-breakdown-card">
     <div class="fin-expense-head">
       <p class="overview-budget-total"><strong>${m(ep.total, "/mo", "kpi-budget")}</strong> <span>in today’s dollars</span></p>

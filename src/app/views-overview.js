@@ -9,7 +9,6 @@ import {
   ICONS,
   escapeAttr,
 } from "./format.js";
-import { buildExpenseCardHTML } from "./views-expense.js";
 
 export function computeRebalanceTargets(bogle, p, r) {
   return RetirementModel.computeRebalanceTargets(bogle, p, r);
@@ -384,6 +383,7 @@ function buildOverviewPageHeader({
   startingTotalAssets,
   rate,
   recommendation,
+  budget,
 }) {
   const fn = fire.fireNumber;
   const onTrack = fn.pctFunded >= 100 && fn.fullyFundedTo95;
@@ -405,18 +405,18 @@ function buildOverviewPageHeader({
       <div class="overview-verdict-copy">
         <span class="status-pill is-${tone}">${verdict}</span>
         <h2 class="overview-hero-figure">${hasSafeAge ? `Age ${fn.projectedFireAge}` : "Beyond age 80"}</h2>
-        <p class="overview-safe-age">Earliest safe retirement <span>· Goal through age ${fire.endAge}</span></p>
+        <p class="overview-safe-age">Earliest projected retirement <span>· Goal through age ${fire.endAge}</span></p>
       </div>
       <div class="overview-hero-outcome">
       ${
         recommendation
           ? `
         <dl class="overview-action-outcome" aria-label="Estimated outcome after applying">
-          <div><dt>Funded</dt><dd class="overview-funded">${formatFundedPct(fn.pctFunded)} → <strong data-preview-funded>${formatFundedPct(recommendation.funded)}</strong></dd></div>
+          <div><dt>Funded at target age ${fire.retire}</dt><dd class="overview-funded">${formatFundedPct(fn.pctFunded)} → <strong data-preview-funded>${formatFundedPct(recommendation.funded)}</strong></dd></div>
           <div><dt>Savings rate</dt><dd>${rate}% → <strong data-preview-rate>${recommendation.rate}%</strong> <span class="${previewHealth.label === targetBand.label ? "sr-only" : `status-pill is-${previewHealth.tone}`}" data-preview-savings-band>${previewHealth.label}</span></dd></div>
         </dl>`
           : `<dl class="overview-action-outcome">
-          <div><dt>Funded</dt><dd class="overview-funded"><strong>${formatFundedPct(fn.pctFunded)}</strong></dd></div>
+          <div><dt>Funded at target age ${fire.retire}</dt><dd class="overview-funded"><strong>${formatFundedPct(fn.pctFunded)}</strong></dd></div>
         </dl>`
       }
       ${tightness ? `<p class="overview-saving-tightness">${recommendation?.move.action === "cap-affordable-save" ? "After applying the cap, save" : "Requires saving"} <strong>${targetRate}%</strong> of take-home · <strong class="overview-tightness-band is-${targetBand.tone}">${tightness}</strong></p>` : ""}
@@ -428,11 +428,12 @@ function buildOverviewPageHeader({
           <button type="button" class="button button-primary" data-money-move="${recommendation.move.action}" data-move-val="${recommendation.move.value}"><span>${recommendation.move.action === "match-save" ? `Invest ${m(recommendation.move.value, "/mo")} outside CPF` : `Cap savings at ${m(recommendation.move.value, "/mo")}`}</span></button>
           <button type="button" class="text-button" data-quick-edit="invest" data-qe-focus="#qe-invest" aria-label="Edit monthly investment">Edit</button>
         </div>`
-          : `<div class="overview-hero-actions"><button type="button" class="button button-primary" data-quick-edit="goal" data-qe-focus="#qe-retire">${onTrack ? "Explore earlier retirement" : "Review retirement age"}</button></div>`
+          : `<div class="overview-hero-actions"><button type="button" class="button button-primary" data-quick-edit="goal" data-qe-focus="#qe-retire">Review retirement age</button></div>`
       }
       <div class="overview-hero-summary" aria-label="Plan summary">
         <span>Pay after CPF <strong>${m(r.afterCpf, "/mo")}</strong></span>
         <span>Starting assets <strong>${m(startingTotalAssets)}</strong></span>
+        ${budget == null ? "" : `<button type="button" class="text-button overview-budget-link" data-go-tab="budget">Budget <strong>${m(budget, "/mo")}</strong></button>`}
       </div>
     </section>
   </header>`;
@@ -928,7 +929,7 @@ function getMoneyMoves({
       desc: `Estimated extra interest of ${m(gainYr, "/yr")}.`,
       action: "sweep-cash",
       actionLabel: "Sweep cash",
-      edit: 'data-go-tab="cash-parking" data-open-page-cash-accounts',
+      edit: 'data-go-tab="cash-accounts" data-open-page-cash-accounts',
       editLabel: "Edit cash accounts",
     });
   }
@@ -991,7 +992,7 @@ function getMoneyMoves({
           : "Increase your fixed-income holdings to restore your target allocation.",
         action: "rebalance-portfolio",
         actionLabel: "Rebalance",
-        edit: 'data-quick-edit="invest" data-qe-focus="#qe-target-equity"',
+        edit: 'data-go-tab="allocator"',
         editLabel: "Edit portfolio allocation",
       });
     }
@@ -1309,7 +1310,7 @@ export function buildFinOverviewGrid(
     recommendation &&
     Math.abs(Math.min(100, recommendation.rate) - Math.min(100, pctOfPay)) < 32;
 
-  return `${buildOverviewPageHeader({ fire, r, startingTotalAssets, rate: pctOfPay, recommendation })}
+  return `${buildOverviewPageHeader({ fire, r, startingTotalAssets, rate: pctOfPay, recommendation, budget: expenseData?.total })}
   <section class="swell-section-block" aria-label="Wealth trajectory, income taps, and retirement readiness">
     <div class="swell-section-head">
       <h2>Trajectory &amp; Readiness</h2>
@@ -1323,6 +1324,7 @@ export function buildFinOverviewGrid(
               <strong class="fin-big-figure" id="hero-nw-live">${m(retireNw, "", "hero-nw")}</strong>
             </div>
           </div>
+          <button type="button" class="text-button overview-projection-link" data-go-tab="trajectory">View projection →</button>
         </div>
         <div class="chart-wrapper">
           <div id="dash-networth-chart" class="chart-area" role="img" aria-label="Stacked net worth trajectory from age ${fire.age} to ${fire.endAge}" aria-describedby="overview-networth-description"></div>
@@ -1335,7 +1337,7 @@ export function buildFinOverviewGrid(
       <section class="fin-card fin-activity-card card-surface" aria-label="Key milestones and paycheck allocation">
         <div class="fin-activity-head">
           <h3>Milestones &amp; Paycheck</h3>
-          <button type="button" class="fin-link-pill" data-quick-edit="budget">Edit budget</button>
+          <button type="button" class="fin-link-pill" data-go-tab="budget">Edit budget</button>
         </div>
         <div class="fin-segmented-tabs" id="fin-activity-tabs" data-seg-idx="${activeSegIdx}" style="--seg-idx:${activeSegIdx};--seg-count:2" role="tablist" aria-label="Cashflow and milestone views">
           <button type="button" role="tab" class="fin-seg-tab${activeMilestones ? " is-active" : ""}" data-fin-activity="milestones" aria-selected="${activeMilestones}">Milestones</button>
@@ -1476,14 +1478,13 @@ export function buildFinOverviewGrid(
         <div><dt>Cash &amp; bonds at ${fire.retire}</dt><dd>${m(taps.tap4Ssb.projectedSsbCashAtRetireToday)}</dd></div>
         <div><dt>Equities at ${fire.retire}</dt><dd>${m(taps.tap3Equities.projectedInvestAtRetireToday)}</dd></div>
       </dl>
-      <button type="button" class="text-button" data-quick-edit="invest" data-qe-focus="#qe-target-equity">Edit allocation</button>
+      <button type="button" class="text-button" data-go-tab="allocator">Edit allocation</button>
       </div>
     </details>
     </div>
   </section>
 
-  ${expenseData ? buildExpenseCardHTML(expenseData) : ""}
-  <section class="swell-section-block" aria-label="CPF strategy paths and retirement income architecture">
+  <section class="swell-section-block" id="cpf-strategy-comparison" aria-label="CPF strategy paths and retirement income architecture">
     <div class="swell-section-head">
       <h2>CPF Strategy &amp; Income Architecture</h2>
     </div>
