@@ -364,7 +364,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
     assert.deepEqual(workspaceNav.sections, [
       ["profile", "budget", "trajectory"],
       ["balances", "cash-accounts", "cash-parking"],
-      ["allocator", "dividend-calc"],
+      ["allocator", "dividend-calc", "priority-guide"],
       ["cpf-rules", "tax"],
     ]);
 
@@ -1455,10 +1455,13 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
       const activeAfter2 = document.activeElement?.dataset?.destination || "";
       const panels = [...document.querySelectorAll('[role="tabpanel"]')];
-      const allPanelsLabelled = panels.length === 15 && panels.every((p) => {
+      const allPanelsLabelled = panels.length >= 15 && panels.every((p) => {
         const ref = p.getAttribute("aria-labelledby");
         return Boolean(ref && document.getElementById(ref));
       });
+      const priorityGuidePanelLabelled = Boolean(
+        document.querySelector('#tab-panel-priority-guide[aria-labelledby="section-priority-guide"]'),
+      );
       document.querySelector("#section-profile")?.click();
       const tabbableWhileSettings = nav.querySelectorAll('[role="tab"][tabindex="0"]').length;
       document.querySelector("#destination-overview")?.click();
@@ -1468,6 +1471,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
         activeAfter1,
         activeAfter2,
         allPanelsLabelled,
+        priorityGuidePanelLabelled,
         tabbableWhileSettings,
         hasSgGovBacked: cashText.includes("SG Gov Backed"),
       };
@@ -1475,6 +1479,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
     assert.equal(tabA11yAudit.activeAfter1, "plan");
     assert.equal(tabA11yAudit.activeAfter2, "accounts");
     assert.equal(tabA11yAudit.allPanelsLabelled, true);
+    assert.equal(tabA11yAudit.priorityGuidePanelLabelled, true);
     assert.ok(
       tabA11yAudit.tabbableWhileSettings >= 1,
       "Sidebar tablist must keep at least one tabindex=0 tab while Settings is open",

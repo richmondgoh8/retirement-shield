@@ -13,6 +13,7 @@ const APP_SHELL = [
   "./src/app/charts.js",
   "./src/app/views-overview.js",
   "./src/app/views-allocator.js",
+  "./src/app/views-priority-guide.js",
   "./src/app/views-cash-options.js",
   "./src/app/views-dividend-yield.js",
   "./src/app/views-cpf-tax.js",

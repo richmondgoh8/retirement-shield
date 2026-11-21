@@ -79,6 +79,7 @@ import {
 import { renderPrintSheet } from "./src/app/print-sheet.js";
 import { syncDatePickers } from "./src/app/date-picker.js";
 import { buildAllocatorView } from "./src/app/views-allocator.js";
+import { buildPriorityGuideView } from "./src/app/views-priority-guide.js";
 import {
   setupInlineSettings,
   syncSettingsCashBalance,
@@ -155,6 +156,8 @@ function setupSimplePlan() {
   const budgetSlot = $("#budget-slot");
   const cashAccounts = $("#cash-accounts");
   const allocatorSlot = $("#allocator-slot");
+  const priorityGuideSlot = $("#priority-guide-slot");
+  if (priorityGuideSlot) priorityGuideSlot.innerHTML = buildPriorityGuideView();
   let allocatorIncludesCpf = true;
   let allocatorDrag;
   const cashParkingSlot = $("#cash-parking-slot");
@@ -5113,7 +5116,7 @@ function setupGuidedFlow(finishSettingsEdit) {
     overview: ["overview"],
     plan: ["profile", "budget", "trajectory"],
     accounts: ["balances", "cash-accounts", "cash-parking"],
-    invest: ["allocator", "dividend-calc"],
+    invest: ["allocator", "dividend-calc", "priority-guide"],
     "cpf-tax": ["cpf-rules", "tax"],
   };
   const destinationByTab = new Map(

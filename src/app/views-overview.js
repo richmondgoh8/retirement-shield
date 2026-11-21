@@ -1002,7 +1002,11 @@ function getMoneyMoves({
 }
 
 function buildMoneyMovesStripHTML(topMoves) {
-  if (topMoves.length === 0) return "";
+  if (topMoves.length === 0)
+    return `<section class="overview-guide-entry" aria-label="Planning reference">
+      <span>Looking for a general order to allocate extra cash?</span>
+      <button type="button" class="text-button" data-go-tab="priority-guide">Open Priority guide →</button>
+    </section>`;
 
   const renderRowContent = (move, headingTag, rank) => `
     <div class="fin-move-indicator" aria-hidden="true">
@@ -1022,11 +1026,12 @@ function buildMoneyMovesStripHTML(topMoves) {
     const [move] = topMoves;
     return `<section class="fin-moves-strip fin-move-row ${move.tone}" id="fin-money-moves" aria-label="Actionable Insights">
       ${renderRowContent(move, "h2")}
+      <button type="button" class="text-button priority-guide-entry" data-go-tab="priority-guide">See the full funding order →</button>
     </section>`;
   }
 
   return `<section class="overview-insights-group" aria-labelledby="fin-moves-title">
-    <div class="swell-section-head"><h2 id="fin-moves-title">Actionable Insights</h2></div>
+    <div class="swell-section-head"><h2 id="fin-moves-title">Actionable Insights</h2><button type="button" class="text-button priority-guide-entry" data-go-tab="priority-guide">See the full funding order →</button></div>
     <div class="fin-moves-strip" id="fin-money-moves">
     <ol class="fin-moves-list" role="list">
       ${topMoves
