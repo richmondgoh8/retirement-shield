@@ -2524,6 +2524,31 @@ test("evaluateAnnuityPlan computes implied IRR, payout multiple, DIY comparisons
   assert.equal(worthIt.tone, "good");
 });
 
+test("evaluateAnnuityPlan brackets the IRR for short payouts and reports when it is undefined", () => {
+  const plan = RetirementModel.evaluateAnnuityPlan({
+    monthlyContribution: 1000,
+    contributeYears: 10,
+    deferYears: 5,
+    payoutYears: 2,
+    quotedMonthlyPayout: 1150,
+    inflationRatePct: 2.5,
+  });
+  assert.equal(plan.totalPrincipalPaid, 120000);
+  assert.equal(plan.totalPayoutReceived, 27600);
+  assert.equal(plan.impliedAnnualIrrPct, -13.02);
+  assert.equal(plan.realAnnualIrrPct, -15.14);
+  assert.equal(plan.verdictKey, "endowment-trap");
+
+  const noPayout = RetirementModel.evaluateAnnuityPlan({
+    quotedMonthlyPayout: 0,
+    terminalDividend: 10000,
+    bonusRealization: 0,
+  });
+  assert.equal(noPayout.impliedAnnualIrrPct, null);
+  assert.equal(noPayout.realAnnualIrrPct, null);
+  assert.equal(noPayout.comparisons[0].potAtPayoutStart, null);
+});
+
 test("evaluateAnnuityPlan models stepped participating payouts and maturity dividends", () => {
   const M = RetirementModel;
   const base = M.evaluateAnnuityPlan({

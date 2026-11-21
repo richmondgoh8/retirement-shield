@@ -170,10 +170,16 @@ async function launchChromeCDP(chromePath) {
     try {
       ws.close();
     } catch (_) {}
-    try {
-      proc.kill("SIGKILL");
-    } catch (_) {}
-    fs.rmSync(userDataDir, { recursive: true, force: true });
+    if (proc.exitCode === null && proc.signalCode === null) {
+      const exited = new Promise((resolve) => proc.once("exit", resolve));
+      if (proc.kill("SIGKILL")) await exited;
+    }
+    fs.rmSync(userDataDir, {
+      recursive: true,
+      force: true,
+      maxRetries: 5,
+      retryDelay: 50,
+    });
   };
 
   return { send, evaluate, navigate, exceptions, close };
@@ -395,24 +401,755 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       "Malformed #p= share link must not wipe saved localStorage plan",
     );
 
-    // 5. Quick Edit Escape keeps the valid edit
-    const modalEdit = await browser.evaluate(`(() => {
-      const trigger = document.querySelector('[data-quick-edit="salary"]');
+    // 5. Settings edits use one Save/Cancel model, with keyboard and zero behavior
+    const salaryEdit = await browser.evaluate(`(() => {
+      document.querySelector(".sidebar-settings-btn").click();
+      const trigger = document.querySelector('[data-settings-row="salary"]');
       trigger.click();
-      const dlg = document.querySelector('#quick-edit-modal');
-      const qeSal = document.querySelector('#qe-salary');
-      qeSal.value = '12345';
-      qeSal.dispatchEvent(new Event('change', { bubbles: true }));
-      const duringEdit = document.querySelector('#person-salary').value;
-      dlg.dispatchEvent(new Event('cancel', { cancelable: true }));
-      dlg.close('cancel');
+      const draft = document.querySelector("#settings-draft-person-salary");
+      const save = document.querySelector('#settings-editor-salary [data-settings-action="save"]');
+      const initiallyDisabled = save.disabled;
+      draft.value = '12,345';
+      draft.dispatchEvent(new Event("input", { bubbles: true }));
+      const enabledAfterChange = !save.disabled;
+      draft.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+      const focusReturnedAfterSave = document.activeElement === trigger;
+      trigger.click();
+      const secondDraft = document.querySelector("#settings-draft-person-salary");
+      secondDraft.value = "23456";
+      secondDraft.dispatchEvent(new Event("input", { bubbles: true }));
+      secondDraft.blur();
+      const blurDidNotSave =
+        document.querySelector("#person-salary").value === "12345" &&
+        !document.querySelector("#settings-editor-salary").hidden;
+      document.querySelector('#settings-editor-salary [data-settings-action="cancel"]').click();
+      const focusReturnedAfterCancel = document.activeElement === trigger;
+      document.querySelector("#settings-header-back").click();
       return {
-        duringEdit,
-        afterClose: document.querySelector('#person-salary').value,
+        value: document.querySelector("#person-salary").value,
+        initiallyDisabled,
+        enabledAfterChange,
+        focusReturnedAfterSave,
+        blurDidNotSave,
+        focusReturnedAfterCancel,
       };
     })()`);
-    assert.equal(modalEdit.duringEdit, "12345");
-    assert.equal(modalEdit.afterClose, "12345");
+    assert.equal(salaryEdit.value, "12345");
+    assert.equal(salaryEdit.initiallyDisabled, true);
+    assert.equal(salaryEdit.enabledAfterChange, true);
+    assert.equal(salaryEdit.focusReturnedAfterSave, true);
+    assert.equal(salaryEdit.blurDidNotSave, true);
+    assert.equal(salaryEdit.focusReturnedAfterCancel, true);
+
+    const settingsRows = await browser.evaluate(`(async () => {
+      document.querySelector(".sidebar-settings-btn").click();
+      const cases = [
+        ["birth", "person-dob", "date"],
+        ["retire", "known-retire", "number"],
+        ["salary", "person-salary", "number"],
+        ["bonus", "known-annual-bonus", "number"],
+        ["lifestyle", "known-lifestyle", "select"],
+        ["budget", "known-spend", "number"],
+        ["cpf", "known-oa", "number"],
+        ["housing", "known-housing-mode", "choice"],
+        ["loan", "known-housing-balance", "number", "bank"],
+        ["manual", "known-housing", "number", "custom"],
+        ["holdings", "known-equities", "number"],
+        ["srs-balance", "known-srs", "number"],
+        ["srs-annual", "known-srs-annual", "number"],
+        ["srs-age", "known-srs-age", "choice"],
+        ["srs-invest", "known-srs-invested", "choice"],
+        ["reliefs", "known-existing-reliefs", "number"],
+        ["top-up", "known-family-rstu", "number"],
+      ];
+      const failures = [];
+      const originalHousing = document.querySelector("#known-housing-mode").value;
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      const waitForSaved = async () => {
+        for (let i = 0; i < 30; i++) {
+          if ([...document.querySelectorAll("[data-plan-save-status]")]
+            .some((status) => status.textContent.trim() === "Saved")) return true;
+          await wait(50);
+        }
+        return false;
+      };
+      const writeDraftChange = (editor, sourceId, suffix) => {
+        const draft = editor.querySelector('[data-settings-draft="' + sourceId + '"]');
+        if (!draft) throw new Error("Missing draft for " + sourceId);
+        if (draft.tagName === "SELECT") {
+          const radios = [...editor.querySelectorAll('[data-choice-for="' + sourceId + '"] input[type="radio"]')];
+          const next = radios.find((radio) => radio.value !== draft.value);
+          if (next) {
+            next.click();
+            return editor.querySelector('[data-choice-for="' + sourceId + '"] input:checked');
+          }
+          const option = [...draft.options].find((item) => item.value !== draft.value);
+          if (!option) throw new Error("No alternate option for " + sourceId);
+          draft.value = option.value;
+          draft.dispatchEvent(new Event("input", { bubbles: true }));
+          draft.dispatchEvent(new Event("change", { bubbles: true }));
+          return draft;
+        }
+        const source = document.getElementById(sourceId);
+        let value;
+        if (draft.type === "date") {
+          value = suffix === "a" ? "1988-06-15" : "1989-07-16";
+        } else if (source.type === "number") {
+          const min = source.min === "" ? 0 : Number(source.min);
+          const max = source.max === "" ? 1000000 : Number(source.max);
+          const current = Number(
+            String(draft.value || source.value || min).replaceAll(",", ""),
+          );
+          const step = source.step && source.step !== "any" ? Number(source.step) : 1;
+          value = String(current + step <= max ? current + step : Math.max(min, current - step));
+          if (value === (draft.value || source.value)) value = String(Math.min(max, current + 2 * step));
+        } else {
+          value = String(Number(draft.value || 0) + 1);
+        }
+        draft.value = value;
+        draft.dispatchEvent(new Event("input", { bubbles: true }));
+        draft.dispatchEvent(new Event("change", { bubbles: true }));
+        return draft;
+      };
+      const sourceIds = new Set(cases.map(([, id]) => id));
+      const sourceValues = Object.fromEntries(
+        [...sourceIds].map((id) => [id, document.getElementById(id).value]),
+      );
+      for (const [key, sourceId, kind, mode] of cases) {
+        try {
+          if (mode) {
+            const housing = document.querySelector("#known-housing-mode");
+            housing.value = mode;
+            housing.dispatchEvent(new Event("change", { bubbles: true }));
+            await wait(80);
+          }
+          const row = document.querySelector('[data-settings-row="' + key + '"]');
+          const editor = document.querySelector("#settings-editor-" + key);
+          if (!row || !editor) throw new Error("Missing row/editor");
+          if (key === "lifestyle") {
+            const select = editor.querySelector("select");
+            if (!select?.getClientRects().length || row.getAttribute("role") === "button" ||
+              editor.querySelector("[data-settings-action]") ||
+              ![...select.options].some((option) => option.value === "custom")) {
+              throw new Error("Lifestyle must be a directly available dropdown with a Custom option");
+            }
+            continue;
+          }
+          if (row.getAttribute("role") !== "button" || row.tabIndex !== 0) {
+            throw new Error("Row is not an accessible edit control");
+          }
+          const original = document.getElementById(sourceId).value;
+
+          row.click();
+          if (editor.hidden) throw new Error("Pointer click did not open editor");
+          const save = editor.querySelector('[data-settings-action="save"]');
+          if (!save.disabled)
+            throw new Error("Save was enabled while the row was clean");
+          let changed = writeDraftChange(editor, sourceId, "a");
+          if (save.disabled) throw new Error("Save stayed disabled after change");
+          save.click();
+          if (!editor.hidden || document.activeElement !== row) {
+            throw new Error(
+              "✓ result: editorHidden=" +
+                editor.hidden +
+                ", focus=" +
+                (document.activeElement?.id ||
+                  document.activeElement?.className ||
+                  document.activeElement?.tagName) +
+                ", rowRole=" +
+                row.getAttribute("role") +
+                ", error=" +
+                editor.querySelector(".settings-inline-error").textContent,
+            );
+          }
+          if (document.getElementById(sourceId).value === original) {
+            throw new Error("✓ did not commit the changed value");
+          }
+          if (!(await waitForSaved())) throw new Error("Saved status was not shown");
+
+          row.focus();
+          row.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+          if (editor.hidden) throw new Error("Enter did not open editor");
+          changed = writeDraftChange(editor, sourceId, "b");
+          changed.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+          if (!editor.hidden || document.activeElement !== row) {
+            throw new Error("Enter did not save and return focus to the row");
+          }
+          if (!(await waitForSaved())) throw new Error("Saved status was not shown after Enter");
+
+          row.click();
+          writeDraftChange(editor, sourceId, "a");
+          editor.querySelector('[data-settings-action="cancel"]').click();
+          if (!editor.hidden || document.activeElement !== row) {
+            throw new Error("✕ did not cancel and return focus to the row");
+          }
+
+          row.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true }));
+          row.dispatchEvent(new KeyboardEvent("keyup", { key: " ", bubbles: true, cancelable: true }));
+          if (editor.hidden) throw new Error("Space did not open editor");
+          const escapeDraft = writeDraftChange(editor, sourceId, "b");
+          escapeDraft.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+          if (!editor.hidden || document.activeElement !== row) {
+            throw new Error("Escape did not cancel and return focus to the row");
+          }
+
+          if (key === "housing") {
+            const help = editor.querySelector(".housing-mode-description");
+            const draft = editor.querySelector(
+              '[data-settings-draft="known-housing-mode"]',
+            );
+            if (!help || help.hidden || !help.textContent.trim()) {
+              throw new Error("Housing option helper is missing");
+            }
+            if (draft.getAttribute("aria-describedby") !== help.id) {
+              throw new Error("Housing helper is not associated with its control");
+            }
+          }
+        } catch (error) {
+          failures.push(key + ": " + error.message);
+          const editor = document.querySelector("#settings-editor-" + key);
+          if (editor && !editor.hidden) {
+            editor.querySelector('[data-settings-action="cancel"]')?.click();
+          }
+        }
+        const source = document.getElementById(sourceId);
+        source.value = sourceValues[sourceId];
+        source.dispatchEvent(new Event("input", { bubbles: true }));
+        source.dispatchEvent(new Event("change", { bubbles: true }));
+        if (mode) {
+          const housing = document.querySelector("#known-housing-mode");
+          housing.value = originalHousing;
+          housing.dispatchEvent(new Event("change", { bubbles: true }));
+          await wait(80);
+        }
+      }
+      const housingVisibility = [];
+      const housing = document.querySelector("#known-housing-mode");
+      for (const mode of ["all-oa", "hdb", "bank", "paid-up", "custom"]) {
+        housing.value = mode;
+        document.dispatchEvent(new Event("plan-rendered"));
+        housingVisibility.push([
+          mode,
+          !document.querySelector('[data-settings-row="loan"]').hidden,
+          !document.querySelector('[data-settings-row="manual"]').hidden,
+        ]);
+      }
+      housing.value = originalHousing;
+      document.dispatchEvent(new Event("plan-rendered"));
+      const toolActions = [...document.querySelectorAll("#persona-presets-strip button")];
+      const toolsHaveActions = toolActions.length >= 6 && !document.querySelector("#persona-presets-strip [data-settings-row]");
+      const cashRow = document.querySelector('[data-settings-row="cash"]');
+      cashRow.dataset.cashDriven = "true";
+      cashRow.querySelector("[data-settings-edit]").hidden = true;
+      document.dispatchEvent(new Event("plan-rendered"));
+      const readonlyCashNotInteractive =
+        cashRow.getAttribute("role") !== "button" &&
+        !cashRow.hasAttribute("tabindex") &&
+        cashRow.querySelector("[data-settings-edit]").hidden;
+      cashRow.click();
+      const readonlyCashStaysClosed = document.querySelector("#settings-editor-cash").hidden;
+      cashRow.querySelector("#open-cash-breakdown-settings").click();
+      const accountsLinkStaysSeparate = document.querySelector("#settings-editor-cash").hidden;
+      cashRow.dataset.cashDriven = "false";
+      cashRow.querySelector("[data-settings-edit]").hidden = false;
+      document.dispatchEvent(new Event("plan-rendered"));
+      document.querySelector("#settings-header-back").click();
+      return {
+        rows: cases.map(([key]) => key),
+        failures,
+        housingVisibility,
+        toolsHaveActions,
+        readonlyCashNotInteractive,
+        readonlyCashStaysClosed,
+        accountsLinkStaysSeparate,
+      };
+    })()`);
+    assert.deepEqual(
+      settingsRows.failures,
+      [],
+      `Settings rows failing mouse/keyboard Save/Cancel: ${settingsRows.failures.join("; ")}`,
+    );
+    assert.equal(settingsRows.toolsHaveActions, true);
+    assert.deepEqual(settingsRows.housingVisibility, [
+      ["all-oa", false, false],
+      ["hdb", true, false],
+      ["bank", true, false],
+      ["paid-up", false, false],
+      ["custom", false, true],
+    ]);
+    assert.equal(
+      settingsRows.readonlyCashNotInteractive,
+      true,
+      JSON.stringify(settingsRows),
+    );
+    assert.equal(settingsRows.readonlyCashStaysClosed, true);
+    assert.equal(settingsRows.accountsLinkStaysSeparate, true);
+
+    const outsideCommit = await browser.evaluate(`(() => {
+      document.querySelector(".sidebar-settings-btn").click();
+      const row = document.querySelector('[data-settings-row="salary"]');
+      const editor = document.querySelector("#settings-editor-salary");
+      const source = document.querySelector("#person-salary");
+      const original = source.value;
+      row.click();
+      const draft = document.querySelector("#settings-draft-person-salary");
+      draft.value = "8765";
+      draft.dispatchEvent(new Event("input", { bubbles: true }));
+      row.closest(".settings-value-card").querySelector("h2").click();
+      const changedClickCommitted = editor.hidden && source.value === "8765";
+      row.click();
+      row.closest(".settings-value-card").querySelector("h2").click();
+      const unchangedClickClosed = editor.hidden && source.value === "8765";
+      source.value = original;
+      source.dispatchEvent(new Event("input", { bubbles: true }));
+      source.dispatchEvent(new Event("change", { bubbles: true }));
+      return { changedClickCommitted, unchangedClickClosed };
+    })()`);
+    assert.equal(outsideCommit.changedClickCommitted, true);
+    assert.equal(outsideCommit.unchangedClickClosed, true);
+
+    const cpfInline = await browser.evaluate(`(() => {
+      document.querySelector(".sidebar-settings-btn").click();
+      const row = document.querySelector('[data-settings-row="cpf"]');
+      const oaSource = document.querySelector("#known-oa");
+      const before = oaSource.value;
+      oaSource.value = "123";
+      oaSource.dispatchEvent(new Event("input", { bubbles: true }));
+      row.querySelector("[data-settings-edit]").click();
+      const editor = document.querySelector("#settings-editor-cpf");
+      const labels = [...editor.querySelectorAll(".field-label > label")].map((label) => label.textContent.trim());
+      const help = editor.querySelector('.field-help-trigger[aria-label="More about Ordinary Account (OA)"]');
+      const helpText = help?.getAttribute("aria-controls");
+      const monthly = editor.querySelector('[data-settings-draft="known-ma-spend"]');
+      const fields = ["known-oa", "known-sa", "known-ma", "known-sa-invested"].map((id) => editor.querySelector('[data-settings-draft="' + id + '"]'));
+      const tops = fields.map((input) => Math.round(input.getBoundingClientRect().top));
+      const save = editor.querySelector('[data-settings-action="save"]');
+      const trigger = row.querySelector("[data-settings-edit]");
+      const oa = editor.querySelector('[data-settings-draft="known-oa"]');
+      oa.value = "";
+      oa.dispatchEvent(new Event("input", { bubbles: true }));
+      const enabledAfterEmpty = !save.disabled;
+      save.click();
+      const sourceAfterEmpty = document.querySelector("#known-oa").value;
+      const summaryAfterEmpty = row.querySelector('[data-plan-value="known-oa"]').textContent;
+      trigger.click();
+      const inputAfterEmpty = document.querySelector("#settings-draft-known-oa").value;
+      document.querySelector("#settings-draft-known-oa").dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+      );
+      oaSource.value = before;
+      oaSource.dispatchEvent(new Event("input", { bubbles: true }));
+      help?.click();
+      const tooltipDidNotStartRow = editor.hidden;
+      const helpPanel = helpText && document.getElementById(helpText);
+      if (helpPanel?.matches(":popover-open")) helpPanel.hidePopover();
+      return {
+        labels,
+        tooltip: helpText ? document.getElementById(helpText)?.textContent : "",
+        monthlySuffix: monthly?.closest(".input-wrap")?.querySelector(".input-suffix")?.textContent,
+        summarySuffix: row.querySelector('[data-plan-value="known-ma-spend"]')?.textContent,
+        tops,
+        saveInitiallyDisabled: save.disabled,
+        enabledAfterEmpty,
+        sourceAfterEmpty,
+        summaryAfterEmpty,
+        inputAfterEmpty,
+        before,
+        headingHidden: getComputedStyle(row.querySelector(".settings-row-label span")).position === "absolute",
+        headingClass: row.querySelector(".settings-row-label span").className,
+        tooltipDidNotStartRow,
+      };
+    })()`);
+    assert.deepEqual(cpfInline.labels, [
+      "OA",
+      "SA",
+      "MA",
+      "CPFIS-SA",
+      "MediSave deductions",
+    ]);
+    assert.match(cpfInline.tooltip, /Ordinary Account \(OA\)/);
+    assert.equal(cpfInline.monthlySuffix, "/mo");
+    assert.match(cpfInline.summarySuffix, /\/mo$/);
+    assert.equal(new Set(cpfInline.tops).size, 1);
+    assert.equal(cpfInline.saveInitiallyDisabled, true);
+    assert.equal(cpfInline.enabledAfterEmpty, true);
+    assert.equal(cpfInline.sourceAfterEmpty, "0");
+    assert.equal(cpfInline.summaryAfterEmpty, "$0");
+    assert.equal(cpfInline.inputAfterEmpty, "0");
+    assert.equal(cpfInline.headingHidden, true, JSON.stringify(cpfInline));
+    assert.equal(cpfInline.tooltipDidNotStartRow, true);
+
+    await browser.send("Emulation.setDeviceMetricsOverride", {
+      width: 1440,
+      height: 1000,
+      deviceScaleFactor: 1,
+      mobile: false,
+    });
+    const settingsLayout = await browser.evaluate(`(() => {
+      const profile = document.querySelector(".settings-profile-card");
+      const profileRows = [...profile.querySelectorAll("[data-settings-row]")];
+      const birthRow = profile.querySelector('[data-settings-row="birth"]');
+      const birthEditor = document.querySelector("#settings-editor-birth");
+      birthRow.click();
+      const birthInput =
+        birthEditor.querySelector("#settings-draft-person-dob-display") ||
+        birthEditor.querySelector('[data-settings-draft="person-dob"]');
+      const birthField = birthInput.closest(".field");
+      const birthActions = [...birthEditor.querySelectorAll(".settings-editor-actions button")];
+      const birthCenters = [
+        birthRow.querySelector(".settings-row-label").getBoundingClientRect(),
+        birthInput.getBoundingClientRect(),
+        ...birthActions.map((button) => button.getBoundingClientRect()),
+      ].map((rect) => rect.top + rect.height / 2);
+      const birthGeometry = [
+        birthRow,
+        birthRow.querySelector(".settings-row-label"),
+        birthEditor,
+        birthField,
+        birthField.querySelector(".input-wrap"),
+        birthInput,
+        ...birthActions,
+      ].map((element) => {
+        const rect = element.getBoundingClientRect();
+        return [
+          element.className || element.id,
+          Math.round(rect.top),
+          Math.round(rect.height),
+          getComputedStyle(element).display,
+        ];
+      });
+      const birthResult = {
+        profileRowsFlex: profileRows.every((row) => getComputedStyle(row).display === "flex"),
+        profileRowsCentered: profileRows.every((row) => getComputedStyle(row).alignItems === "center"),
+        birthPadding: [
+          getComputedStyle(birthRow).paddingBlockStart,
+          getComputedStyle(birthRow).paddingBlockEnd,
+        ],
+        birthFieldWidth: Math.round(birthField.getBoundingClientRect().width),
+        birthInputHeight: Math.round(birthInput.getBoundingClientRect().height),
+        birthActionSizes: birthActions.map((button) => [
+          Math.round(button.getBoundingClientRect().width),
+          Math.round(button.getBoundingClientRect().height),
+        ]),
+        birthCenters,
+        birthGeometry,
+      };
+      birthEditor.querySelector('[data-settings-action="cancel"]').click();
+      profile.querySelector('[data-settings-row="retire"]').click();
+      const retireEditor = document.querySelector("#settings-editor-retire");
+      const retireInput = retireEditor.querySelector('[data-settings-draft="known-retire"]');
+      const retireFieldWidth = Math.round(retireInput.closest(".field").getBoundingClientRect().width);
+      const retireInputHeight = Math.round(retireInput.getBoundingClientRect().height);
+      retireEditor.querySelector('[data-settings-action="cancel"]').click();
+
+      const cpfCard = document.querySelector(".settings-cpf-card");
+      const cpfRow = cpfCard.querySelector('[data-settings-row="cpf"]');
+      const cpfEdit = cpfCard.querySelector("[data-settings-cpf-edit]");
+      const summaryColumns = getComputedStyle(
+        cpfRow.querySelector(".settings-value-readout"),
+      ).gridTemplateColumns.split(" ").length;
+      cpfEdit.click();
+      let cpfEditor = document.querySelector("#settings-editor-cpf");
+      const cpfInput = cpfEditor.querySelector('[data-settings-draft="known-oa"]');
+      let cpfActions = [...cpfEditor.querySelectorAll(".settings-editor-actions button")];
+      const initialSaveDisabled = cpfActions[0].disabled;
+      cpfInput.value = "123";
+      cpfInput.dispatchEvent(new Event("input", { bubbles: true }));
+      cpfEditor = document.querySelector("#settings-editor-cpf");
+      cpfActions = [...cpfEditor.querySelectorAll(".settings-editor-actions button")];
+      return {
+        ...birthResult,
+        retireFieldWidth,
+        retireInputHeight,
+        subtitle: document.querySelector(".settings-page-sub").textContent.trim(),
+        cpfEditName: cpfEdit.getAttribute("aria-label"),
+        cpfEditHiddenWhileEditing: cpfEdit.hidden,
+        cpfSummaryColumns: summaryColumns,
+        cpfEditorColumns: getComputedStyle(cpfEditor).gridTemplateColumns.split(" ").length,
+        cpfMonthlyColumn: getComputedStyle(
+          cpfEditor.querySelector('[data-settings-draft="known-ma-spend"]').closest(".field"),
+        ).gridColumn,
+        cpfBorderTop: getComputedStyle(cpfRow).borderTopWidth,
+        cpfInputHeight: Math.round(cpfInput.getBoundingClientRect().height),
+        cpfActionSizes: cpfActions.map((button) => [
+          Math.round(button.getBoundingClientRect().width),
+          Math.round(button.getBoundingClientRect().height),
+        ]),
+        cpfInitialSaveDisabled: initialSaveDisabled,
+        cpfSaveEnabledAfterChange: !cpfActions[0].disabled,
+        cpfSaveClass: cpfActions[0].className,
+        cpfCancelBackground: getComputedStyle(cpfActions[1]).backgroundColor,
+        cpfInputWidths: [
+          ...cpfEditor.querySelectorAll(".field input:not([type=radio])"),
+        ].map((input) => Math.round(input.getBoundingClientRect().width)),
+      };
+    })()`);
+    assert.equal(settingsLayout.profileRowsFlex, true);
+    assert.equal(settingsLayout.profileRowsCentered, true);
+    assert.deepEqual(settingsLayout.birthPadding, ["16px", "16px"]);
+    assert.equal(
+      settingsLayout.birthFieldWidth,
+      settingsLayout.retireFieldWidth,
+    );
+    assert.equal(
+      settingsLayout.birthInputHeight,
+      settingsLayout.retireInputHeight,
+    );
+    assert.deepEqual(settingsLayout.birthActionSizes, [
+      [40, 40],
+      [40, 40],
+    ]);
+    assert.ok(
+      Math.max(...settingsLayout.birthCenters) -
+        Math.min(...settingsLayout.birthCenters) <=
+        1,
+      JSON.stringify(settingsLayout.birthGeometry),
+    );
+    assert.equal(
+      settingsLayout.subtitle,
+      "Edit and save one setting at a time.",
+    );
+    assert.equal(settingsLayout.cpfEditName, "Edit CPF");
+    assert.equal(settingsLayout.cpfEditHiddenWhileEditing, true);
+    assert.equal(settingsLayout.cpfSummaryColumns, 5);
+    assert.equal(settingsLayout.cpfEditorColumns, 5);
+    assert.equal(settingsLayout.cpfMonthlyColumn, "auto");
+    assert.equal(new Set(settingsLayout.cpfInputWidths.slice(0, 4)).size, 1);
+    assert.ok(
+      settingsLayout.cpfInputWidths[4] < settingsLayout.cpfInputWidths[0],
+    );
+    assert.equal(settingsLayout.cpfBorderTop, "0px");
+    assert.equal(settingsLayout.cpfInputHeight, 40);
+    assert.deepEqual(settingsLayout.cpfActionSizes, [
+      [40, 40],
+      [40, 40],
+    ]);
+    assert.equal(settingsLayout.cpfInitialSaveDisabled, true);
+    assert.equal(settingsLayout.cpfSaveEnabledAfterChange, true);
+    assert.match(settingsLayout.cpfSaveClass, /\bbutton-primary\b/);
+    assert.equal(settingsLayout.cpfCancelBackground, "rgba(0, 0, 0, 0)");
+    await browser.evaluate(
+      `document.querySelector('#settings-editor-cpf [data-settings-action="cancel"]').click()`,
+    );
+
+    await browser.send("Emulation.setDeviceMetricsOverride", {
+      width: 390,
+      height: 844,
+      deviceScaleFactor: 1,
+      mobile: true,
+    });
+    await browser.send("Emulation.setTouchEmulationEnabled", {
+      enabled: true,
+      maxTouchPoints: 1,
+    });
+    const cpfMobile = await browser.evaluate(`(() => {
+      const row = document.querySelector('[data-settings-row="cpf"]');
+      row.querySelector("[data-settings-edit]").click();
+      const editor = document.querySelector("#settings-editor-cpf");
+      const input = editor.querySelector('[data-settings-draft="known-oa"]');
+      const monthly = editor.querySelector('[data-settings-draft="known-ma-spend"]');
+      const columns = getComputedStyle(editor).gridTemplateColumns.split(" ").length;
+      const inputHeight = Math.round(input.getBoundingClientRect().height);
+      const saveButtons = [...editor.querySelectorAll(".settings-editor-actions button")].map((button) => Math.round(button.getBoundingClientRect().width));
+      const monthlyColumn = getComputedStyle(monthly.closest(".field")).gridColumn;
+      const overflow = document.documentElement.scrollWidth - innerWidth;
+      editor.querySelector('[data-settings-action="cancel"]').click();
+      const salaryRow = document.querySelector('[data-settings-row="salary"]');
+      const salaryTrigger = salaryRow.querySelector("[data-settings-edit]");
+      const closedHeight = salaryRow.getBoundingClientRect().height;
+      salaryTrigger.click();
+      const openedHeight = salaryRow.getBoundingClientRect().height;
+      const salaryDraft = document.querySelector("#settings-draft-person-salary");
+      const duplicateLabelHidden =
+        getComputedStyle(salaryDraft.closest(".field").querySelector(".field-label")).position === "absolute";
+      document.querySelector('#settings-editor-salary [data-settings-action="cancel"]').click();
+      return {
+        columns, inputHeight, saveButtons, monthlyColumn, overflow,
+        singleEditHeightShift: Math.abs(openedHeight - closedHeight),
+        duplicateLabelHidden,
+      };
+    })()`);
+    assert.equal(cpfMobile.columns, 2);
+    assert.equal(cpfMobile.inputHeight, 44);
+    assert.equal(cpfMobile.monthlyColumn, "1 / -1");
+    assert.ok(cpfMobile.saveButtons.every((width) => width === 40));
+    assert.ok(cpfMobile.overflow <= 0);
+    assert.ok(cpfMobile.singleEditHeightShift <= 4);
+    assert.equal(cpfMobile.duplicateLabelHidden, true);
+
+    const editStateKeys = [
+      "birth",
+      "retire",
+      "salary",
+      "bonus",
+      "budget",
+      "cpf",
+      "housing",
+      "loan",
+      "manual",
+      "holdings",
+      "srs-balance",
+      "srs-annual",
+      "srs-age",
+      "srs-invest",
+      "reliefs",
+      "top-up",
+    ];
+    const screenshotDir = path.join(
+      __dirname,
+      "artifacts",
+      "settings-edit-states",
+    );
+    const captureEditState = async (viewport, key) => {
+      const shot = await browser.send("Page.captureScreenshot", {
+        format: "png",
+        captureBeyondViewport: false,
+      });
+      const dir = path.join(screenshotDir, viewport);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(
+        path.join(dir, `${key}.png`),
+        Buffer.from(shot.data, "base64"),
+      );
+    };
+    const captureScreenshots = process.env.CAPTURE_SETTINGS_EDIT_STATES === "1";
+
+    if (captureScreenshots) {
+      await browser.send("Emulation.setDeviceMetricsOverride", {
+        width: 1440,
+        height: 1000,
+        deviceScaleFactor: 1,
+        mobile: false,
+      });
+      for (const key of editStateKeys) {
+        await browser.evaluate(`(() => {
+          const housing = document.querySelector("#known-housing-mode");
+          if ("${key}" === "loan") housing.value = "bank";
+          if ("${key}" === "manual") housing.value = "custom";
+          if ("${key}" === "loan" || "${key}" === "manual") {
+            housing.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+          const row = document.querySelector('[data-settings-row="${key}"]');
+          row.scrollIntoView({ block: "center", behavior: "instant" });
+          row.click();
+        })()`);
+        const opened = await browser.evaluate(
+          `!document.querySelector("#settings-editor-${key}").hidden`,
+        );
+        assert.equal(
+          opened,
+          true,
+          `Desktop screenshot row did not open: ${key}`,
+        );
+        await captureEditState("1440", key);
+        await browser.evaluate(
+          `document.querySelector('#settings-editor-${key} [data-settings-action="cancel"]').click()`,
+        );
+        if (key === "loan" || key === "manual") {
+          await browser.evaluate(`(() => {
+            const housing = document.querySelector("#known-housing-mode");
+            housing.value = "all-oa";
+            housing.dispatchEvent(new Event("change", { bubbles: true }));
+          })()`);
+        }
+      }
+    }
+
+    await browser.send("Emulation.setDeviceMetricsOverride", {
+      width: 390,
+      height: 844,
+      deviceScaleFactor: 1,
+      mobile: true,
+    });
+    await browser.send("Emulation.setTouchEmulationEnabled", {
+      enabled: true,
+      maxTouchPoints: 1,
+    });
+    const touchFailuresList = [];
+    for (const key of editStateKeys) {
+      const point = await browser.evaluate(`(async () => {
+        const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        const housing = document.querySelector("#known-housing-mode");
+        if ("${key}" === "loan") housing.value = "bank";
+        if ("${key}" === "manual") housing.value = "custom";
+        if ("${key}" === "loan" || "${key}" === "manual") {
+          housing.dispatchEvent(new Event("change", { bubbles: true }));
+          await wait(80);
+        }
+        const row = document.querySelector('[data-settings-row="${key}"]');
+        row.scrollIntoView({ block: "center", behavior: "instant" });
+        await new Promise(requestAnimationFrame);
+        const affordance = row.querySelector("[data-settings-edit]");
+        const rect = affordance.getBoundingClientRect();
+        return {
+          point: {
+            x: Math.round(rect.left + Math.min(rect.width / 2, 64)),
+            y: Math.round(rect.top + rect.height / 2),
+            id: 1,
+            radiusX: 1,
+            radiusY: 1,
+            force: 1,
+          },
+          pencilVisible: !affordance.hidden,
+        };
+      })()`);
+      if (!point?.point) {
+        touchFailuresList.push(`${key}: no touch target`);
+        continue;
+      }
+      await browser.send("Input.dispatchTouchEvent", {
+        type: "touchStart",
+        touchPoints: [point.point],
+      });
+      await browser.send("Input.dispatchTouchEvent", {
+        type: "touchEnd",
+        touchPoints: [],
+      });
+      const touchResult = await browser.evaluate(`(() => {
+        const key = "${key}";
+        const row = document.querySelector('[data-settings-row="' + key + '"]');
+        const editor = document.querySelector("#settings-editor-" + key);
+        const opened = !editor.hidden;
+        const pencilVisible = !row.querySelector("[data-settings-edit]").hidden;
+        const editorRect = editor.getBoundingClientRect();
+        const rowRect = row.getBoundingClientRect();
+        return {
+          opened,
+          editorWidth: Math.round(editorRect.width),
+          rowWidth: Math.round(rowRect.width),
+          overflow: document.documentElement.scrollWidth - innerWidth,
+        };
+      })()`);
+      if (!touchResult.opened)
+        touchFailuresList.push(`${key}: touch did not open`);
+      if (!point.pencilVisible)
+        touchFailuresList.push(`${key}: touch pencil hidden`);
+      if (touchResult.overflow > 0)
+        touchFailuresList.push(
+          `${key}: page overflow ${touchResult.overflow}px`,
+        );
+      if (captureScreenshots) await captureEditState("390", key);
+      await browser.evaluate(`(() => {
+        document.querySelector('#settings-editor-${key} [data-settings-action="cancel"]')?.click();
+        if ("${key}" === "loan" || "${key}" === "manual") {
+          const housing = document.querySelector("#known-housing-mode");
+          housing.value = "all-oa";
+          housing.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      })()`);
+    }
+    await browser.send("Emulation.setTouchEmulationEnabled", {
+      enabled: false,
+    });
+    assert.deepEqual(
+      touchFailuresList,
+      [],
+      `Settings rows failing 390px touch activation: ${touchFailuresList.join("; ")}`,
+    );
+    await browser.send("Emulation.clearDeviceMetricsOverride");
+    await browser.evaluate(
+      `document.querySelector("#settings-header-back").click()`,
+    );
 
     // 6. Dividend & Yield Target Monthly Income live edit renders plain text in #div-header-badge (no raw HTML)
     const divBadge = await browser.evaluate(`(() => {
@@ -502,9 +1239,16 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
     assert.equal(eqAfterReload, "");
 
     // 10. Fresh Grad persona preset selects 5.5% return without blanking #known-return
-    const freshGradReturn = await browser.evaluate(`(() => {
+    const freshGradReturn = await browser.evaluate(`(async () => {
+      document.querySelector(".sidebar-settings-btn").click();
+      document.querySelector("#persona-presets-strip").open = true;
       const btn = document.querySelector('[data-persona-preset="fresh-grad"]');
-      btn?.click();
+      btn.click();
+      const dialog = document.querySelector("#replace-plan-dialog");
+      await new Promise((resolve) => {
+        dialog.addEventListener("close", resolve, { once: true });
+        dialog.querySelector('button[value="replace"]').click();
+      });
       const sel = document.querySelector('#known-return');
       return { value: sel?.value, selectedIndex: sel?.selectedIndex };
     })()`);
@@ -716,31 +1460,42 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       const summary = find('[data-plan-value="person-salary"]');
       const before = summary.textContent;
       const original = salary.value;
-      const editIncome = find('#top [data-quick-edit="salary"]');
-      const editor = find("#quick-edit-modal");
+      const editIncome = find('[data-settings-row="salary"]');
       editIncome.click();
       await nextFrame();
-      const salaryFocused = document.activeElement.id === "qe-salary";
-      const salaryPresetsClosed = !find(".qe-presets").open;
-      set(find("#qe-salary"), "6250");
-      await afterClose(editor, ".qe-footer-actions [data-qe-close]");
+      const draft = find("#settings-draft-person-salary");
+      const salaryFocused = document.activeElement === draft;
+      const formattedInitially = draft.value.includes(",") || Number(original) < 1000;
+      const key = (input, key) => input.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+      draft.value = "6,250";
+      const draftIsolated = salary.value === original;
+      key(draft, "Enter");
       const saved = summary.textContent;
       const restoredFocus = document.activeElement === editIncome;
       editIncome.click();
-      set(find("#qe-salary"), original);
-      await afterClose(editor, ".qe-footer-actions [data-qe-close]");
-      find('#top [data-quick-edit="budget"]').click();
+      draft.value = "99,999";
+      key(draft, "Escape");
+      const escaped = salary.value === "6250";
+      editIncome.click();
+      draft.value = original;
+      key(draft, "Enter");
+      find('#top [data-open-expense-modal]').click();
       const budgetDialog = find("#expense-modal");
       const editBudgetOpened = budgetDialog.open;
       await afterClose(budgetDialog, ".qe-footer-actions [data-exp-modal-close]");
       const loan = find('[data-choice-for="known-housing-mode"]');
       const originalHousing = find("#known-housing-mode").value;
-      find('[data-open-settings-field="known-housing-mode"]').click();
+      find('[data-settings-row="housing"] [data-settings-edit]').click();
       loan.querySelector('[value="hdb"]').click();
-      const loanShown = !find("#known-housing-loan-fields").hidden;
+      find('#settings-editor-housing [data-settings-action="save"]').click();
+      const loanShown = !find('[data-settings-row="loan"]').hidden;
+      find('[data-settings-row="housing"] [data-settings-edit]').click();
       loan.querySelector('[value="paid-up"]').click();
-      const paidUpHidesLoan = find("#known-housing-loan-fields").hidden;
+      find('#settings-editor-housing [data-settings-action="save"]').click();
+      const paidUpHidesLoan = find('[data-settings-row="loan"]').hidden;
+      find('[data-settings-row="housing"] [data-settings-edit]').click();
       Array.from(loan.querySelectorAll("input")).find((el) => el.value === originalHousing).click();
+      find('#settings-editor-housing [data-settings-action="save"]').click();
       const openAssumptions = find("#plan-overflow [command='show-modal']");
       find("#plan-overflow").open = true;
       openAssumptions.click();
@@ -753,14 +1508,16 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       const age95Choices = Array.from(find("#known-longevity").options)
         .filter((option) => option.text.startsWith("Age 95")).length;
       return {
-        before, salaryFocused, salaryPresetsClosed, saved, restoredFocus,
+        before, salaryFocused, formattedInitially, draftIsolated, saved, restoredFocus, escaped,
         editBudgetOpened, backCount, returnedToCash, age95Choices,
         loanShown, paidUpHidesLoan, assumptionHorizonLabels, assumptionsOpened,
       };
     })()`);
     assert.ok(settingsSummary.before.endsWith("/mo"));
     assert.equal(settingsSummary.salaryFocused, true);
-    assert.equal(settingsSummary.salaryPresetsClosed, true);
+    assert.equal(settingsSummary.formattedInitially, true);
+    assert.equal(settingsSummary.draftIsolated, true);
+    assert.equal(settingsSummary.escaped, true);
     assert.equal(settingsSummary.saved, "$6,250/mo");
     assert.equal(settingsSummary.restoredFocus, true);
     assert.equal(settingsSummary.editBudgetOpened, true);
@@ -777,6 +1534,51 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       "95 (default)",
       "100",
     ]);
+
+    const replacements = await browser.evaluate(`(async () => {
+      const find = (selector) => document.querySelector(selector);
+      const settle = () => new Promise((resolve) => setTimeout(resolve, 90));
+      find(".sidebar-settings-btn").click();
+      find("#persona-presets-strip").open = true;
+      const before = find("#person-salary").value;
+      const replace = find("#replace-plan-dialog");
+      const example = find('[data-persona-preset="fresh-grad"]');
+      example.click();
+      const examplePrompt = replace.open && find("#replace-plan-message").textContent.includes("replace your current plan");
+      find('#replace-plan-dialog button[value="cancel"]').click();
+      await settle();
+      const exampleCanceled = find("#person-salary").value === before;
+      example.click();
+      find('#replace-plan-dialog button[value="replace"]').click();
+      await settle();
+      const loaded = find("#person-salary").value;
+      find("[data-toast-undo]").click();
+      const exampleUndone = find("#person-salary").value === before;
+      const file = new File([JSON.stringify({ version:"3", lifestyle:"cca", salary:"7250" })], "test.json");
+      const transfer = new DataTransfer();
+      transfer.items.add(file);
+      const input = find("#import-json-file");
+      input.files = transfer.files;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      await settle();
+      const importPrompt = replace.open && find("#person-salary").value === before;
+      find('#replace-plan-dialog button[value="replace"]').click();
+      await settle();
+      const imported = find("#person-salary").value;
+      find("[data-toast-undo]").click();
+      const importUndone = find("#person-salary").value === before;
+      find("#settings-header-back").click();
+      return { examplePrompt, exampleCanceled, loaded, exampleUndone, importPrompt, imported, importUndone };
+    })()`);
+    assert.deepEqual(replacements, {
+      examplePrompt: true,
+      exampleCanceled: true,
+      loaded: "4500",
+      exampleUndone: true,
+      importPrompt: true,
+      imported: "7250",
+      importUndone: true,
+    });
 
     const resetUndo = await browser.evaluate(`(async () => {
       const find = (selector) => document.querySelector(selector);
@@ -1390,6 +2192,29 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
         "No aria-label may contain raw curr-wrap HTML",
       );
 
+      // An explicitly custom budget can have the same total as the preset.
+      await browser.navigate(
+        `${devBaseUrl}/?test=budget-mode#version=3&lifestyle=cca&spend=2800&expMode=figure`,
+      );
+      const budgetMenu = await browser.evaluate(`(() => {
+        const readMenu = () => ({
+          label: document.querySelector("#exp-card-dropdown-label").textContent,
+          selected: [...document.querySelectorAll("#exp-card-dropdown-menu [aria-checked=true] strong")]
+            .map((option) => option.textContent),
+          total: document.querySelector(".overview-budget-total").textContent,
+        });
+        document.querySelector("#exp-card-dropdown-btn").click();
+        const custom = readMenu();
+        document.querySelector('#exp-card-dropdown-menu [data-switch-lifestyle="cca"]').click();
+        return { custom, preset: readMenu() };
+      })()`);
+      assert.equal(budgetMenu.custom.label, "Custom budget");
+      assert.deepEqual(budgetMenu.custom.selected, ["Custom"]);
+      assert.equal(budgetMenu.preset.label, "Community Care Apartments");
+      assert.deepEqual(budgetMenu.preset.selected, ["Community Care Apartments"]);
+      assert.match(budgetMenu.custom.total, /\$2,800/);
+      assert.equal(budgetMenu.custom.total, budgetMenu.preset.total);
+
       // Phase 4 (F16): XSS regression test across custom expenses, cash accounts, URL hash, search, and print sheet
       const xssPayload = "<img src=x onerror=window.__xss=1>";
       const xssSearch = "<img src=x onerror=window.__xss=2>";
@@ -1563,6 +2388,27 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
         `HighBase Bank ($120k) should still show SDIC notice, got: ${highBaseCheck.alertsText}`,
       );
 
+      const groupedMoney = await browser.evaluate(`(() => {
+        document.querySelector("#cash-accounts").open = true;
+        const balance = document.querySelector("[data-cash-acc-field=balance]");
+        const initial = balance.value;
+        balance.focus();
+        const set = (value, type) => {
+          balance.value = value;
+          balance.dispatchEvent(new Event(type, { bubbles: true }));
+        };
+        set("120,123.45", "input");
+        set("", "input");
+        set("120,12.45", "input");
+        set("120,12.45", "change");
+        return { initial, displayed: balance.value, stored: document.querySelector("#known-ssb-cash").value };
+      })()`);
+      assert.deepEqual(groupedMoney, {
+        initial: "120,000",
+        displayed: "120,123.45",
+        stored: "120123.45",
+      });
+
       // Tier 5 (Fix 2): Mobile 4-milestone SVG pill non-overlap regression test across chart modes + compactPrint invariant
       await browser.navigate(
         `${devBaseUrl}/?t=t5-charts#version=3&lifestyle=cca&age=35&retire=60&salary=8000&srs=15300&srsAge=63`,
@@ -1676,10 +2522,10 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
         document.querySelector('[data-tab="overview"]')?.click();
         await new Promise((r) => setTimeout(r, 80));
         document.querySelector(".sidebar-settings-btn")?.click();
-        document.querySelector('[data-open-settings-field="person-dob"]')?.click();
+        document.querySelector('[data-settings-row="birth"] [data-settings-edit]')?.click();
         await new Promise((r) => setTimeout(r, 100));
-        const dlgOpenBefore = !document.querySelector('#person-dob')?.closest('details')?.open ? false : !document.querySelector('#top').hidden;
-        const dispBefore = document.querySelector('#person-dob-display')?.value || "";
+        const dlgOpenBefore = !document.querySelector("#settings-editor-birth").hidden;
+        const dispBefore = document.querySelector('#settings-draft-person-dob-display')?.value || "";
         const trig = document.querySelector('#top .dp-trigger-btn');
         trig?.click();
         const popOpen1 = Boolean(document.querySelector('.dp-popover'));
@@ -1694,13 +2540,14 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
         document.querySelector('.dp-popover [data-dp-day="1988-08-15"]')?.click();
         await new Promise((r) => setTimeout(r, 80));
         const popClosedAfterPick = !document.querySelector('.dp-popover');
-        const isoAfter = document.querySelector('#person-dob')?.value || "";
-        const dispAfter = document.querySelector('#person-dob-display')?.value || "";
+        const dispAfter = document.querySelector('#settings-draft-person-dob-display')?.value || "";
         // Verify Escape closes calendar popover without closing the date-of-birth editor
         trig?.click();
         document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
         const popClosedOnEsc = !document.querySelector('.dp-popover');
-        const dlgStillOpen = !document.querySelector('#person-dob')?.closest('details')?.open ? false : !document.querySelector('#top').hidden;
+        const dlgStillOpen = !document.querySelector("#settings-editor-birth").hidden;
+        document.querySelector("#settings-draft-person-dob-display").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+        const isoAfter = document.querySelector("#person-dob").value;
         document.querySelector('#settings-header-back')?.click();
         return {
           dlgOpenBefore,

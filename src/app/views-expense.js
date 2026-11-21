@@ -136,7 +136,7 @@ function buildExpenseModalBodyHTML(ep, r, newlyAddedId = null, s = null) {
     </button>
     <button type="button" class="exp-modal-source-btn${isCustom ? " is-active" : ""}" data-exp-enter-custom aria-pressed="${isCustom}">
       <strong>Custom</strong>
-
+      <span id="exp-modal-custom-detail">${isCustom ? m(ep.total, "/mo") : "Set your own budget"}</span>
     </button>
   </div>`;
 
@@ -310,12 +310,7 @@ function buildExpenseModalBodyHTML(ep, r, newlyAddedId = null, s = null) {
 }
 
 function buildExpenseCardHTML(ep) {
-  const isCustom = Boolean(ep.isCustom);
-  const presetAmount =
-    RetirementModel.lifestyles[ep.lifestyle]?.budget ??
-    RetirementModel.lifestyles.cca.budget;
-  const isPreset =
-    !ep.itemizedActive && Math.abs(ep.total - presetAmount) < 0.01;
+  const isPreset = !ep.isCustom;
   const dropdownLabel = isPreset ? ep.lifestyleLabel : "Custom budget";
   const customSubLabel = isPreset
     ? "Set a monthly amount or add items"

@@ -148,6 +148,18 @@ test("service worker is valid JS with concrete build revision, bounded cache, an
     distSw.includes(`retirement-shield-${revMatch[1]}`),
     "dist/sw.js cache version should match dist/index.html app-revision",
   );
+
+  const app = fs.readFileSync("app.js", "utf8");
+  assert.match(app, /register\("sw\.js", \{ updateViaCache: "none" \}\)/);
+  assert.match(
+    app,
+    /swRegRef\.waiting\.postMessage\(\{ type: "SKIP_WAITING" \}\)/,
+  );
+  assert.match(app, /addEventListener\("controllerchange"/);
+  assert.match(
+    app,
+    /if \(reloadingOnSwChange\) \{\s*window\.location\.reload\(\)/,
+  );
 });
 
 test("static structural invariants: defined CSS tokens, print font floor, and unique HTML IDs", () => {
@@ -249,6 +261,31 @@ test("service worker runtime behavior: install precache, stale cache eviction, s
     },
   };
   vm.runInNewContext(swSrc, sandbox, { filename: "dist/sw.js" });
+
+  // The active app can identify the worker revision, then promote a waiting
+  // worker without deleting browser storage or unrelated caches.
+  let skipWaitingCalls = 0;
+  sandbox.self.skipWaiting = () => {
+    skipWaitingCalls += 1;
+  };
+  let versionMessage;
+  listeners.get("message")({
+    data: { type: "GET_VERSION" },
+    ports: [
+      {
+        postMessage(message) {
+          versionMessage = message;
+        },
+      },
+    ],
+  });
+  const builtCacheName = swSrc.match(/CACHE_NAME="([^"]+)"/)?.[1];
+  assert.deepEqual(JSON.parse(JSON.stringify(versionMessage)), {
+    cacheVersion: builtCacheName,
+  });
+  assert.match(builtCacheName || "", /^retirement-shield-[a-f0-9]{12}$/);
+  listeners.get("message")({ data: { type: "SKIP_WAITING" } });
+  assert.equal(skipWaitingCalls, 1);
 
   // 1. Install precaches APP_SHELL
   let waitPromise;

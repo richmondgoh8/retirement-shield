@@ -419,7 +419,7 @@ function buildOverviewPageHeader({
           <div><dt>Funded</dt><dd class="overview-funded"><strong>${formatFundedPct(fn.pctFunded)}</strong></dd></div>
         </dl>`
       }
-      ${tightness ? `<p class="overview-saving-tightness">${recommendation?.move.action === "cap-affordable-save" ? "After applying the cap, save" : "Requires saving"} <strong>${targetRate}%</strong> of take-home · <strong>${tightness}</strong></p>` : ""}
+      ${tightness ? `<p class="overview-saving-tightness">${recommendation?.move.action === "cap-affordable-save" ? "After applying the cap, save" : "Requires saving"} <strong>${targetRate}%</strong> of take-home · <strong class="overview-tightness-band is-${targetBand.tone}">${tightness}</strong></p>` : ""}
       </div>
       ${
         recommendation
@@ -1108,6 +1108,18 @@ export function buildFinOverviewGrid(
     fire.points.find((pt) => pt.age === Math.round(fire.retire)) ||
     fire.points[fire.points.length - 1];
   const retireNw = ptAtRetire?.today?.totalNetWorth ?? 0;
+  const chartStatus =
+    fire.fireNumber.pctFunded >= 100 && fire.fireNumber.fullyFundedTo95
+      ? "On track"
+      : "Shortfall";
+  const chartMilestones = [65, 95]
+    .map((age) => {
+      const point = fire.points.find((entry) => entry.age === age);
+      return point?.today
+        ? `Age ${age}: ${money(point.today.totalNetWorth)}.`
+        : "";
+    })
+    .filter(Boolean);
 
   const paycheck = RetirementModel.paycheckAllocation(r, simulation, bogle, p);
   const grossPlusEmployer = paycheck.grossPlusEmployer;
@@ -1313,7 +1325,8 @@ export function buildFinOverviewGrid(
           </div>
         </div>
         <div class="chart-wrapper">
-          <div id="dash-networth-chart" class="chart-area" role="img" aria-label="Stacked net worth trajectory from age ${fire.age} to ${fire.endAge}"></div>
+          <div id="dash-networth-chart" class="chart-area" role="img" aria-label="Stacked net worth trajectory from age ${fire.age} to ${fire.endAge}" aria-describedby="overview-networth-description"></div>
+          <p class="sr-only" id="overview-networth-description">Projected net worth in today’s dollars. ${chartMilestones.join(" ")} ${chartStatus}.</p>
           <div id="dash-networth-tooltip" class="chart-tooltip" hidden></div>
         </div>
         <div class="chart-legend fin-chart-legend" id="dash-networth-legend" role="group" aria-label="Net worth chart layers"></div>
@@ -1427,7 +1440,7 @@ export function buildFinOverviewGrid(
             </div>
             <div class="overview-saving-hint">
               <button type="button" class="text-button overview-saving-suggestion" data-use-suggested="${id}" hidden aria-label="Use suggested ${label.toLowerCase()} of ${Number(suggestion).toFixed(2)} dollars per month">
-                <span>Suggested: ${formattedSuggestion}</span><strong>Use</strong>
+                <span>Suggested: ${formattedSuggestion}</span><span aria-hidden="true">·</span><strong>Use</strong>
               </button>
             </div>
           </div>`;
@@ -1528,7 +1541,8 @@ export function buildFinOverviewGrid(
                   Math.abs(rowOut - s.privateSaving) > 1;
                 return `<tr class="ledger-selectable-row${isSelected ? " is-selected" : ""}" data-path="${path.key}">
                   <td>
-                    <button type="button" class="ledger-path-select-btn" data-path="${path.key}" aria-pressed="${isSelected}" aria-label="${escapeAttr(meta.name)} (${escapeAttr(meta.tag)}): Age-55 CPF ${money(rowBal)}, CPF LIFE ${money(rowLife)}/mo${isSelected ? ", currently selected" : ""}">
+                    <input type="radio" name="overview-cpf-path" class="sr-only ledger-path-selector" id="overview-cpf-path-${path.key}" data-path="${path.key}" ${isSelected ? "checked" : ""} aria-label="${escapeAttr(meta.name)} (${escapeAttr(meta.tag)}): Age-55 CPF ${money(rowBal)}, CPF LIFE ${money(rowLife)}/mo">
+                    <label for="overview-cpf-path-${path.key}" class="ledger-path-select-btn">
                       <span class="fin-table-path">
                         <span class="ledger-row-radio${isSelected ? " is-active" : ""}" aria-hidden="true"></span>
                         <span class="fin-path-icon" style="background:${meta.softBg};color:${meta.accent};">${meta.icon}</span>
@@ -1540,7 +1554,7 @@ export function buildFinOverviewGrid(
                           <small class="ledger-sub">${meta.note}</small>
                         </span>
                       </span>
-                    </button>
+                    </label>
                   </td>
                   <td class="num-cell num-col" data-label="Age-55 CPF">${m(rowBal, "", `path-${path.key}-bal`)}</td>
                   <td class="num-cell num-col" data-label="Extra CPF">${m(rowCpf, r.retiringNow ? " now" : "/mo", `path-${path.key}-cpf`)}${cpfDiffers ? `<small class="ledger-cell-sub">Path: ${m(path.cpfFunding, "/mo")}</small>` : ""}</td>
@@ -1570,6 +1584,7 @@ export function buildFinOverviewGrid(
     <details class="overview-disclosure-card overview-detail card-surface" id="overview-portfolio-details">
       <summary class="overview-disclosure-summary overview-section-summary"><h2 id="overview-breakdown-title">Portfolio &amp; Cashflow Breakdown</h2></summary>
       <div class="overview-disclosure-body">
+        <div class="overview-breakdown-edit-mobile"><button type="button" class="text-button" data-open-profile>Edit plan inputs</button></div>
         ${buildFinBentoGridHTML({
           r,
           p,

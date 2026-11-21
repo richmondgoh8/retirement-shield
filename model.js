@@ -7071,47 +7071,47 @@
     const netProfitNominal = totalPayoutReceived - totalPrincipalPaid;
     const payoutMultiple = totalPrincipalPaid > 0 ? Math.round((totalPayoutReceived / totalPrincipalPaid) * 100) / 100 : 0;
 
-    const solveMonthlyIrr = (cashFlows) => {
-      if (!cashFlows.some((v) => v > 0)) return -1;
-      const npv = (rm) => cashFlows.reduce((sum, flow, i) => sum + flow / (1 + rm) ** i, 0);
-      const derivative = (rm) => cashFlows.reduce((sum, flow, i) => i === 0 ? sum : sum - i * flow / (1 + rm) ** (i + 1), 0);
-      let rm = 0.004;
-      for (let i = 0; i < 100; i++) {
-        const value = npv(rm);
-        if (Math.abs(value) < 0.01) break;
-        const slope = derivative(rm);
-        if (!Number.isFinite(slope) || Math.abs(slope) < 1e-12) break;
-        const next = rm - value / slope;
-        if (!Number.isFinite(next) || next <= -0.99) break;
-        rm = next;
-      }
-      let lo = -0.99;
+    const solveMonthlyLogGrowth = () => {
+      if (flows[totalMonths] === 0) return null;
+      // Premiums precede payouts. Valued at payout start, premiums grow in
+      // magnitude as the rate rises, while discounted payouts shrink.
+      const valueAtPayoutStart = (logGrowth) =>
+        flows.reduce((sum, flow, month) => {
+          if (flow === 0) return sum;
+          return sum + flow * Math.exp((payoutStartMonth - month) * logGrowth);
+        }, 0);
+      let lo = -1;
       let hi = 1;
-      if (npv(lo) * npv(hi) > 0) {
-        for (let i = 0; i < 200 && npv(lo) * npv(hi) > 0; i++) hi *= 2;
+      while (valueAtPayoutStart(lo) < 0) lo *= 2;
+      while (valueAtPayoutStart(hi) > 0) hi *= 2;
+      for (let i = 0; i < 64; i++) {
+        const mid = (lo + hi) / 2;
+        const value = valueAtPayoutStart(mid);
+        if (value === 0) return mid;
+        if (value > 0) lo = mid;
+        else hi = mid;
       }
-      if (npv(lo) * npv(hi) <= 0) {
-        for (let i = 0; i <= 100; i++) {
-          const mid = (lo + hi) / 2;
-          if (npv(mid) === 0) { lo = hi = mid; break; }
-          if (npv(lo) * npv(mid) <= 0) hi = mid;
-          else lo = mid;
-        }
-        rm = (lo + hi) / 2;
-      }
-      return rm;
+      return (lo + hi) / 2;
     };
-    const monthlyIrr = solveMonthlyIrr(flows);
-    const impliedAnnualIrrPct = Math.round((((1 + monthlyIrr) ** 12 - 1) * 100) * 100) / 100;
-    const realAnnualIrrPct = Math.round((((1 + impliedAnnualIrrPct / 100) / (1 + inflation) - 1) * 100) * 100) / 100;
+    const monthlyLogGrowth = solveMonthlyLogGrowth();
+    const impliedAnnualIrrPct = monthlyLogGrowth === null
+      ? null
+      : Math.round(Math.expm1(12 * monthlyLogGrowth) * 10000) / 100;
+    const realAnnualIrrPct = monthlyLogGrowth === null
+      ? null
+      : Math.round(Math.expm1(12 * monthlyLogGrowth - Math.log1p(inflation)) * 10000) / 100;
 
-    const calcDiyAnnuity = (annualPct) => {
-      const rm = (1 + annualPct / 100) ** (1 / 12) - 1;
+    const accumulatePremiums = (monthlyGrowth) => {
       let pot = 0;
       for (let m = 0; m < premiumMonths; m++) {
-        pot = (pot + (mode === "monthly" ? moPayIn : (m % 12 === 0 ? moPayIn * 12 : 0))) * (1 + rm);
+        pot = (pot + (mode === "monthly" ? moPayIn : (m % 12 === 0 ? moPayIn * 12 : 0))) * monthlyGrowth;
       }
-      for (let m = premiumMonths; m < payoutStartMonth; m++) pot *= 1 + rm;
+      for (let m = premiumMonths; m < payoutStartMonth; m++) pot *= monthlyGrowth;
+      return pot;
+    };
+    const calcDiyAnnuity = (annualPct) => {
+      const rm = (1 + annualPct / 100) ** (1 / 12) - 1;
+      const pot = accumulatePremiums(1 + rm);
       const monthlyDraw = rm === 0 ? pot / payoutMonths : pot * rm / (1 - (1 + rm) ** -payoutMonths);
       const totalPayout = monthlyDraw * payoutMonths;
       return {
@@ -7132,32 +7132,53 @@
     let verdictKey = "fair";
     let tone = "info";
     let badge = "Fair Risk-Free Floor";
-    let headline = `Implied return is ${impliedAnnualIrrPct.toFixed(2)}% p.a.`;
+    const irrLabel = impliedAnnualIrrPct?.toLocaleString("en-SG", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    let headline;
     let summary = `Guaranteed payout: $${quotedMo.toLocaleString("en-SG")}/mo. Participating income: $${Math.round(startingMonthlyPayout - quotedMo).toLocaleString("en-SG")}/mo in Year 1, step-up to $${Math.round(finalMonthlyPayout - quotedMo).toLocaleString("en-SG")}/mo in the final year. Maturity dividend: $${scaledTerminalDividend.toLocaleString("en-SG")}.`;
-    if (impliedAnnualIrrPct < 2.5) {
+    if (monthlyLogGrowth === null) {
+      verdictKey = "no-irr";
+      badge = "No payout";
+      headline = "IRR requires at least one positive payout.";
+    } else if (impliedAnnualIrrPct < 2.5) {
       verdictKey = "endowment-trap";
       tone = "danger";
       badge = "Sub-Benchmark · Trails 2.5% Inflation";
-      headline = `Implied yield is only ${impliedAnnualIrrPct.toFixed(2)}% p.a.`;
+      headline = `Implied yield is only ${irrLabel}% p.a.`;
     } else if (impliedAnnualIrrPct < 4) {
       verdictKey = "below-cpf-sa";
       tone = "warn";
       badge = "Below Hurdle · Trails 4.0% Risk-Free Rate";
-      headline = `${impliedAnnualIrrPct.toFixed(2)}% p.a. trails the 4.0% CPF SA benchmark`;
+      headline = `${irrLabel}% p.a. trails the 4.0% CPF SA benchmark`;
     } else if (impliedAnnualIrrPct <= 6.5) {
       verdictKey = "worth-it";
       tone = "good";
       badge = "Outperforms · Beats 4.0% Risk-Free Hurdle";
-      headline = `Strong ${impliedAnnualIrrPct.toFixed(2)}% p.a. nominal implied return`;
+      headline = `Strong ${irrLabel}% p.a. nominal implied return`;
     } else {
       verdictKey = "high-risk-projection";
       tone = "warn";
       badge = "Elevated · Non-Guaranteed Projection";
-      headline = `${impliedAnnualIrrPct.toFixed(2)}% p.a. exceeds typical guaranteed annuity floors`;
+      headline = `${irrLabel}% p.a. exceeds typical guaranteed annuity floors`;
     }
 
     const comparisons = [
-      { key: "quoted", label: "Participating Annuity", sub: `${mode === "annual" ? "Annual" : "Monthly"} premium · ${pYrs}y payout`, ratePct: impliedAnnualIrrPct, potAtPayoutStart: Math.round(calcDiyAnnuity(impliedAnnualIrrPct).potAtPayoutStart), monthlyPayout: startingMonthlyPayout, totalPayout: totalPayoutReceived, perpetualMonthly: 0, monthlyDeltaVsQuoted: 0, isQuoted: true },
+      {
+        key: "quoted",
+        label: "Participating Annuity",
+        sub: `${mode === "annual" ? "Annual" : "Monthly"} premium · ${pYrs}y payout`,
+        ratePct: impliedAnnualIrrPct,
+        potAtPayoutStart: monthlyLogGrowth === null
+          ? null
+          : Math.round(accumulatePremiums(Math.exp(monthlyLogGrowth))),
+        monthlyPayout: startingMonthlyPayout,
+        totalPayout: totalPayoutReceived,
+        perpetualMonthly: 0,
+        monthlyDeltaVsQuoted: 0,
+        isQuoted: true,
+      },
       { key: "ssb", label: "DIY · MAS 10Y SSB Floor", sub: "100% liquid sovereign floor · $0 lock-in penalty", ...diySsb },
       { key: "cpf-sa", label: "DIY · CPF SA / RA (4.0% Floor)", sub: "AAA risk-free statutory rate · same premium cash flows", ...diyCpfSa },
       { key: "diy-bench", label: `DIY · Portfolio @ ${benchRatePct.toFixed(1)}% p.a.`, sub: "Same premium, deferment and payout duration", ...diyBench },

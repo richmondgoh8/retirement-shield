@@ -8,6 +8,7 @@ import {
   centsHtml,
   ageLabel,
   ICONS,
+  svgWrap,
   resetControl,
   syncCustomBudgetReset,
   bindDialogBackdropDismiss,
@@ -16,6 +17,7 @@ import {
   raw,
   formatExpSharePct,
   formatDobShort,
+  formatAnnuityIrr,
 } from "./src/app/format.js";
 import { handleDividendPresetClick } from "./src/app/dividend-presets.js";
 import {
@@ -44,11 +46,11 @@ import {
   buildBogleheadSection,
   buildCashCardsMarkup,
   buildCashAccountReadoutHTML,
-  buildCashAccountsSummaryHTML,
-  buildCashAccountsAlertsHTML,
+  buildCashAccountInterestHTML,
+  buildCashFreshnessHTML,
+  formatCashInput,
   buildCashAccountsEditorHTML,
   buildCashPlanCardHTML,
-  syncCashFilterGlider,
   buildCashParkingSection,
   buildDividendResultsHTML,
   buildDividendBenchmarksHTML,
@@ -56,6 +58,7 @@ import {
   buildTargetBenchmarksHTML,
   buildAnnuityResultsHTML,
   buildAnnuityBenchmarksHTML,
+  formatAnnuityBadge,
   buildDividendCalculatorSection,
 } from "./src/app/views-cash-div.js";
 import {
@@ -96,10 +99,6 @@ function setupSimplePlan() {
   if ($("#person-dob") && !$("#person-dob").value) {
     $("#person-dob").value = DEFAULT_DOB;
   }
-  ["#person-dob"].forEach((sel) => {
-    const el = $(sel);
-    if (el) attachDatePicker(el);
-  });
 
   const fields = {
     lifestyle: "known-lifestyle",
@@ -146,6 +145,8 @@ function setupSimplePlan() {
   const planRoot = $("#retirement-plan");
   const overviewSlot = $("#overview-slot");
   const allocatorSlot = $("#allocator-slot");
+  let allocatorIncludesCpf = true;
+  let allocatorDrag;
   const cashParkingSlot = $("#cash-parking-slot");
   const dividendCalcSlot = $("#dividend-calc-slot");
   const taxSlot = $("#tax-slot");
@@ -205,7 +206,32 @@ function setupSimplePlan() {
     if (tab) flushDirtyTab(tab);
   });
   let liveMasRates = null;
-  let cashParkingFilter = "all";
+  const cashComparison = {
+    filter: "all",
+    search: "",
+    tag: "all",
+    view: "table",
+    sort: "",
+    direction: 1,
+    expanded: new Set(),
+  };
+  const refreshCashProducts = (focusProduct) => {
+    const wrap = $(".cash-cards-wrap", cashParkingSlot);
+    if (!wrap || !currentCashPlan) return;
+    const active = document.activeElement;
+    const sort = active?.dataset.cashSort;
+    const product = focusProduct || active?.dataset.cashProduct;
+    wrap.innerHTML = buildCashCardsMarkup(currentCashPlan, cashComparison);
+    const selector = sort
+      ? `[data-cash-sort="${sort}"]`
+      : product
+        ? `[data-cash-product="${CSS.escape(product)}"]`
+        : null;
+    if (selector)
+      $$(selector, wrap)
+        .find((button) => button.getClientRects().length)
+        ?.focus({ preventScroll: true });
+  };
   let divCalcMode = "lump"; // "lump" | "target" | "annuity"
   let divCalcCapital = 100000;
   let divCalcRatePct = 5.0;
@@ -225,9 +251,6 @@ function setupSimplePlan() {
   let divAnnuityBonusRealization = 1;
   let divAnnuityInflationPct = 2.5;
   let divAnnuityBenchRatePct = 5.0;
-  let cashParkingSearch = "";
-  let cashParkingTag = "all";
-  let cashAnimFrame = 0;
   let toastTimer = null;
   let undoToastAction = null;
   const showToast = (msg, ms = 2600, undo = null) => {
@@ -447,12 +470,6 @@ function setupSimplePlan() {
     }
     if ($("#sim-bridge-income") && $("#known-bridge-income")) {
       $("#sim-bridge-income").value = $("#known-bridge-income").value;
-    }
-    if ($("#bogle-target-slider") && $("#known-target-equity")) {
-      $("#bogle-target-slider").value = $("#known-target-equity").value || "80";
-    }
-    if ($("#bogle-sg-slider") && $("#known-sg-sleeve")) {
-      $("#bogle-sg-slider").value = $("#known-sg-sleeve").value || "15";
     }
     if (params.get("expMode") === "itemized" && params.get("expItems")) {
       try {
@@ -1047,6 +1064,7 @@ function setupSimplePlan() {
       }
       return;
     }
+    if (event.target.closest("label.ledger-path-select-btn")) return;
     const pathBtn = event.target.closest("[data-path]");
     if (pathBtn) {
       const nextPath = pathBtn.dataset.path;
@@ -1059,7 +1077,7 @@ function setupSimplePlan() {
       if ($("#qe-invest")) $("#qe-invest").value = "";
       render();
       (
-        $(`button.ledger-path-select-btn[data-path="${selected}"]`) ||
+        $(`input.ledger-path-selector[data-path="${selected}"]`) ||
         $(`[data-path="${selected}"]`)
       )?.focus({ preventScroll: true });
       const label =
@@ -1071,6 +1089,16 @@ function setupSimplePlan() {
       showToast(`Active strategy path: ${label}`);
     }
   });
+  overviewSlot.addEventListener(
+    "toggle",
+    (event) => {
+      const details = event.target;
+      details
+        .querySelector(":scope > .overview-disclosure-summary")
+        ?.setAttribute("aria-expanded", String(details.open));
+    },
+    true,
+  );
   $("#trajectory-values")?.addEventListener("keydown", (event) => {
     if (event.key !== "Enter" && event.key !== " ") return;
     const row = event.target.closest("tr[data-inspect-age]");
@@ -1441,14 +1469,10 @@ function setupSimplePlan() {
   /** Live-patch per-account overflow state and yield readouts inside a cash accounts container. */
   const patchCashAccountRows = (host, bd) => {
     bd.accounts.forEach((acc, idx) => {
-      const rowEl = host.querySelector(`[data-cash-acc-row="${idx}"]`);
-      if (rowEl) {
-        rowEl.classList.toggle("is-overflow", Boolean(acc.hasOverflow));
-      }
-      const readoutEl = host.querySelector(`[data-cash-acc-readout="${idx}"]`);
-      if (readoutEl) {
-        readoutEl.innerHTML = buildCashAccountReadoutHTML(acc);
-      }
+      const readout = host.querySelector(`[data-cash-acc-readout="${idx}"]`);
+      if (readout) readout.innerHTML = buildCashAccountReadoutHTML(acc);
+      const interest = host.querySelector(`[data-cash-acc-interest="${idx}"]`);
+      if (interest) interest.innerHTML = buildCashAccountInterestHTML(acc);
     });
   };
 
@@ -1742,7 +1766,7 @@ function setupSimplePlan() {
     const cpfPlannerLink =
       '<a href="https://www.cpf.gov.sg/member/retirement-income/about-cpf-planner-retirement-income" target="_blank" rel="noopener">';
     const overviewRangeNote = simulation.payoutCapped
-      ? `<p class="overview-payout-note"><strong>Payout reference boundary reached at ERS.</strong> ${m(s.payout, "/mo")} in today’s dollars · ${m(simulation.cpfResult.reserve65)} separate reserve at 65 (future dollars) · ${cpfPlannerLink}Official CPF planner ↗</a></p>`
+      ? `<p class="overview-payout-note"><strong>Payout reference boundary reached at ERS.</strong> ${m(s.payout, "/mo")} in today’s dollars · ${m(simulation.cpfResult.reserve65)} separate reserve at 65 (future dollars) ${cpfPlannerLink}Official CPF planner ↗</a></p>`
       : "";
     const rangeNote = simulation.payoutCapped
       ? `<div class="payout-range-note"><p><strong>Payout reference boundary reached (${m(s.payout, "/mo")} today’s value).</strong> Published CPF LIFE anchors stop at ERS; extra CPF reserve (${m(simulation.cpfResult.reserve65)} future cash at 65) stays separate. ${cpfPlannerLink}Check CPF’s official planner ↗</a></p></div>`
@@ -1891,18 +1915,8 @@ function setupSimplePlan() {
       afterCpf: r.afterCpf,
       customActive: isCustomSpend,
     });
-    const expensePresetAmount =
-      RetirementModel.lifestyles[expenseData.lifestyle]?.budget ??
-      RetirementModel.lifestyles.cca.budget;
-    const expenseMatchesPreset =
-      !expenseData.itemizedActive &&
-      Math.abs(expenseData.total - expensePresetAmount) < 0.01;
     const planSummary = {
       budget: expenseData.total,
-      lifestyle:
-        expenseMatchesPreset
-          ? expenseData.lifestyleLabel
-          : "Custom budget",
       housing: p.housing ?? r.currentOA,
     };
     for (const output of $$("[data-plan-value]")) {
@@ -1946,7 +1960,7 @@ function setupSimplePlan() {
       suggested,
     );
 
-    const bogleHTML = buildBogleheadSection(bogle);
+    const bogleHTML = buildBogleheadSection(bogle, allocatorIncludesCpf);
 
     const overviewDisclosures = [
       ".exp-breakdown-disclosure",
@@ -1998,6 +2012,14 @@ function setupSimplePlan() {
       const details = $(selector);
       if (details) details.open = true;
     }
+    overviewSlot
+      .querySelectorAll(".overview-disclosure-summary")
+      .forEach((summary) => {
+        summary.setAttribute(
+          "aria-expanded",
+          String(summary.parentElement.open),
+        );
+      });
 
     if (expDialog && expDialog.open && expModalBody) {
       const activeEl = document.activeElement;
@@ -2016,7 +2038,12 @@ function setupSimplePlan() {
         patchSubtrees(
           expModalBody,
           buildExpenseModalBodyHTML(expenseData, r, null, s),
-          ["#exp-impact-slot", "#exp-modal-total", ".exp-quick-chips"],
+          [
+            "#exp-impact-slot",
+            "#exp-modal-total",
+            "#exp-modal-custom-detail",
+            ".exp-quick-chips",
+          ],
         );
         expenseData.items.forEach((it, idx) => {
           const pctNode = expModalBody.querySelector(`[data-exp-pct="${idx}"]`);
@@ -2073,25 +2100,6 @@ function setupSimplePlan() {
       }
     }
 
-    const setToggleState = (item, active) => {
-      item.classList.toggle("is-active", active);
-      const isMenuRadio = item.getAttribute("role") === "menuitemradio";
-      item.setAttribute(
-        isMenuRadio ? "aria-checked" : "aria-pressed",
-        String(active),
-      );
-      if (isMenuRadio) item.removeAttribute("aria-pressed");
-    };
-    $$("[data-switch-lifestyle]").forEach((item) => {
-      setToggleState(
-        item,
-        !isCustomSpend && item.dataset.switchLifestyle === r.lifestyle,
-      );
-    });
-    $$("[data-select-custom]").forEach((item) => {
-      setToggleState(item, isCustomSpend);
-    });
-
     let cashPlanComputedThisRender = false;
     const ensureCashPlan = () => {
       if (!cashPlanComputedThisRender) {
@@ -2117,99 +2125,121 @@ function setupSimplePlan() {
       syncQuickEditState(r, fire, simulation, bogle, tax);
     }
 
-    const activeBogleEl = document.activeElement;
-    const draggingBogleSlider =
-      activeBogleEl &&
-      (activeBogleEl.id === "bogle-target-slider" ||
-        activeBogleEl.id === "bogle-sg-slider") &&
-      allocatorSlot.contains(activeBogleEl);
-    if (draggingBogleSlider) {
+    if (allocatorSlot.querySelector(".allocator-sheet")) {
       patchSubtrees(allocatorSlot, bogleHTML, [
-        ".ember-header-meta",
-        ".bogle-head",
-        ".bogle-donuts-grid",
-        ".allocation-mix",
-        ".mix-compare-wrap",
-        ".rebalance-directive",
+        ".allocator-status",
+        ".allocator-comparison",
+        ".allocator-target-track",
+        ".allocator-target-readout",
+        ".allocator-paycheck-values",
       ]);
-      $$("#bogle-sg-controls input, #bogle-sg-controls button").forEach(
-        (control) => {
-          if (control !== document.activeElement) {
-            control.disabled = bogle.holistic.targetEquityPct === 0;
-          }
-        },
-      );
-      $$("[data-bogle-eq-preset]").forEach((btn) => {
-        const active =
-          Number(btn.dataset.bogleEqPreset) === bogle.holistic.targetEquityPct;
-        btn.classList.toggle("is-active", active);
-        btn.setAttribute("aria-pressed", String(active));
-      });
-      $$("[data-bogle-sg-preset]").forEach((btn) => {
-        const active =
-          Number(btn.dataset.bogleSgPreset) === bogle.holistic.sgSleevePct;
-        btn.classList.toggle("is-active", active);
-        btn.setAttribute("aria-pressed", String(active));
-      });
     } else {
       allocatorSlot.innerHTML = bogleHTML;
+      if (!("popover" in HTMLElement.prototype)) {
+        const help = $("#allocator-help");
+        const details = document.createElement("details");
+        const summary = document.createElement("summary");
+        summary.className = "text-button";
+        summary.textContent = "About the split";
+        help.removeAttribute("popover");
+        $(".allocator-info", allocatorSlot).replaceWith(details);
+        details.append(summary, help);
+      }
     }
+    const { targetEquityPct, sgSleevePct } = bogle.holistic;
+    const targetSlider = $("#allocator-slider");
+    targetSlider.style.setProperty("--equity-position", `${targetEquityPct}%`);
+    targetSlider.style.setProperty(
+      "--sg-position",
+      `${(targetEquityPct * (100 - sgSleevePct)) / 100}%`,
+    );
+    for (const [field, value, inputId] of [
+      ["equity", targetEquityPct, "bogle-target-slider"],
+      ["sg", sgSleevePct, "bogle-sg-slider"],
+    ]) {
+      const disabled = field === "sg" && targetEquityPct === 0;
+      const handle = targetSlider.querySelector(
+        `[data-allocator-handle="${field}"]`,
+      );
+      handle.setAttribute("aria-valuenow", String(value));
+      handle.setAttribute("aria-valuetext", `${value}%`);
+      handle.setAttribute("aria-disabled", String(disabled));
+      handle.tabIndex = disabled ? -1 : 0;
+      const input = document.getElementById(inputId);
+      input.disabled = disabled;
+      if (input !== document.activeElement) input.value = String(value);
+      $$(`[data-allocator-nudge="${field}"]`, allocatorSlot).forEach(
+        (button) => {
+          button.disabled = disabled;
+        },
+      );
+    }
+    $$("[data-allocator-preset]", allocatorSlot).forEach((button) => {
+      const selected =
+        Number(button.dataset.allocatorPreset) === targetEquityPct;
+      button.setAttribute("aria-pressed", String(selected));
+    });
+    $$("[data-allocator-basis]", allocatorSlot).forEach((button) => {
+      const selected =
+        (button.dataset.allocatorBasis === "cpf") === allocatorIncludesCpf;
+      button.setAttribute("aria-pressed", String(selected));
+    });
 
     renderOrDeferTab("cash-parking", () => {
       ensureCashPlan();
       if (!cashParkingSlot) return;
-      const existingBar = cashParkingSlot.querySelector(".cash-filter-bar");
-      const existingWrap = cashParkingSlot.querySelector(".cash-cards-wrap");
-      const existingPlanSlot = cashParkingSlot.querySelector(".cash-plan-slot");
-      const accounts = cashParkingSlot.querySelector(
-        ".cash-accounts-disclosure",
-      );
-      const syncPill = cashParkingSlot.querySelector(".cash-sync-pill");
-      const activeCashEl = document.activeElement;
-      const editingCashAccInPage =
-        activeCashEl &&
-        accounts?.contains(activeCashEl) &&
-        activeCashEl.matches?.("input[data-cash-acc-field]");
-      if (existingBar && existingWrap && existingPlanSlot && accounts) {
-        existingPlanSlot.innerHTML = buildCashPlanCardHTML(currentCashPlan);
-        if (editingCashAccInPage && currentCashPlan.cashBreakdown) {
-          const editorHTML = buildCashAccountsEditorHTML(
-            currentCashPlan,
-            "page",
-          );
-          patchSubtrees(accounts, editorHTML, [
-            "#cash-acc-summary-page",
-            "#cash-acc-alerts-page",
-            "#cash-acc-count-page",
-          ]);
-          patchCashAccountRows(accounts, currentCashPlan.cashBreakdown);
-        } else {
-          accounts.querySelector(".cash-accounts-page-slot").innerHTML =
-            buildCashAccountsEditorHTML(currentCashPlan, "page");
-        }
-        if (syncPill && currentCashPlan.masSyncLabel) {
-          syncPill.textContent = currentCashPlan.masSyncLabel;
-        }
-        existingWrap.innerHTML = buildCashCardsMarkup(
-          currentCashPlan,
-          cashParkingFilter,
-          false,
-          cashParkingSearch,
-          cashParkingTag,
-        );
-        syncCashFilterGlider(existingBar, true);
-      } else {
+      const planSlot = $(".cash-plan-slot", cashParkingSlot);
+      const accounts = $("#cash-accounts", cashParkingSlot);
+      if (!planSlot || !accounts) {
         cashParkingSlot.innerHTML = buildCashParkingSection(
           currentCashPlan,
-          cashParkingFilter,
-          cashParkingSearch,
-          cashParkingTag,
+          cashComparison,
         );
-        syncCashFilterGlider(
-          cashParkingSlot.querySelector(".cash-filter-bar"),
-          true,
-        );
+        return;
       }
+      planSlot.innerHTML = buildCashPlanCardHTML(currentCashPlan);
+      $(".cash-sync-pill", cashParkingSlot).innerHTML =
+        buildCashFreshnessHTML(currentCashPlan);
+      const active = document.activeElement;
+      const editor = $(".cash-accounts-page-slot", accounts);
+      const editorHTML = buildCashAccountsEditorHTML(currentCashPlan);
+      const isEditing =
+        accounts.contains(active) &&
+        active.matches("input[data-cash-acc-field]");
+      if (isEditing && currentCashPlan.cashAccountsActive) {
+        patchSubtrees(editor, editorHTML, [
+          "#cash-acc-summary-page",
+          "#cash-acc-alerts-page",
+        ]);
+        patchCashAccountRows(editor, currentCashPlan.cashBreakdown);
+      } else {
+        const openRates = new Set(
+          $$("[data-cash-customize][open]", editor).map(
+            (details) => details.dataset.cashCustomize,
+          ),
+        );
+        const presetIdx =
+          active?.dataset.cashAccField === "preset"
+            ? active.dataset.cashAccIdx
+            : null;
+        const mode = editor.contains(active)
+          ? active.dataset.cashAccMode
+          : null;
+        editor.innerHTML = editorHTML;
+        if (mode)
+          $(`[data-cash-acc-mode="${mode}"]`, editor)?.focus({
+            preventScroll: true,
+          });
+        $$("[data-cash-customize]", editor).forEach((details) => {
+          details.open = openRates.has(details.dataset.cashCustomize);
+        });
+        if (presetIdx != null)
+          $(
+            `[data-cash-acc-field="preset"][data-cash-acc-idx="${presetIdx}"]`,
+            editor,
+          )?.focus({ preventScroll: true });
+      }
+      refreshCashProducts();
     });
 
     const marginalTaxPct = `${(tax.taxBefore.marginalRate * 100).toFixed(1).replace(/\.0$/, "")}%`;
@@ -2315,7 +2345,7 @@ function setupSimplePlan() {
           benchCard.innerHTML = buildAnnuityBenchmarksHTML(annuityModel);
           if (hdrBadge) {
             hdrBadge.className = `status-pill is-${annuityModel.tone}`;
-            hdrBadge.textContent = `${annuityModel.badge} · ${annuityModel.impliedAnnualIrrPct.toFixed(2)}% IRR`;
+            hdrBadge.textContent = formatAnnuityBadge(annuityModel);
           }
         } else {
           resPane.innerHTML = buildDividendResultsHTML(divModel);
@@ -2382,7 +2412,7 @@ function setupSimplePlan() {
           divCalcMode === "target"
             ? `${money(divTargetMonthly)}/m`
             : divCalcMode === "annuity"
-              ? `${Number(annuityModel.impliedAnnualIrrPct || 0).toFixed(1)}%`
+              ? formatAnnuityIrr(annuityModel.impliedAnnualIrrPct, { digits: 1 })
               : `${Number(divCalcRatePct || 0).toFixed(1)}%`;
       }
       animateDividendUpdate();
@@ -2502,7 +2532,7 @@ function setupSimplePlan() {
         setTimeout(() => {
           const btnNow = getLiveBtn();
           if (btnNow) {
-            btnNow.textContent = "↻ Sync MAS";
+            btnNow.textContent = "Sync MAS";
             btnNow.disabled = false;
           }
         }, 1600);
@@ -2516,7 +2546,7 @@ function setupSimplePlan() {
         setTimeout(() => {
           const btnNow = getLiveBtn();
           if (btnNow) {
-            btnNow.textContent = "↻ Sync MAS";
+            btnNow.textContent = "Sync MAS";
             btnNow.disabled = false;
           }
         }, 1800);
@@ -2526,17 +2556,6 @@ function setupSimplePlan() {
   };
   loadMasRates(false);
 
-  window.addEventListener("rs:tabchange", (ev) => {
-    if (ev.detail?.tab === "cash-parking" && !ev.detail?.profileOpen) {
-      requestAnimationFrame(() => {
-        syncCashFilterGlider(
-          cashParkingSlot?.querySelector(".cash-filter-bar"),
-          true,
-        );
-      });
-    }
-  });
-  let resizeGliderRaf = null;
   let lastChartResizeW = window.innerWidth;
   let chartResizeTimer = null;
   window.addEventListener("resize", () => {
@@ -2551,16 +2570,6 @@ function setupSimplePlan() {
         }
       }, 120);
     }
-    const cpPanel = $("#tab-panel-cash-parking");
-    if (!cpPanel || cpPanel.hidden) return;
-    if (resizeGliderRaf != null) return;
-    resizeGliderRaf = requestAnimationFrame(() => {
-      resizeGliderRaf = null;
-      syncCashFilterGlider(
-        cashParkingSlot?.querySelector(".cash-filter-bar"),
-        true,
-      );
-    });
   });
   cashParkingSlot?.addEventListener("keydown", (event) => {
     const btn = event.target.closest("[data-cash-filter]");
@@ -2781,6 +2790,56 @@ function setupSimplePlan() {
         }
       }, ms),
     );
+  };
+
+  const replacementDialog = $("#replace-plan-dialog");
+  let replacement;
+  const confirmPlanReplacement = (message, label, invoker, apply) => {
+    if (replacementDialog.open) return;
+    $("#replace-plan-message").textContent = message;
+    $('button[value="replace"]', replacementDialog).textContent = label;
+    replacement = { invoker, apply };
+    replacementDialog.returnValue = "cancel";
+    replacementDialog.showModal();
+  };
+  replacementDialog.addEventListener("close", () => {
+    const pending = replacement;
+    replacement = null;
+    if (!pending) return;
+    restoreInvokerFocus(pending.invoker, "#settings-header-back");
+    if (replacementDialog.returnValue === "replace") pending.apply();
+  });
+
+  const captureReplacementUndo = () => {
+    flushPendingRender();
+    flushPersistState();
+    const plan = captureModalSnapshot();
+    const persona = $("[data-persona-preset].is-active")?.dataset.personaPreset;
+    const share = { isSharedSandbox, savedBrowserStateRaw, sharedBaseline };
+    return () => {
+      if (
+        share.isSharedSandbox &&
+        savingEnabled &&
+        share.savedBrowserStateRaw
+      ) {
+        try {
+          localStorage.setItem("rs_plan_state", share.savedBrowserStateRaw);
+        } catch (error) {
+          console.warn("Could not restore the saved browser plan", error);
+        }
+      }
+      ({ isSharedSandbox, savedBrowserStateRaw, sharedBaseline } = share);
+      restoreModalSnapshot(plan);
+      markStarterPlan(persona);
+      flushPersistState();
+    };
+  };
+  const markStarterPlan = (key) => {
+    $$("[data-persona-preset]").forEach((button) => {
+      const active = button.dataset.personaPreset === key;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
   };
 
   const resetSgDefaults = () => {
@@ -3062,181 +3121,77 @@ function setupSimplePlan() {
       }
       return;
     }
-    if (
-      event.target.closest("[data-open-page-cash-accounts]:not([data-go-tab])")
-    ) {
-      const accounts = $("#cash-accounts");
-      if (accounts) {
-        accounts.open = true;
-        const summary = accounts.querySelector("summary");
-        summary?.focus({ preventScroll: true });
-        accounts.scrollIntoView({ block: "start" });
-      }
+    const cashFilter = event.target.closest(
+      "[data-cash-filter], [data-cash-tag], [data-cash-view]",
+    );
+    if (cashFilter) {
+      const {
+        cashFilter: filter,
+        cashTag: tag,
+        cashView: view,
+      } = cashFilter.dataset;
+      if (filter) cashComparison.filter = filter;
+      if (view) cashComparison.view = view;
+      if (tag) cashComparison.tag = cashComparison.tag === tag ? "all" : tag;
+      $$(
+        "[data-cash-filter], [data-cash-tag], [data-cash-view]",
+        cashParkingSlot,
+      ).forEach((button) => {
+        const data = button.dataset;
+        const pressed =
+          data.cashFilter === cashComparison.filter ||
+          data.cashTag === cashComparison.tag ||
+          data.cashView === cashComparison.view;
+        button.setAttribute("aria-pressed", String(pressed));
+      });
+      refreshCashProducts();
       return;
     }
-    const cashFilterBtn = event.target.closest("[data-cash-filter]");
-    if (cashFilterBtn) {
-      const nextFilter = cashFilterBtn.dataset.cashFilter || "all";
-      if (nextFilter === cashParkingFilter) return;
-      cashParkingFilter = nextFilter;
-      if (cashParkingSlot && currentCashPlan) {
-        const bar = cashParkingSlot.querySelector(".cash-filter-bar");
-        const wrap = cashParkingSlot.querySelector(".cash-cards-wrap");
-        if (!bar || !wrap) {
-          cashParkingSlot.innerHTML = buildCashParkingSection(
-            currentCashPlan,
-            cashParkingFilter,
-            cashParkingSearch,
-            cashParkingTag,
-          );
-          syncCashFilterGlider(
-            cashParkingSlot.querySelector(".cash-filter-bar"),
-            true,
-          );
-          return;
-        }
-        bar.querySelectorAll("[data-cash-filter]").forEach((btn) => {
-          const isMatch =
-            (btn.dataset.cashFilter || "all") === cashParkingFilter;
-          btn.classList.toggle("is-active", isMatch);
-          btn.setAttribute("aria-pressed", String(isMatch));
-        });
-        syncCashFilterGlider(bar, false);
-
-        if (cashAnimFrame) {
-          cancelAnimationFrame(cashAnimFrame);
-          cashAnimFrame = 0;
-          wrap.style.height = "";
-          wrap.style.overflow = "";
-        }
-
-        const reducedMotion = window.matchMedia?.(
-          "(prefers-reduced-motion: reduce)",
-        )?.matches;
-        const startHeight = wrap.getBoundingClientRect().height;
-        const startScrollY = window.scrollY;
-        const docHeightBefore = document.documentElement.scrollHeight;
-
-        if (!reducedMotion && startHeight > 0) {
-          wrap.style.height = `${startHeight.toFixed(1)}px`;
-          wrap.style.overflow = "hidden";
-        }
-
-        wrap.innerHTML = buildCashCardsMarkup(
-          currentCashPlan,
-          cashParkingFilter,
-          !reducedMotion,
-          cashParkingSearch,
-          cashParkingTag,
-        );
-        const endGrid = wrap.querySelector(".cash-cards-grid");
-        const endHeight = endGrid ? endGrid.getBoundingClientRect().height : 0;
-        const heightDelta = endHeight - startHeight;
-
-        if (reducedMotion || Math.abs(heightDelta) < 2) {
-          wrap.style.height = "";
-          wrap.style.overflow = "";
-          return;
-        }
-
-        const newMaxScroll = Math.max(
-          0,
-          docHeightBefore + heightDelta - window.innerHeight,
-        );
-        const targetScrollY =
-          heightDelta < 0 && startScrollY > newMaxScroll
-            ? newMaxScroll
-            : startScrollY;
-
-        const duration = 340;
-        const t0 = performance.now();
-
-        const step = (now) => {
-          const p = Math.min(1, (now - t0) / duration);
-          const ease = 1 - Math.pow(1 - p, 3);
-          const h = startHeight + heightDelta * ease;
-          wrap.style.height = `${Math.max(0, h).toFixed(1)}px`;
-          if (targetScrollY !== startScrollY) {
-            window.scrollTo({
-              top: startScrollY + (targetScrollY - startScrollY) * ease,
-              behavior: "instant",
-            });
-          }
-          if (p < 1) {
-            cashAnimFrame = requestAnimationFrame(step);
-          } else {
-            wrap.style.height = "";
-            wrap.style.overflow = "";
-            cashAnimFrame = 0;
-          }
-        };
-        cashAnimFrame = requestAnimationFrame(step);
-      }
+    const sortCash = event.target.closest("[data-cash-sort]");
+    if (sortCash) {
+      const key = sortCash.dataset.cashSort;
+      cashComparison.direction =
+        cashComparison.sort === key
+          ? -cashComparison.direction
+          : key === "rate"
+            ? -1
+            : 1;
+      cashComparison.sort = key;
+      refreshCashProducts();
       return;
     }
-    const cashTagBtn = event.target.closest("[data-cash-tag]");
-    if (cashTagBtn) {
-      const nextTag = cashTagBtn.dataset.cashTag || "all";
-      cashParkingTag =
-        cashParkingTag === nextTag && nextTag !== "all" ? "all" : nextTag;
-      if (cashParkingSlot && currentCashPlan) {
-        cashParkingSlot.querySelectorAll("[data-cash-tag]").forEach((btn) => {
-          const active = (btn.dataset.cashTag || "all") === cashParkingTag;
-          btn.classList.toggle("is-active", active);
-          btn.setAttribute("aria-pressed", String(active));
-        });
-        const wrap = cashParkingSlot.querySelector(".cash-cards-wrap");
-        if (wrap) {
-          wrap.innerHTML = buildCashCardsMarkup(
-            currentCashPlan,
-            cashParkingFilter,
-            true,
-            cashParkingSearch,
-            cashParkingTag,
-          );
-        }
-      }
+    const cashProduct =
+      event.target.closest("[data-cash-product]") ||
+      event.target
+        .closest("[data-cash-product-row]")
+        ?.querySelector("[data-cash-product]");
+    if (cashProduct) {
+      const id = cashProduct.dataset.cashProduct;
+      if (cashComparison.expanded.has(id)) cashComparison.expanded.delete(id);
+      else cashComparison.expanded.add(id);
+      refreshCashProducts(id);
       return;
     }
-    if (event.target.closest("[data-cash-search-clear]")) {
-      cashParkingSearch = "";
-      const inp = $("#cash-search-input");
-      if (inp) {
-        inp.value = "";
-        inp.focus();
-      }
-      const clearBtn = cashParkingSlot?.querySelector(
-        "[data-cash-search-clear]",
-      );
-      if (clearBtn) clearBtn.hidden = true;
-      const wrap = cashParkingSlot?.querySelector(".cash-cards-wrap");
-      if (wrap && currentCashPlan) {
-        wrap.innerHTML = buildCashCardsMarkup(
-          currentCashPlan,
-          cashParkingFilter,
-          true,
-          cashParkingSearch,
-          cashParkingTag,
+    const resetCashFilters = event.target.closest("[data-cash-reset-filters]");
+    if (resetCashFilters || event.target.closest("[data-cash-search-clear]")) {
+      const search = $("#cash-search-input");
+      search.value = "";
+      cashComparison.search = "";
+      $("[data-cash-search-clear]", cashParkingSlot).hidden = true;
+      if (resetCashFilters) {
+        cashComparison.filter = "all";
+        cashComparison.tag = "all";
+        $$("[data-cash-filter], [data-cash-tag]", cashParkingSlot).forEach(
+          (button) => {
+            button.setAttribute(
+              "aria-pressed",
+              String(button.dataset.cashFilter === "all"),
+            );
+          },
         );
       }
-      return;
-    }
-    if (event.target.closest("[data-cash-reset-filters]")) {
-      cashParkingFilter = "all";
-      cashParkingSearch = "";
-      cashParkingTag = "all";
-      if (cashParkingSlot && currentCashPlan) {
-        cashParkingSlot.innerHTML = buildCashParkingSection(
-          currentCashPlan,
-          cashParkingFilter,
-          cashParkingSearch,
-          cashParkingTag,
-        );
-        syncCashFilterGlider(
-          cashParkingSlot.querySelector(".cash-filter-bar"),
-          true,
-        );
-      }
+      refreshCashProducts();
+      search.focus();
       return;
     }
     const realizationBtn = event.target.closest(
@@ -3755,30 +3710,36 @@ function setupSimplePlan() {
         (item) => item.id === key,
       );
       if (preset) {
-        clearCustomBudgetState();
-        clearCustomCashAccountsState();
-        const presetPlan = {
-          ...SG_DEFAULT_PLAN,
-          ...preset.params,
-          dob: RetirementModel.defaultDobForAge(preset.params.age || 35),
-        };
-        applyPlanObject(presetPlan);
-        selected = ["brs", "frs", "ers"].includes(preset.params.selected)
-          ? preset.params.selected
-          : "frs";
-        if ($("#sim-bridge-income")) {
-          $("#sim-bridge-income").value =
-            preset.params.bridgeIncome > 0
-              ? String(preset.params.bridgeIncome)
-              : "";
-        }
-        $$("[data-persona-preset]").forEach((btn) => {
-          const active = btn.dataset.personaPreset === key;
-          btn.classList.toggle("is-active", active);
-          btn.setAttribute("aria-pressed", String(active));
-        });
-        render();
-        showToast(`Loaded "${preset.label}" Singapore starter profile`);
+        const title = $("strong", personaBtn).textContent;
+        confirmPlanReplacement(
+          `Loading ${title} will replace your current plan.`,
+          "Load and replace",
+          personaBtn,
+          () => {
+            const undo = captureReplacementUndo();
+            clearCustomBudgetState();
+            clearCustomCashAccountsState();
+            const presetPlan = {
+              ...SG_DEFAULT_PLAN,
+              ...preset.params,
+              dob: RetirementModel.defaultDobForAge(preset.params.age || 35),
+            };
+            applyPlanObject(presetPlan);
+            selected = ["brs", "frs", "ers"].includes(preset.params.selected)
+              ? preset.params.selected
+              : "frs";
+            if ($("#sim-bridge-income")) {
+              $("#sim-bridge-income").value =
+                preset.params.bridgeIncome > 0
+                  ? String(preset.params.bridgeIncome)
+                  : "";
+            }
+            markStarterPlan(key);
+            render();
+            flushPersistState();
+            showToast(`Loaded ${title}`, 12000, undo);
+          },
+        );
       }
       return;
     }
@@ -3800,30 +3761,12 @@ function setupSimplePlan() {
     const switchLifeBtn = event.target.closest("[data-switch-lifestyle]");
     if (switchLifeBtn) {
       const nextVal = switchLifeBtn.dataset.switchLifestyle;
-      if ($("#known-lifestyle") && nextVal) {
-        const curCustom = getCustomSpendState();
-        if (curCustom.isCustom) {
-          lastCustomSpend = String(Math.round(curCustom.spend * 100) / 100);
-          lastCustomLifestyle = $("#known-lifestyle")?.value || "cca";
-        }
-        clearCustomBudgetState();
-        $("#known-lifestyle").value = nextVal;
-        $("#known-spend").value = "";
-        if (nextVal === "cca" && Number($("#known-retire")?.value || 65) < 55) {
-          $("#known-retire").value = "55";
-          if ($("#qe-retire")) $("#qe-retire").value = "55";
-        }
-      }
       if (expDropMenu) expDropMenu.hidden = true;
       $("#exp-card-dropdown-btn")?.setAttribute("aria-expanded", "false");
-      render();
-      showToast(
-        nextVal === "cca"
-          ? "Switched to Community Care ($2,800/mo preset)"
-          : "Switched to Home + Helper ($3,900/mo preset)",
-      );
+      selectLifestylePreset(nextVal);
       return;
     }
+
     if (
       expDropMenu &&
       !expDropMenu.hidden &&
@@ -3880,6 +3823,29 @@ function setupSimplePlan() {
           ?.focus({ preventScroll: true });
       }
     });
+  }
+
+  function selectLifestylePreset(nextVal) {
+    if ($("#known-lifestyle") && nextVal) {
+      const curCustom = getCustomSpendState();
+      if (curCustom.isCustom) {
+        lastCustomSpend = String(Math.round(curCustom.spend * 100) / 100);
+        lastCustomLifestyle = $("#known-lifestyle")?.value || "cca";
+      }
+      clearCustomBudgetState();
+      $("#known-lifestyle").value = nextVal;
+      $("#known-spend").value = "";
+      if (nextVal === "cca" && Number($("#known-retire")?.value || 65) < 55) {
+        $("#known-retire").value = "55";
+        if ($("#qe-retire")) $("#qe-retire").value = "55";
+      }
+    }
+    render();
+    showToast(
+      nextVal === "cca"
+        ? "Switched to Community Care ($2,800/mo preset)"
+        : "Switched to Home + Helper ($3,900/mo preset)",
+    );
   }
 
   function enterCustomExpenseMode(invoker = null) {
@@ -4111,14 +4077,27 @@ function setupSimplePlan() {
     }
     if (field === "name") {
       acc.name = event.target.value;
-    } else if (field === "balance") {
-      const raw = event.target.value.trim();
-      acc.balance =
+    } else if (field === "balance" || field === "bonusCap") {
+      const entered = event.target.value.trim();
+      if (event.type === "input" && entered === "") return true;
+      const raw = entered.replaceAll(",", "");
+      const grouped =
+        !entered.includes(",") ||
+        /^[+-]?\d{1,3}(?:,\d{3})+(?:\.\d*)?(?:e[-+]?\d+)?$/i.test(entered);
+      if (
+        !grouped ||
+        (raw !== "" &&
+          (!/^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?$/i.test(raw) ||
+            !Number.isFinite(Number(raw))))
+      ) {
+        if (event.type === "change")
+          event.target.value = formatCashInput(acc[field]);
+        return true;
+      }
+      acc[field] =
         raw === "" ? 0 : Math.round(Math.max(0, Number(raw) || 0) * 100) / 100;
-    } else if (field === "bonusCap") {
-      const raw = event.target.value.trim();
-      acc.bonusCap =
-        raw === "" ? 0 : Math.round(Math.max(0, Number(raw) || 0) * 100) / 100;
+      if (event.type === "change")
+        event.target.value = formatCashInput(acc[field]);
     } else if (field === "bonusRatePct") {
       const raw = event.target.value.trim();
       acc.bonusRatePct =
@@ -4141,6 +4120,18 @@ function setupSimplePlan() {
     }
     return true;
   };
+  cashParkingSlot.addEventListener("focusin", (event) => {
+    const input = event.target;
+    if (input.hasAttribute("data-cash-money"))
+      input.value = input.value.replaceAll(",", "");
+  });
+  cashParkingSlot.addEventListener("focusout", (event) => {
+    const input = event.target;
+    if (!input.hasAttribute("data-cash-money")) return;
+    const account = customCashAccounts[Number(input.dataset.cashAccIdx)];
+    if (account)
+      input.value = formatCashInput(account[input.dataset.cashAccField]);
+  });
   document.addEventListener("change", (event) => {
     handleCashAccountFieldEvent(event);
   });
@@ -4150,21 +4141,10 @@ function setupSimplePlan() {
 
   planRoot.addEventListener("input", (event) => {
     if (event.target.id === "cash-search-input") {
-      cashParkingSearch = event.target.value || "";
-      const clearBtn = cashParkingSlot?.querySelector(
-        "[data-cash-search-clear]",
-      );
-      if (clearBtn) clearBtn.hidden = !cashParkingSearch;
-      const wrap = cashParkingSlot?.querySelector(".cash-cards-wrap");
-      if (wrap && currentCashPlan) {
-        wrap.innerHTML = buildCashCardsMarkup(
-          currentCashPlan,
-          cashParkingFilter,
-          false,
-          cashParkingSearch,
-          cashParkingTag,
-        );
-      }
+      cashComparison.search = event.target.value;
+      $("[data-cash-search-clear]", cashParkingSlot).hidden =
+        !cashComparison.search;
+      refreshCashProducts();
       return;
     }
     const scheduleDividendOnlyRender = () => {
@@ -4312,19 +4292,6 @@ function setupSimplePlan() {
       scheduleDividendOnlyRender();
       return;
     }
-    if (event.target.id === "bogle-target-slider") {
-      const raw = event.target.value.trim();
-      if (raw === "") return;
-      const val = Math.min(100, Math.max(0, Math.round(Number(raw) || 0)));
-      $("#known-target-equity").value = String(val);
-      scheduleRender();
-    } else if (event.target.id === "bogle-sg-slider") {
-      const raw = event.target.value.trim();
-      if (raw === "") return;
-      const val = Math.min(100, Math.max(0, Math.round(Number(raw) || 0)));
-      $("#known-sg-sleeve").value = String(val);
-      scheduleRender();
-    }
   });
 
   const clampSavingToTakeHome = (input, otherInputs) => {
@@ -4382,6 +4349,35 @@ function setupSimplePlan() {
     input.focus();
     input.select();
   });
+
+  let overviewViewportTimer;
+  const keepSavingsEditorVisible = () => {
+    if (!document.activeElement?.matches("[data-overview-saving]")) return;
+    clearTimeout(overviewViewportTimer);
+    overviewViewportTimer = setTimeout(() => {
+      const input = document.activeElement;
+      if (
+        !input?.matches("[data-overview-saving]") ||
+        !window.matchMedia("(max-width: 960px)").matches
+      )
+        return;
+      const viewport = window.visualViewport;
+      const bounds = input.getBoundingClientRect();
+      const visibleTop = (viewport?.offsetTop ?? 0) + 80;
+      const visibleBottom =
+        (viewport?.offsetTop ?? 0) +
+        (viewport?.height ?? window.innerHeight) -
+        16;
+      if (bounds.top < visibleTop || bounds.bottom > visibleBottom) {
+        window.scrollBy({
+          top: (bounds.top + bounds.bottom - visibleTop - visibleBottom) / 2,
+          behavior: "instant",
+        });
+      }
+    }, 180);
+  };
+  window.visualViewport?.addEventListener("resize", keepSavingsEditorVisible);
+  window.addEventListener("resize", keepSavingsEditorVisible);
 
   overviewSlot.addEventListener("focusout", (event) => {
     const input = event.target.closest("[data-overview-saving]");
@@ -4480,43 +4476,119 @@ function setupSimplePlan() {
       scheduleDebouncedRender(110);
     });
   }
+  const allocatorFields = {
+    equity: $("#known-target-equity"),
+    sg: $("#known-sg-sleeve"),
+  };
+  const allocatorValue = (field) => {
+    const { targetEquityPct, sgSleevePct } = RetirementModel.SG_DEFAULT_PLAN;
+    const { value } = allocatorFields[field];
+    return value === ""
+      ? field === "equity"
+        ? targetEquityPct
+        : sgSleevePct
+      : Number(value);
+  };
+  const setAllocatorValue = (field, value) => {
+    const settings = allocatorFields[field];
+    const next = Math.min(100, Math.max(0, Math.round(value)));
+    if (settings.value === String(next)) return;
+    settings.value = String(next);
+    scheduleRender();
+  };
+
+  allocatorSlot.addEventListener("input", (event) => {
+    const { value, dataset } = event.target;
+    if (
+      dataset.allocatorExact &&
+      value !== "" &&
+      Number.isFinite(Number(value))
+    ) {
+      setAllocatorValue(dataset.allocatorExact, Number(value));
+    }
+  });
+  allocatorSlot.addEventListener("focusout", (event) => {
+    const field = event.target.dataset.allocatorExact;
+    if (field) event.target.value = String(allocatorValue(field));
+  });
   allocatorSlot.addEventListener("click", (event) => {
-    const eqPreset = event.target.closest("[data-bogle-eq-preset]");
-    if (eqPreset) {
-      const val = Number(eqPreset.dataset.bogleEqPreset);
-      $("#known-target-equity").value = String(val);
-      if ($("#bogle-target-slider"))
-        $("#bogle-target-slider").value = String(val);
+    const exact = event.target.closest(".allocator-exact-toggle");
+    if (exact) {
+      const fields = $("#allocator-exact-fields");
+      fields.hidden = !fields.hidden;
+      exact.setAttribute("aria-expanded", String(!fields.hidden));
+      return;
+    }
+    const basis = event.target.closest("[data-allocator-basis]");
+    if (basis) {
+      allocatorIncludesCpf = basis.dataset.allocatorBasis === "cpf";
       render();
       return;
     }
-    const sgPreset = event.target.closest("[data-bogle-sg-preset]");
-    if (sgPreset) {
-      const val = Number(sgPreset.dataset.bogleSgPreset);
-      $("#known-sg-sleeve").value = String(val);
-      if ($("#bogle-sg-slider")) $("#bogle-sg-slider").value = String(val);
-      render();
+    const preset = event.target.closest("[data-allocator-preset]");
+    if (preset) {
+      setAllocatorValue("equity", Number(preset.dataset.allocatorPreset));
       return;
     }
-    const stepBtn = event.target.closest("[data-bogle-step]");
-    if (stepBtn) {
-      const targetId = stepBtn.dataset.bogleStep;
-      const delta = Number(stepBtn.dataset.delta || 0);
-      if (targetId === "bogle-target-slider") {
-        const cur = Number($("#known-target-equity").value || 80);
-        const next = Math.min(100, Math.max(0, cur + delta));
-        $("#known-target-equity").value = String(next);
-        if ($("#bogle-target-slider"))
-          $("#bogle-target-slider").value = String(next);
-        render();
-      } else if (targetId === "bogle-sg-slider") {
-        const cur = Number($("#known-sg-sleeve").value || 15);
-        const next = Math.min(100, Math.max(0, cur + delta));
-        $("#known-sg-sleeve").value = String(next);
-        if ($("#bogle-sg-slider")) $("#bogle-sg-slider").value = String(next);
-        render();
-      }
+    const nudge = event.target.closest("[data-allocator-nudge]");
+    if (nudge && !nudge.disabled) {
+      const field = nudge.dataset.allocatorNudge;
+      setAllocatorValue(
+        field,
+        allocatorValue(field) + Number(nudge.dataset.delta),
+      );
     }
+  });
+  allocatorSlot.addEventListener("keydown", (event) => {
+    const handle = event.target.closest("[data-allocator-handle]");
+    if (!handle || handle.getAttribute("aria-disabled") === "true") return;
+    const field = handle.dataset.allocatorHandle;
+    const current = allocatorValue(field);
+    const nextByKey = {
+      ArrowLeft: current - 1,
+      ArrowDown: current - 1,
+      ArrowRight: current + 1,
+      ArrowUp: current + 1,
+      Home: 0,
+      End: 100,
+    };
+    if (!Object.hasOwn(nextByKey, event.key)) return;
+    event.preventDefault();
+    setAllocatorValue(field, nextByKey[event.key]);
+  });
+  allocatorSlot.addEventListener("pointerdown", (event) => {
+    const handle = event.target.closest("[data-allocator-handle]");
+    if (
+      !handle ||
+      handle.getAttribute("aria-disabled") === "true" ||
+      event.button !== 0 ||
+      allocatorDrag
+    )
+      return;
+    const track = $("#allocator-slider").getBoundingClientRect();
+    const thumb = handle.getBoundingClientRect();
+    allocatorDrag = {
+      pointerId: event.pointerId,
+      field: handle.dataset.allocatorHandle,
+      left: track.left,
+      width: track.width,
+      offset: event.clientX - (thumb.left + thumb.width / 2),
+    };
+    handle.setPointerCapture(event.pointerId);
+  });
+  allocatorSlot.addEventListener("pointermove", (event) => {
+    if (allocatorDrag?.pointerId !== event.pointerId) return;
+    const { left, width, offset, field } = allocatorDrag;
+    const position = ((event.clientX - offset - left) / width) * 100;
+    const equity = allocatorValue("equity");
+    if (field === "sg" && equity === 0) return;
+    setAllocatorValue(
+      field,
+      field === "equity" ? position : 100 - (position / equity) * 100,
+    );
+  });
+  allocatorSlot.addEventListener("lostpointercapture", (event) => {
+    if (allocatorDrag?.pointerId === event.pointerId) allocatorDrag = null;
   });
   $("#savings-simulator").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-adjust]");
@@ -4736,9 +4808,6 @@ function setupSimplePlan() {
   importJsonInput?.addEventListener("change", async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const prevSearch = lastSerializedSearch
-      ? new URLSearchParams(lastSerializedSearch)
-      : null;
     let params = null;
     try {
       const rawText = await file.text();
@@ -4763,20 +4832,31 @@ function setupSimplePlan() {
       if (!normalized.version) normalized.version = "3";
       if (!normalized.lifestyle) normalized.lifestyle = "cca";
       params = new URLSearchParams(normalized);
-      if (!applyStateParams(params, { resetFirst: true })) {
-        throw new Error("Unsupported plan format");
-      }
     } catch (err) {
       console.warn("Failed to import retirement plan JSON:", err);
-      if (prevSearch) {
-        applyStateParams(prevSearch, { resetFirst: true });
-        render();
-      }
       showToast("Invalid retirement plan JSON file");
       event.target.value = "";
       return;
     }
+    event.target.value = "";
+    confirmPlanReplacement(
+      `Importing ${file.name} will replace your current plan.`,
+      "Import and replace",
+      $("#import-json-btn"),
+      () => applyImportedPlan(params),
+    );
+  });
+
+  const applyImportedPlan = (params) => {
+    const undo = captureReplacementUndo();
     try {
+      if (!applyStateParams(params, { resetFirst: true })) {
+        undo();
+        showToast(
+          "Unsupported plan format. Your current plan is still active.",
+        );
+        return;
+      }
       if (
         !bucketIds.some((id) => ($("#" + id)?.value || "").trim() !== "") &&
         ($("#known-savings")?.value || "").trim() !== ""
@@ -4793,10 +4873,7 @@ function setupSimplePlan() {
             .querySelector(".plan-error-copy span")
             ?.textContent?.trim() ||
           "Imported plan contains invalid values";
-        if (prevSearch) {
-          applyStateParams(prevSearch, { resetFirst: true });
-          render();
-        }
+        undo();
         showToast(`${errMsg} — kept your current plan`);
         return;
       }
@@ -4826,22 +4903,20 @@ function setupSimplePlan() {
         const labelSpan = importBtn.querySelector("span");
         flashConfirmButton(labelSpan || importBtn, "✓ Imported");
       }
+      markStarterPlan(null);
       showToast(
         savingEnabled
           ? "Imported retirement plan into local storage"
           : "Imported retirement plan for this session (Private Mode)",
+        12000,
+        undo,
       );
     } catch (err) {
       console.error("Failed to render imported retirement plan:", err);
-      if (prevSearch) {
-        applyStateParams(prevSearch, { resetFirst: true });
-        render();
-      }
+      undo();
       showToast("Imported plan failed to apply — kept your current plan");
-    } finally {
-      event.target.value = "";
     }
-  });
+  };
   document.addEventListener("click", (event) => {
     if (event.target?.closest?.("[data-print-trigger]")) {
       triggerPrintSummary();
@@ -4937,6 +5012,11 @@ function setupSimplePlan() {
     showToast,
   });
 
+  setupInlineSettings(fields, formatFieldRangeError, {
+    getCustomSpendState,
+    enterCustomExpenseMode,
+    selectLifestylePreset,
+  });
   if (
     !($("#known-savings")?.value || "").trim() &&
     bucketIds.some((id) => ($("#" + id)?.value || "").trim() !== "")
@@ -4944,6 +5024,677 @@ function setupSimplePlan() {
     syncBucketsToTotal();
   }
   render();
+}
+
+function buildSettingsSections() {
+  const sections = [
+    [
+      "profile",
+      "Profile & budget",
+      [
+        ["birth", "Date of birth", [["person-dob", "date"]]],
+        ["retire", "Retirement age", [["known-retire"]]],
+        ["salary", "Gross monthly salary", [["person-salary", "monthly"]]],
+        ["bonus", "Annual bonus", [["known-annual-bonus", "yearly"]]],
+        [
+          "lifestyle",
+          "Lifestyle",
+          [["known-lifestyle"]],
+          { directSelect: true },
+        ],
+        [
+          "budget",
+          "Monthly budget",
+          [["known-spend", "monthly", "", "budget"]],
+          {
+            readOnly: true,
+            extra: `<p id="settings-itemized-note" class="settings-itemized-note" hidden></p>
+          <button type="button" class="text-button" data-open-expense-modal="auto">Itemized expenses</button>
+          <button type="button" class="text-button" id="use-preset-budget" hidden></button>`,
+          },
+        ],
+      ],
+    ],
+    [
+      "cpf",
+      "CPF",
+      [
+        [
+          "cpf",
+          "CPF balances and deductions",
+          [
+            ["known-oa", "money", "OA"],
+            ["known-sa", "money", "SA"],
+            ["known-ma", "money", "MA"],
+            ["known-sa-invested", "money", "CPFIS-SA"],
+            ["known-ma-spend", "monthly", "MediSave deductions"],
+          ],
+          { className: "settings-cpf-group" },
+        ],
+      ],
+    ],
+    [
+      "housing",
+      "Housing",
+      [
+        [
+          "housing",
+          "Housing arrangement",
+          [["known-housing-mode", "option"]],
+          {
+            extra:
+              '<p class="housing-calc-preview" id="known-housing-preview" aria-live="polite"></p>',
+          },
+        ],
+        [
+          "loan",
+          "Loan details",
+          [
+            ["known-housing-balance", "money", "Loan left"],
+            ["known-housing-years", "text", "Years left"],
+            ["known-housing-rate", "text", "Interest (% p.a.)"],
+            ["known-housing-parties", "option", "Split across"],
+          ],
+          { modes: "hdb bank" },
+        ],
+        [
+          "manual",
+          "Monthly housing from OA",
+          [["known-housing", "monthly"]],
+          { modes: "custom" },
+        ],
+      ],
+    ],
+    [
+      "invest",
+      "Investments",
+      [
+        [
+          "holdings",
+          "Investment balances",
+          [
+            ["known-equities", "money", "Global equities"],
+            ["known-sg-dividends", "money", "SG dividends"],
+          ],
+        ],
+        [
+          "cash",
+          "Cash & SSB",
+          [["known-ssb-cash", "money"]],
+          {
+            readOnly: true,
+            extra: `<p id="settings-cash-accounts-note" class="settings-itemized-note" hidden><span></span></p>
+          <button type="button" class="text-button" id="open-cash-breakdown-settings" data-go-tab="cash-parking" data-open-page-cash-accounts>Edit accounts →</button>`,
+          },
+        ],
+      ],
+    ],
+    [
+      "srs",
+      "SRS",
+      [
+        ["srs-balance", "SRS balance today", [["known-srs", "money"]]],
+        ["srs-annual", "Planned annual SRS", [["known-srs-annual", "yearly"]]],
+        ["srs-age", "Withdrawal age", [["known-srs-age", "option"]]],
+        ["srs-invest", "Funds invested in", [["known-srs-invested", "option"]]],
+      ],
+    ],
+    [
+      "tax",
+      "Tax reliefs",
+      [
+        [
+          "reliefs",
+          "Existing IRAS reliefs",
+          [["known-existing-reliefs", "yearly"]],
+        ],
+        [
+          "top-up",
+          "Spouse or family CPF top-up",
+          [["known-family-rstu", "yearly"]],
+        ],
+      ],
+    ],
+  ];
+
+  const pencil = svgWrap(
+    '<path d="m13.5 6.5 4 4M4 20l4.5-1 11-11a2.8 2.8 0 0 0-4-4l-11 11L4 20Z"/>',
+    15,
+  );
+  const buildReadout = ([id, format = "text", caption, display = id]) => {
+    const value = html`<span
+      data-plan-value="${display}"
+      data-value-format="${format}"
+    ></span>`;
+    if (caption)
+      return html`<span
+        class="settings-value-pair${id === "known-ma-spend" ? " settings-value-monthly" : ""}"
+        ><span class="settings-value-caption">${caption}</span
+        >${raw(value)}</span
+      >`;
+    if (id === "person-dob") {
+      return `${value}<span class="dob-age-pill" id="person-dob-age-badge" aria-live="polite"></span>`;
+    }
+    return value;
+  };
+
+  return sections
+    .map(
+      ([category, heading, rows]) =>
+        html`<section
+          class="card-surface settings-card settings-value-card settings-${category}-card"
+          aria-labelledby="settings-${category}-heading"
+        >
+          <div class="settings-card-heading">
+            <h2 id="settings-${category}-heading">${heading}</h2>
+            ${
+              category === "cpf"
+                ? raw(
+                    html`<button
+                      type="button"
+                      class="button button-small settings-cpf-edit"
+                      data-settings-cpf-edit
+                      aria-label="Edit CPF"
+                    >
+                      ${raw(pencil)}
+                    </button>`,
+                  )
+                : ""
+            }
+          </div>
+          ${rows.map(
+            ([
+              key,
+              label,
+              fields,
+              { modes, readOnly, extra, className, directSelect } = {},
+            ]) =>
+              raw(
+                html`<div
+                  class="settings-value-row${className ? ` ${className}` : ""}${readOnly && key !== "budget" ? " is-readonly" : ""}"
+                  data-settings-row="${key}"
+                  data-settings-edit-label="${label}"
+                  ${readOnly && key !== "budget" ? 'data-settings-static-readonly="true"' : ""}
+                  ${
+                    directSelect || (readOnly && key !== "budget")
+                      ? ""
+                      : raw(
+                          html`role="button" tabindex="0" aria-label="Edit
+                          ${label}" aria-expanded="false"
+                          aria-controls="settings-editor-${key}"`,
+                        )
+                  }
+                  ${modes ? raw(html`data-settings-when="${modes}" hidden`) : ""}
+                >
+                  <div class="settings-row-label">
+                    <span
+                      id="settings-label-${key}"
+                      class="${className === "settings-cpf-group" ? "sr-only" : ""}"
+                      >${label}</span
+                    >
+                  </div>
+                  ${
+                    directSelect
+                      ? ""
+                      : raw(
+                          html`<span
+                            class="overview-saving-figure settings-value-button"
+                            data-settings-edit
+                            aria-hidden="true"
+                            ${readOnly && key !== "budget" ? "hidden" : ""}
+                          >
+                            <span class="settings-value-readout"
+                              >${fields.map((field) => raw(buildReadout(field)))}</span
+                            >
+                            ${key === "cpf" ? "" : raw(pencil)}
+                          </span>`,
+                        )
+                  }
+                  ${readOnly ? raw(html`<span class="settings-readonly-value" data-plan-value="${fields[0][3] || fields[0][0]}" data-value-format="${fields[0][1]}" hidden></span>`) : ""}
+                  <div
+                    class="settings-inline-editor"
+                    id="settings-editor-${key}"
+                    data-settings-sources="${fields.map(([id]) => id).join(" ")}"
+                    role="group"
+                    aria-labelledby="settings-label-${key}"
+                    ${directSelect ? "" : "hidden"}
+                  ></div>
+                  ${extra ? raw(`<div class="settings-row-extra">${extra}</div>`) : ""}
+                </div>`,
+              ),
+          )}
+        </section>`,
+    )
+    .join("");
+}
+
+function setupInlineSettings(
+  fields,
+  formatRangeError,
+  { getCustomSpendState, enterCustomExpenseMode, selectLifestylePreset },
+) {
+  const form = $("#quick-form");
+  const fieldKeys = new Map(
+    Object.entries(fields).map(([key, id]) => [id, key]),
+  );
+  const rows = new Map();
+  let active = null;
+  $(".settings-sections", form).insertAdjacentHTML(
+    "afterbegin",
+    buildSettingsSections(),
+  );
+
+  const saveIcon = svgWrap('<path d="m5 12 4 4L19 6"/>', 18);
+  const cancelIcon = svgWrap('<path d="m6 6 12 12M18 6 6 18"/>', 18);
+  const writeButton = (label, action, icon, isPrimary = false) =>
+    html`<button
+      type="button"
+      class="button button-small settings-action-icon${isPrimary ? " button-primary" : ""}"
+      data-settings-action="${action}"
+      aria-label="${label}"
+      title="${label}"
+      ${action === "save" ? "disabled" : ""}
+    >
+      ${raw(icon)}
+    </button>`;
+
+  for (const row of $$("[data-settings-row]", form)) {
+    const editor = $("[data-settings-sources]", row);
+    const trigger = $("[data-settings-edit]", row);
+    const controls = editor.dataset.settingsSources.split(" ").map((id) => {
+      const source = document.getElementById(id);
+      const sourceField = source.closest(".field");
+      const draftField = sourceField.cloneNode(true);
+      const draft = draftField.querySelector("input, select");
+      const label = draftField.querySelector("label");
+      const help = draftField.querySelector("small");
+      const moneyInput =
+        draft.type === "number" &&
+        draft.previousElementSibling?.textContent.trim() === "$";
+      draft.id = `settings-draft-${id}`;
+      draft.removeAttribute("name");
+      draft.dataset.settingsDraft = id;
+      label.htmlFor = draft.id;
+      if (moneyInput) {
+        draft.type = "text";
+        draft.inputMode = "decimal";
+        draft.autocomplete = "off";
+      }
+      const shortLabel = {
+        "known-oa": ["OA", "Ordinary Account (OA)"],
+        "known-sa": ["SA", "Special Account (SA)"],
+        "known-ma": ["MA", "MediSave Account (MA)"],
+        "known-sa-invested": [
+          "CPFIS-SA",
+          "CPF Investment Scheme–Special Account (CPFIS-SA)",
+        ],
+        "known-ma-spend": [
+          "MediSave deductions",
+          "Monthly MediSave deductions",
+        ],
+      }[id];
+      if (shortLabel) {
+        label.dataset.settingsFullLabel = shortLabel[1];
+        label.textContent = shortLabel[0];
+        if (help) help.prepend(`${shortLabel[1]}. `);
+      }
+      if (id === "known-ma-spend") {
+        draftField
+          .querySelector(".input-wrap")
+          ?.insertAdjacentHTML(
+            "beforeend",
+            '<span class="input-suffix">/mo</span>',
+          );
+      }
+      editor.append(draftField);
+      if (id === "person-dob") attachDatePicker(draft);
+      return { source, draft, moneyInput };
+    });
+
+    if (!trigger) {
+      const [{ source, draft }] = controls;
+      draft.add(new Option("Custom budget", "custom"));
+      const syncLifestyle = () => {
+        draft.value = getCustomSpendState().isCustom ? "custom" : source.value;
+      };
+      draft.addEventListener("change", () => {
+        const selected = draft.value;
+        if (!commit(false)) {
+          syncLifestyle();
+          return;
+        }
+        if (selected === "custom") enterCustomExpenseMode(draft);
+        else selectLifestylePreset(selected);
+      });
+      document.addEventListener("plan-rendered", syncLifestyle);
+      syncLifestyle();
+      continue;
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "settings-editor-actions";
+    actions.innerHTML =
+      writeButton("Save changes", "save", saveIcon, true) +
+      writeButton("Discard changes", "cancel", cancelIcon);
+    const error = document.createElement("p");
+    error.id = `${editor.id}-error`;
+    error.className = "settings-inline-error";
+    error.setAttribute("role", "status");
+    error.hidden = true;
+    editor.append(error, actions);
+    rows.set(row, {
+      row,
+      editor,
+      trigger,
+      controls,
+      error,
+      cpfEditButton: row
+        .closest(".settings-value-card")
+        .querySelector("[data-settings-cpf-edit]"),
+      saveButton: $('[data-settings-action="save"]', actions),
+    });
+  }
+
+  const canonicalValue = (control, value) => {
+    let canonical = value.trim();
+    if (control.moneyInput) canonical = canonical.replaceAll(",", "");
+    if (!canonical && control.source.type === "number") canonical = "0";
+    if (control.source.type === "number" && canonical !== "") {
+      const numeric = Number(canonical);
+      if (Number.isFinite(numeric)) return String(numeric);
+    }
+    return canonical;
+  };
+  const syncSaveButton = (editing) => {
+    editing.saveButton.disabled = !editing.controls.some(
+      (control) =>
+        !control.draft.disabled &&
+        canonicalValue(control, control.draft.value) !==
+          canonicalValue(control, control.initialValue),
+    );
+  };
+
+  const visibleControl = ({ draft }) =>
+    document.getElementById(`${draft.id}-display`) ||
+    $(
+      `[data-choice-for="${draft.dataset.settingsDraft}"] input:checked`,
+      draft.closest(".field"),
+    ) ||
+    draft;
+
+  const clearError = (editing) => {
+    editing.error.hidden = true;
+    editing.error.textContent = "";
+    for (const control of editing.controls) {
+      const input = visibleControl(control);
+      input.removeAttribute("aria-invalid");
+      input.removeAttribute("aria-errormessage");
+    }
+  };
+
+  const close = (refocus) => {
+    const editing = active;
+    editing.row.dataset.settingsEditing = "false";
+    active = null;
+    clearError(editing);
+    editing.editor.hidden = true;
+    editing.row.setAttribute("aria-expanded", "false");
+    syncEditability(editing);
+    if (refocus && canEdit(editing)) editing.row.focus({ preventScroll: true });
+  };
+
+  const canEdit = (editing) =>
+    editing.row.dataset.settingsStaticReadonly !== "true" &&
+    editing.row.dataset.cashDriven !== "true" &&
+    editing.row.dataset.itemizedBudget !== "true";
+  const syncEditability = (editing) => {
+    const editable = canEdit(editing);
+    editing.row.dataset.settingsEditable = String(editable);
+    editing.trigger.hidden = !editable || active === editing;
+    if (editing.cpfEditButton)
+      editing.cpfEditButton.hidden = !editable || active === editing;
+    if (editable && active !== editing) {
+      editing.row.setAttribute("role", "button");
+      editing.row.tabIndex = 0;
+      editing.row.setAttribute(
+        "aria-label",
+        `Edit ${editing.row.dataset.settingsEditLabel}`,
+      );
+    } else {
+      editing.row.removeAttribute("role");
+      editing.row.removeAttribute("aria-label");
+      if (active === editing) editing.row.tabIndex = -1;
+      else editing.row.removeAttribute("tabindex");
+    }
+  };
+
+  for (const editing of rows.values()) syncEditability(editing);
+
+  const commit = (refocus = false) => {
+    if (!active) return true;
+    const editing = active;
+    const changes = [];
+    clearError(editing);
+    for (const control of editing.controls) {
+      const { source, draft, moneyInput } = control;
+      if (
+        draft.disabled ||
+        (source.id === "known-ssb-cash" &&
+          editing.row.dataset.cashDriven === "true")
+      )
+        continue;
+
+      const entered = draft.value.trim();
+      const value = canonicalValue(control, draft.value);
+      if (
+        !draft.validity.badInput &&
+        value === canonicalValue(control, control.initialValue)
+      )
+        continue;
+      const probe = source.cloneNode();
+      probe.value = value;
+      let problem = "";
+      if (
+        moneyInput &&
+        entered &&
+        (!Number.isFinite(Number(value)) ||
+          probe.value === "" ||
+          (entered.includes(",") &&
+            !/^[+-]?\d{1,3}(?:,\d{3})+(?:\.\d*)?(?:e[-+]?\d+)?$/i.test(
+              entered,
+            )))
+      ) {
+        problem = "Enter an amount, for example 1,250.50.";
+      } else if (draft.validity.badInput || !probe.validity.valid) {
+        problem = formatRangeError(probe, fieldKeys.get(source.id));
+      } else if (source.id === "person-dob") {
+        const dob = RetirementModel.computeAgeFromDob(value);
+        if (!dob.valid || dob.age < 18 || dob.age > 54)
+          problem = "Enter a valid date of birth for ages 18–54.";
+      }
+      if (problem) {
+        const input = visibleControl(control);
+        editing.error.textContent = problem;
+        editing.error.hidden = false;
+        input.setAttribute("aria-invalid", "true");
+        input.setAttribute("aria-errormessage", editing.error.id);
+        if (refocus) input.focus();
+        return false;
+      }
+      if (
+        canonicalValue(control, source.value) !== canonicalValue(control, value)
+      )
+        changes.push([source, value]);
+    }
+    close(refocus);
+    for (const [source, value] of changes) {
+      source.value = value;
+      source.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    changes.at(-1)?.[0].dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  };
+
+  const start = (editing) => {
+    if (!canEdit(editing)) return;
+    if (active) {
+      if (active !== editing)
+        visibleControl(
+          active.controls.find((control) => !control.draft.disabled) ||
+            active.controls[0],
+        )?.focus();
+      return;
+    }
+    active = editing;
+    editing.row.dataset.settingsEditing = "true";
+    editing.trigger.hidden = true;
+    if (editing.cpfEditButton) editing.cpfEditButton.hidden = true;
+    editing.row.setAttribute("aria-expanded", "true");
+    editing.row.removeAttribute("role");
+    editing.row.removeAttribute("aria-label");
+    editing.row.tabIndex = -1;
+    editing.editor.hidden = false;
+    for (const control of editing.controls) {
+      const { source, draft, moneyInput } = control;
+      draft.disabled = source.disabled;
+      draft.value =
+        moneyInput && source.value !== ""
+          ? formatCashInput(source.value)
+          : source.value;
+      control.initialValue = draft.value;
+      if (draft.type === "number") {
+        draft.min = source.min;
+        draft.max = source.max;
+      }
+      draft.dispatchEvent(new Event("settings-draft-ready"));
+    }
+    syncDatePickers();
+    syncSaveButton(editing);
+    const input = editing.controls
+      .map(visibleControl)
+      .find((field) => !field.disabled);
+    input?.focus({ preventScroll: true });
+    input?.scrollIntoView({ block: "nearest", behavior: "instant" });
+  };
+
+  const isNestedControl = (target) =>
+    Boolean(
+      target.closest(
+        'a[href], button, input, select, textarea, summary, [role="radio"], [data-settings-action]',
+      ),
+    );
+  const handleRowClick = (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+    const cpfEditButton = target.closest("[data-settings-cpf-edit]");
+    const row = cpfEditButton
+      ? cpfEditButton
+          .closest(".settings-value-card")
+          .querySelector('[data-settings-row="cpf"]')
+      : target.closest("[data-settings-row]");
+    const editing = rows.get(row);
+    const action = target.closest("[data-settings-action]")?.dataset
+      .settingsAction;
+
+    if (cpfEditButton && editing) {
+      if (active && active !== editing && !commit(false)) return;
+      if (!active) start(editing);
+      return;
+    }
+
+    if (active && editing === active && action) {
+      if (action === "save") commit(true);
+      if (action === "cancel") close(true);
+      return;
+    }
+
+    if (active && editing !== active) {
+      if (!commit(false)) return;
+      if (editing && !isNestedControl(target)) start(editing);
+      return;
+    }
+    if (editing && !active && !isNestedControl(target)) start(editing);
+  };
+  form.addEventListener("click", handleRowClick);
+  document.addEventListener("click", (event) => {
+    if (!active || form.contains(event.target)) return;
+    commit(false);
+  });
+  form.addEventListener("input", (event) => {
+    if (!active?.editor.contains(event.target)) return;
+    active.error.hidden = true;
+    active.error.textContent = "";
+    syncSaveButton(active);
+  });
+  form.addEventListener("keydown", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const row = target?.closest("[data-settings-row]");
+    const rowEditing = rows.get(row);
+    if (
+      rowEditing &&
+      row === target &&
+      row.getAttribute("role") === "button" &&
+      !isNestedControl(target)
+    ) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        start(rowEditing);
+        return;
+      }
+      if (event.key === " ") {
+        event.preventDefault();
+        row.dataset.settingsSpacePending = "true";
+        return;
+      }
+    }
+    if (
+      !active ||
+      !target ||
+      !active.editor.contains(target) ||
+      event.isComposing ||
+      event.keyCode === 229 ||
+      $(".dp-popover")?.hidden === false
+    )
+      return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      close(true);
+    } else if (event.key === "Enter" && event.target.matches("input, select")) {
+      event.preventDefault();
+      commit(true);
+    }
+  });
+  form.addEventListener("keyup", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const row = target?.closest("[data-settings-row]");
+    const editing = rows.get(row);
+    if (
+      editing &&
+      row === target &&
+      row.dataset.settingsSpacePending === "true"
+    ) {
+      delete row.dataset.settingsSpacePending;
+      start(editing);
+    }
+  });
+  form.addEventListener("change", (event) => {
+    if (active?.editor.contains(event.target)) syncSaveButton(active);
+  });
+  document.addEventListener("plan-rendered", () => {
+    const housing = $("#known-housing-mode").value;
+    for (const row of $$("[data-settings-when]", form)) {
+      row.hidden = !row.dataset.settingsWhen.split(" ").includes(housing);
+    }
+    for (const editing of rows.values()) {
+      syncEditability(editing);
+      if (!canEdit(editing) && active === editing) close(false);
+    }
+    if (
+      active?.row.dataset.cashDriven === "true" ||
+      active?.row.dataset.itemizedBudget === "true"
+    )
+      close(false);
+  });
 }
 
 function setupSettings() {
@@ -4990,9 +5741,11 @@ function setupDeepLinks() {
     if (!hash || hash.includes("=")) return;
     const target = document.getElementById(hash.slice(1));
     if (!target) return;
-    const details = target.matches("details")
-      ? target
-      : target.querySelector("details");
+    const details = ["tab-panel-cash-parking", "top"].includes(target.id)
+      ? null
+      : target.matches("details")
+        ? target
+        : target.querySelector("details");
     if (details) details.open = true;
     let ancestor = target.closest("details");
     while (ancestor) {
@@ -5208,19 +5961,36 @@ function setupGuidedFlow() {
       return;
     }
 
+    const cashEditorLink = event.target.closest(
+      "[data-open-page-cash-accounts]",
+    );
+    if (cashEditorLink) {
+      if (cashEditorLink.hasAttribute("data-go-tab")) {
+        navigateTo({ tab: "cash-parking", profile: false }, false);
+      }
+      requestAnimationFrame(() => {
+        const accounts = $("#cash-accounts");
+        if (!accounts) return;
+        accounts.open = true;
+        accounts.querySelector("summary")?.focus({ preventScroll: true });
+        accounts.scrollIntoView({ block: "start", behavior: "instant" });
+      });
+      return;
+    }
+
     const goTabBtn = event.target.closest("[data-go-tab]");
     if (goTabBtn) {
+      if (
+        goTabBtn.matches("a[href]") &&
+        (event.button !== 0 ||
+          event.altKey ||
+          event.ctrlKey ||
+          event.metaKey ||
+          event.shiftKey)
+      )
+        return;
       event.preventDefault();
       navigateTo({ tab: goTabBtn.dataset.goTab, profile: false });
-      if (goTabBtn.hasAttribute("data-open-page-cash-accounts")) {
-        requestAnimationFrame(() => {
-          const accounts = $("#cash-accounts");
-          if (accounts) {
-            accounts.open = true;
-            accounts.querySelector("summary").focus();
-          }
-        });
-      }
       return;
     }
 
@@ -5231,6 +6001,27 @@ function setupGuidedFlow() {
       );
       if (field) {
         if (!profileOpen) navigateTo({ profile: true });
+        const row = $$("[data-settings-sources]", form)
+          .find((editor) =>
+            editor.dataset.settingsSources.split(" ").includes(field.id),
+          )
+          ?.closest("[data-settings-row]");
+        if (row) {
+          const edit = $("[data-settings-edit]", row);
+          if (edit?.hidden && $("[data-settings-sources]", row).hidden) {
+            $(".settings-row-extra button", row)?.focus();
+          } else {
+            if (edit && !edit.hidden) edit.click();
+            const draft = $(`[data-settings-draft="${field.id}"]`, row);
+            const choice = $(
+              `[data-choice-for="${field.id}"] input:checked`,
+              row,
+            );
+            (choice || draft)?.focus();
+          }
+          row.scrollIntoView({ block: "nearest", behavior: "instant" });
+          return;
+        }
         const details = field.closest("details");
         if (details) details.open = true;
         const target =
@@ -5416,28 +6207,32 @@ function setupGuidedFlow() {
 }
 
 function setupPlanControls() {
-  const overflow = $("#plan-overflow");
-  const overflowToggle = overflow.querySelector("summary");
-  document.addEventListener("click", (event) => {
-    if (!overflow.open) return;
-    if (event.target?.closest?.("#plan-overflow button")) {
-      overflow.open = false;
-      if (document.activeElement === document.body) overflowToggle.focus();
-    } else if (!overflow.contains(event.target)) {
-      overflow.open = false;
-    }
-  });
-  document.addEventListener("focusin", (event) => {
-    if (overflow.open && !overflow.contains(event.target))
-      overflow.open = false;
-  });
-  overflow.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && overflow.open) {
-      event.preventDefault();
-      overflow.open = false;
-      overflowToggle.focus();
-    }
-  });
+  for (const overflow of [$("#plan-overflow"), $("#mobile-more")]) {
+    const overflowToggle = overflow.querySelector("summary");
+    document.addEventListener("click", (event) => {
+      if (!overflow.open) return;
+      if (
+        event.target?.closest?.("button") &&
+        overflow.contains(event.target)
+      ) {
+        overflow.open = false;
+        if (document.activeElement === document.body) overflowToggle.focus();
+      } else if (!overflow.contains(event.target)) {
+        overflow.open = false;
+      }
+    });
+    document.addEventListener("focusin", (event) => {
+      if (overflow.open && !overflow.contains(event.target))
+        overflow.open = false;
+    });
+    overflow.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && overflow.open) {
+        event.preventDefault();
+        overflow.open = false;
+        overflowToggle.focus();
+      }
+    });
+  }
 
   const choiceGroups = [
     [
@@ -5449,12 +6244,13 @@ function setupPlanControls() {
     ["known-srs-age", ["63", "64"]],
   ];
   for (const [id, labels] of choiceGroups) {
-    const source = document.getElementById(id);
+    const source =
+      $(`[data-settings-draft="${id}"]`) || document.getElementById(id);
     const group = document.createElement("div");
     group.className = "option-chips";
     group.dataset.choiceFor = id;
     group.setAttribute("role", "radiogroup");
-    const title = document.querySelector(`label[for="${id}"]`);
+    const title = document.querySelector(`label[for="${source.id}"]`);
     if (!title.id) title.id = `${id}-label`;
     group.setAttribute("aria-labelledby", title.id);
     const chips = Array.from(source.options, (option, index) => {
@@ -5480,8 +6276,34 @@ function setupPlanControls() {
       source.dispatchEvent(new Event("change", { bubbles: true }));
     });
     source.parentElement.after(group);
+    if (id === "known-housing-mode") {
+      const descriptions = {
+        "all-oa":
+          "If unsure, assume new salary OA goes to housing until you enter loan details.",
+        hdb: "Uses the HDB concessionary rate. Enter the remaining balance and loan term below.",
+        bank: "Enter the remaining balance, loan term and your bank’s interest rate below.",
+        "paid-up":
+          "No housing deduction from OA; new OA contributions remain in CPF.",
+        custom: "Set the monthly amount deducted from OA for housing.",
+      };
+      const helper = document.createElement("small");
+      helper.className = "housing-mode-description";
+      helper.id = "known-housing-mode-description";
+      helper.dataset.modeHelperFor = id;
+      source.setAttribute("aria-describedby", helper.id);
+      group.after(helper);
+      const syncHelper = () => {
+        helper.textContent = descriptions[source.value] || "";
+        helper.hidden = !helper.textContent;
+      };
+      group.addEventListener("change", syncHelper);
+      source.addEventListener("settings-draft-ready", syncHelper);
+      document.addEventListener("plan-rendered", syncHelper);
+      syncHelper();
+    }
     source.parentElement.hidden = true;
     document.addEventListener("plan-rendered", sync);
+    source.addEventListener("settings-draft-ready", sync);
     sync();
   }
 }
@@ -5498,6 +6320,7 @@ function setupFieldHelp() {
     typeof CSS.supports === "function" &&
     CSS.supports("position-area", "block-end");
   $$(".field, .qe-field").forEach((field) => {
+    if (field.closest("[data-settings-storage]")) return;
     const label = field.querySelector(
       ":scope > label, :scope > .dob-label-row > label, :scope > .toggle-label-row > label",
     );
@@ -5508,7 +6331,9 @@ function setupFieldHelp() {
     panel.id = `${input.id}-more-info`;
     panel.className = "field-help-panel";
     panel.append(help);
-    const title = label.textContent.replace(/\s+/g, " ").trim();
+    const title = (label.dataset.settingsFullLabel || label.textContent)
+      .replace(/\s+/g, " ")
+      .trim();
     const inHeaderRow = Boolean(
       label.parentElement?.matches(".dob-label-row, .toggle-label-row"),
     );
@@ -5553,6 +6378,17 @@ function setupFieldHelp() {
       summary.setAttribute("aria-label", `More about ${title}`);
       details.append(summary, panel);
       field.append(details);
+    }
+    const inline = field.closest("[data-settings-sources]");
+    if (inline && !inline.dataset.settingsSources.includes(" ")) {
+      const titleSlot = $(
+        ".settings-row-label",
+        inline.closest("[data-settings-row]"),
+      );
+      const helpControl =
+        $(".field-help-trigger", row) || $(".field-help-fallback", field);
+      titleSlot.append(helpControl);
+      if (nativePopover) titleSlot.append(panel);
     }
     const describedBy = (input.getAttribute("aria-describedby") || "")
       .split(/\s+/)

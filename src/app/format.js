@@ -165,7 +165,15 @@ function syncCustomBudgetReset(opts = {}) {
   const itemizedNote = $("#settings-itemized-note");
   if (itemizedNote) {
     const count = Number(opts.itemizedCount || 0);
-    if (opts.useItemizedExpenses && count > 0) {
+    const itemized = Boolean(opts.useItemizedExpenses && count > 0);
+    const row = itemizedNote.closest("[data-settings-row]");
+    if (row) {
+      row.dataset.itemizedBudget = String(itemized);
+      $("[data-settings-edit]", row).hidden =
+        itemized || !$("[data-settings-sources]", row).hidden;
+      $(".settings-readonly-value", row).hidden = !itemized;
+    }
+    if (itemized) {
       const msg = `Driven by ${count} itemized expense item${count === 1 ? "" : "s"} (${money(Number(rawCustom || amount))}/mo).`;
       const span = itemizedNote.querySelector("span");
       if (span) span.textContent = msg;
@@ -179,14 +187,15 @@ function syncCustomBudgetReset(opts = {}) {
     }
   }
   const cashNote = $("#settings-cash-accounts-note");
-  const cashOpenBtn = $("#open-cash-breakdown-settings");
   if (cashNote) {
     const active = Boolean(opts.useItemizedCashAccounts);
     const count = Number(opts.cashAccountsCount || 0);
-    if (cashOpenBtn) {
-      cashOpenBtn.textContent = active
-        ? `Edit ${count || "custom"} bank & SSB account${count === 1 ? "" : "s"} →`
-        : "Break down bank accounts & $100k caps →";
+    const row = cashNote.closest("[data-settings-row]");
+    if (row) {
+      row.dataset.cashDriven = String(active);
+      $("[data-settings-edit]", row).hidden =
+        active || !$("[data-settings-sources]", row).hidden;
+      $(".settings-readonly-value", row).hidden = !active;
     }
     if (active && count > 0) {
       const rawCash = ($("#known-ssb-cash")?.value || "").trim();
@@ -274,6 +283,16 @@ function html(strings, ...values) {
     out += strings[i + 1];
   }
   return out;
+}
+
+function formatAnnuityIrr(pct, { signed = false, digits = 2 } = {}) {
+  if (!Number.isFinite(pct)) return "—";
+  const value = (pct || 0).toLocaleString("en-SG", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+    signDisplay: signed ? "exceptZero" : "auto",
+  });
+  return `${value}%`;
 }
 
 function formatExpSharePct(pct) {
@@ -372,5 +391,6 @@ export {
   raw,
   html,
   formatExpSharePct,
+  formatAnnuityIrr,
   formatDobShort,
 };
