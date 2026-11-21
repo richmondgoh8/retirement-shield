@@ -233,7 +233,7 @@
               </button>
               <div class="sidebar-subgroup" role="presentation">
                 <span class="sidebar-group-heading" aria-hidden="true"
-                  >Tax &amp; Rules</span
+                  >Tax &amp; CPF</span
                 >
                 <button
                   type="button"
@@ -367,28 +367,6 @@
               </svg>
               <span class="sidebar-tab-label">My Settings</span>
             </button>
-            <button
-              type="button"
-              class="sidebar-tab"
-              data-sg-reset
-              title="Reset defaults"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                width="18"
-                height="18"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.75"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                <path d="M3 3v5h5" />
-              </svg>
-              <span class="sidebar-tab-label">Reset defaults</span>
-            </button>
           </div>
         </div>
       </aside>
@@ -396,32 +374,13 @@
       <div class="app-workspace">
         <header class="site-header">
           <div class="header-inner">
-            <a
-              class="brand header-brand-mobile"
-              href="#retirement-plan"
-              aria-label="Retirement Shield home"
+            <span
+              id="plan-save-status"
+              data-plan-save-status
+              class="plan-save-status"
+              role="status"
+              >Saving…</span
             >
-              <span class="brand-mark fin-brand-badge" aria-hidden="true">
-                <svg
-                  viewBox="0 0 24 24"
-                  width="18"
-                  height="18"
-                  fill="none"
-                  stroke="#ffffff"
-                  stroke-width="2.2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M12 21s7-3.5 7-9V5l-7-2.5L5 5v7c0 5.5 7 9 7 9z" />
-                  <path d="M9 14v-2.5" />
-                  <path d="M12 14v-4.5" />
-                  <path d="M15 14V8" />
-                </svg>
-              </span>
-              <span>Retirement<strong>Shield</strong></span>
-            </a>
-
             <div class="header-actions">
               <button
                 class="button button-small update-ready-button"
@@ -433,92 +392,44 @@
                 <span class="update-dot" aria-hidden="true"></span>
                 <span>Update Ready · Reload</span>
               </button>
-              <button
-                class="button button-small share-header-button"
-                type="button"
-                id="share-plan-btn"
-                data-share-plan
-                aria-label="Copy shareable plan link"
-                title="Copy shareable URL link for this retirement plan (no server upload)"
-              >
-                <svg
-                  class="btn-icon"
-                  viewBox="0 0 24 24"
-                  width="15"
-                  height="15"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
-                  />
-                  <path
-                    d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
-                  />
-                </svg>
-                <span class="hide-sm">Share</span>
-              </button>
-              <button
-                class="button button-small settings-header-button"
-                type="button"
-                commandfor="plan-settings"
-                command="show-modal"
-                aria-haspopup="dialog"
-                aria-label="Assumptions"
-                title="Assumptions"
-              >
-                <svg
-                  class="btn-icon"
-                  viewBox="0 0 24 24"
-                  width="15"
-                  height="15"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <line x1="4" y1="6" x2="20" y2="6" />
-                  <line x1="4" y1="12" x2="20" y2="12" />
-                  <line x1="4" y1="18" x2="20" y2="18" />
-                  <circle cx="9" cy="6" r="2" fill="currentColor" />
-                  <circle cx="15" cy="12" r="2" fill="currentColor" />
-                  <circle cx="10" cy="18" r="2" fill="currentColor" />
-                </svg>
-                <span>Assumptions</span>
-              </button>
-              <button
-                class="button button-small button-rose-soft print-header-button"
-                type="button"
-                id="print-plan-btn"
-                aria-label="Print Summary"
-                title="Print or save 1-page A4 landscape summary"
-              >
-                <svg
-                  class="btn-icon"
-                  viewBox="0 0 24 24"
-                  width="15"
-                  height="15"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M6 9V3h12v6" />
-                  <path
-                    d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"
-                  />
-                  <rect x="6" y="14" width="12" height="7" rx="1" />
-                </svg>
-                <span class="hide-sm">Print Summary</span>
-              </button>
+              <details class="plan-overflow" id="plan-overflow">
+                <summary class="button button-small">Plan actions</summary>
+                <div class="plan-overflow-actions">
+                  <button
+                    type="button"
+                    class="text-button mobile-settings-link"
+                    data-open-profile
+                  >
+                    My Settings
+                  </button>
+                  <button
+                    type="button"
+                    class="text-button"
+                    id="share-plan-btn"
+                    data-share-plan
+                  >
+                    Share plan
+                  </button>
+                  <button type="button" class="text-button" id="print-plan-btn">
+                    Print summary
+                  </button>
+                  <button
+                    type="button"
+                    class="text-button settings-header-button"
+                    commandfor="plan-settings"
+                    command="show-modal"
+                  >
+                    Advanced assumptions
+                  </button>
+                  <button
+                    type="button"
+                    class="text-button plan-reset-action"
+                    data-sg-reset
+                  >
+                    Reset plan
+                  </button>
+                </div>
+              </details>
             </div>
           </div>
         </header>
@@ -531,20 +442,6 @@
             hidden
           >
             <div class="shell settings-shell">
-              <nav class="ui-breadcrumb" aria-label="Breadcrumb">
-                <button
-                  type="button"
-                  class="ui-breadcrumb-link"
-                  id="settings-breadcrumb-back"
-                  data-close-profile
-                >
-                  Overview
-                </button>
-                <span class="ui-breadcrumb-sep" aria-hidden="true">/</span>
-                <span class="ui-breadcrumb-cur" aria-current="page"
-                  >My Settings</span
-                >
-              </nav>
               <header
                 class="ember-page-header fin-page-header settings-page-header"
               >
@@ -553,93 +450,10 @@
                     <h1 id="hero-title">My Settings</h1>
                   </div>
                   <p class="fin-page-sub settings-page-sub">
-                    Changes save locally in your browser and update your plan
-                    live.
+                    Your plan updates as you edit.
                   </p>
                 </div>
                 <div class="ember-header-actions">
-                  <button
-                    type="button"
-                    class="button button-small"
-                    data-share-plan
-                    title="Copy a URL hash link encoding this plan"
-                  >
-                    <svg
-                      class="btn-icon"
-                      viewBox="0 0 24 24"
-                      width="15"
-                      height="15"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.8"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      aria-hidden="true"
-                    >
-                      <path
-                        d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
-                      />
-                      <path
-                        d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
-                      />
-                    </svg>
-                    <span>Copy Share Link</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="button button-small"
-                    id="export-json-btn"
-                    title="Download your retirement plan as a JSON file"
-                  >
-                    <svg
-                      class="btn-icon"
-                      viewBox="0 0 24 24"
-                      width="15"
-                      height="15"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.8"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      aria-hidden="true"
-                    >
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="7 10 12 15 17 10" />
-                      <line x1="12" y1="15" x2="12" y2="3" />
-                    </svg>
-                    <span>Export JSON</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="button button-small"
-                    id="import-json-btn"
-                    title="Import a saved JSON retirement plan into local storage (no page reload)"
-                  >
-                    <svg
-                      class="btn-icon"
-                      viewBox="0 0 24 24"
-                      width="15"
-                      height="15"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.8"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      aria-hidden="true"
-                    >
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="17 8 12 3 7 8" />
-                      <line x1="12" y1="3" x2="12" y2="15" />
-                    </svg>
-                    <span>Import JSON</span>
-                  </button>
-                  <input
-                    type="file"
-                    id="import-json-file"
-                    accept=".json,application/json"
-                    aria-label="Import retirement plan JSON file"
-                    hidden
-                  />
                   <button
                     type="button"
                     class="button button-small"
@@ -664,24 +478,841 @@
                 ></div>
 
                 <section
+                  class="card-surface settings-card"
+                  aria-labelledby="settings-profile-heading"
+                >
+                  <h2 id="settings-profile-heading">Profile &amp; Budget</h2>
+                  <div class="settings-summary">
+                    <div class="settings-summary-row">
+                      <dl>
+                        <div>
+                          <dt>Date of birth</dt>
+                          <dd>
+                            <span
+                              data-plan-value="person-dob"
+                              data-value-format="date"
+                            ></span>
+                            <span
+                              class="dob-age-pill"
+                              id="person-dob-age-badge"
+                              aria-live="polite"
+                              >Age 35</span
+                            >
+                          </dd>
+                        </div>
+                      </dl>
+                      <button
+                        type="button"
+                        class="button button-small"
+                        data-open-settings-field="person-dob"
+                        aria-label="Edit date of birth"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                    <div class="settings-summary-row">
+                      <dl>
+                        <div>
+                          <dt>Target age</dt>
+                          <dd
+                            data-plan-value="known-retire"
+                            data-value-format="text"
+                          ></dd>
+                        </div>
+                      </dl>
+                      <button
+                        type="button"
+                        class="button button-small"
+                        data-quick-edit="goal"
+                        aria-label="Edit retirement age"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                    <div class="settings-summary-row">
+                      <dl>
+                        <div>
+                          <dt>Gross salary</dt>
+                          <dd
+                            data-plan-value="person-salary"
+                            data-value-format="monthly"
+                          ></dd>
+                        </div>
+                        <div>
+                          <dt>Annual bonus</dt>
+                          <dd
+                            data-plan-value="known-annual-bonus"
+                            data-value-format="yearly"
+                          ></dd>
+                        </div>
+                      </dl>
+                      <button
+                        type="button"
+                        class="button button-small"
+                        data-quick-edit="salary"
+                        aria-label="Edit salary"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                    <div class="settings-summary-row">
+                      <dl>
+                        <div>
+                          <dt>Monthly budget</dt>
+                          <dd
+                            data-plan-value="budget"
+                            data-value-format="monthly"
+                          ></dd>
+                        </div>
+                        <div>
+                          <dt>Lifestyle</dt>
+                          <dd
+                            data-plan-value="lifestyle"
+                            data-value-format="text"
+                          ></dd>
+                        </div>
+                      </dl>
+                      <button
+                        type="button"
+                        class="button button-small"
+                        data-quick-edit="budget"
+                        aria-label="Edit retirement budget"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  </div>
+                  <div hidden>
+                    <div class="field">
+                      <label for="known-retire">Target retire age</label>
+                      <div class="input-wrap">
+                        <input
+                          id="known-retire"
+                          type="number"
+                          min="55"
+                          max="80"
+                          step="1"
+                          value="65"
+                          placeholder="65"
+                          inputmode="numeric"
+                        />
+                      </div>
+                      <small>
+                        Defaults to age 65 (55–80 for CCA, 40–80 for Home +
+                        Helper). Earlier ages fund years before CPF LIFE starts.
+                      </small>
+                    </div>
+                    <div class="field">
+                      <label for="person-salary">Gross monthly salary</label>
+                      <div class="input-wrap">
+                        <span>$</span
+                        ><input
+                          id="person-salary"
+                          name="salary"
+                          type="number"
+                          min="751"
+                          max="1000000"
+                          step="any"
+                          value="5500"
+                          required
+                          inputmode="decimal"
+                        />
+                      </div>
+                      <small>
+                        Gross monthly salary before employee CPF (excludes
+                        employer CPF &amp; bonuses).
+                      </small>
+                    </div>
+
+                    <div class="field">
+                      <label for="known-lifestyle">Lifestyle preset</label>
+                      <div class="input-wrap select-wrap">
+                        <select id="known-lifestyle">
+                          <option value="cca" selected>
+                            Community Care ($2,800/mo)
+                          </option>
+                          <option value="home-helper">
+                            Home + Helper ($3,900/mo)
+                          </option>
+                        </select>
+                      </div>
+                      <small>
+                        Sets default monthly spending and late-life care rules
+                        (CCA from age 55; Home + Helper from age 40).
+                      </small>
+                    </div>
+                    <div class="field">
+                      <label for="known-spend"
+                        >Custom retirement budget (today’s $)</label
+                      >
+                      <div class="input-wrap">
+                        <span>$</span
+                        ><input
+                          id="known-spend"
+                          type="number"
+                          min="0"
+                          max="1000000"
+                          step="any"
+                          placeholder="2800"
+                          inputmode="decimal"
+                        />
+                      </div>
+                      <small>
+                        What you need per month in retirement (today’s $). Blank
+                        uses your selected preset baseline.
+                      </small>
+                      <div
+                        id="settings-itemized-note"
+                        class="settings-itemized-note"
+                        hidden
+                      ></div>
+                      <button
+                        type="button"
+                        id="use-preset-budget"
+                        class="text-button settings-inline-action"
+                        hidden
+                      ></button>
+                    </div>
+                  </div>
+                  <details class="settings-disclosure">
+                    <summary class="planner-summary">Date of birth</summary>
+                    <div class="field">
+                      <div class="dob-label-row">
+                        <label for="person-dob">Date of birth</label>
+                      </div>
+                      <div class="input-wrap dob-input-wrap">
+                        <input
+                          id="person-dob"
+                          name="dob"
+                          type="date"
+                          value="1991-01-01"
+                          required
+                        />
+                      </div>
+                      <small
+                        >For salaried Singapore citizens and PRs aged
+                        18–54.</small
+                      >
+                    </div>
+                  </details>
+                  <details class="settings-disclosure">
+                    <summary class="planner-summary">Annual bonus</summary>
+                    <div class="field">
+                      <label for="known-annual-bonus"
+                        >Annual bonus / AWS ($/yr)</label
+                      >
+                      <div class="input-wrap">
+                        <span>$</span
+                        ><input
+                          id="known-annual-bonus"
+                          type="number"
+                          min="0"
+                          max="1000000000"
+                          step="any"
+                          placeholder="0"
+                          inputmode="decimal"
+                        />
+                      </div>
+                      <small>
+                        Used for IRAS tax bracket &amp; $102,000 annual CPF
+                        salary ceiling check.
+                      </small>
+                    </div>
+                  </details>
+                </section>
+
+                <section
+                  class="card-surface settings-card"
+                  aria-labelledby="settings-cpf-heading"
+                >
+                  <h2 id="settings-cpf-heading">CPF &amp; Housing</h2>
+                  <div class="settings-summary">
+                    <div class="settings-summary-row">
+                      <dl>
+                        <div>
+                          <dt>Ordinary Account</dt>
+                          <dd
+                            data-plan-value="known-oa"
+                            data-value-format="money"
+                          ></dd>
+                        </div>
+                        <div>
+                          <dt>Special Account</dt>
+                          <dd
+                            data-plan-value="known-sa"
+                            data-value-format="money"
+                          ></dd>
+                        </div>
+                        <div>
+                          <dt>MediSave</dt>
+                          <dd
+                            data-plan-value="known-ma"
+                            data-value-format="money"
+                          ></dd>
+                        </div>
+                        <div>
+                          <dt>CPFIS-SA</dt>
+                          <dd
+                            data-plan-value="known-sa-invested"
+                            data-value-format="money"
+                          ></dd>
+                        </div>
+                      </dl>
+                      <button
+                        type="button"
+                        class="button button-small"
+                        data-open-settings-field="known-oa"
+                        aria-label="Edit CPF balances"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                    <div class="settings-summary-row">
+                      <dl>
+                        <div>
+                          <dt>Housing payment mode</dt>
+                          <dd
+                            data-plan-value="known-housing-mode"
+                            data-value-format="option"
+                          ></dd>
+                        </div>
+                        <div>
+                          <dt>Monthly housing payment</dt>
+                          <dd
+                            data-plan-value="housing"
+                            data-value-format="monthly"
+                          ></dd>
+                        </div>
+                      </dl>
+                      <button
+                        type="button"
+                        class="button button-small"
+                        data-open-settings-field="known-housing-mode"
+                        aria-label="Edit housing"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  </div>
+                  <details class="settings-disclosure">
+                    <summary class="planner-summary">CPF balances</summary>
+                    <div class="settings-fields-grid">
+                      <div class="field">
+                        <label for="known-oa">Ordinary Account (OA)</label>
+                        <div class="input-wrap">
+                          <span>$</span
+                          ><input
+                            id="known-oa"
+                            type="number"
+                            min="0"
+                            max="1000000000"
+                            step="any"
+                            placeholder="0"
+                            inputmode="decimal"
+                          />
+                        </div>
+                      </div>
+                      <div class="field">
+                        <label for="known-sa">Special Account (SA)</label>
+                        <div class="input-wrap">
+                          <span>$</span
+                          ><input
+                            id="known-sa"
+                            type="number"
+                            min="0"
+                            max="1000000000"
+                            step="any"
+                            placeholder="0"
+                            inputmode="decimal"
+                          />
+                        </div>
+                      </div>
+                      <div class="field">
+                        <label for="known-ma">MediSave (MA)</label>
+                        <div class="input-wrap">
+                          <span>$</span
+                          ><input
+                            id="known-ma"
+                            type="number"
+                            min="0"
+                            max="1000000000"
+                            step="any"
+                            placeholder="0"
+                            inputmode="decimal"
+                          />
+                        </div>
+                        <small>
+                          Used for extra-interest tiers and BHS overflow to
+                          SA/RA/OA, not spendable cash.
+                        </small>
+                      </div>
+                      <div class="field">
+                        <label for="known-sa-invested"
+                          >Active CPFIS-SA investments</label
+                        >
+                        <div class="input-wrap">
+                          <span>$</span
+                          ><input
+                            id="known-sa-invested"
+                            type="number"
+                            min="0"
+                            max="1000000000"
+                            step="any"
+                            placeholder="0"
+                            inputmode="decimal"
+                          />
+                        </div>
+                        <small>
+                          Reduces SA top-up room; CPFIS-SA value is excluded
+                          from RA payouts.
+                        </small>
+                      </div>
+                    </div>
+                  </details>
+                  <details class="settings-disclosure">
+                    <summary class="planner-summary">
+                      MediSave deductions
+                    </summary>
+                    <div class="settings-fields-grid">
+                      <div class="field">
+                        <label for="known-ma-spend"
+                          >Monthly MediSave deductions</label
+                        >
+                        <div class="input-wrap">
+                          <span>$</span
+                          ><input
+                            id="known-ma-spend"
+                            type="number"
+                            min="0"
+                            max="1000000"
+                            step="any"
+                            placeholder="0"
+                            inputmode="decimal"
+                          />
+                        </div>
+                        <small>
+                          MediShield Life, CareShield LIFE or AIA HealthShield
+                          Max (MediSave AWL portion) deducted from MA. Blank
+                          assumes $0.
+                        </small>
+                      </div>
+                    </div>
+                  </details>
+                  <details class="settings-disclosure">
+                    <summary class="planner-summary">Housing loan</summary>
+                    <div class="housing-calc-box">
+                      <div class="housing-calc-head">
+                        <div class="field housing-mode-field">
+                          <label for="known-housing-mode"
+                            >Housing loan (from CPF OA)</label
+                          >
+                          <div class="input-wrap select-wrap">
+                            <select id="known-housing-mode">
+                              <option value="all-oa">
+                                All new salary OA (if unsure)
+                              </option>
+                              <option value="hdb">HDB loan (2.6% p.a.)</option>
+                              <option value="bank">
+                                Bank loan (custom rate)
+                              </option>
+                              <option value="paid-up">
+                                Paid up / Paid in cash ($0 OA)
+                              </option>
+                              <option value="custom">
+                                Manual monthly OA ($/mo)
+                              </option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                      <div
+                        class="housing-loan-grid"
+                        id="known-housing-loan-fields"
+                        hidden
+                      >
+                        <div class="field">
+                          <label for="known-housing-balance">Loan left</label>
+                          <div class="input-wrap">
+                            <span>$</span
+                            ><input
+                              id="known-housing-balance"
+                              type="number"
+                              min="0"
+                              max="10000000"
+                              step="any"
+                              placeholder="e.g. 300000"
+                              inputmode="decimal"
+                            />
+                          </div>
+                        </div>
+                        <div class="field">
+                          <label for="known-housing-years">Years left</label>
+                          <div class="input-wrap">
+                            <input
+                              id="known-housing-years"
+                              type="number"
+                              min="1"
+                              max="40"
+                              step="1"
+                              value="20"
+                              inputmode="numeric"
+                            /><span class="input-suffix">yrs</span>
+                          </div>
+                        </div>
+                        <div class="field">
+                          <label for="known-housing-rate"
+                            >Interest (% p.a.)</label
+                          >
+                          <div class="input-wrap">
+                            <input
+                              id="known-housing-rate"
+                              type="number"
+                              min="0"
+                              max="15"
+                              step="0.05"
+                              value="2.6"
+                              inputmode="decimal"
+                            /><span class="input-suffix">%</span>
+                          </div>
+                        </div>
+                        <div class="field">
+                          <label for="known-housing-parties"
+                            >Split across</label
+                          >
+                          <div class="input-wrap select-wrap">
+                            <select id="known-housing-parties">
+                              <option value="1" selected>1 party (sole)</option>
+                              <option value="2">2 parties</option>
+                              <option value="3">3 parties</option>
+                              <option value="4">4 parties</option>
+                              <option value="5">5 parties</option>
+                              <option value="6">6 parties</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                      <div
+                        class="housing-custom-row"
+                        id="known-housing-custom-field"
+                        hidden
+                      >
+                        <div class="field">
+                          <label for="known-housing"
+                            >Monthly housing from OA</label
+                          >
+                          <div class="input-wrap">
+                            <span>$</span
+                            ><input
+                              id="known-housing"
+                              type="number"
+                              min="0"
+                              max="1000000"
+                              step="any"
+                              placeholder="0"
+                              inputmode="decimal"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <p
+                        class="housing-calc-preview"
+                        id="known-housing-preview"
+                        aria-live="polite"
+                      ></p>
+                    </div>
+                  </details>
+                </section>
+
+                <section
+                  class="card-surface settings-card"
+                  aria-labelledby="settings-invest-heading"
+                >
+                  <h2 id="settings-invest-heading">
+                    Investments, SRS &amp; Tax
+                  </h2>
+                  <div class="settings-summary">
+                    <div class="settings-summary-row">
+                      <dl>
+                        <div>
+                          <dt>Global equities</dt>
+                          <dd
+                            data-plan-value="known-equities"
+                            data-value-format="money"
+                          ></dd>
+                        </div>
+                        <div>
+                          <dt>SG dividends</dt>
+                          <dd
+                            data-plan-value="known-sg-dividends"
+                            data-value-format="money"
+                          ></dd>
+                        </div>
+                        <div>
+                          <dt>SSB, T-bills &amp; cash</dt>
+                          <dd
+                            data-plan-value="known-ssb-cash"
+                            data-value-format="money"
+                          ></dd>
+                        </div>
+                        <div>
+                          <dt>SRS balance</dt>
+                          <dd
+                            data-plan-value="known-srs"
+                            data-value-format="money"
+                          ></dd>
+                        </div>
+                        <div>
+                          <dt>SRS investment</dt>
+                          <dd
+                            data-plan-value="known-srs-invested"
+                            data-value-format="option"
+                          ></dd>
+                        </div>
+                      </dl>
+                      <button
+                        type="button"
+                        class="button button-small"
+                        data-open-settings-field="known-equities"
+                        aria-label="Edit investments and cash"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  </div>
+                  <details class="settings-disclosure">
+                    <summary class="planner-summary">
+                      Investment and cash balances
+                    </summary>
+                    <div class="settings-fields-grid">
+                      <div class="field">
+                        <label for="known-equities"
+                          >Global Equities (VWRA / ISAC)</label
+                        >
+                        <div class="input-wrap">
+                          <span>$</span
+                          ><input
+                            id="known-equities"
+                            type="number"
+                            min="0"
+                            max="1000000000"
+                            step="any"
+                            value="34000"
+                            placeholder="34000"
+                            inputmode="decimal"
+                          />
+                        </div>
+                        <small>
+                          Irish-domiciled global UCITS ETFs (15% US dividend
+                          WHT).
+                        </small>
+                      </div>
+                      <div class="field">
+                        <label for="known-sg-dividends"
+                          >SG Dividends (STI / REITs)</label
+                        >
+                        <div class="input-wrap">
+                          <span>$</span
+                          ><input
+                            id="known-sg-dividends"
+                            type="number"
+                            min="0"
+                            max="1000000000"
+                            step="any"
+                            value="6000"
+                            placeholder="6000"
+                            inputmode="decimal"
+                          />
+                        </div>
+                        <small>
+                          Local SGD cashflow sleeve (default 15% of equities ·
+                          85/15 Global/SG split).
+                        </small>
+                      </div>
+                      <div class="field">
+                        <label for="known-ssb-cash"
+                          >SSB / T-Bills / High-Yield Cash</label
+                        >
+                        <div class="input-wrap">
+                          <span>$</span
+                          ><input
+                            id="known-ssb-cash"
+                            type="number"
+                            min="0"
+                            max="1000000000"
+                            step="any"
+                            value="20000"
+                            placeholder="20000"
+                            inputmode="decimal"
+                          />
+                        </div>
+                        <small>
+                          Sovereign bonds &amp; liquid buffer counted toward
+                          your bond floor.
+                        </small>
+                        <div
+                          id="settings-cash-accounts-note"
+                          class="settings-itemized-note"
+                          hidden
+                        >
+                          <span></span>
+                        </div>
+                        <button
+                          type="button"
+                          id="open-cash-breakdown-settings"
+                          data-go-tab="cash-parking"
+                          class="text-button settings-inline-action"
+                          data-open-page-cash-accounts
+                        >
+                          Break down bank accounts &amp; $100k caps →
+                        </button>
+                      </div>
+                    </div>
+                  </details>
+                  <details class="settings-disclosure">
+                    <summary class="planner-summary">
+                      SRS &amp; tax reliefs
+                    </summary>
+                    <div class="settings-fields-grid">
+                      <div class="field">
+                        <label for="known-srs">SRS balance today</label>
+                        <div class="input-wrap">
+                          <span>$</span
+                          ><input
+                            id="known-srs"
+                            type="number"
+                            min="0"
+                            max="1000000000"
+                            step="any"
+                            placeholder="0"
+                            inputmode="decimal"
+                          />
+                        </div>
+                        <small>
+                          Supplementary Retirement Scheme balance (10-yr
+                          penalty-free drawdown at 63/64).
+                        </small>
+                      </div>
+                      <div class="field">
+                        <label for="known-srs-annual">Planned annual SRS</label>
+                        <div class="input-wrap">
+                          <span>$</span
+                          ><input
+                            id="known-srs-annual"
+                            type="number"
+                            min="0"
+                            max="15300"
+                            step="any"
+                            placeholder="0"
+                            inputmode="decimal"
+                          />
+                        </div>
+                        <small>
+                          Up to $15,300/yr for Singapore Citizens &amp; PRs
+                          ($35,700 for foreigners).
+                        </small>
+                      </div>
+                      <div class="field">
+                        <label for="known-srs-age">SRS withdrawal age</label>
+                        <div class="input-wrap select-wrap">
+                          <select id="known-srs-age">
+                            <option value="63" selected>
+                              63 (Opened before 1 Jul 2026)
+                            </option>
+                            <option value="64">
+                              64 (Opened on/after 1 Jul 2026)
+                            </option>
+                          </select>
+                        </div>
+                        <small>
+                          Lock-in age follows the statutory retirement age when
+                          your first SRS contribution was made.
+                        </small>
+                      </div>
+                      <div class="field">
+                        <label for="known-srs-invested"
+                          >SRS funds invested in</label
+                        >
+                        <div class="input-wrap select-wrap">
+                          <select id="known-srs-invested">
+                            <option value="global" selected>
+                              Global Equity Index Funds
+                            </option>
+                            <option value="balanced">
+                              Balanced 60/40 Portfolio
+                            </option>
+                            <option value="ssb">SSB / T-Bills</option>
+                            <option value="cash">
+                              Uninvested Cash (0.05% p.a.)
+                            </option>
+                          </select>
+                        </div>
+                        <small>
+                          SRS cash earns 0.05% p.a. unless invested in index
+                          funds, T-bills, or SSB.
+                        </small>
+                      </div>
+                      <div class="field">
+                        <label for="known-existing-reliefs"
+                          >Existing IRAS tax reliefs ($/yr)</label
+                        >
+                        <div class="input-wrap">
+                          <span>$</span
+                          ><input
+                            id="known-existing-reliefs"
+                            type="number"
+                            min="0"
+                            max="80000"
+                            step="any"
+                            value="1000"
+                            placeholder="1000"
+                            inputmode="decimal"
+                          />
+                        </div>
+                        <small>
+                          Blank uses $1,000 Earned Income Relief. $80,000 total
+                          personal relief cap applies.
+                        </small>
+                      </div>
+                      <div class="field">
+                        <label for="known-family-rstu"
+                          >Spouse / Family CPF cash top-up ($/yr)</label
+                        >
+                        <div class="input-wrap">
+                          <span>$</span
+                          ><input
+                            id="known-family-rstu"
+                            type="number"
+                            min="0"
+                            max="8000"
+                            step="any"
+                            placeholder="0"
+                            inputmode="decimal"
+                          />
+                        </div>
+                        <small>
+                          Separate IRAS tax relief up to $8,000/yr for cash RSTU
+                          to spouse, parents, or grandparents (within $80k cap).
+                        </small>
+                      </div>
+                    </div>
+                  </details>
+                </section>
+
+                <input id="known-target-equity" type="hidden" value="80" />
+                <input id="known-sg-sleeve" type="hidden" value="15" />
+                <details
                   class="card-surface settings-card persona-presets-card"
                   id="persona-presets-strip"
-                  aria-labelledby="settings-personas-heading"
                 >
+                  <summary class="planner-summary">Starter plans</summary>
                   <div class="persona-presets-head">
                     <div>
-                      <h2 id="settings-personas-heading">
-                        Singapore Starter Archetypes
-                      </h2>
                       <p class="settings-page-sub">
                         Load a realistic Singapore profile to explore CPF,
                         housing, SRS, and early retirement trade-offs in one
                         click.
                       </p>
                     </div>
-                    <button type="button" class="text-button" data-sg-reset>
-                      Reset to baseline
-                    </button>
                   </div>
                   <div
                     class="persona-presets-grid"
@@ -753,595 +1384,79 @@
                       >
                     </button>
                   </div>
-                </section>
+                </details>
 
-                <section
-                  class="card-surface settings-card"
-                  aria-labelledby="settings-profile-heading"
-                >
-                  <h2 id="settings-profile-heading">
-                    Profile &amp; Living Budget
-                  </h2>
-                  <div class="settings-fields-grid">
-                    <div class="field">
-                      <div class="dob-label-row">
-                        <label for="person-dob">Date of birth</label>
-                        <span
-                          class="dob-age-pill"
-                          id="person-dob-age-badge"
-                          aria-live="polite"
-                          >Age 35</span
-                        >
-                      </div>
-                      <div class="input-wrap dob-input-wrap">
-                        <input
-                          id="person-dob"
-                          name="dob"
-                          type="date"
-                          value="1991-01-01"
-                          required
-                        />
-                      </div>
-                      <small id="person-dob-hint"
-                        >Age 35 · Salaried Singapore citizens and PRs aged
-                        18–54.</small
-                      >
-                    </div>
-                    <div class="field">
-                      <label for="known-retire">Target retire age</label>
-                      <div class="input-wrap">
-                        <input
-                          id="known-retire"
-                          type="number"
-                          min="55"
-                          max="80"
-                          step="1"
-                          value="65"
-                          placeholder="65"
-                          inputmode="numeric"
-                        />
-                      </div>
-                      <small>
-                        Defaults to age 65 (55–80 for CCA, 40–80 for Home +
-                        Helper). Earlier ages fund years before CPF LIFE starts.
-                      </small>
-                    </div>
-                    <div class="field">
-                      <label for="person-salary">Gross monthly salary</label>
-                      <div class="input-wrap">
-                        <span>$</span
-                        ><input
-                          id="person-salary"
-                          name="salary"
-                          type="number"
-                          min="751"
-                          max="1000000"
-                          step="any"
-                          value="5500"
-                          required
-                          inputmode="decimal"
-                        />
-                      </div>
-                      <small>
-                        Gross monthly salary before employee CPF (excludes
-                        employer CPF &amp; bonuses).
-                      </small>
-                    </div>
-                    <div class="field">
-                      <label for="known-annual-bonus"
-                        >Annual bonus / AWS ($/yr)</label
-                      >
-                      <div class="input-wrap">
-                        <span>$</span
-                        ><input
-                          id="known-annual-bonus"
-                          type="number"
-                          min="0"
-                          max="1000000000"
-                          step="any"
-                          placeholder="0"
-                          inputmode="decimal"
-                        />
-                      </div>
-                      <small>
-                        Used for IRAS tax bracket &amp; $102,000 annual CPF
-                        salary ceiling check.
-                      </small>
-                    </div>
-                    <div class="field">
-                      <label for="known-lifestyle">Lifestyle preset</label>
-                      <div class="input-wrap select-wrap">
-                        <select id="known-lifestyle">
-                          <option value="cca" selected>
-                            Community Care ($2,800/mo)
-                          </option>
-                          <option value="home-helper">
-                            Home + Helper ($3,900/mo)
-                          </option>
-                        </select>
-                      </div>
-                      <small>
-                        Sets default monthly spending and late-life care rules
-                        (CCA from age 55; Home + Helper from age 40).
-                      </small>
-                    </div>
-                    <div class="field">
-                      <label for="known-spend"
-                        >Custom retirement budget (today’s $)</label
-                      >
-                      <div class="input-wrap">
-                        <span>$</span
-                        ><input
-                          id="known-spend"
-                          type="number"
-                          min="0"
-                          max="1000000"
-                          step="any"
-                          placeholder="2800"
-                          inputmode="decimal"
-                        />
-                      </div>
-                      <small>
-                        What you need per month in retirement (today’s $). Blank
-                        uses your selected preset baseline.
-                      </small>
-                      <div
-                        id="settings-itemized-note"
-                        class="settings-itemized-note"
-                        hidden
-                      ></div>
-                      <button
-                        type="button"
-                        id="use-preset-budget"
-                        class="text-button settings-inline-action"
-                        hidden
-                      ></button>
-                    </div>
-                  </div>
-                </section>
-
-                <section
-                  class="card-surface settings-card"
-                  aria-labelledby="settings-cpf-heading"
-                >
-                  <h2 id="settings-cpf-heading">CPF &amp; Housing</h2>
-                  <div class="settings-fields-grid">
-                    <div class="field">
-                      <label for="known-oa">Ordinary Account (OA)</label>
-                      <div class="input-wrap">
-                        <span>$</span
-                        ><input
-                          id="known-oa"
-                          type="number"
-                          min="0"
-                          max="1000000000"
-                          step="any"
-                          placeholder="0"
-                          inputmode="decimal"
-                        />
-                      </div>
-                    </div>
-                    <div class="field">
-                      <label for="known-sa">Special Account (SA)</label>
-                      <div class="input-wrap">
-                        <span>$</span
-                        ><input
-                          id="known-sa"
-                          type="number"
-                          min="0"
-                          max="1000000000"
-                          step="any"
-                          placeholder="0"
-                          inputmode="decimal"
-                        />
-                      </div>
-                    </div>
-                    <div class="field">
-                      <label for="known-ma">MediSave (MA)</label>
-                      <div class="input-wrap">
-                        <span>$</span
-                        ><input
-                          id="known-ma"
-                          type="number"
-                          min="0"
-                          max="1000000000"
-                          step="any"
-                          placeholder="0"
-                          inputmode="decimal"
-                        />
-                      </div>
-                      <small>
-                        Used for extra-interest tiers and BHS overflow to
-                        SA/RA/OA, not spendable cash.
-                      </small>
-                    </div>
-                    <div class="field">
-                      <label for="known-ma-spend"
-                        >Monthly MediSave deductions</label
-                      >
-                      <div class="input-wrap">
-                        <span>$</span
-                        ><input
-                          id="known-ma-spend"
-                          type="number"
-                          min="0"
-                          max="1000000"
-                          step="any"
-                          placeholder="0"
-                          inputmode="decimal"
-                        />
-                      </div>
-                      <small>
-                        MediShield Life, CareShield LIFE or AIA HealthShield Max
-                        (MediSave AWL portion) deducted from MA. Blank assumes
-                        $0.
-                      </small>
-                    </div>
-                    <div class="field">
-                      <label for="known-sa-invested"
-                        >Active CPFIS-SA investments</label
-                      >
-                      <div class="input-wrap">
-                        <span>$</span
-                        ><input
-                          id="known-sa-invested"
-                          type="number"
-                          min="0"
-                          max="1000000000"
-                          step="any"
-                          placeholder="0"
-                          inputmode="decimal"
-                        />
-                      </div>
-                      <small>
-                        Reduces SA top-up room; CPFIS-SA value is excluded from
-                        RA payouts.
-                      </small>
-                    </div>
-                  </div>
-                  <div class="housing-calc-box">
-                    <div class="housing-calc-head">
-                      <div class="field housing-mode-field">
-                        <label for="known-housing-mode"
-                          >Housing loan (from CPF OA)</label
-                        >
-                        <div class="input-wrap select-wrap">
-                          <select id="known-housing-mode">
-                            <option value="all-oa">
-                              All new salary OA (if unsure)
-                            </option>
-                            <option value="hdb">HDB loan (2.6% p.a.)</option>
-                            <option value="bank">
-                              Bank loan (custom rate)
-                            </option>
-                            <option value="paid-up">
-                              Paid up / Paid in cash ($0 OA)
-                            </option>
-                            <option value="custom">
-                              Manual monthly OA ($/mo)
-                            </option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                    <div
-                      class="housing-loan-grid"
-                      id="known-housing-loan-fields"
-                      hidden
+                <details class="card-surface settings-card">
+                  <summary class="planner-summary">Plan files</summary>
+                  <div class="settings-file-actions">
+                    <button
+                      type="button"
+                      class="button button-small"
+                      id="export-json-btn"
+                      title="Download your retirement plan as a JSON file"
                     >
-                      <div class="field">
-                        <label for="known-housing-balance">Loan left</label>
-                        <div class="input-wrap">
-                          <span>$</span
-                          ><input
-                            id="known-housing-balance"
-                            type="number"
-                            min="0"
-                            max="10000000"
-                            step="any"
-                            placeholder="e.g. 300000"
-                            inputmode="decimal"
-                          />
-                        </div>
-                      </div>
-                      <div class="field">
-                        <label for="known-housing-years">Years left</label>
-                        <div class="input-wrap">
-                          <input
-                            id="known-housing-years"
-                            type="number"
-                            min="1"
-                            max="40"
-                            step="1"
-                            value="20"
-                            inputmode="numeric"
-                          /><span class="input-suffix">yrs</span>
-                        </div>
-                      </div>
-                      <div class="field">
-                        <label for="known-housing-rate"
-                          >Interest (% p.a.)</label
-                        >
-                        <div class="input-wrap">
-                          <input
-                            id="known-housing-rate"
-                            type="number"
-                            min="0"
-                            max="15"
-                            step="0.05"
-                            value="2.6"
-                            inputmode="decimal"
-                          /><span class="input-suffix">%</span>
-                        </div>
-                      </div>
-                      <div class="field">
-                        <label for="known-housing-parties">Split across</label>
-                        <div class="input-wrap select-wrap">
-                          <select id="known-housing-parties">
-                            <option value="1" selected>1 party (sole)</option>
-                            <option value="2">2 parties</option>
-                            <option value="3">3 parties</option>
-                            <option value="4">4 parties</option>
-                            <option value="5">5 parties</option>
-                            <option value="6">6 parties</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                    <div
-                      class="housing-custom-row"
-                      id="known-housing-custom-field"
-                      hidden
+                      <svg
+                        class="btn-icon"
+                        viewBox="0 0 24 24"
+                        width="15"
+                        height="15"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                      </svg>
+                      <span>Export JSON</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="button button-small"
+                      id="import-json-btn"
+                      title="Import a saved JSON retirement plan into local storage (no page reload)"
                     >
-                      <div class="field">
-                        <label for="known-housing"
-                          >Monthly housing from OA</label
-                        >
-                        <div class="input-wrap">
-                          <span>$</span
-                          ><input
-                            id="known-housing"
-                            type="number"
-                            min="0"
-                            max="1000000"
-                            step="any"
-                            placeholder="0"
-                            inputmode="decimal"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <p
-                      class="housing-calc-preview"
-                      id="known-housing-preview"
-                      aria-live="polite"
-                    ></p>
+                      <svg
+                        class="btn-icon"
+                        viewBox="0 0 24 24"
+                        width="15"
+                        height="15"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" y1="3" x2="12" y2="15" />
+                      </svg>
+                      <span>Import JSON</span>
+                    </button>
+                    <input
+                      type="file"
+                      id="import-json-file"
+                      accept=".json,application/json"
+                      aria-label="Import retirement plan JSON file"
+                      hidden
+                    />
                   </div>
-                </section>
-
-                <section
-                  class="card-surface settings-card"
-                  aria-labelledby="settings-invest-heading"
-                >
-                  <h2 id="settings-invest-heading">
-                    Investments, SRS &amp; Tax
-                  </h2>
-                  <div class="settings-fields-grid">
-                    <div class="field">
-                      <label for="known-equities"
-                        >Global Equities (VWRA / ISAC)</label
-                      >
-                      <div class="input-wrap">
-                        <span>$</span
-                        ><input
-                          id="known-equities"
-                          type="number"
-                          min="0"
-                          max="1000000000"
-                          step="any"
-                          value="34000"
-                          placeholder="34000"
-                          inputmode="decimal"
-                        />
-                      </div>
-                      <small>
-                        Irish-domiciled global UCITS ETFs (15% US dividend WHT).
-                      </small>
-                    </div>
-                    <div class="field">
-                      <label for="known-sg-dividends"
-                        >SG Dividends (STI / REITs)</label
-                      >
-                      <div class="input-wrap">
-                        <span>$</span
-                        ><input
-                          id="known-sg-dividends"
-                          type="number"
-                          min="0"
-                          max="1000000000"
-                          step="any"
-                          value="6000"
-                          placeholder="6000"
-                          inputmode="decimal"
-                        />
-                      </div>
-                      <small>
-                        Local SGD cashflow sleeve (default 15% of equities ·
-                        85/15 Global/SG split).
-                      </small>
-                    </div>
-                    <div class="field">
-                      <label for="known-ssb-cash"
-                        >SSB / T-Bills / High-Yield Cash</label
-                      >
-                      <div class="input-wrap">
-                        <span>$</span
-                        ><input
-                          id="known-ssb-cash"
-                          type="number"
-                          min="0"
-                          max="1000000000"
-                          step="any"
-                          value="20000"
-                          placeholder="20000"
-                          inputmode="decimal"
-                        />
-                      </div>
-                      <small>
-                        Sovereign bonds &amp; liquid buffer counted toward your
-                        bond floor.
-                      </small>
-                      <div
-                        id="settings-cash-accounts-note"
-                        class="settings-itemized-note"
-                        hidden
-                      >
-                        <span></span>
-                      </div>
-                      <button
-                        type="button"
-                        id="open-cash-breakdown-settings"
-                        class="text-button settings-inline-action"
-                        data-open-cash-breakdown
-                      >
-                        Break down bank accounts &amp; $100k caps →
-                      </button>
-                    </div>
-                    <div class="field">
-                      <label for="known-srs">SRS balance today</label>
-                      <div class="input-wrap">
-                        <span>$</span
-                        ><input
-                          id="known-srs"
-                          type="number"
-                          min="0"
-                          max="1000000000"
-                          step="any"
-                          placeholder="0"
-                          inputmode="decimal"
-                        />
-                      </div>
-                      <small>
-                        Supplementary Retirement Scheme balance (10-yr
-                        penalty-free drawdown at 63/64).
-                      </small>
-                    </div>
-                    <div class="field">
-                      <label for="known-srs-annual">Planned annual SRS</label>
-                      <div class="input-wrap">
-                        <span>$</span
-                        ><input
-                          id="known-srs-annual"
-                          type="number"
-                          min="0"
-                          max="15300"
-                          step="any"
-                          placeholder="0"
-                          inputmode="decimal"
-                        />
-                      </div>
-                      <small>
-                        Up to $15,300/yr for Singapore Citizens &amp; PRs
-                        ($35,700 for foreigners).
-                      </small>
-                    </div>
-                    <div class="field">
-                      <label for="known-srs-age">SRS withdrawal age</label>
-                      <div class="input-wrap select-wrap">
-                        <select id="known-srs-age">
-                          <option value="63" selected>
-                            63 (Opened before 1 Jul 2026)
-                          </option>
-                          <option value="64">
-                            64 (Opened on/after 1 Jul 2026)
-                          </option>
-                        </select>
-                      </div>
-                      <small>
-                        Lock-in age follows the statutory retirement age when
-                        your first SRS contribution was made.
-                      </small>
-                    </div>
-                    <div class="field">
-                      <label for="known-srs-invested"
-                        >SRS funds invested in</label
-                      >
-                      <div class="input-wrap select-wrap">
-                        <select id="known-srs-invested">
-                          <option value="global" selected>
-                            Global Equity Index Funds
-                          </option>
-                          <option value="balanced">
-                            Balanced 60/40 Portfolio
-                          </option>
-                          <option value="ssb">SSB / T-Bills</option>
-                          <option value="cash">
-                            Uninvested Cash (0.05% p.a.)
-                          </option>
-                        </select>
-                      </div>
-                      <small>
-                        SRS cash earns 0.05% p.a. unless invested in index
-                        funds, T-bills, or SSB.
-                      </small>
-                    </div>
-                    <div class="field">
-                      <label for="known-existing-reliefs"
-                        >Existing IRAS tax reliefs ($/yr)</label
-                      >
-                      <div class="input-wrap">
-                        <span>$</span
-                        ><input
-                          id="known-existing-reliefs"
-                          type="number"
-                          min="0"
-                          max="80000"
-                          step="any"
-                          value="1000"
-                          placeholder="1000"
-                          inputmode="decimal"
-                        />
-                      </div>
-                      <small>
-                        Blank uses $1,000 Earned Income Relief. $80,000 total
-                        personal relief cap applies.
-                      </small>
-                    </div>
-                    <div class="field">
-                      <label for="known-family-rstu"
-                        >Spouse / Family CPF cash top-up ($/yr)</label
-                      >
-                      <div class="input-wrap">
-                        <span>$</span
-                        ><input
-                          id="known-family-rstu"
-                          type="number"
-                          min="0"
-                          max="8000"
-                          step="any"
-                          placeholder="0"
-                          inputmode="decimal"
-                        />
-                      </div>
-                      <small>
-                        Separate IRAS tax relief up to $8,000/yr for cash RSTU
-                        to spouse, parents, or grandparents (within $80k cap).
-                      </small>
-                    </div>
-                  </div>
-                </section>
-
-                <input id="known-target-equity" type="hidden" value="80" />
-                <input id="known-sg-sleeve" type="hidden" value="15" />
-                <div class="settings-page-footer">
+                </details>
+                <details class="card-surface settings-card">
+                  <summary class="planner-summary">Advanced</summary>
                   <button
-                    type="submit"
-                    id="settings-footer-done"
-                    class="button button-primary"
+                    type="button"
+                    class="text-button"
+                    commandfor="plan-settings"
+                    command="show-modal"
                   >
-                    Done · Back to Overview →
+                    Model assumptions
                   </button>
-                </div>
+                </details>
               </form>
             </div>
           </section>
@@ -1358,57 +1473,6 @@
                 role="status"
                 aria-atomic="true"
               ></p>
-              <div
-                id="shared-sandbox-banner"
-                class="shared-sandbox-banner"
-                role="region"
-                aria-label="Shared plan sandbox notice"
-                hidden
-              >
-                <div class="shared-sandbox-copy">
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="18"
-                    height="18"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.8"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
-                    />
-                    <path
-                      d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
-                    />
-                  </svg>
-                  <div>
-                    <strong>Viewing Shared Plan Link (Sandbox Mode)</strong>
-                    <span
-                      >Your existing browser-saved plan is untouched unless you
-                      choose to overwrite it.</span
-                    >
-                  </div>
-                </div>
-                <div class="shared-sandbox-actions">
-                  <button
-                    type="button"
-                    class="button button-small button-primary"
-                    id="sandbox-save-btn"
-                  >
-                    Save to My Browser
-                  </button>
-                  <button
-                    type="button"
-                    class="button button-small"
-                    id="sandbox-revert-btn"
-                  >
-                    Revert to My Saved Plan
-                  </button>
-                </div>
-              </div>
               <div
                 id="plan-error-banner"
                 class="plan-error-banner"
@@ -1460,190 +1524,10 @@
                         </h1>
                       </div>
                       <p class="fin-page-sub">
-                        Override suggested monthly CPF top-ups or outside
-                        investments to test depletion age and earliest
-                        readiness.
+                        <span id="trajectory-saving-total"></span>
                       </p>
                     </div>
                   </header>
-
-                  <div class="sim-controls-card card-surface">
-                    <div class="field-grid">
-                      <div class="field">
-                        <label for="known-cpf-extra"
-                          >Extra CPF saving each month</label
-                        >
-                        <div class="saving-stepper">
-                          <button
-                            type="button"
-                            data-adjust="known-cpf-extra"
-                            data-delta="-50"
-                            aria-label="Decrease extra CPF saving by 50 dollars"
-                          >
-                            −
-                          </button>
-                          <div class="input-wrap">
-                            <span>$</span
-                            ><input
-                              id="known-cpf-extra"
-                              name="cpfExtra"
-                              type="number"
-                              min="0"
-                              max="1000000"
-                              step="any"
-                              inputmode="decimal"
-                              aria-describedby="cpf-extra-help"
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            data-adjust="known-cpf-extra"
-                            data-delta="50"
-                            aria-label="Increase extra CPF saving by 50 dollars"
-                          >
-                            +
-                          </button>
-                        </div>
-                        <small id="cpf-extra-help"
-                          >On top of salary CPF. Stops by 55 or retirement.
-                          Leave blank for the suggested amount.</small
-                        >
-                      </div>
-                      <div class="field">
-                        <label for="sim-cash-saving"
-                          >Monthly planned savings (HYSA / SSB)</label
-                        >
-                        <div class="saving-stepper">
-                          <button
-                            type="button"
-                            data-adjust="sim-cash-saving"
-                            data-delta="-50"
-                            aria-label="Decrease monthly planned savings by 50 dollars"
-                          >
-                            −
-                          </button>
-                          <div class="input-wrap">
-                            <span>$</span
-                            ><input
-                              id="sim-cash-saving"
-                              name="cashSavingSimulation"
-                              type="number"
-                              min="0"
-                              max="1000000"
-                              step="any"
-                              inputmode="decimal"
-                              placeholder="0"
-                              aria-describedby="sim-cash-saving-help"
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            data-adjust="sim-cash-saving"
-                            data-delta="50"
-                            aria-label="Increase monthly planned savings by 50 dollars"
-                          >
-                            +
-                          </button>
-                        </div>
-                        <small id="sim-cash-saving-help"
-                          >Compounds at your projected HYSA / SSB interest
-                          rate.</small
-                        >
-                      </div>
-                      <div class="field">
-                        <label for="sim-invest"
-                          >Monthly planned investment (Outside
-                          investments)</label
-                        >
-                        <div class="saving-stepper">
-                          <button
-                            type="button"
-                            data-adjust="sim-invest"
-                            data-delta="-50"
-                            aria-label="Decrease outside investment by 50 dollars"
-                          >
-                            −
-                          </button>
-                          <div class="input-wrap">
-                            <span>$</span
-                            ><input
-                              id="sim-invest"
-                              name="investmentSimulation"
-                              type="number"
-                              min="0"
-                              max="1000000"
-                              step="any"
-                              inputmode="decimal"
-                              aria-describedby="sim-invest-help"
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            data-adjust="sim-invest"
-                            data-delta="50"
-                            aria-label="Increase outside investment by 50 dollars"
-                          >
-                            +
-                          </button>
-                        </div>
-                        <small id="sim-invest-help"
-                          >Separate from CPF (HYSA, SSBs, SRS, ETFs). Leave
-                          blank for the suggested amount.</small
-                        >
-                      </div>
-                      <div class="field">
-                        <label for="sim-bridge-income"
-                          >Part-time / Barista income before 65</label
-                        >
-                        <div class="saving-stepper">
-                          <button
-                            type="button"
-                            data-adjust="sim-bridge-income"
-                            data-delta="-100"
-                            aria-label="Decrease bridge income by 100 dollars"
-                          >
-                            −
-                          </button>
-                          <div class="input-wrap">
-                            <span>$</span
-                            ><input
-                              id="sim-bridge-income"
-                              name="bridgeIncomeSimulation"
-                              type="number"
-                              min="0"
-                              max="1000000"
-                              step="any"
-                              inputmode="decimal"
-                              placeholder="0"
-                              aria-describedby="sim-bridge-help"
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            data-adjust="sim-bridge-income"
-                            data-delta="100"
-                            aria-label="Increase bridge income by 100 dollars"
-                          >
-                            +
-                          </button>
-                        </div>
-                        <small id="sim-bridge-help"
-                          >Optional monthly income (today’s $) earned from
-                          retirement age until 65 before CPF LIFE starts.</small
-                        >
-                      </div>
-                    </div>
-                    <div class="sim-controls-actions">
-                      <button
-                        type="button"
-                        id="sim-use-target"
-                        class="text-button"
-                      >
-                        Reset to suggested amounts
-                      </button>
-                    </div>
-                    <div id="simulation-results"></div>
-                  </div>
 
                   <section
                     class="trajectory-section card-surface"
@@ -1657,8 +1541,8 @@
                         </h2>
                         <p class="trajectory-desc">
                           Monthly spending, CPF LIFE payouts and outside
-                          portfolio balance through age 90, in today’s
-                          purchasing power.
+                          portfolio balance over your planning horizon, in
+                          today’s purchasing power.
                         </p>
                       </div>
                       <div class="trajectory-controls">
@@ -1786,6 +1670,209 @@
                       </div>
                     </details>
                   </section>
+
+                  <details
+                    class="sim-controls-card card-surface"
+                    id="trajectory-saving-controls"
+                  >
+                    <summary class="planner-summary">
+                      Adjust monthly savings
+                    </summary>
+                    <div class="field-grid">
+                      <div class="field">
+                        <label for="known-cpf-extra"
+                          >Extra CPF saving each month</label
+                        >
+                        <div class="saving-stepper">
+                          <button
+                            type="button"
+                            data-adjust="known-cpf-extra"
+                            data-delta="-50"
+                            aria-label="Decrease extra CPF saving by 50 dollars"
+                          >
+                            −
+                          </button>
+                          <div class="input-wrap">
+                            <span>$</span
+                            ><input
+                              id="known-cpf-extra"
+                              name="cpfExtra"
+                              type="number"
+                              min="0"
+                              max="1000000"
+                              step="any"
+                              inputmode="decimal"
+                              aria-describedby="cpf-extra-help"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            data-adjust="known-cpf-extra"
+                            data-delta="50"
+                            aria-label="Increase extra CPF saving by 50 dollars"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <small id="cpf-extra-help"
+                          >On top of salary CPF. Stops by 55 or retirement.
+                          Leave blank for the suggested amount.</small
+                        ><button
+                          type="button"
+                          class="text-button"
+                          data-use-suggested="known-cpf-extra"
+                          hidden
+                        >
+                          Use suggested
+                        </button>
+                      </div>
+                      <div class="field">
+                        <label for="sim-cash-saving"
+                          >Monthly planned savings (HYSA / SSB)</label
+                        >
+                        <div class="saving-stepper">
+                          <button
+                            type="button"
+                            data-adjust="sim-cash-saving"
+                            data-delta="-50"
+                            aria-label="Decrease monthly planned savings by 50 dollars"
+                          >
+                            −
+                          </button>
+                          <div class="input-wrap">
+                            <span>$</span
+                            ><input
+                              id="sim-cash-saving"
+                              name="cashSavingSimulation"
+                              type="number"
+                              min="0"
+                              max="1000000"
+                              step="any"
+                              inputmode="decimal"
+                              placeholder="0"
+                              aria-describedby="sim-cash-saving-help"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            data-adjust="sim-cash-saving"
+                            data-delta="50"
+                            aria-label="Increase monthly planned savings by 50 dollars"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <small id="sim-cash-saving-help"
+                          >Compounds at your projected HYSA / SSB interest
+                          rate.</small
+                        ><button
+                          type="button"
+                          class="text-button"
+                          data-use-suggested="known-cash-saving"
+                          hidden
+                        >
+                          Use suggested
+                        </button>
+                      </div>
+                      <div class="field">
+                        <label for="sim-invest"
+                          >Monthly planned investment (Outside
+                          investments)</label
+                        >
+                        <div class="saving-stepper">
+                          <button
+                            type="button"
+                            data-adjust="sim-invest"
+                            data-delta="-50"
+                            aria-label="Decrease outside investment by 50 dollars"
+                          >
+                            −
+                          </button>
+                          <div class="input-wrap">
+                            <span>$</span
+                            ><input
+                              id="sim-invest"
+                              name="investmentSimulation"
+                              type="number"
+                              min="0"
+                              max="1000000"
+                              step="any"
+                              inputmode="decimal"
+                              aria-describedby="sim-invest-help"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            data-adjust="sim-invest"
+                            data-delta="50"
+                            aria-label="Increase outside investment by 50 dollars"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <small id="sim-invest-help"
+                          >Separate from CPF (HYSA, SSBs, SRS, ETFs). Leave
+                          blank for the suggested amount.</small
+                        ><button
+                          type="button"
+                          class="text-button"
+                          data-use-suggested="known-invest"
+                          hidden
+                        >
+                          Use suggested
+                        </button>
+                      </div>
+                      <div class="field">
+                        <label for="sim-bridge-income"
+                          >Part-time / Barista income before 65</label
+                        >
+                        <div class="saving-stepper">
+                          <button
+                            type="button"
+                            data-adjust="sim-bridge-income"
+                            data-delta="-100"
+                            aria-label="Decrease bridge income by 100 dollars"
+                          >
+                            −
+                          </button>
+                          <div class="input-wrap">
+                            <span>$</span
+                            ><input
+                              id="sim-bridge-income"
+                              name="bridgeIncomeSimulation"
+                              type="number"
+                              min="0"
+                              max="1000000"
+                              step="any"
+                              inputmode="decimal"
+                              placeholder="0"
+                              aria-describedby="sim-bridge-help"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            data-adjust="sim-bridge-income"
+                            data-delta="100"
+                            aria-label="Increase bridge income by 100 dollars"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <small id="sim-bridge-help"
+                          >Optional monthly income (today’s $) earned from
+                          retirement age until 65 before CPF LIFE starts.</small
+                        ><button
+                          type="button"
+                          class="text-button"
+                          data-use-suggested="known-bridge-income"
+                          hidden
+                        >
+                          Use suggested
+                        </button>
+                      </div>
+                    </div>
+                  </details>
+                  <div id="simulation-results"></div>
 
                   <p
                     id="simulation-status"
@@ -1939,7 +2026,7 @@
                     Overview
                   </button>
                   <span class="ui-breadcrumb-sep" aria-hidden="true">/</span>
-                  <span class="ui-breadcrumb-group">Tax &amp; Rules</span>
+                  <span class="ui-breadcrumb-group">Tax &amp; CPF</span>
                   <span class="ui-breadcrumb-sep" aria-hidden="true">/</span>
                   <span class="ui-breadcrumb-cur" aria-current="page"
                     >Tax Relief</span
@@ -1948,7 +2035,7 @@
                 <div
                   class="rules-subtabs"
                   role="tablist"
-                  aria-label="Tax &amp; Rules sections"
+                  aria-label="Tax &amp; CPF sections"
                 >
                   <button
                     type="button"
@@ -1990,7 +2077,7 @@
                     Overview
                   </button>
                   <span class="ui-breadcrumb-sep" aria-hidden="true">/</span>
-                  <span class="ui-breadcrumb-group">Tax &amp; Rules</span>
+                  <span class="ui-breadcrumb-group">Tax &amp; CPF</span>
                   <span class="ui-breadcrumb-sep" aria-hidden="true">/</span>
                   <span class="ui-breadcrumb-cur" aria-current="page"
                     >CPF Milestones</span
@@ -1999,7 +2086,7 @@
                 <div
                   class="rules-subtabs"
                   role="tablist"
-                  aria-label="Tax &amp; Rules sections"
+                  aria-label="Tax &amp; CPF sections"
                 >
                   <button
                     type="button"
@@ -2136,7 +2223,7 @@
           />
           <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4" />
         </svg>
-        <span>Cash</span>
+        <span>Cash Parking</span>
       </button>
       <button
         type="button"
@@ -2161,7 +2248,7 @@
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
           <path d="m9 12 2 2 4-4" />
         </svg>
-        <span>Tax &amp; CPF</span>
+        <span>Tax Relief</span>
       </button>
     </nav>
 
@@ -2295,11 +2382,10 @@
               <label for="known-longevity">Longevity planning horizon</label>
               <div class="input-wrap select-wrap">
                 <select id="known-longevity">
-                  <option value="" selected>Age 95 (Default horizon)</option>
-                  <option value="85">Age 85 (Shorter horizon)</option>
-                  <option value="90">Age 90 (Standard baseline)</option>
-                  <option value="95">Age 95 (Extended horizon)</option>
-                  <option value="100">Age 100 (Centenarian)</option>
+                  <option value="85">Age 85</option>
+                  <option value="90">Age 90</option>
+                  <option value="" selected>Age 95 (default)</option>
+                  <option value="100">Age 100</option>
                 </select>
               </div>
               <small
@@ -2328,28 +2414,40 @@
                 retirement and age 65.</small
               >
             </div>
-          </div>
-          <div class="assumptions-baseline-note">
-            <strong>What preset budgets include</strong>
-            <p>
-              Both presets reflect typical Singapore living costs: $800/mo for
-              food and dining, AIA HealthShield Gold Max A with VitalHealth Pro
-              A ($153/mo at age 35: $86 cash + $67 MediSave), GE Supreme
-              Multiplier Life with personal accident and term cover, HDB fire
-              and home insurance, utilities, fibre broadband and streaming,
-              daily supplements ($35/mo), home maintenance and aircon servicing
-              ($120–$150/mo), and an annual travel and contingency reserve
-              ($410–$540/mo), plus either the CCA Basic Service Package
-              ($175/mo) or a live-in helper ($1,230/mo including levy).
-              Projections automatically step up HealthShield Max A + VitalHealth
-              Pro A across older age brackets ($153/mo at 35 → $621/mo at 65 →
-              $1,216/mo at 75 → $1,730/mo at 85 in today’s $) while GE Supreme
-              Multiplier and term/personal accident cover finish by retirement.
-            </p>
+            <div class="field">
+              <label for="cash-yield-assumption"
+                >Projected cash yield (% p.a.)</label
+              >
+              <div class="input-wrap">
+                <input
+                  id="cash-yield-assumption"
+                  type="number"
+                  min="0"
+                  max="15"
+                  aria-describedby="cash-yield-error"
+                  step="any"
+                  inputmode="decimal"
+                  placeholder="Automatic"
+                />
+              </div>
+              <p
+                id="cash-yield-error"
+                class="settings-error"
+                role="status"
+                hidden
+              >
+                Enter a yield from 0% to 15%.
+              </p>
+              <small
+                >Leave blank to use the SSB rate or the blended rate from your
+                cash accounts.</small
+              >
+            </div>
           </div>
         </div>
-        <input id="known-cash-saving" type="hidden" value="" />
         <input id="known-cash-return" type="hidden" value="" />
+        <input id="known-cash-saving" type="hidden" value="" />
+
         <input id="known-invest" type="hidden" value="" />
         <input id="known-savings" type="hidden" value="" />
         <p id="settings-error" class="settings-error" role="status"></p>
@@ -2363,23 +2461,18 @@
           aria-atomic="true"
         ></p>
         <div class="qe-footer-actions">
-          <button type="button" class="text-button" id="reset-settings">
-            Reset assumptions
-          </button>
-          <button
-            type="button"
-            class="button button-small"
-            data-settings-cancel
-          >
-            Cancel
-          </button>
+          <span
+            class="plan-save-status"
+            data-plan-save-status
+            role="status"
+          ></span>
           <button
             type="button"
             class="button button-primary"
             commandfor="plan-settings"
             command="close"
           >
-            Done
+            Close
           </button>
         </div>
       </div>
@@ -2404,29 +2497,6 @@
         </button>
       </div>
       <div class="settings-scroll-body">
-        <div id="qe-panel-age" class="qe-panel" hidden>
-          <div class="qe-stack">
-            <div class="qe-field">
-              <div class="dob-label-row">
-                <label for="qe-dob">Date of birth</label>
-                <span
-                  class="dob-age-pill"
-                  id="qe-dob-age-badge"
-                  aria-live="polite"
-                  >Age 35</span
-                >
-              </div>
-              <div class="input-wrap dob-input-wrap">
-                <input id="qe-dob" type="date" />
-              </div>
-              <p class="qe-hint" id="qe-dob-hint">
-                Age 35 · Supports ages 18–54. Target retirement age adjusts
-                automatically if needed.
-              </p>
-            </div>
-          </div>
-        </div>
-
         <div id="qe-panel-goal" class="qe-panel">
           <div class="qe-stack">
             <div class="qe-field">
@@ -2545,65 +2615,49 @@
                   +
                 </button>
               </div>
-              <div
-                class="qe-picker-chips"
-                role="group"
-                aria-label="Quick monthly salary presets"
-              >
-                <button
-                  type="button"
-                  class="qe-picker-chip"
-                  data-qe-pick-salary="4500"
+              <details class="qe-presets">
+                <summary class="planner-summary">Salary presets</summary>
+                <div
+                  class="qe-picker-chips"
+                  role="group"
+                  aria-label="Quick monthly salary presets"
                 >
-                  $4,500
-                </button>
-                <button
-                  type="button"
-                  class="qe-picker-chip"
-                  data-qe-pick-salary="5500"
-                >
-                  $5,500
-                </button>
-                <button
-                  type="button"
-                  class="qe-picker-chip"
-                  data-qe-pick-salary="8000"
-                >
-                  $8,000 · CPF Cap
-                </button>
-                <button
-                  type="button"
-                  class="qe-picker-chip"
-                  data-qe-pick-salary="12000"
-                >
-                  $12,000
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    class="qe-picker-chip"
+                    data-qe-pick-salary="4500"
+                  >
+                    $4,500
+                  </button>
+                  <button
+                    type="button"
+                    class="qe-picker-chip"
+                    data-qe-pick-salary="5500"
+                  >
+                    $5,500
+                  </button>
+                  <button
+                    type="button"
+                    class="qe-picker-chip"
+                    data-qe-pick-salary="8000"
+                  >
+                    $8,000 · CPF Cap
+                  </button>
+                  <button
+                    type="button"
+                    class="qe-picker-chip"
+                    data-qe-pick-salary="12000"
+                  >
+                    $12,000
+                  </button>
+                </div>
+              </details>
               <p class="qe-hint">Before employee CPF ($8,000 OW ceiling).</p>
               <div
                 class="qe-salary-split"
                 id="qe-salary-takehome"
                 aria-live="polite"
               ></div>
-            </div>
-            <div class="qe-field">
-              <label for="qe-annual-bonus">Annual bonus / AWS ($/yr)</label>
-              <div class="input-wrap">
-                <span>$</span>
-                <input
-                  id="qe-annual-bonus"
-                  type="number"
-                  min="0"
-                  max="1000000000"
-                  step="any"
-                  placeholder="0"
-                  inputmode="decimal"
-                />
-              </div>
-              <p class="qe-hint">
-                Used for IRAS tax bracket &amp; $102,000 annual CPF salary
-                ceiling check.
-              </p>
             </div>
           </div>
         </div>
@@ -2650,13 +2704,6 @@
                 <button
                   type="button"
                   class="qe-picker-chip"
-                  data-qe-pick-cpf-extra=""
-                >
-                  Path target
-                </button>
-                <button
-                  type="button"
-                  class="qe-picker-chip"
                   data-qe-pick-cpf-extra="0"
                 >
                   $0/mo
@@ -2680,6 +2727,12 @@
                 Leave blank for target path suggestion. Compounds at 4.0% p.a.
                 in SA / RA.
               </p>
+              <p
+                id="qe-cpf-extra-warning"
+                class="qe-saving-warning settings-error"
+                role="status"
+                hidden
+              ></p>
               <div
                 class="qe-salary-split"
                 id="qe-cpf-extra-summary"
@@ -2689,10 +2742,11 @@
             <div class="qe-income-actions">
               <button
                 type="button"
-                id="qe-cpf-extra-reset"
-                class="fin-link-pill qe-reset-pill"
+                class="text-button"
+                data-use-suggested="known-cpf-extra"
+                hidden
               >
-                Reset to path suggestion
+                Use suggested
               </button>
             </div>
           </div>
@@ -2771,96 +2825,27 @@
               <p class="qe-hint" id="qe-cash-saving-hint">
                 Stays in cash / SSB. Separate from outside investments.
               </p>
+              <p
+                id="qe-cash-saving-warning"
+                class="qe-saving-warning settings-error"
+                role="status"
+                hidden
+              ></p>
             </div>
-            <div class="qe-field">
-              <label for="qe-cash-return"
-                >Projected HYSA / SSB interest rate (% p.a.)</label
-              >
-              <div class="saving-stepper">
-                <button
-                  type="button"
-                  data-qe-cash-rate-delta="-0.1"
-                  aria-label="Decrease HYSA interest rate by 0.1 percent"
-                >
-                  −
-                </button>
-                <div class="input-wrap">
-                  <input
-                    id="qe-cash-return"
-                    type="number"
-                    min="0"
-                    max="15"
-                    step="0.05"
-                    placeholder="2.39"
-                    inputmode="decimal"
-                  />
-                  <span>% p.a.</span>
-                </div>
-                <button
-                  type="button"
-                  data-qe-cash-rate-delta="0.1"
-                  aria-label="Increase HYSA interest rate by 0.1 percent"
-                >
-                  +
-                </button>
-              </div>
-              <div
-                class="qe-picker-chips"
-                role="group"
-                aria-label="Quick HYSA interest rate presets"
-              >
-                <button
-                  type="button"
-                  class="qe-picker-chip"
-                  data-qe-pick-cash-rate=""
-                >
-                  Auto (SSB / Bank)
-                </button>
-                <button
-                  type="button"
-                  class="qe-picker-chip"
-                  data-qe-pick-cash-rate="2"
-                >
-                  2.00%
-                </button>
-                <button
-                  type="button"
-                  class="qe-picker-chip"
-                  data-qe-pick-cash-rate="2.39"
-                >
-                  2.39% · SSB 10Y
-                </button>
-                <button
-                  type="button"
-                  class="qe-picker-chip"
-                  data-qe-pick-cash-rate="3"
-                >
-                  3.00%
-                </button>
-                <button
-                  type="button"
-                  class="qe-picker-chip"
-                  data-qe-pick-cash-rate="3.5"
-                >
-                  3.50%
-                </button>
-              </div>
-              <p class="qe-hint" id="qe-cash-return-hint">
-                Leave blank for live SSB / tiered bank EIR.
-              </p>
-              <div
-                class="qe-salary-split"
-                id="qe-cash-saving-summary"
-                aria-live="polite"
-              ></div>
-            </div>
+            <div
+              class="qe-salary-split"
+              id="qe-cash-saving-summary"
+              aria-live="polite"
+            ></div>
+
             <div class="qe-income-actions">
               <button
                 type="button"
-                id="qe-cash-saving-reset"
-                class="fin-link-pill qe-reset-pill"
+                class="text-button"
+                data-use-suggested="known-cash-saving"
+                hidden
               >
-                Reset savings &amp; rate to default
+                Use suggested
               </button>
             </div>
           </div>
@@ -2910,13 +2895,6 @@
                 <button
                   type="button"
                   class="qe-picker-chip"
-                  data-qe-pick-invest=""
-                >
-                  Suggested target
-                </button>
-                <button
-                  type="button"
-                  class="qe-picker-chip"
                   data-qe-pick-invest="500"
                 >
                   $500/mo
@@ -2939,33 +2917,24 @@
               <p class="qe-hint" id="qe-invest-hint">
                 Leave blank for suggested saving target.
               </p>
+              <p
+                id="qe-invest-warning"
+                class="qe-saving-warning settings-error"
+                role="status"
+                hidden
+              ></p>
             </div>
-            <div class="bogle-funnel qe-invest-funnel">
-              <div class="bogle-funnel-stage is-stage-1">
-                <div class="bogle-funnel-head">
-                  <div class="bogle-funnel-title-wrap">
-                    <span class="bogle-step-badge">Step 1 · Total Split</span>
-                    <label for="qe-target-equity"
-                      >Target Equity / Bond Split</label
-                    >
-                  </div>
-                  <strong
-                    class="bogle-funnel-readout"
-                    id="qe-target-equity-readout"
-                    >80% Equity · 20% Bond</strong
-                  >
-                </div>
-                <div class="bogle-stage1-bar" aria-hidden="true">
-                  <span id="qe-stage1-eq-bar"></span>
-                  <span id="qe-stage1-bond-bar"></span>
-                </div>
-                <div class="bogle-funnel-controls">
+            <div class="allocation-editor">
+              <div id="qe-allocation-mix"></div>
+              <div class="allocation-controls">
+                <div>
+                  <label for="qe-target-equity">Equity (% of portfolio)</label>
                   <div class="saving-stepper bogle-stepper">
                     <button
                       type="button"
                       data-bogle-step="known-target-equity"
                       data-delta="-5"
-                      aria-label="Decrease target equity by 5 percent"
+                      aria-label="Decrease Equity (% of portfolio) by 5 points"
                     >
                       −
                     </button>
@@ -2978,124 +2947,85 @@
                         step="1"
                         value="80"
                         inputmode="numeric"
-                      />
-                      <span id="qe-target-equity-suffix"
-                        >% Equity (20% Bond)</span
-                      >
+                      /><span>%</span>
                     </div>
                     <button
                       type="button"
                       data-bogle-step="known-target-equity"
                       data-delta="5"
-                      aria-label="Increase target equity by 5 percent"
+                      aria-label="Increase Equity (% of portfolio) by 5 points"
                     >
                       +
                     </button>
                   </div>
-                  <div
-                    class="qe-picker-chips bogle-funnel-chips"
-                    role="group"
-                    aria-label="Target equity and bond split presets"
-                  >
-                    <button
-                      type="button"
-                      class="qe-picker-chip"
-                      data-bogle-preset="known-target-equity"
-                      data-val="0"
+                  <details class="allocation-presets">
+                    <summary class="planner-summary">Equity presets</summary>
+                    <div
+                      class="qe-picker-chips"
+                      role="group"
+                      aria-label="Equity presets"
                     >
-                      0/100
-                    </button>
-                    <button
-                      type="button"
-                      class="qe-picker-chip"
-                      data-bogle-preset="known-target-equity"
-                      data-val="50"
-                    >
-                      50/50
-                    </button>
-                    <button
-                      type="button"
-                      class="qe-picker-chip"
-                      data-bogle-preset="known-target-equity"
-                      data-val="60"
-                    >
-                      60/40
-                    </button>
-                    <button
-                      type="button"
-                      class="qe-picker-chip"
-                      data-bogle-preset="known-target-equity"
-                      data-val="70"
-                    >
-                      70/30
-                    </button>
-                    <button
-                      type="button"
-                      class="qe-picker-chip"
-                      data-bogle-preset="known-target-equity"
-                      data-val="80"
-                    >
-                      80/20
-                    </button>
-                    <button
-                      type="button"
-                      class="qe-picker-chip"
-                      data-bogle-preset="known-target-equity"
-                      data-val="90"
-                    >
-                      90/10
-                    </button>
-                    <button
-                      type="button"
-                      class="qe-picker-chip"
-                      data-bogle-preset="known-target-equity"
-                      data-val="100"
-                    >
-                      100/0
-                    </button>
-                  </div>
+                      <button
+                        type="button"
+                        class="qe-picker-chip"
+                        data-bogle-preset="known-target-equity"
+                        data-val="0"
+                      >
+                        0%</button
+                      ><button
+                        type="button"
+                        class="qe-picker-chip"
+                        data-bogle-preset="known-target-equity"
+                        data-val="50"
+                      >
+                        50%</button
+                      ><button
+                        type="button"
+                        class="qe-picker-chip"
+                        data-bogle-preset="known-target-equity"
+                        data-val="60"
+                      >
+                        60%</button
+                      ><button
+                        type="button"
+                        class="qe-picker-chip"
+                        data-bogle-preset="known-target-equity"
+                        data-val="70"
+                      >
+                        70%</button
+                      ><button
+                        type="button"
+                        class="qe-picker-chip"
+                        data-bogle-preset="known-target-equity"
+                        data-val="80"
+                      >
+                        80%</button
+                      ><button
+                        type="button"
+                        class="qe-picker-chip"
+                        data-bogle-preset="known-target-equity"
+                        data-val="90"
+                      >
+                        90%</button
+                      ><button
+                        type="button"
+                        class="qe-picker-chip"
+                        data-bogle-preset="known-target-equity"
+                        data-val="100"
+                      >
+                        100%
+                      </button>
+                    </div>
+                  </details>
                 </div>
-              </div>
-
-              <div class="bogle-funnel-connector" aria-hidden="true">
-                <span class="bogle-connector-elbow"></span>
-                <span
-                  class="bogle-connector-badge"
-                  id="qe-funnel-connector-text"
-                  >Subdivides your <strong>80% Equity Sleeve</strong> into
-                  Global vs SG Dividend</span
-                >
-              </div>
-
-              <div class="bogle-funnel-stage is-stage-2" id="qe-funnel-stage-2">
-                <div class="bogle-funnel-head">
-                  <div class="bogle-funnel-title-wrap">
-                    <span class="bogle-step-badge is-sub" id="qe-stage2-badge"
-                      >Step 2 · Inside 80% Equity</span
-                    >
-                    <label for="qe-sg-sleeve"
-                      >Equity Sleeve Split (Global / SG Dividend)</label
-                    >
-                  </div>
-                  <div class="bogle-funnel-readout-group">
-                    <strong
-                      class="bogle-funnel-readout"
-                      id="qe-sg-sleeve-readout"
-                      >85% Global / 15% SG
-                      <span class="bogle-of-eq">of Eq</span></strong
-                    >
-                    <span class="bogle-effective-pill" id="qe-sg-effective-pill"
-                      >= 68% Global · 12% SG of total</span
-                    >
-                  </div>
-                </div>
-                <div class="bogle-funnel-controls">
+                <div id="qe-sg-controls">
+                  <label for="qe-sg-sleeve">SG (% of equity)</label>
                   <div class="saving-stepper bogle-stepper">
                     <button
                       type="button"
                       data-bogle-step="known-sg-sleeve"
                       data-delta="-5"
-                      aria-label="Decrease SG dividend sleeve by 5 percent"
+                      aria-label="Decrease SG (% of equity) by 5 points"
                     >
                       −
                     </button>
@@ -3108,80 +3038,76 @@
                         step="1"
                         value="15"
                         inputmode="numeric"
-                      />
-                      <span id="qe-sg-sleeve-suffix">% SG (85% Global)</span>
+                      /><span>%</span>
                     </div>
                     <button
                       type="button"
                       data-bogle-step="known-sg-sleeve"
                       data-delta="5"
-                      aria-label="Increase SG dividend sleeve by 5 percent"
+                      aria-label="Increase SG (% of equity) by 5 points"
                     >
                       +
                     </button>
                   </div>
-                  <div
-                    class="qe-picker-chips bogle-funnel-chips"
-                    role="group"
-                    aria-label="Global vs SG equity sleeve presets"
-                  >
-                    <button
-                      type="button"
-                      class="qe-picker-chip"
-                      data-bogle-preset="known-sg-sleeve"
-                      data-val="0"
+                  <details class="allocation-presets">
+                    <summary class="planner-summary">SG equity presets</summary>
+                    <div
+                      class="qe-picker-chips"
+                      role="group"
+                      aria-label="SG equity presets"
                     >
-                      100/0
-                    </button>
-                    <button
-                      type="button"
-                      class="qe-picker-chip"
-                      data-bogle-preset="known-sg-sleeve"
-                      data-val="10"
-                    >
-                      90/10
-                    </button>
-                    <button
-                      type="button"
-                      class="qe-picker-chip"
-                      data-bogle-preset="known-sg-sleeve"
-                      data-val="15"
-                    >
-                      85/15
-                    </button>
-                    <button
-                      type="button"
-                      class="qe-picker-chip"
-                      data-bogle-preset="known-sg-sleeve"
-                      data-val="20"
-                    >
-                      80/20
-                    </button>
-                    <button
-                      type="button"
-                      class="qe-picker-chip"
-                      data-bogle-preset="known-sg-sleeve"
-                      data-val="30"
-                    >
-                      70/30
-                    </button>
-                    <button
-                      type="button"
-                      class="qe-picker-chip"
-                      data-bogle-preset="known-sg-sleeve"
-                      data-val="50"
-                    >
-                      50/50
-                    </button>
-                    <button
-                      type="button"
-                      class="qe-picker-chip"
-                      data-bogle-preset="known-sg-sleeve"
-                      data-val="100"
-                    >
-                      0/100
-                    </button>
-                  </div>
+                      <button
+                        type="button"
+                        class="qe-picker-chip"
+                        data-bogle-preset="known-sg-sleeve"
+                        data-val="0"
+                      >
+                        0%</button
+                      ><button
+                        type="button"
+                        class="qe-picker-chip"
+                        data-bogle-preset="known-sg-sleeve"
+                        data-val="10"
+                      >
+                        10%</button
+                      ><button
+                        type="button"
+                        class="qe-picker-chip"
+                        data-bogle-preset="known-sg-sleeve"
+                        data-val="15"
+                      >
+                        15%</button
+                      ><button
+                        type="button"
+                        class="qe-picker-chip"
+                        data-bogle-preset="known-sg-sleeve"
+                        data-val="20"
+                      >
+                        20%</button
+                      ><button
+                        type="button"
+                        class="qe-picker-chip"
+                        data-bogle-preset="known-sg-sleeve"
+                        data-val="30"
+                      >
+                        30%</button
+                      ><button
+                        type="button"
+                        class="qe-picker-chip"
+                        data-bogle-preset="known-sg-sleeve"
+                        data-val="50"
+                      >
+                        50%</button
+                      ><button
+                        type="button"
+                        class="qe-picker-chip"
+                        data-bogle-preset="known-sg-sleeve"
+                        data-val="100"
+                      >
+                        100%
+                      </button>
+                    </div>
+                  </details>
                 </div>
               </div>
             </div>
@@ -3193,288 +3119,16 @@
             <div class="qe-income-actions">
               <button
                 type="button"
-                id="qe-invest-reset"
-                class="fin-link-pill qe-reset-pill"
+                class="text-button"
+                data-use-suggested="known-invest"
+                hidden
               >
-                Reset to suggested investment &amp; split
+                Use suggested
               </button>
             </div>
           </div>
         </div>
 
-        <div id="qe-panel-income" class="qe-panel" hidden>
-          <div class="qe-stack">
-            <div class="qe-field housing-calc-box is-compact">
-              <label for="qe-housing-mode">Housing loan (from CPF OA)</label>
-              <div class="input-wrap select-wrap">
-                <select id="qe-housing-mode">
-                  <option value="all-oa">All new salary OA (if unsure)</option>
-                  <option value="hdb">HDB loan (2.6% p.a.)</option>
-                  <option value="bank">Bank loan (custom rate)</option>
-                  <option value="paid-up">
-                    Paid up / Paid in cash ($0 OA)
-                  </option>
-                  <option value="custom">Manual monthly OA ($/mo)</option>
-                </select>
-              </div>
-              <div
-                class="housing-loan-grid is-compact"
-                id="qe-housing-loan-fields"
-                hidden
-              >
-                <div class="qe-sub-field">
-                  <label for="qe-housing-balance">Loan left</label>
-                  <div class="input-wrap">
-                    <span>$</span>
-                    <input
-                      id="qe-housing-balance"
-                      type="number"
-                      min="0"
-                      max="10000000"
-                      step="any"
-                      placeholder="e.g. 300000"
-                      inputmode="decimal"
-                    />
-                  </div>
-                </div>
-                <div class="qe-sub-field">
-                  <label for="qe-housing-years">Years left</label>
-                  <div class="input-wrap">
-                    <input
-                      id="qe-housing-years"
-                      type="number"
-                      min="1"
-                      max="40"
-                      step="1"
-                      value="20"
-                      inputmode="numeric"
-                    />
-                    <span class="input-suffix">yrs</span>
-                  </div>
-                </div>
-                <div class="qe-sub-field">
-                  <label for="qe-housing-rate">Interest (% p.a.)</label>
-                  <div class="input-wrap">
-                    <input
-                      id="qe-housing-rate"
-                      type="number"
-                      min="0"
-                      max="15"
-                      step="0.05"
-                      value="2.6"
-                      inputmode="decimal"
-                    />
-                    <span class="input-suffix">%</span>
-                  </div>
-                </div>
-                <div class="qe-sub-field">
-                  <label for="qe-housing-parties">Split across</label>
-                  <div class="input-wrap select-wrap">
-                    <select id="qe-housing-parties">
-                      <option value="1" selected>1 party (sole)</option>
-                      <option value="2">2 parties</option>
-                      <option value="3">3 parties</option>
-                      <option value="4">4 parties</option>
-                      <option value="5">5 parties</option>
-                      <option value="6">6 parties</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-              <div class="qe-sub-field" id="qe-housing-custom-field" hidden>
-                <label for="qe-housing">Monthly housing from OA</label>
-                <div class="input-wrap">
-                  <span>$</span>
-                  <input
-                    id="qe-housing"
-                    type="number"
-                    min="0"
-                    max="1000000"
-                    step="any"
-                    placeholder="0"
-                    inputmode="decimal"
-                  />
-                </div>
-              </div>
-              <p
-                class="housing-calc-preview"
-                id="qe-housing-preview"
-                aria-live="polite"
-              ></p>
-            </div>
-          </div>
-        </div>
-
-        <div id="qe-panel-balances" class="qe-panel" hidden>
-          <div id="qe-balances-breakdown" class="qe-breakdown-bar"></div>
-          <div class="qe-balance-sections">
-            <section class="qe-balance-section">
-              <h3 class="qe-balance-section-title">CPF Accounts</h3>
-              <div class="qe-balance-field-grid">
-            <div class="qe-field">
-              <label for="qe-oa">Ordinary Account (OA)</label>
-              <div class="input-wrap">
-                <span>$</span>
-                <input
-                  id="qe-oa"
-                  type="text"
-                  min="0"
-                  max="1000000000"
-                  step="any"
-                  placeholder="0"
-                  inputmode="numeric"
-                />
-              </div>
-            </div>
-            <div class="qe-field">
-              <label for="qe-sa">Special Account (SA)</label>
-              <div class="input-wrap">
-                <span>$</span>
-                <input
-                  id="qe-sa"
-                  type="text"
-                  min="0"
-                  max="1000000000"
-                  step="any"
-                  placeholder="0"
-                  inputmode="numeric"
-                />
-              </div>
-            </div>
-            <div class="qe-field">
-              <label for="qe-ma">MediSave (MA)</label>
-              <div class="input-wrap">
-                <span>$</span>
-                <input
-                  id="qe-ma"
-                  type="text"
-                  min="0"
-                  max="1000000000"
-                  step="any"
-                  placeholder="0"
-                  inputmode="numeric"
-                />
-              </div>
-            </div>
-            <div class="qe-field">
-              <label for="qe-sa-invested">CPFIS-SA Investments</label>
-              <div class="input-wrap">
-                <span>$</span>
-                <input
-                  id="qe-sa-invested"
-                  type="text"
-                  min="0"
-                  max="1000000000"
-                  step="any"
-                  placeholder="0"
-                  inputmode="numeric"
-                />
-              </div>
-            </div>
-              </div>
-            </section>
-
-            <section class="qe-balance-section">
-              <h3 class="qe-balance-section-title">Investments &amp; Cash</h3>
-              <div class="qe-balance-field-grid">
-            <div class="qe-field">
-              <label for="qe-equities">Global Equities (VWRA / ISAC)</label>
-              <div class="input-wrap">
-                <span>$</span>
-                <input
-                  id="qe-equities"
-                  type="text"
-                  min="0"
-                  max="1000000000"
-                  step="any"
-                  placeholder="0"
-                  inputmode="numeric"
-                />
-              </div>
-            </div>
-            <div class="qe-field">
-              <label for="qe-sg-dividends">SG Dividends (STI / REITs)</label>
-              <div class="input-wrap">
-                <span>$</span>
-                <input
-                  id="qe-sg-dividends"
-                  type="text"
-                  min="0"
-                  max="1000000000"
-                  step="any"
-                  placeholder="0"
-                  inputmode="numeric"
-                />
-              </div>
-            </div>
-            <div class="qe-field qe-cash-section qe-span-full">
-              <div class="qe-cash-single-wrap" id="qe-cash-single-wrap">
-                <div class="qe-cash-head-row">
-                  <label for="qe-ssb-cash"
-                    >SSB / T-Bills / High-Yield Cash</label
-                  >
-                  <button
-                    type="button"
-                    class="text-button settings-inline-action"
-                    id="qe-cash-breakdown-btn"
-                    data-cash-acc-toggle-qe
-                  >
-                    Break down by bank &amp; SSB accounts →
-                  </button>
-                </div>
-                <div class="input-wrap">
-                  <span>$</span>
-                  <input
-                    id="qe-ssb-cash"
-                    type="text"
-                    min="0"
-                    max="1000000000"
-                    step="any"
-                    placeholder="0"
-                    inputmode="numeric"
-                  />
-                </div>
-              </div>
-              <div id="qe-cash-accounts-slot"></div>
-            </div>
-              </div>
-            </section>
-
-            <section class="qe-balance-section" id="qe-srs-section">
-              <h3 class="qe-balance-section-title">SRS (Optional)</h3>
-              <div class="qe-balance-field-grid">
-                <div class="qe-field">
-                  <label for="qe-srs">SRS Balance</label>
-                  <div class="input-wrap">
-                    <span>$</span>
-                    <input
-                      id="qe-srs"
-                      type="text"
-                      min="0"
-                      max="1000000000"
-                      step="any"
-                      placeholder="0"
-                      inputmode="numeric"
-                    />
-                  </div>
-                </div>
-                <div class="qe-field" id="qe-srs-invested-wrap">
-                  <label for="qe-srs-invested">SRS Allocation</label>
-                  <div class="input-wrap select-wrap">
-                    <select id="qe-srs-invested">
-                      <option value="global" selected>
-                        Global Equity Index Funds
-                      </option>
-                      <option value="balanced">Balanced 60/40 Portfolio</option>
-                      <option value="ssb">SSB / T-Bills</option>
-                      <option value="cash">Uninvested Cash (0.05% p.a.)</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </section>
-          </div>
-        </div>
         <p id="qe-error" class="settings-error" role="status" hidden></p>
       </div>
       <div class="settings-footer qe-footer">
@@ -3486,14 +3140,17 @@
           aria-atomic="true"
         ></p>
         <div class="qe-footer-actions">
+          <span
+            class="plan-save-status"
+            data-plan-save-status
+            role="status"
+          ></span>
           <button type="button" class="text-button" id="qe-open-full-settings">
             All settings →
           </button>
-          <button type="button" class="button button-small" data-qe-cancel>
-            Cancel
-          </button>
+
           <button type="button" class="button button-primary" data-qe-close>
-            Done
+            Close
           </button>
         </div>
       </div>
@@ -3506,9 +3163,7 @@
     >
       <div class="settings-head">
         <div>
-          <h2 id="expense-modal-title">
-            Retirement Living Budget &amp; Target
-          </h2>
+          <h2 id="expense-modal-title">Retirement Budget</h2>
         </div>
         <button
           class="dialog-dismiss"
@@ -3519,16 +3174,41 @@
           ×
         </button>
       </div>
-      <div class="settings-scroll-body" id="expense-modal-body"></div>
+      <div class="settings-scroll-body">
+        <div id="expense-modal-body"></div>
+        <details class="assumptions-baseline-note">
+          <summary class="planner-summary">What preset budgets include</summary>
+          <p>
+            Both presets reflect typical Singapore living costs: $800/mo for
+            food and dining, AIA HealthShield Gold Max A with VitalHealth Pro A
+            ($153/mo at age 35: $86 cash + $67 MediSave), GE Supreme Multiplier
+            Life with personal accident and term cover, HDB fire and home
+            insurance, utilities, fibre broadband and streaming, daily
+            supplements ($35/mo), home maintenance and aircon servicing
+            ($120–$150/mo), and an annual travel and contingency reserve
+            ($410–$540/mo), plus either the CCA Basic Service Package ($175/mo)
+            or a live-in helper ($1,230/mo including levy). Projections
+            automatically step up HealthShield Max A + VitalHealth Pro A across
+            older age brackets ($153/mo at 35 → $621/mo at 65 → $1,216/mo at 75
+            → $1,730/mo at 85 in today’s $) while GE Supreme Multiplier and
+            term/personal accident cover finish by retirement.
+          </p>
+        </details>
+      </div>
       <div class="settings-footer qe-footer">
         <p
           id="exp-modal-live-summary"
-          class="qe-live-summary"
+          class="sr-status"
           role="status"
           aria-live="polite"
           aria-atomic="true"
         ></p>
         <div class="qe-footer-actions">
+          <span
+            class="plan-save-status"
+            data-plan-save-status
+            role="status"
+          ></span>
           <button
             type="button"
             class="text-button"
@@ -3536,19 +3216,13 @@
           >
             All settings →
           </button>
-          <button
-            type="button"
-            class="button button-small"
-            data-exp-modal-cancel
-          >
-            Cancel
-          </button>
+
           <button
             type="button"
             class="button button-primary"
             data-exp-modal-close
           >
-            Done
+            Close
           </button>
         </div>
       </div>
@@ -3576,68 +3250,6 @@
         <path d="m5 12 7-7 7 7" />
       </svg>
     </button>
-    <dialog
-      id="confirm-reset-modal"
-      class="confirm-dialog"
-      aria-labelledby="confirm-reset-title"
-      aria-describedby="confirm-reset-desc"
-    >
-      <div class="confirm-dialog-card">
-        <div class="confirm-dialog-head">
-          <span class="confirm-dialog-icon" aria-hidden="true">
-            <svg
-              viewBox="0 0 24 24"
-              width="18"
-              height="18"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path
-                d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
-              />
-              <line x1="12" y1="9" x2="12" y2="13" />
-              <line x1="12" y1="17" x2="12.01" y2="17" />
-            </svg>
-          </span>
-          <h2 id="confirm-reset-title">Reset to Default Plan?</h2>
-          <button
-            class="dialog-dismiss confirm-dialog-close"
-            type="button"
-            data-confirm-reset-cancel
-            aria-label="Cancel reset"
-          >
-            ×
-          </button>
-        </div>
-        <p id="confirm-reset-desc" class="confirm-dialog-copy">
-          This will replace your current salary, CPF balances, investment
-          buckets, and custom living budget with the default Singapore age-35
-          illustration ($5,500/mo salary, $60,000 liquid assets, Community Care
-          preset).
-        </p>
-        <div class="confirm-dialog-actions">
-          <button
-            type="button"
-            class="button button-small"
-            data-confirm-reset-cancel
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            class="button button-small button-danger"
-            id="confirm-reset-accept"
-            data-confirm-reset-accept
-          >
-            Reset to defaults
-          </button>
-        </div>
-      </div>
-    </dialog>
 
     <div
       id="sr-status"
@@ -3656,7 +3268,10 @@
       hidden
     >
       <span class="ui-toast-dot" aria-hidden="true"></span>
-      <span id="ui-toast-text" class="ui-toast-text"></span>
+      <span id="ui-toast-text" class="ui-toast-text"></span
+      ><button type="button" class="text-button" data-toast-undo hidden>
+        Undo
+      </button>
       <button
         type="button"
         class="ui-toast-close"

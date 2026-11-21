@@ -1,7 +1,5 @@
 import {
-  $,
   formatFundedPct,
-  deriveReadinessSummary,
   money,
   m,
   signedM,
@@ -9,7 +7,6 @@ import {
   compactMoney,
   svgWrap,
   ICONS,
-  KPI_ICONS,
   escapeAttr,
 } from "./format.js";
 import { buildExpenseCardHTML } from "./views-expense.js";
@@ -350,28 +347,94 @@ export function buildFinReadinessGaugeSVG(
   </div>`;
 }
 
-export function buildOverviewPageHeader(fire) {
+export function getCappedSavings(value, overrides, simulation) {
+  let remaining = Math.max(0, Math.round(Number(value) || 0));
+  const capped = {};
+  for (const field of ["invest", "cashSaving", "cpfExtra"]) {
+    const current =
+      overrides[field] ??
+      simulation?.[field] ??
+      (field === "cashSaving" ? simulation?.summary?.params?.cashSaving : 0);
+    capped[field] = Math.min(
+      remaining,
+      Math.max(0, Math.round(Number(current) || 0)),
+    );
+    remaining = Math.max(0, remaining - capped[field]);
+  }
+  return capped;
+}
+
+function savingsRateBand(rate) {
+  if (rate > 85) return { label: "Critical", tone: "danger" };
+  if (rate > 50) return { label: "Stretched", tone: "warn" };
+  return { label: rate > 30 ? "Healthy" : "Comfortable", tone: "good" };
+}
+
+function savingsHealth(rate, cashflow) {
+  if (cashflow.leftAfterSave < 0)
+    return { label: "Exceeds pay", tone: "danger" };
+  if (cashflow.netCashSurplus < 0)
+    return { label: "Cash shortfall", tone: "danger" };
+  return savingsRateBand(rate);
+}
+
+function buildOverviewPageHeader({
+  fire,
+  r,
+  startingTotalAssets,
+  rate,
+  recommendation,
+}) {
   const fn = fire.fireNumber;
-  const pct = Math.min(150, Math.max(0, fn.pctFunded));
-  const onTrack = pct >= 100 && fn.fullyFundedTo95;
-  const nearTrack = pct >= 80 && !onTrack;
-  const statusBadgeText = onTrack
-    ? "On Track"
-    : nearTrack
-      ? "Within Reach"
-      : "Shortfall Detected";
-  const statusClass = onTrack ? "is-good" : nearTrack ? "is-warn" : "is-danger";
-  const statusIcon = onTrack ? ICONS.checkTiny : ICONS.alertTriangle;
-  return `<header class="ember-page-header fin-page-header" aria-labelledby="fire-hero-title">
-    <div class="ember-header-main">
-      <div class="fin-title-row">
-        <h1 id="fire-hero-title" tabindex="-1">Retirement Readiness Overview</h1>
-        <span class="status-pill ${statusClass}">${statusIcon}<span>${statusBadgeText}</span></span>
+  const onTrack = fn.pctFunded >= 100 && fn.fullyFundedTo95;
+  const verdict = onTrack ? "On track" : "Shortfall";
+  const tone = onTrack ? "good" : "warn";
+  const targetRate = recommendation?.rate ?? rate;
+  const targetBand = savingsRateBand(targetRate);
+  const tightness = targetBand.tone !== "good" ? targetBand.label : "";
+  const previewHealth = recommendation?.health;
+  const hasSafeAge = fn.projectedFireAge != null;
+  return `<header class="overview-hero" aria-labelledby="fire-hero-title">
+    <div class="ember-page-header fin-page-header overview-title-row">
+      <h1 id="fire-hero-title" tabindex="-1">Retirement Overview</h1>
+      <button type="button" class="button button-small" commandfor="plan-settings" command="show-modal" aria-haspopup="dialog">
+        Assumptions <span class="overview-assumption-values">· ${Number((r.inflation * 100).toFixed(1))}% inflation · ${Number((r.investmentReturn * 100).toFixed(1))}% return</span>
+      </button>
+    </div>
+    <section class="overview-verdict card-surface is-${tone}" tabindex="-1" aria-label="Retirement readiness">
+      <div class="overview-verdict-copy">
+        <span class="status-pill is-${tone}">${verdict}</span>
+        <h2 class="overview-hero-figure">${hasSafeAge ? `Age ${fn.projectedFireAge}` : "Beyond age 80"}</h2>
+        <p class="overview-safe-age">Earliest safe retirement <span>· Goal through age ${fire.endAge}</span></p>
       </div>
-    </div>
-    <div class="ember-header-meta">
-      <button type="button" class="button button-small mobile-balances-btn" data-open-profile>My Settings</button>
-    </div>
+      <div class="overview-hero-outcome">
+      ${
+        recommendation
+          ? `
+        <dl class="overview-action-outcome" aria-label="Estimated outcome after applying">
+          <div><dt>Funded</dt><dd class="overview-funded">${formatFundedPct(fn.pctFunded)} → <strong data-preview-funded>${formatFundedPct(recommendation.funded)}</strong></dd></div>
+          <div><dt>Savings rate</dt><dd>${rate}% → <strong data-preview-rate>${recommendation.rate}%</strong> <span class="${previewHealth.label === targetBand.label ? "sr-only" : `status-pill is-${previewHealth.tone}`}" data-preview-savings-band>${previewHealth.label}</span></dd></div>
+        </dl>`
+          : `<dl class="overview-action-outcome">
+          <div><dt>Funded</dt><dd class="overview-funded"><strong>${formatFundedPct(fn.pctFunded)}</strong></dd></div>
+        </dl>`
+      }
+      ${tightness ? `<p class="overview-saving-tightness">${recommendation?.move.action === "cap-affordable-save" ? "After applying the cap, save" : "Requires saving"} <strong>${targetRate}%</strong> of take-home · <strong>${tightness}</strong></p>` : ""}
+      </div>
+      ${
+        recommendation
+          ? `
+        <div class="overview-hero-actions">
+          <button type="button" class="button button-primary" data-money-move="${recommendation.move.action}" data-move-val="${recommendation.move.value}"><span>${recommendation.move.action === "match-save" ? `Invest ${m(recommendation.move.value, "/mo")} outside CPF` : `Cap savings at ${m(recommendation.move.value, "/mo")}`}</span></button>
+          <button type="button" class="text-button" data-quick-edit="invest" data-qe-focus="#qe-invest" aria-label="Edit monthly investment">Edit</button>
+        </div>`
+          : `<div class="overview-hero-actions"><button type="button" class="button button-primary" data-quick-edit="goal" data-qe-focus="#qe-retire">${onTrack ? "Explore earlier retirement" : "Review retirement age"}</button></div>`
+      }
+      <div class="overview-hero-summary" aria-label="Plan summary">
+        <span>Pay after CPF <strong>${m(r.afterCpf, "/mo")}</strong></span>
+        <span>Starting assets <strong>${m(startingTotalAssets)}</strong></span>
+      </div>
+    </section>
   </header>`;
 }
 
@@ -406,18 +469,12 @@ function computeMonthlyTakeHomeCashflow({
 }
 
 function buildFinBentoGridHTML({
-  fire,
   r,
   p,
-  simulation,
   bogle,
-  pctOfPay,
   contribution,
-  expenseData,
   taps,
-  paycheck,
-  tax,
-  cashflow: passedCashflow,
+  cashflow,
   startingCpf,
   startingSrs,
   startingTotalAssets,
@@ -456,22 +513,9 @@ function buildFinBentoGridHTML({
   const cpfOnlyShareW = Math.max(0, 100 - cashShareW - eqShareW - srsShareW);
   const cpfShareW = Math.max(0, 100 - cashShareW - eqShareW);
 
-  // Housing, IRAS tax & fixed bills reconciliation
-  const cashflow =
-    passedCashflow ||
-    computeMonthlyTakeHomeCashflow({
-      r,
-      simulation,
-      contribution,
-      p,
-      tax,
-      expenseData,
-    });
   const {
-    housingOaMo,
     housingCashMo,
     monthlyTax,
-    recurringItems,
     recurringTotal,
     fixedOutMo,
     netCashSurplus,
@@ -487,48 +531,15 @@ function buildFinBentoGridHTML({
     Math.max(0, Math.round((contribution / takeHomeDenom) * 100)),
   );
 
-  // Portfolio distribution & passive income today
-  const hol = bogle.holistic || {};
-  const holDenom = Math.max(1, hol.totalNetWorth || startingTotalAssets || 1);
-  const glEqBal = Math.round(
-    hol.globalEquities ??
-      (bogle.buckets.equities || 0) + (bogle.buckets.srsGrowth || 0),
-  );
   const sgDivBal = Math.round(
-    hol.sgDividends ?? (bogle.buckets.sgDividends || 0),
+    bogle.holistic?.sgDividends ?? (bogle.buckets.sgDividends || 0),
   );
-  const safeBondBal = Math.round(
-    hol.totalBonds ?? (bogle.buckets.ssbCash || 0) + startingCpf,
-  );
-  const glEqW = Math.round((glEqBal / holDenom) * 100);
-  const sgEqW = Math.round((sgDivBal / holDenom) * 100);
-  const safeW = Math.max(0, 100 - glEqW - sgEqW);
-
   const sgDivMoNow = Math.round(((sgDivBal * 0.05) / 12) * 100) / 100;
   const cashMoNow =
     Math.round((taps.tap4Ssb.currentMonthlyYield || 0) * 100) / 100;
   const passiveMoNow = Math.round((sgDivMoNow + cashMoNow) * 100) / 100;
   const passiveYrNow = Math.round(passiveMoNow * 12);
 
-  // Subscriptions, Insurance & Fixed Bills from expenseData
-  const expTotal = Math.max(
-    1,
-    Math.round(expenseData?.total || r.todaySpend || 1),
-  );
-  const recurringPct = Math.min(
-    100,
-    Math.round((recurringTotal / expTotal) * 100),
-  );
-  const insSubTotal = Math.round(
-    recurringItems
-      .filter(
-        (it) =>
-          it.category === "care" ||
-          /insurance|healthshield|life|accident/i.test(it.name),
-      )
-      .reduce((acc, it) => acc + (it.amount || 0), 0),
-  );
-  const billSubTotal = Math.max(0, recurringTotal - insSubTotal);
   const fixedOutW =
     netCashSurplus <= 0
       ? Math.max(0, 100 - saveW)
@@ -537,214 +548,142 @@ function buildFinBentoGridHTML({
           Math.max(0, Math.round((fixedOutMo / takeHomeDenom) * 100)),
         );
   const livingW = netCashSurplus > 0 ? Math.max(0, 100 - saveW - fixedOutW) : 0;
-  const insW = Math.min(100, Math.round((insSubTotal / expTotal) * 100));
-  const billW = Math.min(
-    100 - insW,
-    Math.round((billSubTotal / expTotal) * 100),
-  );
-  const flexW = Math.max(0, 100 - insW - billW);
 
-  const catColorMap = {};
-  (expenseData?.categories || []).forEach((c) => {
-    catColorMap[c.key] = c.color;
-  });
-
-  function formatBillRow(it) {
-    const raw = String(it.name || "");
-    const parenMatch = raw.match(/^(.*?)\s*\(([^)]+)\)\s*(.*)$/);
-    let shortTitle = raw;
-    let detailNote = "";
-    if (parenMatch) {
-      shortTitle = [parenMatch[1], parenMatch[3]]
-        .filter(Boolean)
-        .join(" ")
-        .trim();
-      detailNote = parenMatch[2].trim();
-    } else if (raw.includes(" + ")) {
-      const parts = raw.split(" + ");
-      shortTitle = parts[0].trim();
-      detailNote = parts.slice(1).join(" + ").trim();
-    }
-    const baseTag =
-      it.category === "digital"
-        ? "Subscription"
-        : it.category === "housing"
-          ? "Utility"
-          : "Policy / Care";
-    const metaText = detailNote ? `${detailNote} · ${baseTag}` : baseTag;
-    return { shortTitle, metaText };
-  }
-
+  // Reconcile the three rows to the rounded "pay after CPF" header so the
+  // figures always add up (saved + tax & bills + remaining).
+  const afterCpfMo = Math.round(r.afterCpf || 0);
+  const savedMo = Math.round(contribution || 0);
+  const livingMo = afterCpfMo - savedMo - fixedOutMo;
   return `
-    <div class="fin-bento-grid" id="fin-bento-grid" role="region" aria-label="Personal finance overview widgets">
-      <!-- 1. Net Worth & Balance Sheet -->
-      <article class="fin-bento-card card-surface">
+    <div class="fin-bento-grid" id="fin-bento-grid">
+      <article class="fin-bento-card overview-holdings">
         <div class="fin-bento-head">
           <div>
-            <span class="fin-bento-eyebrow">Net Worth &amp; Balance Sheet</span>
-            <h3 class="fin-bento-title">${signedM(netWorthAfterDebt)} <small>${userLoanShare > 0 ? "net of loan" : "debt-free"}</small></h3>
+            <h3 class="overview-breakdown-label">Holdings &amp; Net Worth</h3>
+            <p class="fin-bento-title">${signedM(netWorthAfterDebt)} <small>${userLoanShare > 0 ? "net of loan" : "debt-free"}</small></p>
           </div>
-          <button type="button" class="fin-link-pill" data-quick-edit="balances">Edit balances</button>
         </div>
-        <div class="fin-bento-bar" aria-hidden="true">
+        ${
+          cpfSrsBal + eqBal + cashBal > 0
+            ? `<div class="fin-bento-bar" aria-hidden="true">
           <span data-bento-seg="0" style="width:${cpfOnlyShareW}%;background:var(--sem-cpf);" title="CPF Locked (${cpfOnlyShareW}%)"></span>
           ${srsShareW > 0 ? `<span data-bento-seg="3" style="width:${srsShareW}%;background:var(--sem-srs);" title="SRS Locked (${srsShareW}%)"></span>` : ""}
           <span data-bento-seg="1" style="width:${eqShareW}%;background:var(--sem-equities);" title="Equities (${eqShareW}%)"></span>
           <span data-bento-seg="2" style="width:${cashShareW}%;background:var(--sem-cash);" title="Cash &amp; SSB (${cashShareW}%)"></span>
-        </div>
+        </div>`
+            : ""
+        }
         <ul class="fin-bento-list">
-          <li data-bento-seg="0">
+          ${
+            cpfSrsBal > 0
+              ? `<li data-bento-seg="0">
             <span class="fin-bento-item-label"><i style="background:var(--sem-cpf);"></i>${srsBal > 0 ? "CPF + SRS Locked" : "CPF Locked"}</span>
             <span class="fin-bento-item-meta">OA ${compactMoney(p.oa || 0)} · SA ${compactMoney(p.sa || 0)} · MA ${compactMoney(p.ma || 0)}${srsBal > 0 ? ` · SRS ${compactMoney(srsBal)}` : ""}</span>
             <strong>${m(cpfSrsBal)} <small class="fin-bento-share-pill">${cpfShareW}%</small></strong>
-          </li>
-          <li data-bento-seg="1">
-            <span class="fin-bento-item-label"><i style="background:var(--sem-equities);"></i>Equities &amp; SG Div</span>
-            <span class="fin-bento-item-meta">${m(bogle.buckets.equities || 0)} Global · ${m(sgDivBal)} SG</span>
+          </li>`
+              : ""
+          }
+          ${
+            eqBal > 0
+              ? `<li data-bento-seg="1">
+            <span class="fin-bento-item-label"><i style="background:var(--sem-equities);"></i>Global &amp; SG equities</span>
+            <span class="fin-bento-item-meta">
+              ${m(bogle.buckets.equities || 0)} global · ${m(sgDivBal)} SG
+              ${sgDivBal > 0 ? `<span class="overview-holding-yield">~${centsHtml(sgDivMoNow, "/mo")} SG dividends at 5%</span>` : ""}
+            </span>
             <strong>${m(eqBal)} <small class="fin-bento-share-pill">${eqShareW}%</small></strong>
-          </li>
-          <li data-bento-seg="2">
-            <span class="fin-bento-item-label"><i style="background:var(--sem-cash);"></i>Liquid Cash &amp; SSB</span>
-            <span class="fin-bento-item-meta">${taps.tap4Ssb.effectiveRatePct.toFixed(2)}% blended EIR</span>
+          </li>`
+              : ""
+          }
+          ${
+            cashBal > 0
+              ? `<li data-bento-seg="2">
+            <span class="fin-bento-item-label"><i style="background:var(--sem-cash);"></i>Cash &amp; SSBs</span>
+            <span class="fin-bento-item-meta">${taps.tap4Ssb.effectiveRatePct.toFixed(2)}% blended EIR
+              <span class="overview-holding-yield">~${centsHtml(cashMoNow, "/mo")} interest</span>
+            </span>
             <strong>${m(cashBal)} <small class="fin-bento-share-pill">${cashShareW}%</small></strong>
-          </li>
-          <li class="${userLoanShare > 0 ? "is-liability-row" : ""}">
+          </li>`
+              : ""
+          }
+          ${
+            userLoanShare > 0
+              ? `<li class="is-liability-row">
             <span class="fin-bento-item-label"><i style="background:var(--sem-alert);"></i>Mortgage Liability</span>
             <span class="fin-bento-item-meta">${housingModeLabel}</span>
-            <strong>${userLoanShare > 0 ? `−${m(userLoanShare)}` : "$0"}</strong>
-          </li>
-        </ul>
-      </article>
-
-      <!-- 2. Monthly Cashflow -->
-      <article class="fin-bento-card card-surface">
-        <div class="fin-bento-head">
-          <div>
-            <span class="fin-bento-eyebrow">Monthly Cashflow &amp; Surplus</span>
-            <h3 class="fin-bento-title">${m(r.afterCpf, "/mo")} <small>take-home (${pctOfPay}% saved${netCashSurplus < 0 ? ` · −${m(-netCashSurplus)} short` : ""})</small></h3>
-          </div>
-          <button type="button" class="fin-link-pill" data-quick-edit="salary">Edit income</button>
-        </div>
-        <div class="fin-bento-bar" aria-hidden="true">
-          <span data-bento-seg="0" style="width:${saveW}%;background:var(--sem-cpf);" title="Saved &amp; Invested (${saveW}%)"></span>
-          <span data-bento-seg="1" style="width:${fixedOutW}%;background:var(--sem-cash);" title="Tax, Housing Cash &amp; Fixed Bills (${fixedOutW}%)"></span>
-          ${livingW > 0 ? `<span data-bento-seg="2" style="width:${livingW}%;background:var(--sem-equities-sg);" title="Remaining for Living &amp; Discretionary (${livingW}%)"></span>` : ""}
-        </div>
-        <ul class="fin-bento-list">
-          <li data-bento-seg="0">
-            <span class="fin-bento-item-label"><i style="background:var(--sem-cpf);"></i>Saved &amp; Invested</span>
-            <span class="fin-bento-item-meta">${m(simulation.invest)} Inv · ${m(simulation.cashSaving || 0)} Cash · ${m(simulation.cpfExtra || 0)} CPF</span>
-            <strong class="is-emerald">${m(contribution, "/mo")}</strong>
-          </li>
-          <li>
-            <span class="fin-bento-item-label"><i style="background:var(--primary);"></i>Mandatory CPF (Payroll)</span>
-            <span class="fin-bento-item-meta">${m(r.employeeCpf)} emp + ${m(r.employerCpf)} empyr</span>
-            <strong>${m(mandatoryCpfMo, "/mo")}</strong>
-          </li>
-          <li data-bento-seg="1">
-            <span class="fin-bento-item-label"><i style="background:var(--sem-cash);"></i>${housingCashMo > 0 ? "Tax, Cash Housing &amp; Bills" : "IRAS Tax &amp; Fixed Bills"}</span>
-            <span class="fin-bento-item-meta">${housingCashMo > 0 ? `${m(monthlyTax)} tax · ${m(housingCashMo)} cash hsg · ${m(recurringTotal)} bills` : `${m(monthlyTax, "/mo")} tax · ${m(recurringTotal, "/mo")} fixed bills`}</span>
-            <strong>${m(fixedOutMo, "/mo")}</strong>
-          </li>
-          ${
-            netCashSurplus > 0
-              ? `<li class="is-spare-cash-row" data-bento-seg="2">
-                  <span class="fin-bento-item-label"><i style="background:var(--sem-equities-sg);"></i>Remaining for Living</span>
-                  <span class="fin-bento-item-meta">Food, transport, lifestyle &amp; extra saving</span>
-                  <strong class="is-emerald" id="bento-spare-cash-val">+${m(netCashSurplus, "/mo")}</strong>
-                </li>`
-              : netCashSurplus < 0
-                ? `<li class="is-deficit-cash-row" data-bento-seg="2">
-                    <span class="fin-bento-item-label"><i style="background:var(--sem-alert);"></i>Monthly Cash Shortfall</span>
-                    <span class="fin-bento-item-meta">Exceeds take-home by ${m(-netCashSurplus, "/mo")}</span>
-                    <strong class="is-danger-text" id="bento-spare-cash-val">−${m(-netCashSurplus, "/mo")}</strong>
-                  </li>`
-                : ""
+            <strong>−${m(userLoanShare)}</strong>
+          </li>`
+              : ""
           }
         </ul>
+        <div class="overview-passive-income">
+          ${passiveMoNow > 0 ? `<p><span>Passive income</span> <strong>${centsHtml(passiveMoNow, "/mo")}${passiveYrNow > 0 ? ` · ${m(passiveYrNow, "/yr")}` : ""}</strong></p>` : ""}
+          <button type="button" class="text-button" data-go-tab="dividend-calc">Yield calculator →</button>
+        </div>
       </article>
-
-      <!-- 3. Portfolio Distribution & Passive Yield -->
-      <article class="fin-bento-card card-surface">
+      <article class="fin-bento-card overview-cashflow">
         <div class="fin-bento-head">
           <div>
-            <span class="fin-bento-eyebrow">Portfolio Distribution &amp; Yield</span>
-            <h3 class="fin-bento-title">+${centsHtml(passiveMoNow, "/mo")} <small>passive yield now</small></h3>
+            <h3 class="overview-breakdown-label">Monthly Cashflow</h3>
+            <p class="fin-bento-title">${m(r.afterCpf, "/mo")} <small>pay after CPF</small></p>
           </div>
-          <button type="button" class="fin-link-pill" data-go-tab="dividend-calc">Yield calculator →</button>
         </div>
         <div class="fin-bento-bar" aria-hidden="true">
-          <span data-bento-seg="0" style="width:${glEqW}%;background:var(--sem-equities);" title="Global Equity (${glEqW}%)"></span>
-          <span data-bento-seg="1" style="width:${sgEqW}%;background:var(--sem-equities-sg);" title="SG Dividend (${sgEqW}%)"></span>
-          <span data-bento-seg="2" style="width:${safeW}%;background:var(--sem-cpf);" title="Safe Floor (${safeW}%)"></span>
+          <span data-bento-seg="0" style="width:${saveW}%;" title="Saved &amp; Invested (${saveW}%)"></span>
+          <span data-bento-seg="1" style="width:${fixedOutW}%;" title="Tax, Housing Cash &amp; Fixed Bills (${fixedOutW}%)"></span>
+          ${livingW > 0 ? `<span data-bento-seg="2" style="width:${livingW}%;" title="Remaining for Living &amp; Discretionary (${livingW}%)"></span>` : ""}
         </div>
         <ul class="fin-bento-list">
-          <li data-bento-seg="0">
-            <span class="fin-bento-item-label"><i style="background:var(--sem-equities);"></i>Global Equity ETFs</span>
-            <span class="fin-bento-item-meta">VWRA / IWDA · +${m(taps.tap3Equities.monthlyGlobalBuy, "/mo")} buy</span>
-            <strong>${m(glEqBal)} <small class="fin-bento-share-pill">${glEqW}%</small></strong>
-          </li>
-          <li data-bento-seg="1">
-            <span class="fin-bento-item-label"><i style="background:var(--sem-equities-sg);"></i>SG Dividend Sleeve</span>
-            <span class="fin-bento-item-meta">~${centsHtml(sgDivMoNow, "/mo")} @ 5% · +${m(taps.tap3Equities.monthlySgBuy, "/mo")} buy</span>
-            <strong>${m(sgDivBal)} <small class="fin-bento-share-pill">${sgEqW}%</small></strong>
-          </li>
-          <li data-bento-seg="2">
-            <span class="fin-bento-item-label"><i style="background:var(--sem-cpf);"></i>CPF + SSB Safe Floor</span>
-            <span class="fin-bento-item-meta">~${centsHtml(cashMoNow, "/mo")} cash interest (${taps.tap4Ssb.effectiveRatePct.toFixed(2)}%)</span>
-            <strong>${m(safeBondBal)} <small class="fin-bento-share-pill">${safeW}%</small></strong>
-          </li>
-          <li>
-            <span class="fin-bento-item-label"><i style="background:var(--sem-cash);"></i>Annual Passive Cashflow</span>
-            <span class="fin-bento-item-meta">SG dividends + SSB/HYSA interest</span>
-            <strong class="is-emerald">+${m(passiveYrNow, "/yr")}</strong>
-          </li>
+          ${
+            contribution > 0
+              ? `<li data-bento-seg="0">
+            <span class="fin-bento-item-label"><i></i>Saved &amp; Invested</span>
+            <span class="fin-bento-item-meta">CPF, cash &amp; outside investments</span>
+            <strong>${m(savedMo, "/mo")} <small class="fin-bento-share-pill">${saveW}%</small></strong>
+          </li>`
+              : ""
+          }
+          ${
+            fixedOutMo > 0
+              ? `<li data-bento-seg="1">
+            <span class="fin-bento-item-label"><i></i>${housingCashMo > 0 ? "Tax, Cash Housing &amp; Bills" : "IRAS Tax &amp; Fixed Bills"}</span>
+            <span class="fin-bento-item-meta">${housingCashMo > 0 ? `${m(monthlyTax)} tax · ${m(housingCashMo)} cash hsg · ${m(recurringTotal)} bills` : `${m(monthlyTax, "/mo")} tax · ${m(recurringTotal, "/mo")} fixed bills`}</span>
+            <strong>${m(fixedOutMo, "/mo")}</strong>
+          </li>`
+              : ""
+          }
+          ${
+            livingMo > 0
+              ? `<li data-bento-seg="2">
+                  <span class="fin-bento-item-label"><i></i>Remaining for Living</span>
+                  <span class="fin-bento-item-meta">Food, transport, lifestyle &amp; extra saving</span>
+                  <strong id="bento-spare-cash-val">+${m(livingMo, "/mo")}</strong>
+                </li>`
+              : livingMo < 0
+                ? `<li class="is-deficit-cash-row" data-bento-seg="2">
+                    <span class="fin-bento-item-label"><i style="background:var(--sem-alert);"></i>Monthly Cash Shortfall</span>
+                    <strong id="bento-spare-cash-val">−${m(-livingMo, "/mo")}</strong>
+                  </li>`
+                : `<li data-bento-seg="2">
+                    <span class="fin-bento-item-label"><i></i>Remaining for Living</span>
+                    <span class="fin-bento-item-meta">Fully allocated to savings, tax &amp; bills</span>
+                    <strong id="bento-spare-cash-val">${m(0, "/mo")}</strong>
+                  </li>`
+          }
         </ul>
+        ${
+          mandatoryCpfMo > 0
+            ? `<p class="fin-bento-note">Also contributed to CPF: ${m(mandatoryCpfMo, "/mo")} (employee + employer)</p>`
+            : ""
+        }
       </article>
 
-      <!-- 4. Subscriptions, Insurance & Fixed Bills -->
-      <article class="fin-bento-card card-surface">
-        <div class="fin-bento-head">
-          <div>
-            <span class="fin-bento-eyebrow">Subscriptions, Insurance &amp; Bills</span>
-            <h3 class="fin-bento-title">${m(recurringTotal, "/mo")} <small>${recurringPct}% of ${m(expenseData?.total || r.todaySpend)} budget</small></h3>
-          </div>
-          <button type="button" class="fin-link-pill" data-open-expense-modal="custom">Edit expenses</button>
-        </div>
-        <div class="fin-bento-bar" aria-hidden="true">
-          <span data-bento-seg="0" style="width:${insW}%;background:var(--sem-cpf);" title="Insurance &amp; Healthcare (${insW}%)"></span>
-          <span data-bento-seg="1" style="width:${billW}%;background:var(--sem-srs);" title="Utilities, WiFi &amp; Subscriptions (${billW}%)"></span>
-          <span data-bento-seg="2" style="width:${flexW}%;background:var(--border-strong);" title="Flexible Dining, Groceries &amp; Lifestyle (${flexW}%)"></span>
-        </div>
-        <ul class="fin-bento-list">
-          ${recurringItems
-            .slice(0, 4)
-            .map((it) => {
-              const isInsItem =
-                it.category === "care" ||
-                /insurance|healthshield|life|accident/i.test(it.name);
-              const segIdx = isInsItem ? "0" : "1";
-              const itemSharePct = Math.round(
-                ((it.amount || 0) / expTotal) * 100,
-              );
-              const dotColor = catColorMap[it.category] || "var(--primary)";
-              const { shortTitle, metaText } = formatBillRow(it);
-              return `<li data-bento-seg="${segIdx}">
-                <span class="fin-bento-item-label" title="${escapeAttr(it.name)}"><i style="background:${dotColor};"></i>${escapeAttr(shortTitle)}</span>
-                <span class="fin-bento-item-meta">${escapeAttr(metaText)}</span>
-                <strong>${m(it.amount, "/mo")} <small class="fin-bento-share-pill">${itemSharePct}%</small></strong>
-              </li>`;
-            })
-            .join("")}
-        </ul>
-      </article>
     </div>`;
 }
 
-function buildMoneyMovesStripHTML({
+function getMoneyMoves({
   fire,
   r,
-  s,
   p,
   simulation,
   bogle,
@@ -753,28 +692,21 @@ function buildMoneyMovesStripHTML({
   tax,
   expenseData,
   cashflow: passedCashflow,
-  pctOfPay = 0,
 }) {
   const fn = fire.fireNumber;
   const moves = [];
 
   // Compute exact Unallocated Cash Surplus so we never recommend investing cash the user does not have
-  const margRate = tax?.taxBefore?.marginalRate || 0;
-  const {
-    housingCashMo,
-    monthlyTax,
-    recurringTotal,
-    netCashSurplus: rawSurplusMo,
-    maxAffordableSaveMo,
-  } = passedCashflow ||
-  computeMonthlyTakeHomeCashflow({
-    r,
-    simulation,
-    contribution,
-    p,
-    tax,
-    expenseData,
-  });
+  const { netCashSurplus: rawSurplusMo, maxAffordableSaveMo } =
+    passedCashflow ||
+    computeMonthlyTakeHomeCashflow({
+      r,
+      simulation,
+      contribution,
+      p,
+      tax,
+      expenseData,
+    });
   const unallocatedSurplusMo = Math.max(0, rawSurplusMo);
 
   // 0. Cashflow Over-Commitment Guardrail (when planned savings + tax + fixed bills exceed take-home pay)
@@ -786,12 +718,14 @@ function buildMoneyMovesStripHTML({
     const excessOutflowMo = Math.abs(rawSurplusMo);
     moves.push({
       score: 6500 + excessOutflowMo,
-      badge: `Exceeds cashflow by ${m(excessOutflowMo, "/mo")}`,
       tone: "is-amber",
-      title: `Cap monthly savings to ${m(maxAffordableSaveMo, "/mo")} sustainable limit`,
-      desc: `Planned savings (${m(contribution, "/mo")}) plus tax and fixed bills (${m(housingCashMo + monthlyTax + recurringTotal, "/mo")}) exceed your ${m(r.afterCpf, "/mo")} take-home pay by ${m(excessOutflowMo, "/mo")}.`,
-      ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="cap-affordable-save" data-move-val="${maxAffordableSaveMo}">Cap at ${m(maxAffordableSaveMo, "/mo")} →</button>`,
-      subHtml: `<button type="button" class="fin-move-link" data-quick-edit="invest">Edit savings</button>`,
+      title: `Cap savings at ${m(maxAffordableSaveMo, "/mo")}`,
+      desc: "Planned savings, tax and bills exceed your pay after CPF.",
+      action: "cap-affordable-save",
+      value: maxAffordableSaveMo,
+      actionLabel: "Apply cap",
+      edit: 'data-quick-edit="invest"',
+      editLabel: "Edit monthly investment",
     });
   }
 
@@ -811,18 +745,16 @@ function buildMoneyMovesStripHTML({
     const closesFullGap = affordableDeltaMo >= fullDeltaMo;
     moves.push({
       score: 5000 + (100 - fn.pctFunded) * 20,
-      badge: closesFullGap
-        ? `${formatFundedPct(fn.pctFunded)} → 100% funded`
-        : `Uses ${m(affordableDeltaMo, "/mo")} surplus`,
       tone: "is-amber",
-      title: closesFullGap
-        ? `Add +${m(affordableDeltaMo, "/mo")} to monthly investing`
-        : `Deploy +${m(affordableDeltaMo, "/mo")} cash surplus to monthly investing`,
+      title: `Invest ${m(targetInvestMo, "/mo")} outside CPF`,
       desc: closesFullGap
-        ? `Raising monthly investing from ${m(curInvestMo, "/mo")} to ${m(targetInvestMo, "/mo")} (from your ${m(unallocatedSurplusMo, "/mo")} unallocated cash surplus) closes your ${m(Math.round(fn.shortfallToday || 0))} age-${fire.retire} shortfall.`
-        : `Raising monthly investing from ${m(curInvestMo, "/mo")} to ${m(targetInvestMo, "/mo")} deploys your available ${m(unallocatedSurplusMo, "/mo")} unallocated cash surplus toward closing your age-${fire.retire} shortfall.`,
-      ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="match-save" data-move-val="${targetInvestMo}">Apply ${m(targetInvestMo, "/mo")} →</button>`,
-      subHtml: `<button type="button" class="fin-move-link" data-go-tab="trajectory">Trajectory</button>`,
+        ? "Increasing your investment closes the projected retirement funding gap."
+        : "Use your available cash surplus to narrow the projected retirement funding gap.",
+      action: "match-save",
+      value: targetInvestMo,
+      actionLabel: "Increase investment",
+      edit: 'data-quick-edit="invest"',
+      editLabel: "Edit monthly investment",
     });
   }
 
@@ -868,23 +800,21 @@ function buildMoneyMovesStripHTML({
     effectiveRstuRoomYr >= 240 &&
     rstuSaveYr >= 15
   ) {
-    const rateLabel = (margRate * 100).toFixed(1).replace(/\.0$/, "");
     moves.push({
       score: 3200 + rstuSaveYr,
-      badge: `+${m(rstuSaveYr, "/yr")} tax saved`,
       tone: "is-emerald",
-      title: `Top up ${m(effectiveRstuRoomYr, "/yr")} to CPF SA (RSTU)`,
-      desc: `At your ${rateLabel}% IRAS bracket, +${m(affordableCpfDeltaMo, "/mo")} RSTU cuts tax by ${m(rstuSaveYr, "/yr")} and earns 4.0% p.a. risk-free.`,
-      ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="apply-rstu" data-move-val="${targetCpfMo}">Apply +${m(targetCpfMo, "/mo")} RSTU →</button>`,
-      subHtml: `<button type="button" class="fin-move-link" data-go-tab="tax">Tax Relief</button>`,
+      title: "Reduce income tax with a CPF top-up",
+      desc: `Set top-ups to ${m(targetCpfMo, "/mo")} to save an estimated ${m(rstuSaveYr, "/yr")} in tax.`,
+      action: "apply-rstu",
+      value: targetCpfMo,
+      actionLabel: "Increase top-up",
+      edit: 'data-quick-edit="cpf-extra"',
+      editLabel: "Edit extra CPF savings",
     });
   }
 
   // 3. SRS Tax Shelter — strictly gated: ONLY when taps.tap2Srs.worthIt is true AND user has Unallocated Cash Surplus
   const srsStartAge = tax?.srsWithdrawalStartAge ?? tax?.srsLockInAge ?? 63;
-  const srsCapCompact = compactMoney(
-    tax?.srsZeroTaxCap || RetirementModel.C.srsSoftCapAt63,
-  );
   const maxAffordableSrsYr = curSrsYr + unallocatedSurplusMo * 12;
   const maxSrsEligibleYr =
     maxRstuYr + (tax?.eligibleFamilyRstu || 0) > 0
@@ -918,27 +848,29 @@ function buildMoneyMovesStripHTML({
     remSafeSrsSaveYr >= 25 &&
     tax?.srsTrapStatus !== "balloon-trap"
   ) {
-    const rateLabel = (margRate * 100).toFixed(1).replace(/\.0$/, "");
     moves.push({
       score: 2800 + remSafeSrsSaveYr,
-      badge: `+${m(remSafeSrsSaveYr, "/yr")} tax saved`,
       tone: "is-emerald",
-      title: `Shelter ${m(safeSrsTargetYr, "/yr")} in SRS (${rateLabel}% bracket)`,
-      desc: `At your ${rateLabel}% bracket, SRS saves ${m(remSafeSrsSaveYr, "/yr")} in IRAS tax while staying inside the ${srsCapCompact} age-${srsStartAge} $0-tax cap.`,
-      ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="apply-srs" data-move-val="${safeSrsTargetYr}">Apply ${m(safeSrsTargetYr, "/yr")} SRS →</button>`,
-      subHtml: `<button type="button" class="fin-move-link" data-go-tab="tax">Tax Relief</button>`,
+      title: `Set SRS contributions to ${m(safeSrsTargetYr, "/yr")}`,
+      desc: `Estimated income tax savings of ${m(remSafeSrsSaveYr, "/yr")}.`,
+      action: "apply-srs",
+      value: safeSrsTargetYr,
+      actionLabel: "Update SRS",
+      edit: 'data-open-settings-field="known-srs-annual"',
+      editLabel: "Edit annual SRS contributions",
     });
   } else if (curSrsYr > 0 && !srsWorthIt) {
     // Guardrail: user has SRS top-ups enabled in a low tax bracket where SRS lock-in is not worth it
-    const rateLabel = (margRate * 100).toFixed(1).replace(/\.0$/, "");
     moves.push({
       score: 2750,
-      badge: `Avoid age-${srsStartAge} lock-in`,
       tone: "is-amber",
-      title: `Skip ${m(curSrsYr, "/yr")} SRS at ${rateLabel}% tax bracket`,
-      desc: `At a ${rateLabel}% bracket (<11.5%), locking cash in SRS until age ${srsStartAge} (50% taxable on withdrawal) underperforms liquid ETFs & CPF SA.`,
-      ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="apply-srs" data-move-val="0">Set SRS to $0/yr →</button>`,
-      subHtml: `<button type="button" class="fin-move-link" data-go-tab="tax">Tax Relief</button>`,
+      title: "Pause SRS contributions",
+      desc: `At your current tax bracket, locking up cash until age ${srsStartAge} offers limited tax benefit.`,
+      action: "apply-srs",
+      value: 0,
+      actionLabel: "Pause contributions",
+      edit: 'data-open-settings-field="known-srs-annual"',
+      editLabel: "Edit annual SRS contributions",
     });
   } else if (
     tax?.srsTrapStatus === "balloon-trap" &&
@@ -946,12 +878,14 @@ function buildMoneyMovesStripHTML({
   ) {
     moves.push({
       score: 2900,
-      badge: `Avoid SRS tax trap`,
       tone: "is-amber",
-      title: `Cap SRS at ${m(safeSrsTargetYr, "/yr")} to stay ≤${srsCapCompact}`,
-      desc: `Your projected SRS exceeds the age-${srsStartAge} $0-tax threshold, triggering withdrawal tax. Capping at ${m(safeSrsTargetYr, "/yr")} keeps drawdowns $0-tax.`,
-      ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="apply-srs" data-move-val="${safeSrsTargetYr}">Cap at ${m(safeSrsTargetYr, "/yr")} →</button>`,
-      subHtml: `<button type="button" class="fin-move-link" data-go-tab="tax">Tax Relief</button>`,
+      title: `Cap SRS contributions at ${m(safeSrsTargetYr, "/yr")}`,
+      desc: `Projected withdrawals exceed the tax-free band at age ${srsStartAge}.`,
+      action: "apply-srs",
+      value: safeSrsTargetYr,
+      actionLabel: "Apply cap",
+      edit: 'data-open-settings-field="known-srs-annual"',
+      editLabel: "Edit annual SRS contributions",
     });
   }
 
@@ -967,17 +901,15 @@ function buildMoneyMovesStripHTML({
         RetirementModel.C.srsIdleRate,
     );
     const extraSrsYr = Math.max(50, Math.round(srsBal * srsSpread));
-    const targetRetPct = (
-      (r.investmentReturn ?? RetirementModel.C.investmentReturn) * 100
-    ).toFixed(1);
     moves.push({
       score: 2650 + extraSrsYr,
-      badge: `0.05% → ${targetRetPct}% p.a.`,
       tone: "is-amber",
-      title: `Invest idle SRS cash into Global ETFs`,
-      desc: `Uninvested SRS cash earns 0.05% p.a. Deploying into low-cost indexed funds compounds tax-deferred until age ${srsStartAge}.`,
-      ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="invest-srs">Invest SRS in Global ETFs →</button>`,
-      subHtml: `<button type="button" class="fin-move-link" data-go-tab="tax">Tax Relief</button>`,
+      title: "Invest idle SRS cash in global ETFs",
+      desc: `Idle SRS cash earns 0.05% p.a. and stays locked until age ${srsStartAge}.`,
+      action: "invest-srs",
+      actionLabel: "Invest SRS",
+      edit: 'data-open-settings-field="known-srs-invested"',
+      editLabel: "Edit SRS allocation",
     });
   }
 
@@ -991,12 +923,13 @@ function buildMoneyMovesStripHTML({
     const gainYr = Math.round(cashBd.sweepAnnualGain);
     moves.push({
       score: 2500 + gainYr,
-      badge: `+${m(gainYr, "/yr")} risk-free`,
       tone: "is-blue",
-      title: `Sweep ${m(cashBd.totalOverflowBalance)} overflow to MAS SSB`,
-      desc: `Moving ${cashBd.overflowAvgBaseRatePct.toFixed(2)}% base-tier bank cash into MAS 10Y SSB (${taps.tap4Ssb.ssb10YrPct.toFixed(2)}%) lifts your cash EIR to ${cashBd.sweptEffectiveRatePct.toFixed(2)}%.`,
-      ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="sweep-cash">Sweep Overflow →</button>`,
-      subHtml: `<button type="button" class="fin-move-link" data-go-tab="cash-parking">Cash Parking</button>`,
+      title: `Sweep ${m(cashBd.totalOverflowBalance)} from bank cash to SSBs`,
+      desc: `Estimated extra interest of ${m(gainYr, "/yr")}.`,
+      action: "sweep-cash",
+      actionLabel: "Sweep cash",
+      edit: 'data-go-tab="cash-parking" data-open-page-cash-accounts',
+      editLabel: "Edit cash accounts",
     });
   }
 
@@ -1010,27 +943,21 @@ function buildMoneyMovesStripHTML({
     if (oaExcess >= 2000 && extraSaYr >= 30) {
       moves.push({
         score: 2300 + extraSaYr,
-        badge: `+${m(extraSaYr, "/yr")} CPF yield`,
         tone: "is-blue",
-        title: `Transfer ${m(oaExcess)} excess OA to SA (+1.5%)`,
-        desc: `Keeping $20k in OA for the +1% cap and transferring ${m(oaExcess)} to SA lifts risk-free CPF interest from 2.5% to 4.0%.`,
-        ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="transfer-oa-sa" data-move-val="${oaExcess}">Transfer ${m(oaExcess)} to SA →</button>`,
-        subHtml: `<button type="button" class="fin-move-link" data-go-tab="cpf-rules">Milestones</button>`,
+        title: `Transfer ${m(oaExcess)} from OA to SA`,
+        desc: `Keep your OA buffer and earn an estimated ${m(extraSaYr, "/yr")} more in CPF interest.`,
+        action: "transfer-oa-sa",
+        value: oaExcess,
+        actionLabel: "Transfer to SA",
+        edit: 'data-open-settings-field="known-oa"',
+        editLabel: "Edit CPF OA balance",
       });
     }
   }
 
   // 7. Portfolio Rebalance (only deploy cash above the 6-month / $20k emergency reserve floor)
   const reb = computeRebalanceTargets(bogle, p, r);
-  const {
-    curEqPct,
-    tgtEqPct,
-    eqDriftPct,
-    emergencyReserveFloor,
-    liqTotal,
-    isUnderweightEq,
-    shiftAmt,
-  } = reb;
+  const { eqDriftPct, liqTotal, isUnderweightEq, shiftAmt } = reb;
   if (liqTotal >= 5000 && eqDriftPct >= 5) {
     if (shiftAmt >= 2000) {
       const defaultEqReturn = RetirementModel.SG_DEFAULT_PLAN.returnRate;
@@ -1055,73 +982,101 @@ function buildMoneyMovesStripHTML({
       const annualBoost = Math.round(shiftAmt * rateDiff);
       moves.push({
         score: 2100 + annualBoost,
-        badge: isUnderweightEq
-          ? `+${m(annualBoost, "/yr")} expected return`
-          : `Lock in ${m(shiftAmt)} safe floor`,
         tone: "is-blue",
         title: isUnderweightEq
-          ? `Deploy ${m(shiftAmt)} excess cash above reserve to ${tgtEqPct}/${100 - tgtEqPct} target`
-          : `Rebalance ${m(shiftAmt)} equity overweight to ${tgtEqPct}/${100 - tgtEqPct} target`,
+          ? `Move ${m(shiftAmt)} from cash to equities`
+          : `Move ${m(shiftAmt)} from equities to cash or SSBs`,
         desc: isUnderweightEq
-          ? `Preserving your ${m(emergencyReserveFloor)} emergency reserve, shifting ${m(shiftAmt)} of excess cash into Global/SG equities moves toward your ${tgtEqPct}/${100 - tgtEqPct} target (+${m(annualBoost, "/yr")}).`
-          : `Your portfolio is ${curEqPct}/${100 - curEqPct} vs your ${tgtEqPct}/${100 - tgtEqPct} target. Moving ${m(shiftAmt)} into SSB/cash restores your fixed-income allocation.`,
-        ctaHtml: `<button type="button" class="fin-move-cta" data-money-move="rebalance-portfolio">Rebalance to ${tgtEqPct}/${100 - tgtEqPct} →</button>`,
-        subHtml: `<button type="button" class="fin-move-link" data-go-tab="allocator">Allocator</button>`,
+          ? `Expected return increases by +${m(annualBoost, "/yr")} while preserving your emergency reserve.`
+          : "Increase your fixed-income holdings to restore your target allocation.",
+        action: "rebalance-portfolio",
+        actionLabel: "Rebalance",
+        edit: 'data-quick-edit="invest" data-qe-focus="#qe-target-equity"',
+        editLabel: "Edit portfolio allocation",
       });
     }
   }
 
-  const topMoves = moves.sort((a, b) => b.score - a.score).slice(0, 3);
+  return moves.sort((a, b) => b.score - a.score);
+}
 
-  if (topMoves.length === 0) {
-    const hasShortfall = !fn.fullyFundedTo95 || fn.pctFunded < 100;
-    if (hasShortfall && unallocatedSurplusMo < 50) {
-      return `
-        <div class="fin-moves-strip is-all-done" id="fin-money-moves" role="region" aria-label="Actionable money moves">
-          <div class="fin-moves-done-bar">
-            <span class="fin-moves-done-badge">Cashflow Fully Allocated</span>
-            <span class="fin-moves-done-text">100% of available take-home cashflow is allocated (${pctOfPay}% saved). To close your remaining age-${fire.retire} shortfall (${fn.pctFunded}% funded), adjust your retirement budget or target retirement age.</span>
-          </div>
-        </div>`;
-    }
-    return `
-      <div class="fin-moves-strip is-all-done" id="fin-money-moves" role="region" aria-label="Actionable money moves">
-        <div class="fin-moves-done-bar">
-          <span class="fin-moves-done-badge">✓ All Portfolio Actions Applied</span>
-          <span class="fin-moves-done-text">Your monthly savings, eligible IRAS tax reliefs, and ${tgtEqPct}/${100 - tgtEqPct} portfolio allocation are fully optimized.</span>
-        </div>
-      </div>`;
+function buildMoneyMovesStripHTML(topMoves) {
+  if (topMoves.length === 0) return "";
+
+  const renderRowContent = (move, headingTag, rank) => `
+    <div class="fin-move-indicator" aria-hidden="true">
+      ${rank ? `<span class="fin-move-rank">${rank}.</span>` : ""}
+      ${move.tone === "is-amber" ? ICONS.alertTriangle : move.tone === "is-emerald" ? ICONS.checkTiny : ICONS.warnTiny}
+    </div>
+    <div class="fin-move-copy">
+      <${headingTag} class="fin-move-title">${move.title}</${headingTag}>
+      <p class="fin-move-desc">${move.desc}</p>
+    </div>
+    <div class="fin-move-actions">
+      <button type="button" class="text-button fin-move-link" ${move.edit} aria-label="${move.editLabel}">Edit</button>
+      <button type="button" class="button button-primary button-small fin-move-cta" data-money-move="${move.action}"${move.value == null ? "" : ` data-move-val="${move.value}"`}>${move.actionLabel}</button>
+    </div>`;
+
+  if (topMoves.length === 1) {
+    const [move] = topMoves;
+    return `<section class="fin-moves-strip fin-move-row ${move.tone}" id="fin-money-moves" aria-label="Actionable Insights">
+      ${renderRowContent(move, "h2")}
+    </section>`;
   }
 
-  return `
-    <div class="fin-moves-strip" id="fin-money-moves" role="region" aria-label="Prioritized money moves">
-      <div class="fin-moves-head">
-        <div class="fin-moves-title-wrap">
-          <span class="fin-moves-kicker">Actionable Insights</span>
-          <h2>${topMoves.length === 1 ? "1 Recommended Portfolio Action" : `Priority Portfolio Actions (${topMoves.length})`}</h2>
-        </div>
-        <span class="fin-moves-subpill">Disappears once applied · Ranked by impact</span>
-      </div>
-      <div class="fin-moves-grid cols-${topMoves.length}">
-        ${topMoves
-          .map(
-            (mv, idx) => `
-          <article class="fin-move-card">
-            <div class="fin-move-top">
-              <span class="fin-move-rank">#${idx + 1}</span>
-              <span class="fin-move-badge ${mv.tone}">${mv.badge}</span>
-            </div>
-            <h3 class="fin-move-title">${mv.title}</h3>
-            <p class="fin-move-desc">${mv.desc}</p>
-            <div class="fin-move-actions">
-              ${mv.ctaHtml}
-              ${mv.subHtml}
-            </div>
-          </article>`,
-          )
-          .join("")}
-      </div>
-    </div>`;
+  return `<section class="overview-insights-group" aria-labelledby="fin-moves-title">
+    <div class="swell-section-head"><h2 id="fin-moves-title">Actionable Insights</h2></div>
+    <div class="fin-moves-strip" id="fin-money-moves">
+    <ol class="fin-moves-list" role="list">
+      ${topMoves
+        .map(
+          (move, index) => `
+        <li class="fin-move-row ${move.tone}">
+          ${renderRowContent(move, "h3", index + 1)}
+        </li>`,
+        )
+        .join("")}
+    </ol>
+    </div>
+  </section>`;
+}
+
+function buildRetirementIncomeTile({
+  title,
+  figure,
+  description,
+  progress,
+  chip,
+  emptyAction,
+  detailsLabel,
+  detailsHTML,
+}) {
+  return `<article class="swell-tap-box overview-income-tile">
+    <div class="overview-income-tile-head">
+      <h3>${title}</h3>
+      ${chip && !emptyAction ? `<span class="status-pill ${chip.tone}">${escapeAttr(chip.label)}</span>` : ""}
+    </div>
+    ${
+      emptyAction
+        ? `<div class="overview-income-empty">
+          <p><strong>${figure}</strong> <span>· Not in use</span></p>
+          <button type="button" class="text-button" data-open-settings-field="${emptyAction.field}">${emptyAction.label}</button>
+        </div>`
+        : `<strong class="overview-income-figure">${figure}</strong>
+        <p>${description}</p>`
+    }
+    ${
+      progress && !emptyAction
+        ? `<div class="tap-progress-track" role="progressbar" aria-valuenow="${progress.pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${escapeAttr(progress.label)}">
+      <span class="tap-progress-fill ${progress.tone || "is-blue"}" style="width:${progress.pct}%"></span>
+    </div>`
+        : ""
+    }
+    <details class="overview-disclosure-card tap-accordion">
+      <summary class="overview-disclosure-summary">${detailsLabel}</summary>
+      <div class="overview-disclosure-body overview-income-rules">${detailsHTML}</div>
+    </details>
+  </article>`;
 }
 
 export function buildFinOverviewGrid(
@@ -1137,34 +1092,12 @@ export function buildFinOverviewGrid(
   expenseData = null,
   masRates = null,
   tax = null,
+  rangeNote = "",
+  suggestedSavings = {},
 ) {
-  const fn = fire.fireNumber;
-  const pct = Math.min(100, Math.max(0, Math.round(fn.pctFunded || 0)));
-  const pctLabel = formatFundedPct(fn.pctFunded);
-  const onTrack = fn.pctFunded >= 100 && fn.fullyFundedTo95;
-  const cashSavingMo = simulation.cashSaving || 0;
-  const hasCustomSaveOverride =
-    !r.retiringNow &&
-    (Math.abs(simulation.invest - s.privateSaving) > 1 || cashSavingMo > 0);
   const contribution = r.retiringNow
     ? simulation.cpfExtra + s.privateSaving
-    : simulation.cpfExtra + cashSavingMo + simulation.invest;
-  const {
-    projFireAge,
-    readyText,
-    diffYears,
-    depletionAgeDisplay,
-    survivalAnswer,
-    safeAgeAnswer,
-    deltaLine,
-    deltaColor,
-  } = deriveReadinessSummary({
-    fire,
-    endAge: fire.endAge,
-    pctFunded: fn.pctFunded,
-    onTrack,
-    compact: false,
-  });
+    : simulation.cpfExtra + (simulation.cashSaving || 0) + simulation.invest;
 
   const cpfCov65Pct = Math.min(
     100,
@@ -1180,14 +1113,34 @@ export function buildFinOverviewGrid(
   const grossPlusEmployer = paycheck.grossPlusEmployer;
   const paycheckBars = paycheck.rows;
 
-  const milestones = getMilestoneNodes(fire, r, s, simulation);
+  const [, cpfMilestone, retirementMilestone, horizonMilestone] =
+    getMilestoneNodes(fire, r, s, simulation);
+  const endAge = fire.endAge;
+  const milestones = [
+    cpfMilestone,
+    {
+      ...retirementMilestone,
+      title: "Retirement starts",
+      metric: "",
+      sub:
+        r.retire < 65
+          ? "Draw from savings before CPF LIFE starts"
+          : "CPF LIFE in payment",
+    },
+    {
+      ...horizonMilestone,
+      title: `Net worth at age ${endAge}`,
+      tag: "",
+      sub: fire.fireNumber.fullyFundedTo95
+        ? "Spending funded throughout the planning horizon"
+        : `Spending funded until age ${Math.floor(fire.fireNumber.depletionAge ?? endAge)} · net worth includes CPF`,
+    },
+  ];
   const startPt = fire.points[0];
   const startingCpf = startPt?.cpfTotal ?? 0;
   const startingSrs = startPt?.srs ?? 0;
   const startingOutside = startPt?.totalOutside ?? 0;
-  const startingLiquid = Math.max(0, startingOutside - startingSrs);
   const startingTotalAssets = startingCpf + startingOutside;
-  const yearsToRetire = Math.max(0, fire.retire - fire.age);
   const selectedPathName =
     s.key === "brs"
       ? "BRS Pledge"
@@ -1242,8 +1195,6 @@ export function buildFinOverviewGrid(
   const activePaycheck = finActivityTab === "paycheck";
   const activeMilestones = !activePaycheck;
   const activeSegIdx = activePaycheck ? 1 : 0;
-  const takeHomePctOfGross =
-    r.salary > 0 ? Math.round((r.afterCpf / r.salary) * 100) : 0;
 
   const taps = RetirementModel.retirementTapsPlan({
     summary: r,
@@ -1265,399 +1216,107 @@ export function buildFinOverviewGrid(
     expenseData,
   });
 
-  return `<section class="swell-section-block" aria-label="Plan snapshot key metrics">
-    <div class="swell-section-head">
-      <h2>Plan Snapshot</h2>
-    </div>
-    <div class="fin-top-kpis" role="region" aria-label="Key plan inputs">
-      <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="age" aria-label="Edit your current age ${fire.age}">
-        <div class="fin-kpi-head">
-          <span class="fin-kpi-label">Your Age</span>
-          <span class="swell-kpi-icon" aria-hidden="true">${KPI_ICONS.age}</span>
-        </div>
-        <strong class="fin-kpi-val">${fire.age} <span class="swell-kpi-unit">yrs</span></strong>
-        <span class="fin-kpi-sub"><b class="swell-delta">Current</b> · ${fire.age >= 55 ? "Age 55+ (RA open)" : `${55 - fire.age} yrs to 55`}</span>
-      </button>
-      <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="goal" aria-label="Edit target retirement age ${fire.retire}">
-        <div class="fin-kpi-head">
-          <span class="fin-kpi-label">Target Retire Age</span>
-          <span class="swell-kpi-icon" aria-hidden="true">${KPI_ICONS.goal}</span>
-        </div>
-        <strong class="fin-kpi-val">Age ${fire.retire}</strong>
-        <span class="fin-kpi-sub"><b class="swell-delta">${r.retiringNow ? "Now" : `${yearsToRetire} yrs`}</b> · ${fire.retire < 65 ? `${65 - fire.retire}-yr bridge` : fire.retire === 65 ? "Standard CPF LIFE" : "Deferred payout"}</span>
-      </button>
-      <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="salary" aria-label="Edit monthly salary. Take-home ${money(r.afterCpf)} per month on ${money(r.salary)} gross">
-        <div class="fin-kpi-head">
-          <span class="fin-kpi-label">Take-Home Pay</span>
-          <span class="swell-kpi-icon" aria-hidden="true">${KPI_ICONS.salary}</span>
-        </div>
-        <strong class="fin-kpi-val">${m(r.afterCpf, "/mo", "kpi-takehome")}</strong>
-        <span class="fin-kpi-sub"><b class="swell-delta is-up">${takeHomePctOfGross}% net</b> on ${m(r.salary, "/mo")}</span>
-      </button>
-      <button type="button" class="fin-kpi-card card-surface is-interactive" data-quick-edit="balances" aria-label="Edit total assets ${money(startingTotalAssets)}">
-        <div class="fin-kpi-head">
-          <span class="fin-kpi-label">Total Assets</span>
-          <span class="swell-kpi-icon" aria-hidden="true">${KPI_ICONS.balances}</span>
-        </div>
-        <strong class="fin-kpi-val">${m(startingTotalAssets, "", "kpi-assets")}</strong>
-        <span class="fin-kpi-sub"><b class="swell-delta is-up">${compactMoney(startingCpf)} CPF</b> · ${compactMoney(Math.max(0, startingOutside - startingSrs))} liq${startingSrs > 0 ? ` · ${compactMoney(startingSrs)} SRS` : ""}</span>
-      </button>
-    </div>
-    <details class="overview-disclosure-card">
-      <summary class="overview-disclosure-summary">
-        <span>Portfolio &amp; Cashflow Breakdown</span>
-        <span class="overview-disclosure-meta">Net Worth · Take-Home Cashflow · Passive Yield · Recurring Budget</span>
-      </summary>
-      <div class="overview-disclosure-body">
-        ${buildFinBentoGridHTML({
-          fire,
-          r,
-          p,
-          simulation,
-          bogle,
-          pctOfPay,
-          contribution,
-          expenseData,
-          taps,
-          paycheck,
-          tax,
-          cashflow,
-          startingCpf,
-          startingSrs,
-          startingTotalAssets,
-        })}
-      </div>
-    </details>
-    ${buildMoneyMovesStripHTML({
-      fire,
-      r,
-      s,
-      p,
-      simulation,
-      bogle,
-      contribution,
-      taps,
-      tax,
-      expenseData,
-      cashflow,
-      pctOfPay,
-    })}
-    ${expenseData ? buildExpenseCardHTML(expenseData, r) : ""}
-  </section>
+  const moves = getMoneyMoves({
+    fire,
+    r,
+    p,
+    simulation,
+    bogle,
+    contribution,
+    taps,
+    tax,
+    expenseData,
+    cashflow,
+  });
+  const primaryMove = moves.find(
+    (move) =>
+      move.action === "cap-affordable-save" || move.action === "match-save",
+  );
+  let recommendation = null;
+  if (primaryMove) {
+    const caps = primaryMove.action === "cap-affordable-save";
+    const nextParams = {
+      ...p,
+      ...(masRates ? { masRates } : {}),
+      ...(caps
+        ? getCappedSavings(primaryMove.value, p, simulation)
+        : { invest: primaryMove.value }),
+    };
+    try {
+      const projected = RetirementModel.solveBucketAwareSimulation(
+        nextParams,
+        caps && selected === "salary" ? "frs" : selected,
+      );
+      const nextSimulation = projected.simulation;
+      const nextContribution = r.retiringNow
+        ? nextSimulation.cpfExtra +
+          nextSimulation.selectedScenario.privateSaving
+        : nextSimulation.cpfExtra +
+          (nextSimulation.cashSaving || 0) +
+          nextSimulation.invest;
+      const rate =
+        r.afterCpf > 0 ? Math.round((100 * nextContribution) / r.afterCpf) : 0;
+      const nextCashflow = computeMonthlyTakeHomeCashflow({
+        r,
+        simulation: nextSimulation,
+        contribution: nextContribution,
+        p: nextParams,
+        tax: RetirementModel.taxSweetSpot(nextParams, {
+          simulation: nextSimulation,
+        }),
+        expenseData,
+      });
+      recommendation = {
+        move: primaryMove,
+        funded: projected.fire.fireNumber.pctFunded,
+        rate,
+        health: savingsHealth(rate, nextCashflow),
+      };
+    } catch {
+      // An unavailable preview leaves the existing recommendation in Actionable Insights.
+    }
+  }
+  const currentHealth = savingsHealth(pctOfPay, cashflow);
+  const overviewInputs = [
+    ["known-cpf-extra", "Extra CPF savings", p.cpfExtra ?? simulation.cpfExtra],
+    [
+      "known-cash-saving",
+      "Cash savings",
+      p.cashSaving ?? simulation.cashSaving ?? 0,
+    ],
+    ["known-invest", "Outside investments", p.invest ?? simulation.invest],
+  ];
 
-  <section class="swell-section-block" aria-label="Monthly CPF, savings, and investment plan">
-    <div class="swell-section-head">
-      <h2>Monthly Savings &amp; Investment Plan</h2>
-      ${
-        !r.retiringNow && pctOfPay <= 50
-          ? `<span class="status-pill is-good">${pctOfPay > 30 ? "Healthy" : "Comfortable"} · ${pctOfPay}% of take-home</span>`
-          : ""
-      }
-    </div>
-    <div class="fin-saving-trio-grid" role="region" aria-label="Monthly CPF, savings, and investment plan">
-      <button type="button" class="fin-card fin-saving-card fin-planned-cpf-card card-surface is-interactive" data-quick-edit="cpf-extra" data-qe-focus="#qe-cpf-extra" aria-label="Edit extra CPF saving each month">
-        ${(() => {
-          const cpfExtraMo = simulation.cpfExtra || 0;
-          const rstuCap = RetirementModel.C.rstuReliefCap;
-          const rstuYr = Math.round(
-            tax?.activeSelfRstu ?? Math.min(rstuCap, cpfExtraMo * 12),
-          );
-          return `<div class="fin-saving-top">
-              <span class="fin-saving-title">Extra CPF saving</span>
-              <span class="status-pill is-good">4.0% p.a. SA / RA</span>
-            </div>
-            <div class="fin-saving-val-row">
-              <strong>${m(cpfExtraMo, "/mo", "saving-cpf-extra")}</strong>
-            </div>
-            <div class="fin-saving-meta">
-              <span>Age-55 CPF: <strong>${m(s.balance, "", "saving-cpf-55")}</strong> · CPF LIFE (65+): <strong>${m(s.payout, "/mo", "saving-cpf-life")}</strong></span>
-              <small>IRAS RSTU tax relief: <strong>${m(rstuYr, "/yr", "saving-cpf-rstu")}</strong> of ${m(rstuCap, "/yr")} max cap${Math.abs(cpfExtraMo - s.cpfFunding) > 1 ? ` · Path target ${m(s.cpfFunding, "/mo")}` : ""}</small>
-            </div>`;
-        })()}
-      </button>
+  const savingsMarkers = [
+    ["Now", pctOfPay, currentHealth.label],
+    ...(recommendation
+      ? [["After", recommendation.rate, recommendation.health.label]]
+      : []),
+  ];
+  const staggerSavingsLabels =
+    recommendation &&
+    Math.abs(Math.min(100, recommendation.rate) - Math.min(100, pctOfPay)) < 32;
 
-      <button type="button" class="fin-card fin-saving-card fin-planned-savings-card card-surface is-interactive" data-quick-edit="cash-saving" data-qe-focus="#qe-cash-saving" aria-label="Edit monthly planned savings (HYSA / SSB)">
-        ${(() => {
-          const hysaRatePct = Number(taps.tap4Ssb.effectiveRatePct.toFixed(2));
-          const curCashBal = taps.tap4Ssb.currentSsbCash;
-          const projCashAtRetire = taps.tap4Ssb.projectedSsbCashAtRetireToday;
-          const curCashYieldMo = taps.tap4Ssb.currentMonthlyYield;
-          return `<div class="fin-saving-top">
-              <span class="fin-saving-title is-cash-tone">Monthly planned savings</span>
-              <span class="status-pill is-info">${hysaRatePct}% p.a. HYSA / SSB</span>
-            </div>
-            <div class="fin-saving-val-row">
-              <strong>${m(taps.tap4Ssb.monthlyCashSaving, "/mo", "saving-cash")}</strong>
-            </div>
-            <div class="fin-saving-meta">
-              <span>Today: <strong>${m(curCashBal, "", "saving-cash-bal")}</strong> → Age ${fire.retire}: <strong>${m(projCashAtRetire, "", "saving-cash-ret")}</strong> (Tap 4)</span>
-              <small>Yields ~<strong>${m(curCashYieldMo, "/mo", "saving-cash-yield")}</strong> today at <strong>${hysaRatePct}% p.a.</strong> projected HYSA / SSB rate</small>
-            </div>`;
-        })()}
-      </button>
-
-      <button type="button" class="fin-card fin-saving-card fin-planned-invest-card card-surface is-interactive" data-quick-edit="invest" data-qe-focus="#qe-invest" aria-label="Edit monthly planned investment (Outside investment)">
-        ${(() => {
-          if (r.retiringNow) {
-            const pillTone = s.remainingPortfolioGap > 0 ? "warn" : "good";
-            return `<div class="fin-saving-top">
-                <span class="fin-saving-title is-invest-tone">Portfolio gap now</span>
-                <span class="status-pill is-${pillTone}">Lump sum</span>
-              </div>
-              <div class="fin-saving-val-row">
-                <strong>${m(s.privateSaving, "", "saving-lump")}</strong>
-                <span class="fin-curr">now</span>
-              </div>
-              <div class="fin-saving-meta">
-                <span>Immediate portfolio requirement</span>
-                <small>Follows your ${taps.tap3Equities.targetEquityPct}% Equity / ${taps.tap3Equities.targetBondPct}% Bond outside investment split</small>
-              </div>`;
-          }
-          const glPct = taps.tap3Equities.globalSplitPct;
-          const sgPct = taps.tap3Equities.sgDividendSplitPct;
-          const curInvestBal = taps.tap3Equities.currentEquities;
-          const projInvestAtRetire =
-            taps.tap3Equities.projectedInvestAtRetireToday;
-          return `<div class="fin-saving-top">
-              <span class="fin-saving-title is-invest-tone">Monthly planned investment</span>
-              <span class="status-pill is-good">${taps.tap3Equities.targetEquityPct}% Eq / ${taps.tap3Equities.targetBondPct}% Bond</span>
-            </div>
-            <div class="fin-saving-val-row">
-              <strong>${m(taps.tap3Equities.monthlyInvest, "/mo", "saving-outside")}</strong>
-            </div>
-            <div class="fin-saving-meta">
-              <span>Today: <strong>${m(curInvestBal, "", "saving-inv-bal")}</strong> → Age ${fire.retire}: <strong>${m(projInvestAtRetire, "", "saving-inv-ret")}</strong> (Tap 3: <strong>${m(taps.tap3Equities.projectedMonthlyDrawToday, "/mo", "saving-inv-draw")}</strong>)</span>
-              <small>Outside split (${glPct}/${sgPct} G/SG): <strong>${m(taps.tap3Equities.monthlyGlobalBuy, "", "saving-buy-eq")}</strong> Global · <strong>${m(taps.tap3Equities.monthlySgBuy, "", "saving-buy-sg")}</strong> SG · <strong>${m(taps.tap3Equities.monthlyBondBuy, "", "saving-buy-bond")}</strong> Bond${Math.abs(taps.tap3Equities.monthlyInvest - s.privateSaving) > 1 ? ` (target ${m(s.privateSaving)})` : ""}</small>
-            </div>`;
-        })()}
-      </button>
-    </div>
-
-    ${(() => {
-      if (r.retiringNow) return "";
-      const exactPct = r.afterCpf > 0 ? (contribution / r.afterCpf) * 100 : 0;
-      const clampedPct = Math.min(100, Math.max(0, exactPct));
-      const {
-        leftAfterSave,
-        netCashSurplus,
-        fixedOutMo,
-        monthlyTax,
-        housingCashMo,
-        recurringTotal,
-      } = cashflow;
-      const exceedsPay = leftAfterSave < 0;
-      const hasCashDeficit = !exceedsPay && netCashSurplus < 0;
-      const isCritical = exceedsPay || hasCashDeficit || pctOfPay > 85;
-      const isStretched = !isCritical && pctOfPay > 50;
-      const pillTone = isCritical ? "danger" : isStretched ? "warn" : "good";
-      const bandLabel = exceedsPay
-        ? "Exceeds pay"
-        : hasCashDeficit
-          ? "Cash Shortfall"
-          : pctOfPay > 85
-            ? "Critical"
-            : pctOfPay > 50
-              ? "Stretched"
-              : pctOfPay > 30
-                ? "Healthy"
-                : "Comfortable";
-      const pillText = hasCashDeficit
-        ? `${bandLabel} · −${m(-netCashSurplus, "/mo")}`
-        : `${bandLabel} · ${pctOfPay}% of take-home`;
-
-      const healthyFill =
-        Math.round(Math.min(100, (Math.min(clampedPct, 50) / 50) * 100) * 10) /
-        10;
-      const stretchedFill =
-        clampedPct > 50
-          ? Math.round(
-              Math.min(100, ((Math.min(clampedPct, 85) - 50) / 35) * 100) * 10,
-            ) / 10
-          : 0;
-      const criticalFill =
-        clampedPct > 85
-          ? Math.round(
-              Math.min(100, ((Math.min(clampedPct, 100) - 85) / 15) * 100) * 10,
-            ) / 10
-          : 0;
-      const markerPos = Math.round(clampedPct * 10) / 10;
-      const leftSharePct = Math.max(0, 100 - pctOfPay);
-
-      const meterHtml = `<div class="fin-band-meter">
-        <div class="fin-band-track-wrap" role="img" aria-label="Monthly saving takes ${pctOfPay}% of take-home pay. Thresholds: up to 50% healthy, 51 to 85% stretched, over 85% critical.">
-          <div class="fin-band-track">
-            <div class="fin-band-zone is-healthy">
-              <span class="fin-band-fill" data-meter-key="band-healthy" data-meter-w="${healthyFill}" style="width:${healthyFill}%;"></span>
-            </div>
-            <div class="fin-band-zone is-stretched">
-              <span class="fin-band-fill" data-meter-key="band-stretched" data-meter-w="${stretchedFill}" style="width:${stretchedFill}%;"></span>
-            </div>
-            <div class="fin-band-zone is-critical">
-              <span class="fin-band-fill" data-meter-key="band-critical" data-meter-w="${criticalFill}" style="width:${criticalFill}%;"></span>
-            </div>
-          </div>
-          <span class="fin-band-marker is-${pillTone}" data-meter-key="band-marker" data-meter-left="${markerPos}" style="left:clamp(6px, ${markerPos}%, calc(100% - 6px));"></span>
-        </div>
-        <div class="fin-band-scale" aria-hidden="true">
-          <span data-tick="0">0%</span>
-          <span data-tick="50">50%</span>
-          <span data-tick="85">85%</span>
-          <span data-tick="100">100%</span>
-        </div>
-        <div class="fin-band-legend">
-          <span><i style="background:var(--sem-cpf);"></i>≤50% Healthy</span>
-          <span><i style="background:var(--sem-cash);"></i>51–85% Stretched</span>
-          <span><i style="background:var(--sem-alert);"></i>&gt;85% Critical</span>
-        </div>
-      </div>`;
-
-      const hasMonthlyShortfall = s.contributionShortfall > 1;
-      const monthlyChipLabel = hasMonthlyShortfall
-        ? "Invest more / mo"
-        : "Cap saving";
-      const shortfallLine = hasMonthlyShortfall
-        ? ` <span class="fin-saving-gap-note">Currently investing ${m(s.chosenInvest, "/mo")} — ${m(s.contributionShortfall, "/mo")} below target.</span>`
-        : "";
-
-      const surplusNote =
-        netCashSurplus > 0
-          ? `+${m(netCashSurplus, "/mo")} surplus after ${m(fixedOutMo, "/mo")} tax &amp; fixed bills`
-          : `exact match for ${m(fixedOutMo, "/mo")} tax &amp; fixed bills`;
-
-      const statusHtml = exceedsPay
-        ? `<div class="fin-saving-alert is-danger" role="status">
-            <p>Exceeds your <strong>${m(r.afterCpf)}</strong> take-home by <strong>${m(-leftAfterSave, "/mo")}</strong> (plus ${m(fixedOutMo, "/mo")} tax &amp; bills = <strong>−${m(-netCashSurplus, "/mo")}</strong> shortfall).${shortfallLine}</p>
-            <div class="fin-saving-actions">
-              <button type="button" class="fin-action-chip" data-quick-edit="balances">Invest assets</button>
-              <button type="button" class="fin-action-chip" commandfor="plan-settings" command="show-modal" aria-haspopup="dialog">Boost return</button>
-              <button type="button" class="fin-action-chip" data-quick-edit="invest">${monthlyChipLabel}</button>
-              <button type="button" class="fin-action-chip" data-quick-edit="goal">Retire later</button>
-              <button type="button" class="fin-action-chip" data-quick-edit="budget">Trim retire budget</button>
-            </div>
-          </div>`
-        : hasCashDeficit
-          ? `<div class="fin-saving-alert is-danger" role="status">
-              <p><strong>Short −${m(-netCashSurplus, "/mo")} after bills:</strong> ${m(leftAfterSave, "/mo")} (${leftSharePct}%) left after saving does not cover ${m(monthlyTax, "/mo")} IRAS tax${housingCashMo > 0 ? `, ${m(housingCashMo, "/mo")} cash housing` : ""} &amp; ${m(recurringTotal, "/mo")} fixed bills (${m(fixedOutMo, "/mo")}).${shortfallLine}</p>
-              <div class="fin-saving-actions">
-                <button type="button" class="fin-action-chip" data-quick-edit="invest">${monthlyChipLabel}</button>
-                <button type="button" class="fin-action-chip" data-open-expense-modal="custom">Review bills</button>
-                <button type="button" class="fin-action-chip" data-quick-edit="balances">Invest assets</button>
-                <button type="button" class="fin-action-chip" data-quick-edit="goal">Retire later</button>
-              </div>
-            </div>`
-          : isCritical
-            ? `<div class="fin-saving-alert is-danger" role="status">
-                <p>Above the <strong>85%</strong> critical threshold — leaves <strong>${m(leftAfterSave, "/mo")}</strong> (${leftSharePct}%) of take-home (${surplusNote}).${shortfallLine}</p>
-                <div class="fin-saving-actions">
-                  <button type="button" class="fin-action-chip" data-quick-edit="balances">Invest assets</button>
-                  <button type="button" class="fin-action-chip" commandfor="plan-settings" command="show-modal" aria-haspopup="dialog">Boost return</button>
-                  <button type="button" class="fin-action-chip" data-quick-edit="invest">${monthlyChipLabel}</button>
-                  <button type="button" class="fin-action-chip" data-quick-edit="goal">Retire later</button>
-                  <button type="button" class="fin-action-chip" data-quick-edit="budget">Trim retire budget</button>
-                </div>
-              </div>`
-            : isStretched
-              ? `<div class="fin-saving-alert is-warn" role="status">
-                  <p>Above the <strong>50%</strong> healthy threshold — leaves <strong>${m(leftAfterSave, "/mo")}</strong> (${leftSharePct}%) of take-home (${surplusNote}).${shortfallLine}</p>
-                  <div class="fin-saving-actions">
-                    ${hasMonthlyShortfall ? `<button type="button" class="fin-action-chip" data-quick-edit="invest">Invest more / mo</button>` : ""}
-                    <button type="button" class="fin-action-chip" data-quick-edit="balances">Invest assets</button>
-                    <button type="button" class="fin-action-chip" commandfor="plan-settings" command="show-modal" aria-haspopup="dialog">Boost return</button>
-                    <button type="button" class="fin-action-chip" data-quick-edit="invest" data-qe-focus="#qe-target-equity">Adjust split</button>
-                  </div>
-                </div>`
-              : `<div class="fin-saving-ok-row">
-                  <p class="fin-saving-ok">Within the <strong>≤50%</strong> healthy threshold — leaves <strong>${m(leftAfterSave, "/mo")}</strong> (${leftSharePct}%) of take-home (${surplusNote}).${shortfallLine}</p>
-                </div>`;
-
-      if (!isCritical && !isStretched && !hasMonthlyShortfall) {
-        return "";
-      }
-
-      return `<section class="fin-card fin-saving-health-bar card-surface" aria-label="Monthly take-home saving health">
-        <div class="fin-saving-health-left">
-          <div class="fin-saving-health-head">
-            <span class="fin-saving-health-title">Monthly Take-Home Saving Health</span>
-            <span class="status-pill is-${pillTone}">${pillText}</span>
-          </div>
-          <p class="fin-saving-health-sub">
-            Total planned saving <strong>${m(contribution, "/mo", "saving-monthly")}</strong>
-            ${exceedsPay ? `exceeds ${m(r.afterCpf)} take-home by <strong>${m(-leftAfterSave, "/mo", "saving-left")}</strong>` : `leaves <strong>${m(leftAfterSave, "/mo", "saving-left")}</strong> before <strong>${m(fixedOutMo, "/mo")}</strong> tax &amp; fixed bills`}
-          </p>
-          ${statusHtml}
-        </div>
-        <div class="fin-saving-health-right">
-          ${meterHtml}
-        </div>
-      </section>`;
-    })()}
-  </section>
-
+  return `${buildOverviewPageHeader({ fire, r, startingTotalAssets, rate: pctOfPay, recommendation })}
   <section class="swell-section-block" aria-label="Wealth trajectory, income taps, and retirement readiness">
     <div class="swell-section-head">
       <h2>Trajectory &amp; Readiness</h2>
     </div>
     <div class="swell-discover-grid">
       <section class="fin-card fin-hero-card card-surface" aria-labelledby="ember-traj-title">
-        <div class="swell-mini-kpis">
+        <div class="overview-chart-head">
           <div class="swell-mini-kpi is-primary">
-            <span class="fin-card-eyebrow" id="ember-traj-title">Net Worth at Age ${fire.retire}</span>
+            <h3 id="ember-traj-title">Net Worth at Age ${fire.retire}</h3>
             <div class="fin-big-figure-row">
               <strong class="fin-big-figure" id="hero-nw-live">${m(retireNw, "", "hero-nw")}</strong>
             </div>
-            <span class="swell-sub-delta" id="hero-nw-sub-live"><b class="swell-delta ${onTrack ? "is-up" : "is-warn"}">${pctLabel} funded</b> to age ${fire.endAge}</span>
           </div>
-          <div class="swell-mini-kpi">
-            <span class="fin-card-eyebrow">${hasCustomSaveOverride ? "Committed Saving" : "Monthly Saving"}</span>
-            <strong class="swell-mid-figure">${m(contribution, "/mo", "hero-save")}</strong>
-            <span class="swell-sub-delta"><b class="swell-delta ${pctOfPay <= 50 ? "is-up" : "is-down"}">${pctOfPay}%</b> of take-home</span>
-          </div>
-          <div class="swell-mini-kpi">
-            <span class="fin-card-eyebrow">CPF LIFE from 65</span>
-            <strong class="swell-mid-figure is-emerald">${m(s.payout, "/mo", "hero-cpf-life")}</strong>
-            <span class="swell-sub-delta"><b class="swell-delta is-up">${cpfCov65Pct}%</b> of budget</span>
-          </div>
-        </div>
-        ${(() => {
-          const ssbMoFloor = Math.round(
-            taps.tap4Ssb.currentSsbCash > 0
-              ? (taps.tap4Ssb.currentMonthlyYield ?? 0)
-              : 0,
-          );
-          const guaranteedFloorMo = Math.round(s.payout + ssbMoFloor);
-          const guaranteedPct = Math.min(
-            100,
-            Math.round((guaranteedFloorMo / Math.max(1, r.spend65)) * 100),
-          );
-          const marketDrawMo = Math.max(
-            0,
-            Math.round(r.spend65 - guaranteedFloorMo),
-          );
-          const marketPct = Math.max(0, 100 - guaranteedPct);
-          return `<div class="fin-security-split-bar" role="group" aria-label="Age-65 Guaranteed Sovereign Floor versus Market Drawdown">
-            <div class="fin-security-split-meta">
-              <span><i style="background:var(--sem-cpf);"></i>Guaranteed Floor (CPF LIFE + SSB): <strong>${m(guaranteedFloorMo, "/mo")} (${guaranteedPct}%)</strong></span>
-              <span><i style="background:var(--primary);"></i>Market Portfolio Draw: <strong>${m(marketDrawMo, "/mo")} (${marketPct}%)</strong></span>
-            </div>
-            <div class="fin-security-split-track" aria-hidden="true">
-              <span style="width:${guaranteedPct}%;background:var(--sem-cpf);"></span>
-              <span style="width:${marketPct}%;background:var(--primary);"></span>
-            </div>
-          </div>`;
-        })()}
-        <div class="swell-chart-subbar">
-          <div class="swell-inline-keys" aria-hidden="true">
-            <span class="swell-inline-key"><i class="swell-key-swatch is-pink"></i>${Math.min(55, fire.retire)}+ Wealth</span>
-            <span class="swell-inline-key"><i class="swell-key-swatch is-slate"></i>Pre-${Math.min(55, fire.retire)} Base</span>
-            <span class="swell-inline-key"><i class="swell-key-line"></i>Net Worth Trend</span>
-          </div>
-          <button type="button" class="fin-link-pill" data-quick-edit="balances">Edit balances</button>
         </div>
         <div class="chart-wrapper">
           <div id="dash-networth-chart" class="chart-area" role="img" aria-label="Stacked net worth trajectory from age ${fire.age} to ${fire.endAge}"></div>
           <div id="dash-networth-tooltip" class="chart-tooltip" hidden></div>
         </div>
-        <div class="chart-legend fin-chart-legend" id="dash-networth-legend"></div>
+        <div class="chart-legend fin-chart-legend" id="dash-networth-legend" role="group" aria-label="Net worth chart layers"></div>
       </section>
 
       <section class="fin-card fin-activity-card card-surface" aria-label="Key milestones and paycheck allocation">
@@ -1681,19 +1340,16 @@ export function buildFinOverviewGrid(
                   <span class="ember-feed-avatar" style="background:${n.softBg};color:${n.color};">${n.badge}</span>
                   <div class="ember-feed-info">
                     <strong>${n.title}</strong>
-                    <span>${n.tag} · ${n.sub}</span>
+                    <span>${n.tag ? `${n.tag} · ` : ""}${n.sub}</span>
                   </div>
-                  <div class="ember-feed-right">
-                    <b>${n.metric}</b>
-                    <span class="swell-slate-pill">${n.pill}</span>
-                  </div>
+                  ${n.metric ? `<div class="ember-feed-right"><b>${n.metric}</b></div>` : ""}
                 </li>`,
               )
               .join("")}
           </ul>
           <div class="fin-coverage-card">
             <div class="fin-cov-head">
-              <span>Age-65 income split</span>
+              <span>Age-65 income split · CPF LIFE and savings</span>
               <strong>${m(r.spend65, "/mo")} need</strong>
             </div>
             <div class="fin-cov-track" aria-hidden="true">
@@ -1701,8 +1357,8 @@ export function buildFinOverviewGrid(
               <span class="fin-cov-out" data-meter-key="cov-out" data-meter-w="${Math.max(0, 100 - cpfCov65Pct)}" style="width:${Math.max(0, 100 - cpfCov65Pct)}%"></span>
             </div>
             <div class="fin-cov-legend">
-              <span><i style="background:#10B981;"></i><b>${m(s.payout, "/mo")}</b> CPF LIFE (${cpfCov65Pct}%)</span>
-              <span><i style="background:#2563EB;"></i><b>${m(s.gap65, "/mo")}</b> savings (${Math.max(0, 100 - cpfCov65Pct)}%)</span>
+              <span><i style="background:#10B981;"></i>CPF LIFE <b>${cpfCov65Pct}%</b></span>
+              <span><i style="background:#2563EB;"></i><b>${m(s.gap65, "/mo")}</b> from savings, including SSBs (${Math.max(0, 100 - cpfCov65Pct)}%)</span>
             </div>
           </div>
         </div>
@@ -1728,41 +1384,92 @@ export function buildFinOverviewGrid(
               .join("")}
           </div>
           <div class="ember-card-foot">
-            <span>Savings rate: <strong>${pctOfPay}%</strong> of ${m(r.afterCpf)} take-home</span>
+
             <button type="button" class="text-button" data-go-tab="allocator">Allocator →</button>
           </div>
         </div>
       </section>
 
-      <button type="button" class="fin-card fin-gauge-card card-surface is-interactive" data-quick-edit="goal" aria-label="Edit target retirement age. Earliest safe age ${readyText}, ${survivalAnswer}">
-        <div class="fin-gauge-head">
-          <h3>Retirement Readiness</h3>
-          <span class="fin-target-pill">Goal: Age ${fire.retire}</span>
-        </div>
-        ${buildFinReadinessGaugeSVG(
-          fn.pctFunded,
-          "Earliest Safe Retirement Age",
-          readyText,
-          deltaLine,
-          deltaColor,
-          onTrack,
-          "swell",
-          fire.endAge,
-        )}
-        <div class="fin-gauge-facts">
-          <div class="fin-gauge-fact-row">
-            <span>Retiring at ${fire.retire}</span>
-            <strong class="${fn.fullyFundedTo95 ? "is-good" : "is-warn"}">${survivalAnswer}</strong>
-          </div>
-          <div class="fin-gauge-fact-row">
-            <span>Safe age (to ${fire.endAge})</span>
-            <strong>${safeAgeAnswer}</strong>
-          </div>
-        </div>
-      </button>
     </div>
   </section>
 
+  <section class="swell-section-block" aria-labelledby="overview-savings-title">
+    <div class="swell-section-head"><h2 id="overview-savings-title">Monthly Savings &amp; Investment Plan</h2></div>
+    <div class="overview-savings card-surface">
+    <div class="overview-total-saving">
+      <span>Total saving</span>
+      <strong class="overview-savings-total">${r.retiringNow ? "Saving paused" : m(contribution, "/mo")}</strong>
+    </div>
+    ${
+      r.retiringNow
+        ? `<p>Outside capital needed now ${m(s.privateSaving)}</p>`
+        : `
+      <div class="overview-saving-fields" role="group" aria-label="Monthly savings amounts">
+        ${overviewInputs
+          .map(([id, label, value]) => {
+            const suggestion = suggestedSavings[id];
+            const formattedSuggestion =
+              Math.round(value) === Math.round(suggestion)
+                ? centsHtml(suggestion)
+                : m(suggestion);
+            return `
+          <div class="overview-saving-field">
+            <span>${label}</span>
+            <button type="button" class="overview-saving-figure" id="overview-edit-${id}" data-overview-saving-edit aria-expanded="false" aria-controls="overview-editor-${id}">
+              <span class="sr-only">Edit ${label.toLowerCase()}: </span>
+              ${m(Number(value ?? 0), "/mo")}
+              ${svgWrap('<path d="m13.5 6.5 4 4M4 20l4.5-1 11-11a2.8 2.8 0 0 0-4-4l-11 11L4 20Z"/>', 15)}
+            </button>
+            <div class="overview-saving-editor" id="overview-editor-${id}" hidden>
+              <span aria-hidden="true">$</span>
+              <input type="number" min="0" max="${Math.max(0, Math.floor(r.afterCpf))}" step="any" inputmode="decimal" id="overview-${id}" data-overview-saving="${id}" value="${Number(Number(value ?? 0).toFixed(2))}" aria-label="${label} in dollars per month" aria-describedby="overview-saving-message">
+              <span aria-hidden="true">/mo</span>
+            </div>
+            <div class="overview-saving-hint">
+              <button type="button" class="text-button overview-saving-suggestion" data-use-suggested="${id}" hidden aria-label="Use suggested ${label.toLowerCase()} of ${Number(suggestion).toFixed(2)} dollars per month">
+                <span>Suggested: ${formattedSuggestion}</span><strong>Use</strong>
+              </button>
+            </div>
+          </div>`;
+          })
+          .join("")}
+      </div>
+      <p class="settings-error" id="overview-saving-message" role="status"></p>
+      <div class="overview-saving-health" role="group" aria-label="Savings rate as a share of pay after CPF">
+        <div class="overview-saving-meter${staggerSavingsLabels ? " is-staggered" : ""}">
+          <div class="overview-saving-track" aria-hidden="true"></div>
+          ${savingsMarkers
+            .map(
+              ([name, rate, band], index) => `
+            <div class="overview-saving-marker${index ? " is-preview" : ""}" style="--saving-position:${Math.max(0, Math.min(100, rate))}%">
+              <span class="overview-saving-marker-label">${name} <strong${index ? "" : " data-current-savings-rate"}>${rate}%</strong><span class="sr-only"${index ? "" : " data-current-savings-band"}>${band}</span></span>
+            </div>`,
+            )
+            .join("")}
+        </div>
+        <ul class="overview-saving-zones" aria-label="Savings rate bands">
+          <li><strong>Healthy</strong> <span>≤50%</span></li>
+          <li><strong>Stretched</strong> <span>51–85%</span></li>
+          <li><strong>Critical</strong> <span>&gt;85%</span></li>
+        </ul>
+        ${cashflow.netCashSurplus < 0 ? `<p>Monthly gap after tax and bills ${m(-cashflow.netCashSurplus)}</p>` : ""}
+      </div>
+    `
+    }
+    <details class="overview-disclosure-card" id="overview-saving-details">
+      <summary class="overview-disclosure-summary">Savings projections</summary>
+      <div class="overview-disclosure-body">
+      <dl class="overview-saving-projections">
+        <div><dt>Cash &amp; bonds at ${fire.retire}</dt><dd>${m(taps.tap4Ssb.projectedSsbCashAtRetireToday)}</dd></div>
+        <div><dt>Equities at ${fire.retire}</dt><dd>${m(taps.tap3Equities.projectedInvestAtRetireToday)}</dd></div>
+      </dl>
+      <button type="button" class="text-button" data-quick-edit="invest" data-qe-focus="#qe-target-equity">Edit allocation</button>
+      </div>
+    </details>
+    </div>
+  </section>
+
+  ${expenseData ? buildExpenseCardHTML(expenseData) : ""}
   <section class="swell-section-block" aria-label="CPF strategy paths and retirement income architecture">
     <div class="swell-section-head">
       <h2>CPF Strategy &amp; Income Architecture</h2>
@@ -1780,6 +1487,7 @@ export function buildFinOverviewGrid(
           </div>
         </div>
       </div>
+      ${rangeNote}
       <div class="table-scroll">
         <table class="ember-ledger-table fin-table is-row-selectable">
           <caption class="sr-only">CPF Retirement Path comparison across BRS, FRS, and ERS strategies</caption>
@@ -1788,7 +1496,7 @@ export function buildFinOverviewGrid(
               <th scope="col">Strategy Path</th>
               <th scope="col" class="num-col">Age-55 CPF</th>
               <th scope="col" class="num-col">Extra CPF</th>
-              <th scope="col" class="num-col">Outside Save</th>
+              <th scope="col" class="num-col">${r.retiringNow ? "Outside capital needed" : "Outside invest"}</th>
               <th scope="col" class="num-col">CPF LIFE (65+)</th>
             </tr>
           </thead>
@@ -1828,7 +1536,6 @@ export function buildFinOverviewGrid(
                           <span class="ledger-path-cell">
                             <strong>${meta.name}</strong>
                             <span class="ledger-tag">${meta.tag}</span>
-                            ${isSelected ? '<span class="ledger-active-pill">Active Path</span>' : ""}
                           </span>
                           <small class="ledger-sub">${meta.note}</small>
                         </span>
@@ -1837,7 +1544,7 @@ export function buildFinOverviewGrid(
                   </td>
                   <td class="num-cell num-col" data-label="Age-55 CPF">${m(rowBal, "", `path-${path.key}-bal`)}</td>
                   <td class="num-cell num-col" data-label="Extra CPF">${m(rowCpf, r.retiringNow ? " now" : "/mo", `path-${path.key}-cpf`)}${cpfDiffers ? `<small class="ledger-cell-sub">Path: ${m(path.cpfFunding, "/mo")}</small>` : ""}</td>
-                  <td class="num-cell num-col" data-label="Outside Save">${m(rowOut, r.retiringNow ? " now" : "/mo", `path-${path.key}-out`)}${outDiffers ? `<small class="ledger-cell-sub">Target: ${m(s.privateSaving, "/mo")}</small>` : ""}</td>
+                  <td class="num-cell num-col" data-label="${r.retiringNow ? "Outside capital needed" : "Outside invest"}">${m(rowOut, r.retiringNow ? " now" : "/mo", `path-${path.key}-out`)}${outDiffers ? `<small class="ledger-cell-sub">Target: ${m(s.privateSaving, "/mo")}</small>` : ""}</td>
                   <td class="num-cell num-col" data-label="CPF LIFE (65+)"><strong>${m(rowLife, "/mo", `path-${path.key}-life`)}</strong></td>
                 </tr>`;
               })
@@ -1845,19 +1552,9 @@ export function buildFinOverviewGrid(
           </tbody>
         </table>
       </div>
-      <details class="ember-disclaimer">
-        <summary class="ember-disclaimer-summary">
-          <span class="disclaimer-chip">2026 CPF &amp; IRAS</span>
-          <span class="disclaimer-preview">Today’s dollars · ${Number((r.inflation * 100).toFixed(1))}% inflation · ${Number((r.investmentReturn * 100).toFixed(1))}% outside return</span>
-          <span class="disclaimer-toggle" aria-hidden="true">
-            <span class="disclaimer-toggle-label">Details</span>
-            <svg class="disclaimer-toggle-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true">
-              <path class="line-h" d="M3.5 8h9" />
-              <path class="line-v" d="M8 3.5v9" />
-            </svg>
-          </span>
-        </summary>
-        <div class="ember-disclaimer-body">
+      <details class="overview-disclosure-card" id="overview-methodology">
+        <summary class="overview-disclosure-summary">CPF rules and methodology</summary>
+        <div class="overview-disclosure-body ember-disclaimer-body">
           <ul>
             <li><strong>Purchasing power &amp; return:</strong> Shows today’s dollars (${Number((r.inflation * 100).toFixed(1))}% inflation, ${Number((r.investmentReturn * 100).toFixed(1))}% blended net outside return including ETFs/SSB; ${r.post55Work ? "post-55 salary CPF included" : "post-55 work contributions excluded"}).</li>
             <li><strong>2026 CPF &amp; IRAS rules:</strong> OW ceiling ${m(RetirementModel.C.wageCap, "/mo")}, Basic Healthcare Sum ${m(RetirementModel.C.bhs)}, FRS ${m(RetirementModel.C.frs)}, ERS ${m(RetirementModel.C.ers)}, and ${m(RetirementModel.C.personalReliefCap)} personal relief cap.</li>
@@ -1866,12 +1563,31 @@ export function buildFinOverviewGrid(
         </div>
       </details>
     </section>
+  </section>
 
-    <details class="overview-disclosure-card swell-taps-card" id="retirement-taps-card" ${taps.tap2Srs.verdictStatus === "trap-alert" || taps.tap2Srs.verdictStatus === "idle-cash" ? "open" : ""} aria-labelledby="taps-blueprint-title">
-      <summary class="overview-disclosure-summary">
-        <h3 id="taps-blueprint-title">4-Tap Retirement Income Architecture &amp; Guardrails</h3>
-        <span class="overview-disclosure-meta">CPF ${m(s.payout, "/mo")} · SRS ${escapeAttr(taps.tap2Srs.verdictLabel || "≤$40k/yr")} · Equities ${m(taps.tap3Equities.projectedMonthlyDrawToday, "/mo")} · SSB ${ssbPctOf150k}%</span>
-      </summary>
+  ${buildMoneyMovesStripHTML(moves.filter((move) => move !== recommendation?.move).slice(0, 3))}
+  <section class="swell-section-block overview-breakdown-section" aria-labelledby="overview-breakdown-title">
+    <details class="overview-disclosure-card overview-detail card-surface" id="overview-portfolio-details">
+      <summary class="overview-disclosure-summary overview-section-summary"><h2 id="overview-breakdown-title">Portfolio &amp; Cashflow Breakdown</h2></summary>
+      <div class="overview-disclosure-body">
+        ${buildFinBentoGridHTML({
+          r,
+          p,
+          bogle,
+          contribution,
+          taps,
+          cashflow,
+          startingCpf,
+          startingSrs,
+          startingTotalAssets,
+        })}
+      </div>
+    </details>
+    <button type="button" class="text-button overview-edit-plan" data-open-profile>Edit plan inputs</button>
+  </section>
+  <section class="swell-section-block" aria-labelledby="taps-blueprint-title">
+    <details class="overview-disclosure-card overview-detail card-surface" id="retirement-taps-card">
+      <summary class="overview-disclosure-summary overview-section-summary"><h2 id="taps-blueprint-title">How your retirement income is funded</h2></summary>
       <div class="overview-disclosure-body">
         <div class="swell-taps-grid">
         ${(() => {
@@ -1892,16 +1608,7 @@ export function buildFinOverviewGrid(
               (taps.tap2Srs.projectedAt63 / Math.max(1, srsZeroTaxCap)) * 100,
             ),
           );
-          const tap3Pct =
-            s.gap65 > 0
-              ? (taps.tap3Equities.gapCoveragePct ?? 100)
-              : Math.min(
-                  100,
-                  Math.round(
-                    (taps.tap3Equities.projectedMonthlyDrawToday / 2200) * 100,
-                  ),
-                );
-          const tap4Pct = ssbPctOf150k;
+          const tap3Pct = taps.tap3Equities.gapCoveragePct ?? 100;
           const srsMarginalPct = ((taps.tap2Srs.marginalRate ?? 0) * 100)
             .toFixed(1)
             .replace(/\.0$/, "");
@@ -1909,11 +1616,9 @@ export function buildFinOverviewGrid(
             taps.tap2Srs.verdictStatus === "trap-alert" ||
             taps.tap2Srs.verdictStatus === "idle-cash"
               ? "is-danger"
-              : taps.tap2Srs.verdictStatus === "worth-it"
-                ? "is-srs"
-                : taps.tap2Srs.verdictStatus === "rstu-first"
-                  ? "is-good"
-                  : "is-neutral";
+              : taps.tap2Srs.verdictStatus === "rstu-first"
+                ? "is-good"
+                : "is-info";
           const hasAnyRstu =
             (taps.tap2Srs.maxRstu || 0) +
               (taps.tap2Srs.eligibleFamilyRstu || 0) >
@@ -1940,97 +1645,82 @@ export function buildFinOverviewGrid(
           } else {
             tap2BodyHTML = `At your <strong>${srsMarginalPct}%</strong> IRAS bracket, SRS is <strong>worth it</strong> — saves up to <strong>${m(srsTaxSavedVal, "/yr")}</strong> tax on <strong>${m(srsEligibleCap, "/yr")}</strong> (after RSTU). Add an annual SRS contribution in <strong>Tax Relief</strong> and invest it immediately.`;
           }
-          const tap2MetaLabel =
-            taps.tap2Srs.projectedAt63 > 0
-              ? `Age-${taps.tap2Srs.startAge} pot (${m(taps.tap2Srs.projectedAt63)} nom.) vs ${srsZeroTaxCapCompact} cap`
-              : taps.tap2Srs.worthIt
-                ? `Age-${taps.tap2Srs.startAge} pot ($0/yr set) vs ${srsZeroTaxCapCompact} soft cap`
-                : `${srsMarginalPct}% tax bracket · $0 SRS pot planned`;
-          return `
-        <article class="swell-tap-box">
-          <div class="swell-tap-top">
-            <span class="swell-tap-badge is-tap1">Tap 1 · Age 55 &amp; 65+</span>
-            <span class="tap-verdict-pill is-good">${m(s.payout, "/mo")}${taps.tap1Cpf.oaInterestMonthlyToday >= 1 ? ` + ${m(taps.tap1Cpf.oaInterestMonthlyToday, "/mo")} OA` : ""}</span>
-          </div>
-          <h4>CPF LIFE (${r.plan === "escalating" ? "Escalating +2%/yr" : "Standard"}) &amp; OA Interest</h4>
-          <div class="tap-progress-wrap">
-            <div class="tap-progress-meta">
-              <span>Covers ${tap1Pct}% of ${m(r.spend65, "/mo")} age-65 need</span>
-              <strong>${tap1Pct}%</strong>
-            </div>
-            <div class="tap-progress-track" role="progressbar" aria-valuenow="${tap1Pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Tap 1 CPF LIFE coverage of age-65 retirement budget">
-              <span class="tap-progress-fill is-tap1" style="width:${tap1Pct}%"></span>
-            </div>
-          </div>
-          <p>Your <strong>${selectedPathName}</strong> projects <strong>${m(s.payout, "/mo")}</strong> from 65, covering <strong>${tap1Pct}%</strong> of your <strong>${m(r.spend65, "/mo")}</strong> age-65 budget (2026 anchors: BRS $950 · FRS $1,780 · ERS $3,440/mo).</p>
-          <details class="tap-accordion">
-            <summary class="tap-accordion-summary"><span>Age-55 OA interest &amp; statutory rules</span><span class="tap-accordion-chevron" aria-hidden="true">▾</span></summary>
-            <small class="swell-tap-sub"><strong>When 55, $500k OA ≈ $1,000/mo:</strong> Your projected liquid OA at 55 is <b>${m(taps.tap1Cpf.oaAt55Today)}</b> today’s $ (<b>${m(taps.tap1Cpf.oaAt55Nominal)}</b> nominal → <b>${m(taps.tap1Cpf.oaInterestMonthlyToday, "/mo")}</b> at 2.5% p.a., withdrawable anytime once FRS is met).</small>
-          </details>
-        </article>
-        <article class="swell-tap-box">
-          <div class="swell-tap-top">
-            <span class="swell-tap-badge is-tap2">Tap 2 · Age ${taps.tap2Srs.startAge}–${taps.tap2Srs.endAge}</span>
-            <span class="tap-verdict-pill ${tap2PillTone}">${escapeAttr(taps.tap2Srs.verdictLabel || "≤$40k/yr 0% Tax")}</span>
-          </div>
-          <h4>SRS 10-Year Tax-Concession Bridge</h4>
-          <div class="tap-progress-wrap">
-            <div class="tap-progress-meta">
-              <span>${tap2MetaLabel}</span>
-              <strong>${tap2Pct}%</strong>
-            </div>
-            <div class="tap-progress-track" role="progressbar" aria-valuenow="${tap2Pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Tap 2 SRS pot toward ${money(srsZeroTaxCap)} soft cap">
-              <span class="tap-progress-fill ${taps.tap2Srs.trapStatus === "balloon-trap" ? "is-danger" : "is-tap2"}" style="width:${tap2Pct}%"></span>
-            </div>
-          </div>
-          <p>${tap2BodyHTML}</p>
-          <details class="tap-accordion" ${taps.tap2Srs.trapStatus === "balloon-trap" ? "open" : ""}>
-            <summary class="tap-accordion-summary"><span>Ballooning trap guardrail (${srsTrapFloorCompact}–${srsTrapCeilingCompact})</span><span class="tap-accordion-chevron" aria-hidden="true">▾</span></summary>
-            <small class="swell-tap-sub ${taps.tap2Srs.trapStatus === "balloon-trap" ? "is-danger" : ""}"><strong>Critical Trap Guardrail:</strong> Projected age-${taps.tap2Srs.startAge} pot is <b>${m(taps.tap2Srs.projectedAt63)}</b> nominal (<b>${m(taps.tap2Srs.projectedAt63Today ?? taps.tap2Srs.projectedAt63)}</b> today’s $ · <b>${m(taps.tap2Srs.tenYearMonthlyDrawToday ?? taps.tap2Srs.tenYearMonthlyDraw, "/mo")}</b> real draw). Keep nominal SRS ≤<b>${srsZeroTaxCapCompact}</b> (≤${m(taps.tap2Srs.maxSafeAnnualTo400k, "/yr")}) so 50%-concession withdrawals stay tax-free.</small>
-          </details>
-        </article>
-        <article class="swell-tap-box">
-          <div class="swell-tap-top">
-            <span class="swell-tap-badge is-tap3">Tap 3 · Brokerage</span>
-            <span class="tap-verdict-pill is-info">${taps.tap3Equities.targetEquityPct}/${taps.tap3Equities.targetBondPct} · ${taps.tap3Equities.globalSplitPct}/${taps.tap3Equities.sgDividendSplitPct} G/SG</span>
-          </div>
-          <h4>Global Growth &amp; SG Dividend Equities</h4>
-          <div class="tap-progress-wrap">
-            <div class="tap-progress-meta">
-              <span>${s.gap65 > 0 ? `Covers ${tap3Pct}% of ${m(s.gap65, "/mo")} post-CPF gap` : "Full post-CPF gap covered · Surplus draw"}</span>
-              <strong>${tap3Pct}%</strong>
-            </div>
-            <div class="tap-progress-track" role="progressbar" aria-valuenow="${tap3Pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Tap 3 monthly equity drawdown coverage">
-              <span class="tap-progress-fill is-tap3" style="width:${tap3Pct}%"></span>
-            </div>
-          </div>
-          <p>With <strong>${m(taps.tap3Equities.currentEquities)}</strong> today + <strong>${m(taps.tap3Equities.monthlyInvest, "/mo")}</strong> planned investment growing to <strong>${m(taps.tap3Equities.projectedInvestAtRetireToday)}</strong> at age ${r.retire}, your <strong>${taps.tap3Equities.targetEquityPct}% Eq / ${taps.tap3Equities.targetBondPct}% Bond (${taps.tap3Equities.globalSplitPct}/${taps.tap3Equities.sgDividendSplitPct} G/SG)</strong> portfolio supports <strong>${m(taps.tap3Equities.projectedMonthlyDrawToday, "/mo")}</strong> sustainable drawdown${s.gap65 > 0 ? ` vs your <strong>${m(s.gap65, "/mo")}</strong> post-CPF gap` : " on top of full CPF coverage"}.</p>
-          <details class="tap-accordion">
-            <summary class="tap-accordion-summary"><span>Overflow &amp; rebalancing rules</span><span class="tap-accordion-chevron" aria-hidden="true">▾</span></summary>
-            <small class="swell-tap-sub">Projected outside investment pot at ${r.retire}: <b>${m(taps.tap3Equities.projectedInvestAtRetireToday)}</b> (total outside incl. cash &amp; SRS: <b>${m(taps.tap3Equities.portfolioAtRetireToday)}</b> today’s $).</small>
-          </details>
-        </article>
-        <article class="swell-tap-box">
-          <div class="swell-tap-top">
-            <span class="swell-tap-badge is-tap4">Tap 4 · Sovereign Buffer</span>
-            <span class="tap-verdict-pill is-warn">${taps.tap4Ssb.cashAccountsActive || taps.tap4Ssb.hasCustomCashRate || taps.tap4Ssb.monthlyCashSaving > 0 ? `${!r.retiringNow && taps.tap4Ssb.monthlyCashSaving > 0 ? `+${m(taps.tap4Ssb.monthlyCashSaving, "/mo")} · ` : `${m(taps.tap4Ssb.currentSsbCash)} · `}${taps.tap4Ssb.effectiveRatePct.toFixed(2)}%` : `${m(taps.tap4Ssb.currentSsbCash)} / $150k`}</span>
-          </div>
-          <h4>SSB After All Done &amp; $150k Buffer</h4>
-          <div class="tap-progress-wrap">
-            <div class="tap-progress-meta">
-              <span>Current SSB &amp; cash vs $150k target</span>
-              <strong>${tap4Pct}%</strong>
-            </div>
-            <div class="tap-progress-track" role="progressbar" aria-valuenow="${tap4Pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Tap 4 SSB buffer progress toward $150,000 target">
-              <span class="tap-progress-fill is-tap4" style="width:${tap4Pct}%"></span>
-            </div>
-          </div>
-          <p>Your 6–12m emergency floor is <strong>${m(taps.tap4Ssb.emergencyMin)}–${m(taps.tap4Ssb.emergencyMax)}</strong>. Current cash/SSB (<strong>${m(taps.tap4Ssb.currentSsbCash)}</strong>${!r.retiringNow && (taps.tap4Ssb.monthlyCashSaving > 0 || (taps.tap3Equities.monthlyBondBuy || 0) > 0) ? `${taps.tap4Ssb.monthlyCashSaving > 0 ? ` + <strong>${m(taps.tap4Ssb.monthlyCashSaving, "/mo")}</strong> planned savings` : ""}${(taps.tap3Equities.monthlyBondBuy || 0) > 0 ? ` + <strong>${m(taps.tap3Equities.monthlyBondBuy, "/mo")}</strong> bond sleeve` : ""} → <strong>${m(taps.tap4Ssb.projectedSsbCashAtRetireToday)}</strong> at age ${r.retire}` : ""}) earns ~<strong>${m(taps.tap4Ssb.currentMonthlyYield, "/mo")}</strong> at ${taps.tap4Ssb.cashAccountsActive ? `your blended <strong>${taps.tap4Ssb.effectiveRatePct.toFixed(2)}%</strong> EIR across <strong>${taps.tap4Ssb.accountCount} account${taps.tap4Ssb.accountCount === 1 ? "" : "s"}</strong>${taps.tap4Ssb.overflowBalance > 0 ? ` (${m(taps.tap4Ssb.overflowBalance)} above bonus caps)` : ""}` : taps.tap4Ssb.hasCustomCashRate ? `your <strong>${taps.tap4Ssb.effectiveRatePct.toFixed(2)}% p.a.</strong> projected HYSA / SSB rate` : `live <strong>${taps.tap4Ssb.effectiveRatePct.toFixed(2)}%</strong> 10Y SSB yield`} (~<strong>${m(taps.tap4Ssb.monthlyYieldAt150k, "/mo")}</strong> at $150k).</p>
-          <details class="tap-accordion">
-            <summary class="tap-accordion-summary"><span>Redemption &amp; MAS cap mechanics</span><span class="tap-accordion-chevron" aria-hidden="true">▾</span></summary>
-            <small class="swell-tap-sub">100% Singapore Government-backed principal within the $200,000 MAS individual limit, with 10-year step-up coupons and penalty-free monthly redemption.</small>
-          </details>
-        </article>`;
+          return [
+            buildRetirementIncomeTile({
+              title: "Cover essentials with CPF LIFE",
+              figure: `${tap1Pct}%`,
+              description: "Share of the age-65 budget covered by CPF LIFE.",
+              progress:
+                r.spend65 > 0
+                  ? {
+                      pct: tap1Pct,
+                      label: "CPF LIFE coverage of the age-65 budget",
+                    }
+                  : null,
+              detailsLabel: "CPF LIFE and OA withdrawal rules",
+              detailsHTML: `<p>The <strong>${selectedPathName}</strong> pays <strong>${m(taps.tap1Cpf.monthlyPayoutToday, "/mo")}</strong> from age 65 (${r.plan === "escalating" ? "Escalating +2%/yr" : "Standard"}). 2026 anchors: BRS $950 · FRS $1,780 · ERS $3,440/mo.</p>
+                <p>Projected liquid OA at 55: <strong>${m(taps.tap1Cpf.oaAt55Today)}</strong> today’s value (${m(taps.tap1Cpf.oaAt55Nominal)} nominal), earning <strong>${m(taps.tap1Cpf.oaInterestMonthlyToday, "/mo")}</strong> at 2.5% p.a. OA is withdrawable once FRS is met. As a reference, ${m(taps.tap1Cpf.oa500kRefBalance)} in OA earns about ${m(taps.tap1Cpf.oa500kRefMonthly, "/mo")}.</p>`,
+            }),
+            buildRetirementIncomeTile({
+              title: "Bridge income with SRS",
+              figure: m(taps.tap2Srs.projectedAt63Today),
+              description: `Projected pot at age ${taps.tap2Srs.startAge} in today’s dollars.`,
+              emptyAction:
+                taps.tap2Srs.projectedAt63 > 0
+                  ? null
+                  : { field: "known-srs-annual", label: "Add SRS" },
+              chip: {
+                tone: tap2PillTone,
+                label: taps.tap2Srs.verdictLabel || "SRS tax rules",
+              },
+              progress:
+                taps.tap2Srs.projectedAt63 > 0
+                  ? {
+                      pct: tap2Pct,
+                      label: `SRS pot toward ${money(srsZeroTaxCap)} soft cap`,
+                      tone:
+                        taps.tap2Srs.trapStatus === "balloon-trap"
+                          ? "is-danger"
+                          : "is-blue",
+                    }
+                  : null,
+              detailsLabel: "SRS withdrawals and tax guardrails",
+              detailsHTML: `<p>${tap2BodyHTML}</p>
+                <p>Withdrawal window: ages ${taps.tap2Srs.startAge}–${taps.tap2Srs.endAge}. The projected pot is <strong>${m(taps.tap2Srs.projectedAt63)}</strong> nominal, supporting <strong>${m(taps.tap2Srs.tenYearMonthlyDrawToday, "/mo")}</strong> in today’s dollars. The model’s nominal zero-tax ceiling is <strong>${srsZeroTaxCapCompact}</strong> (up to ${m(taps.tap2Srs.maxSafeAnnualTo400k, "/yr")} in contributions). Guardrail range: ${srsTrapFloorCompact}–${srsTrapCeilingCompact}.</p>`,
+            }),
+            buildRetirementIncomeTile({
+              title:
+                s.gap65 > 0 ? "Draw from equities" : "Optional equity income",
+              figure: m(taps.tap3Equities.projectedMonthlyDrawToday, "/mo"),
+              description:
+                s.gap65 > 0
+                  ? "Projected equity draw toward the gap after CPF LIFE."
+                  : "Estimated extra capacity. CPF LIFE covers the age-65 budget.",
+              progress:
+                s.gap65 > 0
+                  ? {
+                      pct: tap3Pct,
+                      label: "Equity draw coverage of the gap after CPF LIFE",
+                    }
+                  : null,
+              detailsLabel: "Portfolio and rebalancing rules",
+              detailsHTML: `<p>Equities grow from <strong>${m(taps.tap3Equities.currentEquities)}</strong> today, with ${m(taps.tap3Equities.monthlyInvest, "/mo")} planned investment, to <strong>${m(taps.tap3Equities.projectedInvestAtRetireToday)}</strong> at age ${r.retire} in today’s dollars. The outside portfolio including cash and SRS is <strong>${m(taps.tap3Equities.portfolioAtRetireToday)}</strong>.</p>
+                <p>Allocation: ${taps.tap3Equities.targetEquityPct}% equities / ${taps.tap3Equities.targetBondPct}% bonds, with a ${taps.tap3Equities.globalSplitPct}/${taps.tap3Equities.sgDividendSplitPct} global/SG split within equities.</p>`,
+            }),
+            buildRetirementIncomeTile({
+              title: "Keep a cash buffer",
+              figure: m(taps.tap4Ssb.currentSsbCash),
+              description: "Current cash and SSBs toward the $150k buffer.",
+              progress: {
+                pct: ssbPctOf150k,
+                label: "Cash and SSB buffer progress toward $150,000",
+              },
+              detailsLabel: "Cash buffer and SSB redemption rules",
+              detailsHTML: `<p>The 6–12 month emergency floor is <strong>${m(taps.tap4Ssb.emergencyMin)}–${m(taps.tap4Ssb.emergencyMax)}</strong>. Current cash earns about ${m(taps.tap4Ssb.currentMonthlyYield, "/mo")} at ${taps.tap4Ssb.effectiveRatePct.toFixed(2)}% effective annual interest.</p>
+                <p>Cash and bonds at age ${r.retire}: <strong>${m(taps.tap4Ssb.projectedSsbCashAtRetireToday)}</strong> in today’s dollars. ${!r.retiringNow && taps.tap4Ssb.monthlyCashSaving > 0 ? `Planned cash savings: ${m(taps.tap4Ssb.monthlyCashSaving, "/mo")}. ` : ""}${!r.retiringNow && taps.tap3Equities.monthlyBondBuy > 0 ? `Bond allocation: ${m(taps.tap3Equities.monthlyBondBuy, "/mo")}. ` : ""}${taps.tap4Ssb.cashAccountsActive ? `The effective rate blends ${taps.tap4Ssb.accountCount} cash accounts${taps.tap4Ssb.overflowBalance > 0 ? ` with ${m(taps.tap4Ssb.overflowBalance)} above bonus caps` : ""}. ` : ""}At the buffer target, estimated interest is ${m(taps.tap4Ssb.monthlyYieldAt150k, "/mo")}.</p>
+                <p>SSB principal is government-backed, with a ${m(RetirementModel.C.ssbCap)} individual limit, 10-year step-up coupons, and penalty-free monthly redemption.</p>`,
+            }),
+          ].join("");
         })()}
         </div>
       </div>

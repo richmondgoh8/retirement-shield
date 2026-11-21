@@ -63,18 +63,33 @@ test("narrow PWA header keeps the update banner bounded", () => {
   );
 });
 
-test("CPF and Investment balances modal is grouped and summary is sticky", () => {
+test("Account, housing and profile inputs have one editor in Settings", () => {
   const html = fs.readFileSync("index.html", "utf8");
-  const css = fs.readFileSync("styles.css", "utf8");
-  assert.match(html, /<h3 class="qe-balance-section-title">CPF Accounts<\/h3>/);
-  assert.match(html, /<h3 class="qe-balance-section-title">Investments &amp; Cash<\/h3>/);
-  assert.match(html, /<h3 class="qe-balance-section-title">SRS \(Optional\)<\/h3>/);
-  assert.match(html, /<label for="qe-sa-invested">CPFIS-SA Investments<\/label>/);
-  assert.match(html, /<label for="qe-srs">SRS Balance<\/label>/);
-  assert.match(html, /<label for="qe-srs-invested">SRS Allocation<\/label>/);
-  assert.match(css, /#qe-balances-breakdown\s*\{[^]*?position:\s*sticky;/);
-  assert.match(css, /\.qe-bd-split-cpf\s*\{/);
-  assert.match(css, /\.qe-balance-field-grid\s*\{/);
+  const quickEdit = html
+    .split('id="quick-edit-modal"')[1]
+    .split("</dialog>")[0];
+  assert.doesNotMatch(
+    quickEdit,
+    /id="qe-(?:panel-(?:age|income|balances)|annual-bonus|cash-return)"/,
+  );
+  const settings = html.split('id="quick-form"')[1].split("</form>")[0];
+  for (const id of [
+    "person-dob",
+    "known-annual-bonus",
+    "known-oa",
+    "known-sa",
+    "known-ma",
+    "known-sa-invested",
+    "known-srs",
+    "known-srs-invested",
+    "known-housing-mode",
+    "known-equities",
+    "known-sg-dividends",
+    "known-ssb-cash",
+  ]) {
+    assert.ok(settings.includes(`id="${id}"`), id);
+  }
+  assert.equal(Array.from(html.matchAll(/\bdata-sg-reset\b/g)).length, 1);
 });
 
 test("production HTML and CSS reference existing local hashed files and no external font CDN", () => {

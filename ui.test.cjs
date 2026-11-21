@@ -156,7 +156,7 @@ async function launchChromeCDP(chromePath) {
     await send("Page.navigate", { url });
     for (let i = 0; i < 60; i++) {
       const ready = await evaluate(
-        'document.readyState === "complete" && Boolean(document.querySelector("#overview-slot .fin-top-kpis"))',
+        'document.readyState === "complete" && Boolean(document.querySelector("#overview-slot .overview-verdict"))',
       );
       if (ready) return;
       await new Promise((r) => setTimeout(r, 100));
@@ -179,7 +179,7 @@ async function launchChromeCDP(chromePath) {
   return { send, evaluate, navigate, exceptions, close };
 }
 
-test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload, malformed #p= safety, modal Escape revert, Dividend badge plain text", async (t) => {
+test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload, malformed #p= safety, modal Escape autosave, Dividend badge plain text", async (t) => {
   const chromePath = findChromeBinary();
   if (!chromePath) {
     t.skip("No local Chrome/Chromium binary found");
@@ -200,6 +200,132 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       [],
       `Startup page exceptions: ${browser.exceptions.join("; ")}`,
     );
+
+    const insights = await browser.evaluate(`(() => {
+      const set = (id, value) => {
+        const input = document.getElementById(id);
+        input.value = value;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      };
+      const findInsights = () => document.getElementById("fin-money-moves");
+      const original = Object.fromEntries(
+        ["known-invest", "known-srs", "known-srs-invested", "known-oa"].map((id) => [id, document.getElementById(id).value]),
+      );
+      const none = !findInsights();
+      set("known-invest", "50");
+      const hero = document.querySelector(".overview-verdict");
+      const preview = {
+        funded: hero.querySelector("[data-preview-funded]").textContent,
+        rate: hero.querySelector("[data-preview-rate]").textContent,
+        band: hero.querySelector("[data-preview-savings-band]").textContent,
+      };
+      hero.querySelector('[data-money-move="match-save"]').click();
+      const matchesPreview =
+        document.querySelector("#nav-badge-overview").textContent === preview.funded &&
+        document.querySelector("[data-current-savings-rate]").textContent === preview.rate &&
+        document.querySelector("[data-current-savings-band]").textContent === preview.band;
+      set("known-invest", "50");
+      set("known-srs", "1000");
+      set("known-srs-invested", "cash");
+      const single = findInsights();
+      const singleRow = single.matches(".fin-move-row") &&
+        !single.querySelector(".fin-move-rank, .fin-move-row, ol");
+      const singleEdit = single.querySelector(".fin-move-link").textContent;
+      const singleText = single.textContent;
+      const singleAction = single.querySelector(".fin-move-cta").dataset.moneyMove;
+      const singleTitle = single.querySelector(".fin-move-title");
+      const luminance = (rgb) => rgb.match(/\\d+/g).map(Number).slice(0, 3)
+        .map((channel) => channel / 255)
+        .map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4)
+        .reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
+      const levels = [
+        luminance(getComputedStyle(single).backgroundColor),
+        luminance(getComputedStyle(singleTitle).color),
+      ].sort((a, b) => b - a);
+      const warningContrast = (levels[0] + 0.05) / (levels[1] + 0.05);
+      set("known-oa", "40000");
+      const rows = Array.from(findInsights().querySelectorAll("ol > li"));
+      const ranks = rows.map((row) => row.querySelector(".fin-move-rank").textContent);
+      const uniqueFigures = rows.every((row) => {
+        const title = row.querySelector(".fin-move-title");
+        const desc = row.querySelector(".fin-move-desc");
+        const amounts = Array.from(title.querySelectorAll(".curr-wrap"));
+        return amounts.every((amount) => !desc.textContent.includes(amount.textContent)) &&
+          row.textContent.split("/mo").length <= 2;
+      });
+      for (const [id, value] of Object.entries(original)) set(id, value);
+      return { none, matchesPreview, singleRow, singleEdit, singleText, singleAction, warningContrast, ranks, uniqueFigures };
+    })()`);
+    assert.equal(insights.none, true);
+    assert.equal(insights.matchesPreview, true);
+    assert.equal(insights.singleRow, true);
+    assert.equal(insights.singleEdit, "Edit");
+    assert.equal(insights.singleAction, "invest-srs");
+    assert.ok(insights.singleText.split("/mo").length <= 2);
+    assert.doesNotMatch(
+      insights.singleText,
+      /#1|Ranked by impact|Disappears once applied/,
+    );
+    assert.ok(insights.warningContrast >= 4.5);
+    assert.deepEqual(insights.ranks, ["1.", "2.", "3."]);
+    assert.equal(insights.uniqueFigures, true);
+
+    const savings = await browser.evaluate(`(async () => {
+      const find = (selector) => document.querySelector(selector);
+      const apply = (key, value) => {
+        const input = find(key);
+        input.value = value;
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      };
+      const inputs = Array.from(document.querySelectorAll("[data-overview-saving]"));
+      const sources = inputs.map((input) => "#"+input.dataset.overviewSaving);
+      const original = sources.map((source) => find(source).value);
+      const afterRender = () => new Promise((resolve) =>
+        document.addEventListener("plan-rendered", resolve, { once: true }));
+      const projections = find("#overview-saving-details");
+      const allCollapsed = ["#overview-saving-details", "#overview-methodology", "#overview-portfolio-details", "#retirement-taps-card"]
+        .every((selector) => !find(selector).open);
+      const firstEditor = inputs[0].parentElement;
+      const firstFigure = find("#overview-edit-known-cpf-extra");
+      const initiallyHidden = firstEditor.hidden;
+      firstFigure.click();
+      const focusOpensEditor = !firstEditor.hidden && document.activeElement === inputs[0];
+      firstFigure.focus();
+      inputs[0].blur();
+      projections.open = true;
+      const nextRender = afterRender();
+      inputs.forEach((input, i) => apply("#"+input.id, String((i + 1) * 100)));
+      await nextRender;
+      const edited = sources.map((source) => find(source).value);
+      const editedTotal = find(".overview-savings-total").textContent;
+      const projectionsOpen = find("#overview-saving-details").open;
+      find('#overview-slot [data-use-suggested="known-invest"]').click();
+      const suggested = find("#known-invest").value;
+      apply("#known-invest", "4400");
+      const cap = find('.overview-verdict [data-money-move="cap-affordable-save"]');
+      const preview = {
+        funded: find("[data-preview-funded]").textContent,
+        rate: find("[data-preview-rate]").textContent,
+        band: find("[data-preview-savings-band]").textContent,
+      };
+      cap.click();
+      const matchesCap =
+        find("#nav-badge-overview").textContent === preview.funded &&
+        find("[data-current-savings-rate]").textContent === preview.rate &&
+        find("[data-current-savings-band]").textContent === preview.band;
+      sources.forEach((source, i) => apply(source, original[i]));
+      find("#overview-saving-details").open = false;
+      return { edited, editedTotal, projectionsOpen, suggested, matchesCap, allCollapsed, initiallyHidden, focusOpensEditor };
+    })()`);
+    assert.deepEqual(savings.edited, ["100", "200", "300"]);
+    assert.match(savings.editedTotal, /600/);
+    assert.equal(savings.projectionsOpen, true);
+    assert.equal(savings.suggested, "");
+    assert.equal(savings.matchesCap, true);
+    assert.equal(savings.allCollapsed, true);
+    assert.equal(savings.initiallyHidden, true);
+    assert.equal(savings.focusOpensEditor, true);
 
     // 1. All 7 workspace tabs switch cleanly without runtime errors
     const tabCount = await browser.evaluate(`(() => {
@@ -269,8 +395,8 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       "Malformed #p= share link must not wipe saved localStorage plan",
     );
 
-    // 5. Quick Edit modal Escape / cancel reverts unsaved salary edit
-    const modalRevert = await browser.evaluate(`(() => {
+    // 5. Quick Edit Escape keeps the valid edit
+    const modalEdit = await browser.evaluate(`(() => {
       const trigger = document.querySelector('[data-quick-edit="salary"]');
       trigger.click();
       const dlg = document.querySelector('#quick-edit-modal');
@@ -282,11 +408,11 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       dlg.close('cancel');
       return {
         duringEdit,
-        afterCancel: document.querySelector('#person-salary').value,
+        afterClose: document.querySelector('#person-salary').value,
       };
     })()`);
-    assert.equal(modalRevert.duringEdit, "12345");
-    assert.equal(modalRevert.afterCancel, "9100");
+    assert.equal(modalEdit.duringEdit, "12345");
+    assert.equal(modalEdit.afterClose, "12345");
 
     // 6. Dividend & Yield Target Monthly Income live edit renders plain text in #div-header-badge (no raw HTML)
     const divBadge = await browser.evaluate(`(() => {
@@ -336,8 +462,10 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       inv.dispatchEvent(new Event('input', { bubbles: true }));
       await new Promise((r) => setTimeout(r, 60));
       const errVisible = !document.querySelector('#plan-error')?.hidden;
-      dlg.close('done');
-      await new Promise((r) => setTimeout(r, 60));
+      await new Promise((resolve) => {
+        dlg.addEventListener("close", resolve, { once: true });
+        dlg.close();
+      });
       return {
         errVisible,
         clampedInvest: document.querySelector('#known-invest')?.value,
@@ -434,16 +562,20 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       ]),
     );
     await browser.navigate(
-      `${baseUrl}/#version=3&lifestyle=cca&age=35&retire=65&salary=8000&cashMode=itemized&cashItems=${xssPayload}`,
+      `${baseUrl}/#version=3&lifestyle=cca&age=35&retire=65&salary=8000&longevityAge=95&housingMode=bank&housingBalance=0&housingYears=0&cashMode=itemized&cashItems=${xssPayload}`,
     );
     await browser.evaluate(
       `document.querySelector('button[data-tab="cash-parking"]')?.click()`,
     );
     await new Promise((r) => setTimeout(r, 150));
     const xssCheck = await browser.evaluate(`({
+      horizon: document.querySelector("#known-longevity")?.selectedOptions[0]?.text,
+      legacyLoanAccepted: document.querySelector("#plan-error-banner")?.hidden,
       fired: Boolean(window.__xss),
       renderedHtml: document.querySelector('#cash-parking-slot')?.innerHTML || '',
     })`);
+    assert.equal(xssCheck.horizon, "Age 95 (default)");
+    assert.equal(xssCheck.legacyLoanAccepted, true);
     assert.equal(
       xssCheck.fired,
       false,
@@ -568,6 +700,139 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       "Cash Parking must badge MAS SSB / T-Bills as SG Gov Backed",
     );
 
+    const settingsSummary = await browser.evaluate(`(async () => {
+      const find = (selector) => document.querySelector(selector);
+      const set = (field, value) => {
+        field.value = value;
+        field.dispatchEvent(new Event("change", { bubbles: true }));
+      };
+      const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+      const afterClose = (dialog, selector) => new Promise((resolve) => {
+        dialog.addEventListener("close", resolve, { once: true });
+        dialog.querySelector(selector).click();
+      });
+      find(".sidebar-settings-btn").click();
+      const salary = find("#person-salary");
+      const summary = find('[data-plan-value="person-salary"]');
+      const before = summary.textContent;
+      const original = salary.value;
+      const editIncome = find('#top [data-quick-edit="salary"]');
+      const editor = find("#quick-edit-modal");
+      editIncome.click();
+      await nextFrame();
+      const salaryFocused = document.activeElement.id === "qe-salary";
+      const salaryPresetsClosed = !find(".qe-presets").open;
+      set(find("#qe-salary"), "6250");
+      await afterClose(editor, ".qe-footer-actions [data-qe-close]");
+      const saved = summary.textContent;
+      const restoredFocus = document.activeElement === editIncome;
+      editIncome.click();
+      set(find("#qe-salary"), original);
+      await afterClose(editor, ".qe-footer-actions [data-qe-close]");
+      find('#top [data-quick-edit="budget"]').click();
+      const budgetDialog = find("#expense-modal");
+      const editBudgetOpened = budgetDialog.open;
+      await afterClose(budgetDialog, ".qe-footer-actions [data-exp-modal-close]");
+      const loan = find('[data-choice-for="known-housing-mode"]');
+      const originalHousing = find("#known-housing-mode").value;
+      find('[data-open-settings-field="known-housing-mode"]').click();
+      loan.querySelector('[value="hdb"]').click();
+      const loanShown = !find("#known-housing-loan-fields").hidden;
+      loan.querySelector('[value="paid-up"]').click();
+      const paidUpHidesLoan = find("#known-housing-loan-fields").hidden;
+      Array.from(loan.querySelectorAll("input")).find((el) => el.value === originalHousing).click();
+      const openAssumptions = find("#plan-overflow [command='show-modal']");
+      find("#plan-overflow").open = true;
+      openAssumptions.click();
+      const assumptionHorizonLabels = Array.from(find('[data-choice-for="known-longevity"]').querySelectorAll("span")).map((el) => el.textContent);
+      const assumptionsOpened = find("#plan-settings").open;
+      find("#plan-settings").close();
+      const backCount = find("#top").querySelectorAll("[data-close-profile]").length;
+      find("#settings-header-back").click();
+      const returnedToCash = !find("#tab-panel-cash-parking").hidden;
+      const age95Choices = Array.from(find("#known-longevity").options)
+        .filter((option) => option.text.startsWith("Age 95")).length;
+      return {
+        before, salaryFocused, salaryPresetsClosed, saved, restoredFocus,
+        editBudgetOpened, backCount, returnedToCash, age95Choices,
+        loanShown, paidUpHidesLoan, assumptionHorizonLabels, assumptionsOpened,
+      };
+    })()`);
+    assert.ok(settingsSummary.before.endsWith("/mo"));
+    assert.equal(settingsSummary.salaryFocused, true);
+    assert.equal(settingsSummary.salaryPresetsClosed, true);
+    assert.equal(settingsSummary.saved, "$6,250/mo");
+    assert.equal(settingsSummary.restoredFocus, true);
+    assert.equal(settingsSummary.editBudgetOpened, true);
+    assert.equal(settingsSummary.backCount, 1);
+    assert.equal(settingsSummary.returnedToCash, true);
+    assert.equal(settingsSummary.age95Choices, 1);
+
+    assert.equal(settingsSummary.loanShown, true);
+    assert.equal(settingsSummary.paidUpHidesLoan, true);
+    assert.equal(settingsSummary.assumptionsOpened, true);
+    assert.deepEqual(settingsSummary.assumptionHorizonLabels, [
+      "85",
+      "90",
+      "95 (default)",
+      "100",
+    ]);
+
+    const resetUndo = await browser.evaluate(`(async () => {
+      const find = (selector) => document.querySelector(selector);
+      const salary = find("#person-salary").value;
+      find("#plan-overflow").open = true;
+      find("[data-sg-reset]").click();
+      const resetSalary = find("#person-salary").value;
+      const undo = find("[data-toast-undo]");
+      const undoShown = !undo.hidden && !find("#ui-toast").hidden;
+      undo.click();
+      return {
+        salary, resetSalary, undoShown,
+        restoredSalary: find("#person-salary").value,
+        savedSalary: JSON.parse(localStorage.getItem("rs_plan_state")).salary,
+        saveStatus: find("#plan-save-status").textContent
+      };
+    })()`);
+    assert.equal(resetUndo.resetSalary, "5500");
+    assert.equal(resetUndo.undoShown, true);
+    assert.equal(resetUndo.restoredSalary, resetUndo.salary);
+    assert.equal(resetUndo.savedSalary, resetUndo.salary);
+    assert.equal(resetUndo.saveStatus, "Saved");
+
+    const allocation = await browser.evaluate(`(async () => {
+      const find = (selector) => document.querySelector(selector);
+      find('.sidebar-nav [data-tab="overview"]').click();
+      find("#overview-saving-details").open = true;
+      find('#overview-saving-details [data-quick-edit="invest"]').click();
+      const dialog = find("#quick-edit-modal");
+      const equity = find("#qe-target-equity");
+      const sg = find("#qe-sg-sleeve");
+      const original = [equity.value, sg.value];
+      const set = (field, value) => {
+        field.value = value;
+        field.dispatchEvent(new Event("change", { bubbles: true }));
+      };
+      const percentages = () => Array.from(find("#qe-allocation-mix").querySelectorAll("strong"))
+        .map((el) => el.textContent);
+      set(equity, "80");
+      set(sg, "25");
+      const mixed = percentages();
+      set(equity, "0");
+      const bondsOnly = percentages();
+      const sgDisabled = sg.disabled;
+      set(equity, original[0]);
+      set(sg, original[1]);
+      await new Promise((resolve) => {
+        dialog.addEventListener("close", resolve, { once: true });
+        dialog.close();
+      });
+      return { mixed, bondsOnly, sgDisabled };
+    })()`);
+    assert.deepEqual(allocation.mixed, ["60%", "20%", "20%"]);
+    assert.deepEqual(allocation.bondsOnly, ["0%", "0%", "100%"]);
+    assert.equal(allocation.sgDisabled, true);
+
     // 18. Phase 1-5 regressions: Stacked NW keyboard nav (no TypeError), Trajectory Inspector non-zero balances, lump-sum Rebalance preserves #known-savings, and Expense modal remove button role
     const phaseRegRes = await browser.evaluate(`(() => {
       // (a) Stacked Net Worth chart keyboard nav on Overview
@@ -668,7 +933,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       const tapsCard = document.getElementById("retirement-taps-card");
       const tapsText = tapsCard?.textContent || "";
       const tap2Aria =
-        tapsCard?.querySelector('[aria-label*="Tap 2 SRS pot toward"]')?.getAttribute("aria-label") || "";
+        tapsCard?.querySelector('[aria-label*="SRS pot toward"]')?.getAttribute("aria-label") || "";
 
       // (b) Money Moves srsAge: 64 shows "until age 64" (not "until age 63")
       setVal("known-srs-age", "64");
@@ -688,7 +953,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       setVal("known-cash-return", "0");
       const extractRebBoost = () => {
         const btn = document.querySelector('[data-money-move="rebalance-portfolio"]');
-        const cardText = btn?.closest(".fin-move-card")?.textContent || "";
+        const cardText = btn?.closest(".fin-move-row")?.textContent || "";
         const m = cardText.match(/\\+\\$([\\d,]+)\\/yr/);
         return m ? Number(m[1].replace(/,/g, "")) : null;
       };
@@ -964,7 +1229,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
         const tapsEl = document.getElementById("retirement-taps-card");
         const tapsTag = tapsEl?.tagName || "";
         const tapsHeading = Boolean(
-          document.querySelector("#retirement-taps-card summary h3#taps-blueprint-title"),
+          tapsEl?.querySelector("summary h2#taps-blueprint-title"),
         );
         if (tapsEl && tapsEl.tagName === "DETAILS") tapsEl.open = false;
         location.hash = "#retirement-taps-card";
@@ -1092,7 +1357,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       assert.equal(
         m3Res.tapsHeading,
         true,
-        "#retirement-taps-card summary must contain <h3 id='taps-blueprint-title'>",
+        "The income sources disclosure must use its section heading as the toggle",
       );
       assert.equal(
         m3Res.tapsOpenedByHash,
@@ -1146,9 +1411,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       const xssCheck = await browser.evaluate(`(async () => {
         const payload = ${JSON.stringify(xssPayload)};
         const searchPayload = ${JSON.stringify(xssSearch)};
-        const overviewChipText = Array.from(document.querySelectorAll("#overview-slot .exp-item-chip"))
-          .map((el) => el.textContent || "")
-          .join(" ");
+        const overviewChipText = document.querySelector("#overview-slot #exp-preview-slot")?.textContent || "";
 
         // Open custom expense modal to verify editable rows
         document.querySelector('#exp-card-dropdown-btn')?.click();
@@ -1266,7 +1529,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       );
       for (let i = 0; i < 60; i++) {
         const loaded = await browser.evaluate(
-          'location.search === "?t=t5-cash" && document.readyState === "complete" && Boolean(document.querySelector("#overview-slot .fin-top-kpis"))',
+          'location.search === "?t=t5-cash" && document.readyState === "complete" && Boolean(document.querySelector("#overview-slot .overview-verdict"))',
         );
         if (loaded) break;
         await new Promise((r) => setTimeout(r, 100));
@@ -1306,7 +1569,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       );
       for (let i = 0; i < 60; i++) {
         const loaded = await browser.evaluate(
-          'location.search === "?t=t5-charts" && document.readyState === "complete" && Boolean(document.querySelector("#overview-slot .fin-top-kpis"))',
+          'location.search === "?t=t5-charts" && document.readyState === "complete" && Boolean(document.querySelector("#overview-slot .overview-verdict"))',
         );
         if (loaded) break;
         await new Promise((r) => setTimeout(r, 100));
@@ -1412,11 +1675,12 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       const dpCheck = await browser.evaluate(`(async () => {
         document.querySelector('[data-tab="overview"]')?.click();
         await new Promise((r) => setTimeout(r, 80));
-        document.querySelector('[data-quick-edit="age"]')?.click();
+        document.querySelector(".sidebar-settings-btn")?.click();
+        document.querySelector('[data-open-settings-field="person-dob"]')?.click();
         await new Promise((r) => setTimeout(r, 100));
-        const dlgOpenBefore = Boolean(document.querySelector('#quick-edit-modal')?.open);
-        const dispBefore = document.querySelector('#qe-dob-display')?.value || "";
-        const trig = document.querySelector('#qe-panel-age .dp-trigger-btn');
+        const dlgOpenBefore = !document.querySelector('#person-dob')?.closest('details')?.open ? false : !document.querySelector('#top').hidden;
+        const dispBefore = document.querySelector('#person-dob-display')?.value || "";
+        const trig = document.querySelector('#top .dp-trigger-btn');
         trig?.click();
         const popOpen1 = Boolean(document.querySelector('.dp-popover'));
         // Switch to Decade/Year view -> pick 1988 -> pick Aug -> pick 15
@@ -1431,13 +1695,13 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
         await new Promise((r) => setTimeout(r, 80));
         const popClosedAfterPick = !document.querySelector('.dp-popover');
         const isoAfter = document.querySelector('#person-dob')?.value || "";
-        const dispAfter = document.querySelector('#qe-dob-display')?.value || "";
-        // Verify Escape closes calendar popover WITHOUT closing #quick-edit-modal
+        const dispAfter = document.querySelector('#person-dob-display')?.value || "";
+        // Verify Escape closes calendar popover without closing the date-of-birth editor
         trig?.click();
         document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
         const popClosedOnEsc = !document.querySelector('.dp-popover');
-        const dlgStillOpen = Boolean(document.querySelector('#quick-edit-modal')?.open);
-        document.querySelector('#quick-edit-modal')?.close("done");
+        const dlgStillOpen = !document.querySelector('#person-dob')?.closest('details')?.open ? false : !document.querySelector('#top').hidden;
+        document.querySelector('#settings-header-back')?.click();
         return {
           dlgOpenBefore,
           dispBefore,
@@ -1453,7 +1717,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       assert.equal(
         dpCheck.dlgOpenBefore,
         true,
-        "Quick Edit age modal should open",
+        "Settings date of birth editor should open",
       );
       assert.match(
         dpCheck.dispBefore,
@@ -1488,7 +1752,7 @@ test("Browser UI smoke tests: 7 tabs, WAI-ARIA arrow keys, cashReturnRate reload
       assert.equal(
         dpCheck.dlgStillOpen,
         true,
-        "Escape on .dp-popover must keep #quick-edit-modal open",
+        "Escape on the calendar must keep the Settings editor open",
       );
     } finally {
       devServer.close();

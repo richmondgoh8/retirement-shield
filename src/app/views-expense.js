@@ -114,7 +114,6 @@ function buildExpenseModalBodyHTML(ep, r, newlyAddedId = null, s = null) {
           `<option value="${cat.key}"${cat.key === selectedKey ? " selected" : ""}>${cat.label}</option>`,
       )
       .join("");
-  const planVal = r?.plan === "escalating" ? "escalating" : "standard";
   const retireAge = Number(r?.retire || 65);
   const targetSpend65 = Number(r?.spend65 ?? ep.total);
   const targetSpendRetire =
@@ -129,19 +128,19 @@ function buildExpenseModalBodyHTML(ep, r, newlyAddedId = null, s = null) {
   const sourceBar = `<div class="exp-modal-source-bar" role="group" aria-label="Living budget preset or Custom">
     <button type="button" class="exp-modal-source-btn${!isCustom && ep.lifestyle === "cca" ? " is-active" : ""}" data-exp-load="cca" aria-pressed="${!isCustom && ep.lifestyle === "cca"}">
       <strong>Community Care</strong>
-      <span>${m(2800, "/mo")} · Fixed preset</span>
+      <span>${m(2800, "/mo")}</span>
     </button>
     <button type="button" class="exp-modal-source-btn${!isCustom && ep.lifestyle === "home-helper" ? " is-active" : ""}" data-exp-load="home-helper" aria-pressed="${!isCustom && ep.lifestyle === "home-helper"}">
       <strong>Home + Helper</strong>
-      <span>${m(3900, "/mo")} · Fixed preset</span>
+      <span>${m(3900, "/mo")}</span>
     </button>
     <button type="button" class="exp-modal-source-btn${isCustom ? " is-active" : ""}" data-exp-enter-custom aria-pressed="${isCustom}">
       <strong>Custom</strong>
-      <span>${isCustom ? `${m(ep.total, "/mo")} · ${ep.itemizedActive ? `${ep.items.length} item${ep.items.length === 1 ? "" : "s"}` : "Single figure"}` : "Single figure or items"}</span>
+
     </button>
   </div>`;
 
-  const impactStrip = `<div class="exp-impact-strip" id="exp-impact-slot" role="group" aria-label="Live retirement budget impact and CPF LIFE plan">
+  const impactStrip = `<div class="exp-impact-strip" id="exp-impact-slot" role="group" aria-label="Live budget projections">
     <div class="exp-impact-metrics">
       <div class="exp-impact-kpi">
         <span>${retireAge < 65 ? `Age-${retireAge} Retire Need` : "Age-65 Retire Need"}</span>
@@ -159,48 +158,21 @@ function buildExpenseModalBodyHTML(ep, r, newlyAddedId = null, s = null) {
         <small>${r?.retiringNow ? "Capital needed now" : "Suggested monthly"}</small>
       </div>
     </div>
-    <div class="exp-plan-inline-box">
-      <span class="exp-plan-inline-label">CPF LIFE Payout Plan</span>
-      <div class="cpf-plan-inline-toggle" role="group" aria-label="CPF LIFE payout plan">
-        <button type="button" class="cpf-plan-chip${planVal === "standard" ? " is-active" : ""}" data-exp-set-plan="standard" aria-pressed="${planVal === "standard"}">Standard</button>
-        <button type="button" class="cpf-plan-chip${planVal === "escalating" ? " is-active" : ""}" data-exp-set-plan="escalating" aria-pressed="${planVal === "escalating"}">Escalating +2%/yr</button>
-      </div>
-    </div>
   </div>`;
-
-  const catSummaryBar = (ep.categories || [])
-    .filter((cat) => cat.amount > 0)
-    .map(
-      (cat) =>
-        html`<span class="exp-cat-summary-pill"
-          ><i
-            class="exp-cat-dot"
-            style="background:${cat.color}"
-            aria-hidden="true"
-          ></i
-          >${cat.label.split(",")[0].split("&")[0].trim()} ·
-          ${raw(m(cat.amount))} (${formatExpSharePct(cat.pct)})</span
-        >`,
-    )
-    .join("");
 
   const quickTotals = [2200, 2800, 3500, 4500];
   const roundedTotal = Math.round(Number(ep.total || 0));
 
   const mainSection = !isCustom
-    ? `<div class="exp-modal-section">
-        <div class="exp-readonly-banner">
-          <span><strong>${ep.lifestyleLabel}</strong> is a fixed preset (${m(ep.total, "/mo")}) for today’s budget; projections step up HealthShield premiums with age. Switch to Custom to edit items.</span>
-          <button type="button" class="button button-small button-accent" data-exp-enter-custom>Switch to Custom →</button>
-        </div>
-        ${catSummaryBar ? `<div class="exp-cat-summary-pills" role="group" aria-label="Category summary">${catSummaryBar}</div>` : ""}
+    ? `<details class="exp-preset-items">
+        <summary class="planner-summary">Preset expenses</summary>
         ${renderReadOnlyExpenseTable(ep.items, catLabelMap, `${ep.lifestyleLabel} preset monthly expense breakdown`, catColorMap)}
-      </div>`
+      </details>`
     : `<div class="exp-modal-section">
         <div class="exp-editor-toolbar">
           <div class="fin-segmented-tabs exp-mode-tabs" data-seg-idx="${ep.itemizedActive ? 1 : 0}" style="--seg-idx:${ep.itemizedActive ? 1 : 0};--seg-count:2" role="group" aria-label="Custom budget entry mode">
             <button type="button" class="fin-seg-tab${!ep.itemizedActive ? " is-active" : ""}" data-exp-custom-mode="figure" aria-pressed="${!ep.itemizedActive}">Single figure</button>
-            <button type="button" class="fin-seg-tab${ep.itemizedActive ? " is-active" : ""}" data-exp-custom-mode="itemized" aria-pressed="${ep.itemizedActive}">Break down &amp; add items</button>
+            <button type="button" class="fin-seg-tab${ep.itemizedActive ? " is-active" : ""}" data-exp-custom-mode="itemized" aria-pressed="${ep.itemizedActive}">Itemized budget</button>
           </div>
         </div>
         ${
@@ -211,9 +183,9 @@ function buildExpenseModalBodyHTML(ep, r, newlyAddedId = null, s = null) {
                     <label for="exp-total-input">Custom monthly retirement budget (today’s $)</label>
                     <div class="input-wrap">
                       <span>$</span>
-                      <input type="number" id="exp-total-input" min="0" max="1000000" step="any" inputmode="decimal" value="${ep.total}" />
+                      <input type="number" id="exp-total-input" aria-describedby="exp-total-help" min="0" max="1000000" step="any" inputmode="decimal" value="${ep.total}" />
                     </div>
-                    <small>Scales all ${ep.items.length} retirement items proportionally in today’s dollars.</small>
+                    <small class="focus-field-help" id="exp-total-help">Scales the current budget items proportionally.</small>
                   </div>
                   <div class="exp-figure-controls" role="group" aria-label="Quick budget adjustments">
                     <div class="exp-step-row">
@@ -223,7 +195,7 @@ function buildExpenseModalBodyHTML(ep, r, newlyAddedId = null, s = null) {
                       <button type="button" class="exp-step-btn" data-exp-step-delta="200">+$200</button>
                     </div>
                     <div class="exp-quick-chips" role="group" aria-label="Quick monthly budget anchors">
-                      <span class="exp-quick-label">Anchors:</span>
+
                       ${quickTotals
                         .map(
                           (amt) =>
@@ -233,16 +205,8 @@ function buildExpenseModalBodyHTML(ep, r, newlyAddedId = null, s = null) {
                     </div>
                   </div>
                 </div>
-                <div id="exp-figure-table-slot" class="exp-modal-section">
-                  <div class="exp-breakdown-subhead">
-                    <div class="exp-cat-summary-pills" role="group" aria-label="Category summary">${catSummaryBar}</div>
-                    <button type="button" class="text-button" data-exp-custom-mode="itemized">Customize individual items →</button>
-                  </div>
-                  ${renderReadOnlyExpenseTable(ep.items, catLabelMap, "Proportionally scaled custom monthly expense breakdown", catColorMap)}
-                </div>
               </div>`
             : `<div class="exp-itemized-bar">
-                <span class="exp-itemized-sum">Total: <strong id="exp-editor-sum">${m(ep.total, "/mo")}</strong> <small>(updates Retire Budget)</small></span>
                 <button type="button" class="button button-small button-accent" data-exp-add>+ Add item</button>
               </div>
               <div class="exp-items-table" role="table" aria-label="Editable monthly expense items">
@@ -335,46 +299,39 @@ function buildExpenseModalBodyHTML(ep, r, newlyAddedId = null, s = null) {
         }
       </div>`;
 
-  return `${sourceBar}${impactStrip}${mainSection}`;
+  return `
+    <p class="exp-modal-total" id="exp-modal-total"><strong>${m(ep.total, "/mo")}</strong> <span>in today’s dollars</span></p>
+    ${sourceBar}
+    ${mainSection}
+    <details class="exp-budget-impact">
+      <summary class="planner-summary">Budget impact</summary>
+      ${impactStrip}
+    </details>`;
 }
 
-function buildExpenseCardHTML(ep, r) {
+function buildExpenseCardHTML(ep) {
   const isCustom = Boolean(ep.isCustom);
-  const modeLabel = !isCustom
-    ? `${ep.lifestyleLabel} preset · Fixed`
-    : ep.itemizedActive
-      ? `Custom · ${ep.items.length} item${ep.items.length === 1 ? "" : "s"}`
-      : "Custom · Single figure";
-  const dropdownLabel = isCustom
-    ? `Custom (${money(ep.total)}/mo)`
-    : ep.lifestyle === "cca"
-      ? `Community Care (${money(ep.total)}/mo)`
-      : `Home + Helper (${money(ep.total)}/mo)`;
-  const customSubLabel = isCustom
-    ? `${money(ep.total)}/mo · Click to edit budget or items`
-    : "Set custom monthly budget or items…";
-  const ageNeedLabel =
-    r.retire < 65
-      ? `Age ${r.retire} est: ${money(r.futureSpend)}/mo`
-      : `Age 65 est: ${money(r.spend65)}/mo`;
-  const captionText = `Models what you need per month in retirement (<strong>${m(ep.total, "/mo", "kpi-budget")}</strong> today’s $). Separate from today’s take-home pay.`;
+  const presetAmount =
+    RetirementModel.lifestyles[ep.lifestyle]?.budget ??
+    RetirementModel.lifestyles.cca.budget;
+  const isPreset =
+    !ep.itemizedActive && Math.abs(ep.total - presetAmount) < 0.01;
+  const dropdownLabel = isPreset ? ep.lifestyleLabel : "Custom budget";
+  const customSubLabel = isPreset
+    ? "Set a monthly amount or add items"
+    : "Edit the monthly total or items";
+  const activeCats = ep.categories.filter((cat) => cat.amount > 0);
   const topPreview = ep.items
     .filter((it) => it.amount > 0)
     .slice()
     .sort((a, b) => b.amount - a.amount)
-    .slice(0, 4);
+    .slice(0, 3);
 
-  return `<section class="fin-card fin-expense-card card-surface" id="expense-breakdown-card" aria-labelledby="expense-card-title">
+  return `<section class="swell-section-block" aria-labelledby="expense-card-title">
+    <div class="swell-section-head"><h2 id="expense-card-title">Retirement Living Budget</h2></div>
+    <div class="fin-card fin-expense-card card-surface" id="expense-breakdown-card">
     <div class="fin-expense-head">
-      <div class="fin-expense-title-col">
-        <div class="fin-expense-title-row">
-          <h2 id="expense-card-title">Retirement Living Budget</h2>
-          <span class="fin-inline-meta" id="exp-mode-pill">${modeLabel}</span>
-          <span class="fin-inline-meta is-sep" aria-hidden="true">·</span>
-          <span class="fin-inline-meta" id="exp-takehome-pill">${ageNeedLabel}</span>
-        </div>
-        <p id="exp-sync-caption">${captionText}</p>
-      </div>
+      <p class="overview-budget-total"><strong>${m(ep.total, "/mo", "kpi-budget")}</strong> <span>in today’s dollars</span></p>
       <div class="fin-expense-actions">
         <div class="exp-card-dropdown-wrap" id="exp-card-dropdown-wrap">
           <button
@@ -385,7 +342,7 @@ function buildExpenseCardHTML(ep, r) {
             aria-expanded="false"
             aria-controls="exp-card-dropdown-menu"
           >
-            <span class="header-account-avatar" data-tone="${isCustom ? "custom" : ep.lifestyle}" aria-hidden="true">${isCustom ? "$" : ep.lifestyle === "cca" ? "C" : "H"}</span>
+            <span class="header-account-avatar" data-tone="${isPreset ? ep.lifestyle : "custom"}" aria-hidden="true">${isPreset ? (ep.lifestyle === "cca" ? "C" : "H") : "$"}</span>
             <span id="exp-card-dropdown-label">${dropdownLabel}</span>
             <svg class="header-account-caret" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="m6 9 6 6 6-6" />
@@ -395,9 +352,9 @@ function buildExpenseCardHTML(ep, r) {
             <button
               type="button"
               role="menuitemradio"
-              class="header-menu-item${!isCustom && ep.lifestyle === "cca" ? " is-active" : ""}"
+              class="header-menu-item${isPreset && ep.lifestyle === "cca" ? " is-active" : ""}"
               data-switch-lifestyle="cca"
-              aria-checked="${!isCustom && ep.lifestyle === "cca"}"
+              aria-checked="${isPreset && ep.lifestyle === "cca"}"
             >
               <div>
                 <strong>Community Care Apartments</strong>
@@ -407,9 +364,9 @@ function buildExpenseCardHTML(ep, r) {
             <button
               type="button"
               role="menuitemradio"
-              class="header-menu-item${!isCustom && ep.lifestyle === "home-helper" ? " is-active" : ""}"
+              class="header-menu-item${isPreset && ep.lifestyle === "home-helper" ? " is-active" : ""}"
               data-switch-lifestyle="home-helper"
-              aria-checked="${!isCustom && ep.lifestyle === "home-helper"}"
+              aria-checked="${isPreset && ep.lifestyle === "home-helper"}"
             >
               <div>
                 <strong>Home + Helper</strong>
@@ -419,9 +376,9 @@ function buildExpenseCardHTML(ep, r) {
             <button
               type="button"
               role="menuitemradio"
-              class="header-menu-item${isCustom ? " is-active" : ""}"
+              class="header-menu-item${!isPreset ? " is-active" : ""}"
               data-select-custom
-              aria-checked="${isCustom}"
+              aria-checked="${!isPreset}"
             >
               <div>
                 <strong>Custom</strong>
@@ -430,49 +387,61 @@ function buildExpenseCardHTML(ep, r) {
             </button>
           </div>
         </div>
+        <button type="button" class="text-button exp-edit-items" data-quick-edit="budget">Edit items</button>
       </div>
     </div>
 
-    <div class="fin-expense-body" id="exp-card-body">
-      <div class="fin-expense-chart-col" id="exp-pie-slot">
-        ${buildExpensePieSVG(ep)}
-      </div>
-      <div class="fin-expense-summary-col">
-        <div class="fin-expense-cats" id="exp-cats-slot">
-          ${ep.categories
-            .map((cat) => {
-              const barW =
-                ep.total > 0 && cat.amount > 0
-                  ? Math.max(4, Math.round(cat.pct))
-                  : 0;
-              return `<div class="exp-cat-row" data-exp-cat="${cat.key}">
-                <div class="exp-cat-meta">
-                  <span class="exp-cat-name"><i style="background:${cat.color};"></i>${cat.label} <small>(${cat.items.length})</small></span>
-                  <strong class="exp-cat-val">${m(cat.amount, "/mo")} <span>${Math.round(cat.pct)}%</span></strong>
-                </div>
-                <div class="exp-cat-track" aria-hidden="true">
-                  <span style="width:${barW}%;background:${cat.color};"></span>
-                </div>
-              </div>`;
-            })
-            .join("")}
-        </div>
-        <div class="exp-preview-strip" id="exp-preview-slot">
-          <span class="exp-preview-label">Top items:</span>
+    <details class="overview-disclosure-card exp-breakdown-disclosure">
+      <summary class="overview-disclosure-summary">Breakdown</summary>
+      <div class="overview-disclosure-body">
+      <div class="fin-expense-body" id="exp-card-body">
+      <ul class="fin-expense-cats" id="exp-cats-slot" aria-label="Monthly spending by category">
+        ${
+          activeCats.length
+            ? activeCats
+                .map((cat) => {
+                  const barW =
+                    ep.total > 0 && cat.amount > 0
+                      ? Math.max(4, Math.round(cat.pct))
+                      : 0;
+                  const count = cat.items.length;
+                  const color =
+                    cat.key === "transport"
+                      ? "var(--swell-pink-ink)"
+                      : cat.color;
+                  return `<li class="exp-cat-row" data-exp-cat="${cat.key}">
+                <span class="exp-cat-name"><i style="background:${color};" aria-hidden="true"></i>${cat.label} <small>${count} ${count === 1 ? "item" : "items"}</small></span>
+                <span class="exp-cat-val">${m(cat.amount, "/mo")} <span class="exp-cat-share">${Math.round(cat.pct)}%</span></span>
+                <span class="exp-cat-track" aria-hidden="true">
+                  <span style="width:${barW}%;background:${color};"></span>
+                </span>
+              </li>`;
+                })
+                .join("")
+            : `<li class="exp-cat-row is-empty"><span class="exp-cat-name">No spending categories yet</span></li>`
+        }
+      </ul>
+      <div class="exp-top-block" id="exp-preview-slot">
+        <span class="exp-preview-label" id="exp-top-label">Top items</span>
+        <ul class="exp-top-list" aria-labelledby="exp-top-label">
           ${
             topPreview.length
               ? topPreview
                   .map(
                     (it) =>
-                      html`<span class="exp-item-chip"
-                        >${it.name} · <b>${raw(m(it.amount))}</b></span
-                      >`,
+                      html`<li>
+                        <span>${it.name}</span>
+                        <b>${raw(m(it.amount, "/mo"))}</b>
+                      </li>`,
                   )
                   .join("")
-              : '<span class="exp-item-chip">No expense items ($0/mo)</span>'
+              : '<li class="is-empty"><span>No expense items</span><b>$0/mo</b></li>'
           }
-        </div>
+        </ul>
       </div>
+      </div>
+      </div>
+    </details>
     </div>
   </section>`;
 }

@@ -433,7 +433,7 @@ export function attachDatePicker(backingInput) {
   const label = document.querySelector(`label[for="${backingInput.id}"]`);
   if (label) label.setAttribute("for", displayInput.id);
 
-  // Forward programmatic focus (e.g. Quick Edit auto-focus on #qe-dob) to display input
+  // Forward programmatic focus on the date value to the display input
   backingInput.addEventListener("focus", () => {
     displayInput.focus({ preventScroll: true });
   });

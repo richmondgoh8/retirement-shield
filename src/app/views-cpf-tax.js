@@ -185,6 +185,7 @@ export function buildCpfRulesTabHTML({
         <div class="tax-metric-box"><dt>${lesson.plannedCpfExtra > 0 ? `Remaining gap after ${m(lesson.plannedCpfExtra, "/mo")} extra` : `Gap to ${learningTarget.toUpperCase()} at 55`}</dt><dd>${m(lesson.plannedCpfExtra > 0 ? lesson.withPlanned.remainingGapToday : lesson.gapToday, "", "lesson-gap")}<small>${lesson.plannedCpfExtra > 0 ? `Nominal remaining: ${m(lesson.withPlanned.remainingGap, "", "lesson-gap-nom")} (before extra: ${m(lesson.gapToday)} today’s $)` : `Nominal gap at 55: ${m(lesson.gap, "", "lesson-gap-nom")}`}</small></dd></div>
         <div class="tax-metric-box"><dt>Extra CPF saving to hit ${learningTarget.toUpperCase()}</dt><dd>${lesson.monthly === null ? "Lump sum only" : m(lesson.monthly, "/mo", "lesson-monthly")}<small>${lesson.monthly === null ? "Retiring before/at current age" : lesson.plannedCpfExtra > 0 ? (lesson.withPlanned.hitsTarget ? `✓ Covered by your ${m(lesson.plannedCpfExtra, "/mo")} extra CPF` : `+${m(lesson.withPlanned.additionalMonthlyNeeded, "/mo")} above your ${m(lesson.plannedCpfExtra, "/mo")}`) : `Until age ${lesson.untilAge} (total monthly top-up)`}</small></dd></div>
       </dl>
+      <button type="button" class="text-button" data-quick-edit="cpf-extra">Edit extra CPF savings</button>
       <ul class="compact-list cpf-rules-notes">
         <li><strong>Before 55:</strong> Cash RSTU and OA-to-SA transfers share your remaining SA room of <strong>${centsHtml(lesson.currentRoom)}</strong> (to reach the ${RetirementModel.C.year} FRS cap of ${m(RetirementModel.C.frs)}) and are irreversible.</li>
         <li><strong>At 55:</strong> SA closes; SA then OA fund RA up to cohort FRS (${m(lesson.cohortMilestones.frs.sumAt55)} nominal). Voluntary ERS top-ups into RA open from age 55 ($0 RSTU tax relief above FRS); any pre-55 extra saving beyond SA room is held aside until 55.</li>
@@ -198,8 +199,7 @@ export function buildCpfRulesTabHTML({
         <p class="fin-page-sub">SA closure, RA formation, BRS/FRS/ERS thresholds, and CPF LIFE mechanics.</p>
       </div>
       <div class="ember-header-meta">
-        <button type="button" class="fin-action-chip" data-quick-edit="balances">Edit CPF Balances</button>
-        <button type="button" class="fin-action-chip" data-quick-edit="cpf-extra">Edit Extra CPF</button>
+        <button type="button" class="fin-action-chip" data-open-settings-field="known-oa">Edit CPF balances</button>
         <span class="fin-target-pill">Age 55 → 65</span>
       </div>
     </header>
@@ -232,8 +232,7 @@ export function buildTaxTabHTML({ r, tax, marginalTaxPct }) {
           <p class="fin-page-sub">IRAS YA ${C.year} relief waterfall across CPF RSTU, Family Top-Ups, and SRS.</p>
         </div>
         <div class="ember-header-meta">
-          <button type="button" class="fin-action-chip" data-quick-edit="salary">Edit Salary</button>
-          <button type="button" class="fin-action-chip" data-quick-edit="balances">Edit SRS</button>
+          <button type="button" class="fin-action-chip" data-open-settings-field="known-srs">Edit SRS balance</button>
           <span class="status-pill is-info">${marginalTaxPct} IRAS Bracket</span>
         </div>
       </header>
@@ -246,6 +245,7 @@ export function buildTaxTabHTML({ r, tax, marginalTaxPct }) {
           </div>
           <span class="fin-target-pill">Age ${r.age} · ${r.age >= 55 ? "Senior CPF rates" : "Under 55 rates"}</span>
         </div>
+        <button type="button" class="text-button" data-quick-edit="salary">Edit salary and bonus</button>
         <div class="fin-bento-bar" aria-hidden="true">
           <span style="width:${takeHomePct.toFixed(1)}%;background:var(--sem-equities);"></span>
           <span style="width:${empCpfPct.toFixed(1)}%;background:var(--sem-cpf);"></span>

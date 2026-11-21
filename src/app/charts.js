@@ -130,6 +130,7 @@ function buildAxisMilestonesSVG({
   saStyle = { color: "#0F766E", bg: "#F0FDFA", border: "#99F6E4" },
   srsLabelSuffix = "SRS Draw",
   includeAge55AtMin = false,
+  emphasize = false,
 }) {
   const narrow = isMobile && !compactPrint;
   const raw = [];
@@ -189,47 +190,67 @@ function buildAxisMilestonesSVG({
     }
   }
   const rowBoxes = rowYs.map(() => []);
-  const charW = compactPrint ? 6.8 : narrow ? 5.6 : 6.1;
-  const pillH = compactPrint ? 17 : narrow ? 15 : 16;
-  const pillYOffset = compactPrint ? 12 : narrow ? 10.5 : 11.5;
-  const fontSize = compactPrint ? 11.5 : narrow ? 9.5 : 10;
+  const charW = emphasize ? 7.2 : compactPrint ? 6.8 : narrow ? 5.6 : 6.1;
+  const pillH = emphasize ? 19 : compactPrint ? 17 : narrow ? 15 : 16;
+  const pillYOffset = emphasize
+    ? 13.5
+    : compactPrint
+      ? 12
+      : narrow
+        ? 10.5
+        : 11.5;
+  const fontSize = emphasize ? 12 : compactPrint ? 11.5 : narrow ? 9.5 : 10;
   const gapX = narrow ? 6 : 10;
   const maxPillW = Math.max(44, W - padL - padR);
-  return merged
-    .map((mItem) => {
-      const x = dX(mItem.age);
-      const anchor =
-        x < padL + (narrow ? 40 : 54)
-          ? "start"
-          : x > W - padR - (narrow ? 40 : 54)
-            ? "end"
-            : "middle";
-      const pillW = Math.min(
-        maxPillW,
-        Math.max(
-          narrow ? 44 : 54,
-          mItem.label.length * charW + (narrow ? 10 : 14),
-        ),
-      );
-      const rawX1 =
-        anchor === "start" ? x : anchor === "end" ? x - pillW : x - pillW / 2;
-      const x1 = Math.max(padL, Math.min(W - padR - pillW, rawX1));
-      const x2 = x1 + pillW;
-      let chosenRow = rowBoxes.findIndex((boxes) =>
-        boxes.every((b) => x2 + gapX <= b.x1 || x1 - gapX >= b.x2),
-      );
-      if (chosenRow === -1) chosenRow = rowBoxes.length - 1;
-      rowBoxes[chosenRow].push({ x1, x2 });
-      const labelY = rowYs[chosenRow];
-      const pillY = labelY - pillYOffset;
-      const textX = (x1 + pillW / 2).toFixed(1);
-      return `<g class="nw-milestone-flag">
-        <line x1="${x}" y1="${(pillY + pillH).toFixed(1)}" x2="${x}" y2="${H - padB}" stroke="${mItem.color}" stroke-width="1.25" stroke-dasharray="3,3" stroke-opacity="0.6" />
-        <rect x="${x1.toFixed(1)}" y="${pillY.toFixed(1)}" width="${pillW.toFixed(1)}" height="${pillH}" rx="4.5" fill="${mItem.bg || "#FFFFFF"}" stroke="${mItem.border || mItem.color}" stroke-width="1" />
-        <text x="${textX}" y="${labelY}" text-anchor="middle" font-size="${fontSize}" font-weight="650" fill="${mItem.color}">${mItem.label}</text>
-      </g>`;
-    })
-    .join("");
+  const flags = merged.map((mItem, index) => {
+    const x = dX(mItem.age);
+    const anchor =
+      x < padL + (narrow ? 40 : 54)
+        ? "start"
+        : x > W - padR - (narrow ? 40 : 54)
+          ? "end"
+          : "middle";
+    const pillW = Math.min(
+      maxPillW,
+      Math.max(
+        narrow ? 44 : 54,
+        mItem.label.length * charW + (narrow ? 10 : 14),
+      ),
+    );
+    const rawX1 =
+      anchor === "start" ? x : anchor === "end" ? x - pillW : x - pillW / 2;
+    const x1 = Math.max(padL, Math.min(W - padR - pillW, rawX1));
+    const x2 = x1 + pillW;
+    const fits = (boxes) =>
+      boxes.every((b) => x2 + gapX <= b.x1 || x1 - gapX >= b.x2);
+    const preferredRow = emphasize ? index % 2 : 0;
+    const firstAvailableRow = rowBoxes.findIndex(fits);
+    const chosenRow = fits(rowBoxes[preferredRow])
+      ? preferredRow
+      : firstAvailableRow === -1
+        ? rowBoxes.length - 1
+        : firstAvailableRow;
+    rowBoxes[chosenRow].push({ x1, x2 });
+    const labelY = rowYs[chosenRow];
+    const pillY = labelY - pillYOffset;
+    const textX = (x1 + pillW / 2).toFixed(1);
+    return {
+      line: `<line x1="${x}" y1="${(pillY + pillH).toFixed(1)}" x2="${x}" y2="${H - padB}" stroke="${mItem.color}" stroke-width="1.25" stroke-dasharray="3,3" stroke-opacity="0.6" />`,
+      label: `<rect x="${x1.toFixed(1)}" y="${pillY.toFixed(1)}" width="${pillW.toFixed(1)}" height="${pillH}" rx="4.5" fill="${mItem.bg || "#FFFFFF"}" stroke="${mItem.border || mItem.color}" stroke-width="1" />
+        <text x="${textX}" y="${labelY}" text-anchor="middle" font-size="${fontSize}" font-weight="650" fill="${mItem.color}">${mItem.label}</text>`,
+    };
+  });
+  return emphasize
+    ? flags.map(({ line }) => line).join("") +
+        flags
+          .map(({ label }) => `<g class="nw-milestone-flag">${label}</g>`)
+          .join("")
+    : flags
+        .map(
+          ({ line, label }) =>
+            `<g class="nw-milestone-flag">${line}${label}</g>`,
+        )
+        .join("");
 }
 
 export function renderTrajectoryChart(
@@ -684,9 +705,7 @@ export function renderStackedNetWorthSVG(
   const mobileW = getMobileChartWidth(chartArea, compactPrint);
   const isMobile = mobileW != null;
   const isDashCombo =
-    Boolean(opts.swellCombo) ||
-    chartArea.id === "dash-networth-chart" ||
-    chartArea.id === "print-nw-chart";
+    Boolean(opts.swellCombo) || chartArea.id === "print-nw-chart";
   const isOverviewHero = chartArea.id === "dash-networth-chart";
   const W = compactPrint
       ? 680
@@ -706,7 +725,7 @@ export function renderStackedNetWorthSVG(
           : 322,
     padL = compactPrint ? 54 : isMobile ? 48 : isOverviewHero ? 58 : 76,
     padR = compactPrint ? 16 : isMobile ? 14 : isOverviewHero ? 20 : 34,
-    padT = compactPrint ? 68 : isMobile ? 74 : isOverviewHero ? 74 : 76,
+    padT = isOverviewHero ? 94 : compactPrint ? 68 : isMobile ? 74 : 76,
     padB = compactPrint ? 24 : isMobile ? 30 : isOverviewHero ? 32 : 40;
   const plotW = W - padL - padR,
     plotH = H - padT - padB;
@@ -733,21 +752,25 @@ export function renderStackedNetWorthSVG(
     )
     .join("");
 
-  const candTicks = [20, 30, 35, 45, 55, 65, 75, 85, 90, 95, 100, 105].filter(
-    (a) => a >= minAge && a <= maxAge,
-  );
-  if (!candTicks.includes(maxAge)) candTicks.push(maxAge);
   const xTicksList = [];
-  const xTickGap = isMobile ? 48 : 52;
-  for (const a of candTicks) {
-    if (!xTicksList.length || dX(a) - dX(xTicksList.at(-1)) >= xTickGap)
-      xTicksList.push(a);
-  }
-  if (
-    xTicksList.at(-1) !== maxAge &&
-    dX(maxAge) - dX(xTicksList.at(-1)) >= (isMobile ? 28 : 32)
-  ) {
-    xTicksList.push(maxAge);
+  if (isOverviewHero) {
+    for (let age = minAge; age <= maxAge; age += 10) xTicksList.push(age);
+  } else {
+    const candTicks = [20, 30, 35, 45, 55, 65, 75, 85, 90, 95, 100, 105].filter(
+      (a) => a >= minAge && a <= maxAge,
+    );
+    if (!candTicks.includes(maxAge)) candTicks.push(maxAge);
+    const xTickGap = isMobile ? 48 : 52;
+    for (const a of candTicks) {
+      if (!xTicksList.length || dX(a) - dX(xTicksList.at(-1)) >= xTickGap)
+        xTicksList.push(a);
+    }
+    if (
+      xTicksList.at(-1) !== maxAge &&
+      dX(maxAge) - dX(xTicksList.at(-1)) >= (isMobile ? 28 : 32)
+    ) {
+      xTicksList.push(maxAge);
+    }
   }
   const xTicks = xTicksList
     .map(
@@ -930,17 +953,20 @@ export function renderStackedNetWorthSVG(
     retireAge: fire.retire,
     srsAge: fire.srsWithdrawalAge,
     showSrs,
-    rowYs: compactPrint
-      ? [15, 34, 53]
-      : isMobile
-        ? [14, 30, 46, 62]
-        : [18, 36, 54, 72],
+    rowYs: isOverviewHero
+      ? [15, 36, 57, 78]
+      : compactPrint
+        ? [15, 34, 53]
+        : isMobile
+          ? [14, 30, 46, 62]
+          : [18, 36, 54, 72],
     compactPrint,
     isMobile,
     saLabel: "55 SA Closure",
     saStyle: { color: "#047857", bg: "#ECFDF5", border: "#A7F3D0" },
     srsLabelSuffix: "SRS",
     includeAge55AtMin: true,
+    emphasize: isOverviewHero,
   });
 
   const valForCallout = (pt) => (soloSeries ? pt[soloSeries.key] : pt.total);
@@ -949,6 +975,7 @@ export function renderStackedNetWorthSVG(
     (a, idx, arr) =>
       arr.indexOf(a) === idx &&
       a !== pivotCalloutSkip &&
+      (!isOverviewHero || soloSeries || (a !== fire.retire && a !== maxAge)) &&
       a >= minAge + 2 &&
       a <= maxAge,
   );
@@ -964,9 +991,9 @@ export function renderStackedNetWorthSVG(
       const labelText = compactMoney(val);
       const pillW = Math.max(
         compactPrint ? 48 : 44,
-        labelText.length * (compactPrint ? 7.6 : 6.6) + 12,
+        labelText.length * (compactPrint || isOverviewHero ? 7.6 : 6.6) + 12,
       );
-      const pillH = compactPrint ? 18 : 17;
+      const pillH = compactPrint || isOverviewHero ? 18 : 17;
       const pillX = Math.max(
         padL + 2,
         Math.min(
@@ -1002,9 +1029,9 @@ export function renderStackedNetWorthSVG(
       }
       const dotColor = soloSeries ? soloSeries.color : "var(--ink)";
       const pillText = svgCompactMoney(val);
-      const pillY = labelY - (compactPrint ? 13 : 12);
+      const pillY = labelY - (compactPrint || isOverviewHero ? 13 : 12);
       return `<circle cx="${x}" cy="${dotY}" r="3.5" fill="${dotColor}" stroke="var(--surface)" stroke-width="1.5" />
-        ${showLabel ? `<g class="nw-callout-pill"><rect x="${pillX.toFixed(1)}" y="${pillY.toFixed(1)}" width="${pillW.toFixed(1)}" height="${pillH}" rx="4.5" fill="var(--surface)" fill-opacity="0.94" stroke="var(--border-strong)" stroke-width="1" /><text x="${(pillX + pillW / 2).toFixed(1)}" y="${labelY}" text-anchor="middle" font-size="${compactPrint ? 12.5 : 11}" font-weight="700" fill="var(--ink)">${pillText}</text></g>` : ""}`;
+        ${showLabel ? `<g class="nw-callout-pill"><rect x="${pillX.toFixed(1)}" y="${pillY.toFixed(1)}" width="${pillW.toFixed(1)}" height="${pillH}" rx="4.5" fill="var(--surface)" fill-opacity="0.94" stroke="var(--border-strong)" stroke-width="1" /><text x="${(pillX + pillW / 2).toFixed(1)}" y="${labelY}" text-anchor="middle" font-size="${compactPrint || isOverviewHero ? 12.5 : 11}" font-weight="700" fill="var(--ink)">${pillText}</text></g>` : ""}`;
     })
     .join("");
 

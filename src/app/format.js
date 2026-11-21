@@ -80,24 +80,21 @@ const ICONS = {
   ),
 };
 
-const KPI_ICONS = {
-  age: svgWrap(
-    '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v4.5l3 1.8"/>',
-    16,
-  ),
-  goal: svgWrap(
-    '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/>',
-    16,
-  ),
-  salary: svgWrap(
-    '<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M7 9h.01M17 15h.01"/>',
-    16,
-  ),
-  balances: svgWrap(
-    '<path d="M12 21s7-3.5 7-9V5l-7-2.5L5 5v7c0 5.5 7 9 7 9z"/><path d="M9 14v-2.5"/><path d="M12 14v-4.5"/><path d="M15 14V8"/>',
-    16,
-  ),
-};
+function buildAllocationMix(equity, sgSleeve) {
+  const segments = [
+    ["Global", (equity * (100 - sgSleeve)) / 100, "equities"],
+    ["SG", (equity * sgSleeve) / 100, "equities-sg"],
+    ["Bond", 100 - equity, "cash"],
+  ];
+  return `<div class="allocation-mix">
+    <div class="allocation-track" aria-hidden="true">
+      ${segments.map(([, pct, color]) => `<span style="width:${pct}%;background:var(--sem-${color})"></span>`).join("")}
+    </div>
+    <ul class="allocation-legend">
+      ${segments.map(([label, pct, color]) => `<li><i style="background:var(--sem-${color})" aria-hidden="true"></i>${label} <strong>${Number(pct.toFixed(2))}%</strong></li>`).join("")}
+    </ul>
+  </div>`;
+}
 
 function buildSmoothSpline(coords, minY, maxY) {
   if (!coords.length) return "";
@@ -349,6 +346,7 @@ function deriveReadinessSummary({
 }
 
 export {
+  buildAllocationMix,
   $,
   $$,
   fmtInt,
@@ -364,7 +362,6 @@ export {
   ageLabel,
   svgWrap,
   ICONS,
-  KPI_ICONS,
   buildSmoothSpline,
   niceAxis,
   resetControl,

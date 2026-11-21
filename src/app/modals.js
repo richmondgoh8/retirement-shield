@@ -71,40 +71,10 @@ export function restoreInvokerFocus(invoker, fallbackSelector = null) {
     return;
   }
   const target =
-    (fallbackSelector ? $(fallbackSelector) : null) || $("#fire-hero-title");
+    (fallbackSelector
+      ? Array.from(document.querySelectorAll(fallbackSelector)).find(
+          (element) => element.getClientRects().length > 0,
+        )
+      : null) || $("#fire-hero-title");
   target?.focus({ preventScroll: true });
-}
-
-export function bindRevertibleDialog(
-  dialogEl,
-  { getSnap, clearSnap, restoreSnapshot, onCancelled, onCommit },
-) {
-  if (!dialogEl) return;
-  dialogEl.addEventListener("cancel", () => {
-    const snap = getSnap();
-    if (snap && !dialogEl.dataset.cancelled) {
-      dialogEl.dataset.cancelled = "1";
-      clearSnap();
-      restoreSnapshot(snap);
-    }
-  });
-  dialogEl.addEventListener("close", () => {
-    const snap = getSnap();
-    if (
-      dialogEl.returnValue === "cancel" &&
-      snap &&
-      !dialogEl.dataset.cancelled
-    ) {
-      dialogEl.dataset.cancelled = "1";
-      clearSnap();
-      restoreSnapshot(snap);
-    }
-    clearSnap();
-    if (dialogEl.dataset.cancelled) {
-      delete dialogEl.dataset.cancelled;
-      onCancelled?.();
-      return;
-    }
-    onCommit?.();
-  });
 }

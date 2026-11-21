@@ -5,101 +5,35 @@ import {
   $,
   $$,
   formatFundedPct,
+  buildAllocationMix,
   money,
   m,
   html,
   raw,
   bindDialogBackdropDismiss,
 } from "./format.js";
-import {
-  buildCashAccountsSummaryHTML,
-  buildCashAccountsAlertsHTML,
-  buildCashAccountsEditorHTML,
-} from "./views-cash-div.js";
-
 export const QE_BINDINGS = [
-  ["qe-dob", "person-dob"],
   ["qe-retire", "known-retire"],
   ["qe-salary", "person-salary"],
-  ["qe-annual-bonus", "known-annual-bonus"],
-  ["qe-housing-mode", "known-housing-mode"],
-  ["qe-housing-balance", "known-housing-balance"],
-  ["qe-housing-years", "known-housing-years"],
-  ["qe-housing-rate", "known-housing-rate"],
-  ["qe-housing-parties", "known-housing-parties"],
-  ["qe-housing", "known-housing"],
   ["qe-cpf-extra", "known-cpf-extra"],
   ["qe-cash-saving", "known-cash-saving"],
-  ["qe-cash-return", "known-cash-return"],
   ["qe-invest", "known-invest"],
   ["qe-target-equity", "known-target-equity"],
   ["qe-sg-sleeve", "known-sg-sleeve"],
-  ["qe-oa", "known-oa"],
-  ["qe-sa", "known-sa"],
-  ["qe-ma", "known-ma"],
-  ["qe-sa-invested", "known-sa-invested"],
-  ["qe-equities", "known-equities"],
-  ["qe-sg-dividends", "known-sg-dividends"],
-  ["qe-ssb-cash", "known-ssb-cash"],
-  ["qe-srs", "known-srs"],
-  ["qe-srs-invested", "known-srs-invested"],
 ];
 
-const QE_CURRENCY_IDS = new Set([
-  "qe-oa",
-  "qe-sa",
-  "qe-ma",
-  "qe-sa-invested",
-  "qe-equities",
-  "qe-sg-dividends",
-  "qe-ssb-cash",
-  "qe-srs",
-]);
-
-function parseQeCurrency(el) {
-  if (!el) return "";
-  const rawValue = el.value.trim().replace(/,/g, "");
-  if (rawValue === "") return "";
-  const numeric = Number(rawValue);
-  return Number.isFinite(numeric) ? String(Math.round(numeric * 100) / 100) : "";
-}
-
-function formatQeCurrency(el) {
-  if (!el || !QE_CURRENCY_IDS.has(el.id)) return;
-  const rawValue = el.value.trim().replace(/,/g, "");
-  if (rawValue === "") return;
-  const numeric = Number(rawValue);
-  if (!Number.isFinite(numeric)) return;
-  el.value = numeric.toLocaleString("en-SG", {
-    maximumFractionDigits: 2,
-  });
-}
-
-function syncQeSrsDisclosure() {
-  const srsBalance = Number(
-    ($("#qe-srs")?.value || "").replace(/,/g, "") || 0,
-  );
-  const srsSection = $("#qe-srs-section");
-  const allocationWrap = $("#qe-srs-invested-wrap");
-  if (allocationWrap) allocationWrap.hidden = srsBalance <= 0;
-  if (srsSection) srsSection.classList.toggle("is-empty", srsBalance <= 0);
-}
-
 const QE_PANEL_META = {
-  age: { title: "Date of Birth & Age", focus: "#qe-dob" },
   goal: { title: "Target Retirement Age", focus: "#qe-retire" },
-  salary: { title: "Monthly Salary & Take-Home", focus: "#qe-salary" },
+  salary: { title: "Salary & CPF", focus: "#qe-salary" },
   "cpf-extra": { title: "Extra CPF Saving", focus: "#qe-cpf-extra" },
   "cash-saving": {
     title: "Monthly Planned Savings (HYSA / SSB)",
     focus: "#qe-cash-saving",
   },
   invest: {
-    title: "Monthly Planned Investment (Outside Investment)",
+    title: "Monthly Investment",
     focus: "#qe-invest",
   },
-  income: { title: "CPF OA Housing Loan", focus: "#qe-housing-mode" },
-  balances: { title: "CPF & Investment Balances", focus: "#qe-oa" },
 };
 
 export function getMinRetireAge() {
@@ -117,31 +51,17 @@ export function getMinRetireAge() {
 export function createQuickEditController(ctx) {
   const {
     qeDialog,
-    DEFAULT_DOB,
     SG_DEFAULT_PLAN,
-    bucketIds,
     lastValidFieldValues,
     getSelected,
     getCurrentFirePlan,
-    getCurrentCashPlan,
     getCurrentAfterCpfCap,
-    getUseItemizedCashAccounts,
-    getCustomCashAccounts,
-    clearItemizedCashAccounts,
-    setLastBankLoanRate,
-    getQeModalSnap,
-    setQeModalSnap,
-    captureModalSnapshot,
-    restoreModalSnapshot,
-    bindRevertibleDialog,
     restoreInvokerFocus,
     openExpenseModal,
     clampSavingToTakeHome,
-    handleHousingModeSwitch,
-    syncBucketsToTotal,
-    patchCashAccountRows,
     render,
     scheduleRender,
+    flushPendingRender,
     showToast,
   } = ctx;
 
@@ -176,10 +96,8 @@ export function createQuickEditController(ctx) {
       if (!qeEl || !srcEl) continue;
       if (document.activeElement !== qeEl) {
         qeEl.value = srcEl.value;
-        formatQeCurrency(qeEl);
       }
     }
-    syncQeSrsDisclosure();
 
     const curRetire = Number($("#known-retire")?.value || defRetire);
     $$("[data-qe-retire-delta]").forEach((btn) => {
@@ -219,13 +137,6 @@ export function createQuickEditController(ctx) {
         $("#qe-cash-saving").placeholder = "0";
         $("#qe-cash-saving").disabled = r.retiringNow;
       }
-      if ($("#qe-cash-return") && fire) {
-        $("#qe-cash-return").placeholder = String(
-          Number(
-            ((fire.cashReturnRate ?? defaultSsbReturnDec) * 100).toFixed(2),
-          ),
-        );
-      }
       if ($("#qe-invest")) {
         $("#qe-invest").max = capStr;
         $("#qe-invest").placeholder = String(Math.ceil(simulation.invest));
@@ -253,18 +164,6 @@ export function createQuickEditController(ctx) {
       $$("[data-qe-pick-cash-saving]").forEach((chip) => {
         const pick = Number(chip.dataset.qePickCashSaving || 0);
         const active = curCashSaving === pick;
-        chip.classList.toggle("is-active", active);
-        chip.setAttribute("aria-pressed", String(active));
-      });
-
-      const rawCashRate = ($("#known-cash-return")?.value || "").trim();
-      $$("[data-qe-pick-cash-rate]").forEach((chip) => {
-        const pick = chip.dataset.qePickCashRate;
-        const active =
-          pick === ""
-            ? rawCashRate === ""
-            : rawCashRate !== "" &&
-              Math.abs(Number(rawCashRate) - Number(pick)) < 0.01;
         chip.classList.toggle("is-active", active);
         chip.setAttribute("aria-pressed", String(active));
       });
@@ -301,44 +200,13 @@ export function createQuickEditController(ctx) {
           ),
         ),
       );
-      const effGlobalPct = Math.round(curEqPct * (100 - curSgPct)) / 100;
-      const effSgPct = Math.round(curEqPct * curSgPct) / 100;
-      if ($("#qe-target-equity-readout")) {
-        $("#qe-target-equity-readout").textContent =
-          `${curEqPct}% Equity · ${100 - curEqPct}% Bond`;
-      }
-      if ($("#qe-stage1-eq-bar")) {
-        $("#qe-stage1-eq-bar").style.width = `${curEqPct}%`;
-      }
-      if ($("#qe-stage1-bond-bar")) {
-        $("#qe-stage1-bond-bar").style.width = `${100 - curEqPct}%`;
-      }
-      if ($("#qe-target-equity-suffix")) {
-        $("#qe-target-equity-suffix").textContent =
-          `% Equity (${100 - curEqPct}% Bond)`;
-      }
-      if ($("#qe-stage2-badge")) {
-        $("#qe-stage2-badge").textContent =
-          `Step 2 · Inside ${curEqPct}% Equity`;
-      }
-      if ($("#qe-funnel-stage-2")) {
-        $("#qe-funnel-stage-2").classList.toggle(
-          "is-disabled-sleeve",
-          curEqPct === 0,
-        );
-      }
-      if ($("#qe-sg-sleeve-readout")) {
-        $("#qe-sg-sleeve-readout").innerHTML = html`${100 - curSgPct}% Global /
-          ${curSgPct}% SG <span class="bogle-of-eq">of Eq</span>`;
-      }
-      if ($("#qe-sg-effective-pill")) {
-        $("#qe-sg-effective-pill").textContent =
-          `= ${effGlobalPct}% Global · ${effSgPct}% SG of total`;
-      }
-      if ($("#qe-sg-sleeve-suffix")) {
-        $("#qe-sg-sleeve-suffix").textContent =
-          `% SG (${100 - curSgPct}% Global)`;
-      }
+      $("#qe-allocation-mix").innerHTML = buildAllocationMix(
+        curEqPct,
+        curSgPct,
+      );
+      $$("#qe-sg-controls input, #qe-sg-controls button").forEach((control) => {
+        control.disabled = curEqPct === 0;
+      });
       $$("#quick-edit-modal [data-bogle-preset]").forEach((chip) => {
         const field = chip.dataset.boglePreset;
         const val = Number(chip.dataset.val);
@@ -347,21 +215,6 @@ export function createQuickEditController(ctx) {
         chip.classList.toggle("is-active", active);
         chip.setAttribute("aria-pressed", String(active));
       });
-
-      const cpfResetBtn = $("#qe-cpf-extra-reset");
-      if (cpfResetBtn) {
-        cpfResetBtn.disabled = rawCpfExtra === "";
-      }
-      const cashResetBtn = $("#qe-cash-saving-reset");
-      if (cashResetBtn) {
-        cashResetBtn.disabled =
-          (rawCashSaving === "" || curCashSaving === 0) && rawCashRate === "";
-      }
-      const invResetBtn = $("#qe-invest-reset");
-      if (invResetBtn) {
-        invResetBtn.disabled =
-          rawInvest === "" && curEqPct === defEqPct && curSgPct === defSgPct;
-      }
 
       const cpfSumEl = $("#qe-cpf-extra-summary");
       if (cpfSumEl && fire) {
@@ -489,38 +342,12 @@ export function createQuickEditController(ctx) {
         const buySg = mr?.buySgMonthly || 0;
         const buyBond = mr?.buyBondMonthly || 0;
         const srsMo = Math.round(mr?.srsMonthly || 0);
-        const eqShare = Math.max(0, Math.min(100, curEqPct)) / 100;
-        const sgShare = Math.max(0, Math.min(100, curSgPct)) / 100;
-        const glBarPct = Math.round(eqShare * (1 - sgShare) * 100);
-        const sgBarPct = Math.round(eqShare * sgShare * 100);
-        const bdBarPct = Math.max(0, 100 - glBarPct - sgBarPct);
-        if ($("#qe-funnel-connector-text")) {
-          $("#qe-funnel-connector-text").innerHTML =
-            curEqPct > 0
-              ? html`Subdivides your
-                  <strong
-                    >${curEqPct}% Equity Sleeve
-                    (${raw(m(buyGlobal + buySg, "/mo"))})</strong
-                  >
-                  into Global vs SG Dividend`
-              : html`Target Equity is <strong>0%</strong> (100% Bond) — increase
-                  Equity above 0% to activate Global / SG sleeve`;
-        }
         const srsSuffix =
           srsMo > 0 ? html` (after ${raw(m(srsMo, "/mo"))} SRS)` : "";
         invSumEl.innerHTML = html`
           <div class="qe-rstu-head">
-            <span>Final 3-Way Monthly Routing</span>
+            <span>Monthly investment split</span>
             <strong>${raw(m(invMo, "/mo"))} total${raw(srsSuffix)}</strong>
-          </div>
-          <div class="qe-split-bar" aria-hidden="true">
-            <span
-              style="width:${glBarPct}%;background:var(--sem-equities);"
-            ></span>
-            <span
-              style="width:${sgBarPct}%;background:var(--sem-equities-sg);"
-            ></span>
-            <span style="width:${bdBarPct}%;background:var(--sem-cash);"></span>
           </div>
           <div class="qe-cash-proj-grid qe-invest-route-grid">
             <div class="qe-cash-proj-item">
@@ -529,12 +356,9 @@ export function createQuickEditController(ctx) {
                   class="qe-route-dot"
                   style="background:var(--sem-equities);"
                 ></i
-                >Global Equity (${glBarPct}%)</span
+                >Global Equity</span
               >
               <strong>${raw(m(buyGlobal, "/mo"))}</strong>
-              <small class="qe-route-formula"
-                >${curEqPct}% Eq × ${100 - curSgPct}% Global</small
-              >
             </div>
             <div class="qe-cash-proj-item">
               <span
@@ -542,20 +366,16 @@ export function createQuickEditController(ctx) {
                   class="qe-route-dot"
                   style="background:var(--sem-equities-sg);"
                 ></i
-                >SG Dividend (${sgBarPct}%)</span
+                >SG Dividends</span
               >
               <strong>${raw(m(buySg, "/mo"))}</strong>
-              <small class="qe-route-formula"
-                >${curEqPct}% Eq × ${curSgPct}% SG</small
-              >
             </div>
             <div class="qe-cash-proj-item">
               <span
                 ><i class="qe-route-dot" style="background:var(--sem-cash);"></i
-                >Bond / SSB (${bdBarPct}%)</span
+                >Bond / SSB</span
               >
               <strong>${raw(m(buyBond, "/mo"))}</strong>
-              <small class="qe-route-formula">Step 1 Bond floor</small>
             </div>
           </div>
         `;
@@ -604,7 +424,7 @@ export function createQuickEditController(ctx) {
           </div>
           <div class="qe-split-legend">
             <span
-              ><i style="background:var(--primary);"></i>Take-home
+              ><i style="background:var(--primary);"></i>Pay after CPF
               <strong>${raw(m(r.afterCpf, "/mo", "qe-net-pay"))}</strong>
               (${netPct}%)</span
             >
@@ -615,101 +435,6 @@ export function createQuickEditController(ctx) {
             >
           </div>
         `;
-      }
-      const breakdownEl = $("#qe-balances-breakdown");
-      if (breakdownEl) {
-        const startPt = fire.points[0];
-        const cpfTot = startPt?.cpfTotal ?? 0;
-        const outTot = startPt?.totalOutside ?? 0;
-        const oaV = Math.max(0, Number($("#known-oa")?.value || 0));
-        const saV = Math.max(0, Number($("#known-sa")?.value || 0));
-        const maV = Math.max(0, Number($("#known-ma")?.value || 0));
-        const saInvV = Math.max(0, Number($("#known-sa-invested")?.value || 0));
-        const eqV = Math.max(0, Number($("#known-equities")?.value || 0));
-        const sgV = Math.max(0, Number($("#known-sg-dividends")?.value || 0));
-        const ssbV = Math.max(0, Number($("#known-ssb-cash")?.value || 0));
-        const srsV = Math.max(0, Number($("#known-srs")?.value || 0));
-        const bucketSum = eqV + sgV + ssbV + srsV;
-        const outDetail =
-          bucketSum > 0
-            ? html`Global ${raw(m(eqV))} · SG ${raw(m(sgV))} · Cash
-              ${raw(m(ssbV))}${
-                srsV > 0 ? raw(html` · SRS ${raw(m(srsV))}`) : ""
-              }`
-            : html`Direct total ${raw(m(outTot))}`;
-        const cpfDetail = html`OA ${raw(m(oaV))} · SA ${raw(m(saV))} · MA
-        ${raw(m(maV))}${
-          saInvV > 0 ? raw(html` · CPFIS-SA ${raw(m(saInvV))}`) : ""
-        }`;
-        breakdownEl.innerHTML = html`
-          <div class="qe-bd-top">
-            <span>Total Assets</span>
-            <strong>${raw(m(cpfTot + outTot, "", "qe-bd-total"))}</strong>
-          </div>
-          <div
-            class="qe-bd-split"
-            role="img"
-            aria-label="CPF ${raw(m(cpfTot))}, Outside ${raw(m(outTot))}"
-          >
-            <span
-              class="qe-bd-split-cpf"
-              style="width:${cpfTot + outTot > 0 ? Math.max(0, Math.min(100, (cpfTot / (cpfTot + outTot)) * 100)) : 0}%"
-            ></span>
-            <span
-              class="qe-bd-split-outside"
-              style="width:${cpfTot + outTot > 0 ? Math.max(0, Math.min(100, (outTot / (cpfTot + outTot)) * 100)) : 0}%"
-            ></span>
-          </div>
-          <div class="qe-bd-rows">
-            <div>
-              <span>CPF (${raw(m(cpfTot))})</span
-              ><small>${raw(cpfDetail)}</small>
-            </div>
-            <div>
-              <span>Outside (${raw(m(outTot))})</span
-              ><small>${raw(outDetail)}</small>
-            </div>
-          </div>
-        `;
-      }
-      const activeCashInQe =
-        getUseItemizedCashAccounts() && getCustomCashAccounts().length > 0;
-      const qeSingleWrap = $("#qe-cash-single-wrap");
-      if (qeSingleWrap) {
-        qeSingleWrap.hidden = activeCashInQe;
-      }
-      const qeCashBtn = $("#qe-cash-breakdown-btn");
-      if (qeCashBtn) {
-        qeCashBtn.textContent = "Break down by bank & SSB accounts →";
-      }
-      const qeCashSlot = $("#qe-cash-accounts-slot");
-      const currentCashPlan = getCurrentCashPlan();
-      if (qeCashSlot && currentCashPlan) {
-        const activeCash =
-          getUseItemizedCashAccounts() && getCustomCashAccounts().length > 0;
-        const activeEl = document.activeElement;
-        const editingCashAccInQe =
-          activeEl &&
-          qeCashSlot.contains(activeEl) &&
-          activeEl.matches?.("input[data-cash-acc-field]");
-        if (editingCashAccInQe && currentCashPlan.cashBreakdown) {
-          const bd = currentCashPlan.cashBreakdown;
-          const summaryEl = qeCashSlot.querySelector("#cash-acc-summary-qe");
-          if (summaryEl) summaryEl.innerHTML = buildCashAccountsSummaryHTML(bd);
-          const alertsEl = qeCashSlot.querySelector("#cash-acc-alerts-qe");
-          if (alertsEl) alertsEl.innerHTML = buildCashAccountsAlertsHTML(bd);
-          const countEl = qeCashSlot.querySelector("#cash-acc-count-qe");
-          if (countEl) {
-            countEl.innerHTML = html`<strong>${bd.accountCount}</strong>
-              ${bd.accountCount === 1 ? "account" : "accounts"} · Total
-              <strong>${raw(m(bd.totalBalance))}</strong>`;
-          }
-          patchCashAccountRows(qeCashSlot, bd);
-        } else {
-          qeCashSlot.innerHTML = activeCash
-            ? buildCashAccountsEditorHTML(currentCashPlan, "qe")
-            : "";
-        }
       }
       const qeSummary = $("#qe-live-summary");
       if (qeSummary) {
@@ -745,6 +470,14 @@ export function createQuickEditController(ctx) {
     }
   }
 
+  function updateSavingWarning(id, wasCapped, value) {
+    const warning = $(`#${id}-warning`);
+    warning.textContent = wasCapped
+      ? `Capped at ${money(value)}/mo to fit within your ${money(getCurrentAfterCpfCap())}/mo pay after CPF.`
+      : "";
+    warning.hidden = !wasCapped;
+  }
+
   if (qeDialog) {
     document.addEventListener("click", (event) => {
       const trigger = event.target?.closest?.("[data-quick-edit]");
@@ -755,9 +488,7 @@ export function createQuickEditController(ctx) {
         return;
       }
       lastQeInvoker = trigger;
-      if (!qeDialog.open) {
-        setQeModalSnap(captureModalSnapshot());
-      }
+      $("#qe-open-full-settings").hidden = Boolean(trigger.closest("#top"));
       const scroller = qeDialog.querySelector(".settings-scroll-body");
       if (scroller) scroller.scrollTop = 0;
       if (!qeDialog.open) qeDialog.showModal();
@@ -878,25 +609,6 @@ export function createQuickEditController(ctx) {
         );
         return Math.max(0, getCurrentAfterCpfCap() - otherVal);
       };
-      const updateQeHint = (qeId, wasCapped, cappedVal) => {
-        const hintEl = $(
-          qeId === "qe-invest"
-            ? "#qe-invest-hint"
-            : qeId === "qe-cash-saving"
-              ? "#qe-cash-saving-hint"
-              : "#qe-cpf-extra-hint",
-        );
-        if (!hintEl) return;
-        hintEl.textContent = wasCapped
-          ? `Capped at ${money(cappedVal)}/mo (within your ${money(getCurrentAfterCpfCap())}/mo take-home pay).`
-          : qeId === "qe-invest"
-            ? "Leave blank for suggested saving target."
-            : qeId === "qe-cash-saving"
-              ? "Stays in cash / SSB. Separate from outside investments."
-              : "Leave blank for target path suggestion.";
-        hintEl.classList.toggle("is-capped", wasCapped);
-      };
-
       const stepBtn = event.target.closest("[data-qe-step]");
       if (stepBtn) {
         const qeId = stepBtn.dataset.qeStep;
@@ -922,7 +634,7 @@ export function createQuickEditController(ctx) {
           if (qeId === "qe-invest") delete qeDialog.dataset.investAutoLocked;
           qeEl.value = String(next);
           srcEl.value = String(next);
-          updateQeHint(qeId, rawNext > maxAllowed, next);
+          updateSavingWarning(qeId, rawNext > maxAllowed, next);
           render();
         }
         return;
@@ -936,7 +648,7 @@ export function createQuickEditController(ctx) {
         const val = rawVal === "" ? "" : String(cappedVal);
         if ($("#known-cpf-extra")) $("#known-cpf-extra").value = val;
         if ($("#qe-cpf-extra")) $("#qe-cpf-extra").value = val;
-        updateQeHint(
+        updateSavingWarning(
           "qe-cpf-extra",
           rawVal !== "" && numRaw > maxAllowed,
           cappedVal,
@@ -954,43 +666,8 @@ export function createQuickEditController(ctx) {
         if ($("#known-cash-saving")) $("#known-cash-saving").value = val;
         if ($("#sim-cash-saving")) $("#sim-cash-saving").value = val;
         if ($("#qe-cash-saving")) $("#qe-cash-saving").value = val;
-        updateQeHint("qe-cash-saving", numRaw > maxAllowed, cappedVal);
+        updateSavingWarning("qe-cash-saving", numRaw > maxAllowed, cappedVal);
         render();
-        return;
-      }
-      const pickCashRateBtn = event.target.closest("[data-qe-pick-cash-rate]");
-      if (pickCashRateBtn) {
-        const val = pickCashRateBtn.dataset.qePickCashRate || "";
-        if ($("#known-cash-return")) $("#known-cash-return").value = val;
-        if ($("#qe-cash-return")) $("#qe-cash-return").value = val;
-        render();
-        return;
-      }
-      const cashRateDeltaBtn = event.target.closest(
-        "[data-qe-cash-rate-delta]",
-      );
-      if (cashRateDeltaBtn) {
-        const qeEl = $("#qe-cash-return");
-        const srcEl = $("#known-cash-return");
-        if (qeEl && srcEl) {
-          const base =
-            qeEl.value.trim() === ""
-              ? Number(qeEl.placeholder || defaultSsbReturnPct)
-              : Number(qeEl.value || 0);
-          const next = Math.min(
-            15,
-            Math.max(
-              0,
-              Math.round(
-                (base + Number(cashRateDeltaBtn.dataset.qeCashRateDelta || 0)) *
-                  100,
-              ) / 100,
-            ),
-          );
-          qeEl.value = String(next);
-          srcEl.value = String(next);
-          render();
-        }
         return;
       }
       const pickInvestBtn = event.target.closest("[data-qe-pick-invest]");
@@ -1004,7 +681,7 @@ export function createQuickEditController(ctx) {
         if ($("#known-invest")) $("#known-invest").value = val;
         if ($("#sim-invest")) $("#sim-invest").value = val;
         if ($("#qe-invest")) $("#qe-invest").value = val;
-        updateQeHint(
+        updateSavingWarning(
           "qe-invest",
           rawVal !== "" && numRaw > maxAllowed,
           cappedVal,
@@ -1053,57 +730,10 @@ export function createQuickEditController(ctx) {
         }
         return;
       }
-      if (event.target.closest("#qe-cpf-extra-reset")) {
-        if ($("#known-cpf-extra")) $("#known-cpf-extra").value = "";
-        if ($("#qe-cpf-extra")) $("#qe-cpf-extra").value = "";
-        render();
-        showToast("Extra CPF saving reset to path suggestion");
-        return;
-      }
-      if (event.target.closest("#qe-cash-saving-reset")) {
-        if ($("#known-cash-saving")) $("#known-cash-saving").value = "";
-        if ($("#sim-cash-saving")) $("#sim-cash-saving").value = "";
-        if ($("#known-cash-return")) $("#known-cash-return").value = "";
-        if ($("#qe-cash-saving")) $("#qe-cash-saving").value = "";
-        if ($("#qe-cash-return")) $("#qe-cash-return").value = "";
-        render();
-        showToast("Monthly planned savings & HYSA rate reset to default");
-        return;
-      }
-      if (event.target.closest("#qe-invest-reset")) {
-        delete qeDialog.dataset.investAutoLocked;
-        const defEqStr = String(defEqPct);
-        const defSgStr = String(defSgPct);
-        if ($("#known-invest")) $("#known-invest").value = "";
-        if ($("#sim-invest")) $("#sim-invest").value = "";
-        if ($("#qe-invest")) $("#qe-invest").value = "";
-        if ($("#known-target-equity"))
-          $("#known-target-equity").value = defEqStr;
-        if ($("#qe-target-equity")) $("#qe-target-equity").value = defEqStr;
-        if ($("#bogle-target-slider"))
-          $("#bogle-target-slider").value = defEqStr;
-        if ($("#known-sg-sleeve")) $("#known-sg-sleeve").value = defSgStr;
-        if ($("#qe-sg-sleeve")) $("#qe-sg-sleeve").value = defSgStr;
-        if ($("#bogle-sg-slider")) $("#bogle-sg-slider").value = defSgStr;
-        render();
-        showToast("Outside investment & split reset to default");
-        return;
-      }
       if (event.target.closest("#qe-open-full-settings")) {
         qeDialog.dataset.flowNavigation = "true";
         qeDialog.close();
         document.querySelector("[data-open-profile]")?.click();
-        return;
-      }
-      if (event.target.closest("[data-qe-cancel]")) {
-        qeDialog.dataset.cancelled = "true";
-        const snap = getQeModalSnap();
-        if (snap) {
-          restoreModalSnapshot(snap);
-          setQeModalSnap(null);
-        }
-        qeDialog.close();
-        showToast("Discarded changes");
         return;
       }
       if (event.target.closest("[data-qe-close]")) {
@@ -1116,9 +746,6 @@ export function createQuickEditController(ctx) {
       const srcEl = $("#" + srcId);
       if (!qeEl || !srcEl) return;
       const syncBack = (useImmediate = false) => {
-        if (qeId === "qe-dob" && qeEl.validity.badInput) {
-          return;
-        }
         if (qeId === "qe-retire" && qeDialog.dataset.investAutoLocked) {
           delete qeDialog.dataset.investAutoLocked;
           if ($("#known-invest")) $("#known-invest").value = "";
@@ -1137,170 +764,61 @@ export function createQuickEditController(ctx) {
             $("#qe-invest"),
           ].filter((el) => el && el.id !== qeId);
           const capped = clampSavingToTakeHome(qeEl, otherQes);
-          const hintEl = $(
-            qeId === "qe-invest"
-              ? "#qe-invest-hint"
-              : qeId === "qe-cash-saving"
-                ? "#qe-cash-saving-hint"
-                : "#qe-cpf-extra-hint",
-          );
-          if (hintEl) {
-            hintEl.textContent =
-              capped !== false
-                ? `Capped at ${money(capped)}/mo (within your ${money(getCurrentAfterCpfCap())}/mo take-home pay).`
-                : qeId === "qe-invest"
-                  ? "Leave blank for suggested saving target."
-                  : qeId === "qe-cash-saving"
-                    ? "Stays in cash / SSB. Separate from outside investments."
-                    : "Leave blank for target path suggestion.";
-            hintEl.classList.toggle("is-capped", capped !== false);
-          }
+          updateSavingWarning(qeId, capped !== false, capped);
         }
-        const normalized = QE_CURRENCY_IDS.has(qeId)
-          ? parseQeCurrency(qeEl)
-          : qeEl.value;
-        srcEl.value = normalized;
-        if (QE_CURRENCY_IDS.has(qeId) && normalized !== "") {
-          qeEl.value = Number(normalized).toLocaleString("en-SG", {
-            maximumFractionDigits: 2,
-          });
-        }
-        if (qeId === "qe-srs") syncQeSrsDisclosure();
-        if (qeId === "qe-housing-mode") {
-          handleHousingModeSwitch(qeEl.value);
-        }
-        if (
-          qeId === "qe-housing-rate" &&
-          $("#known-housing-mode")?.value === "bank" &&
-          qeEl.value.trim() !== ""
-        ) {
-          setLastBankLoanRate(qeEl.value.trim());
-        }
-        if (qeId === "qe-dob") {
-          const dobInfo = RetirementModel.computeAgeFromDob(qeEl.value);
-          if (dobInfo.valid && dobInfo.age >= 18 && dobInfo.age <= 54) {
-            const minR = getMinRetireAge();
-            const retEl = $("#known-retire");
-            const curR = Number(retEl?.value);
-            if (
-              retEl &&
-              retEl.value.trim() !== "" &&
-              (!Number.isFinite(curR) || curR < minR || curR > 80)
-            ) {
-              const clampedR = String(
-                Math.min(
-                  80,
-                  Math.max(
-                    minR,
-                    Number.isFinite(curR) ? Math.round(curR) : defRetire,
-                  ),
-                ),
-              );
-              retEl.value = clampedR;
-              if ($("#qe-retire")) $("#qe-retire").value = clampedR;
-            }
-          }
-        }
-        if (srcId === "known-ssb-cash") {
-          clearItemizedCashAccounts();
-        }
-        if (bucketIds.includes(srcId)) {
-          syncBucketsToTotal();
-        }
+        srcEl.value = qeEl.value;
         if (useImmediate) render();
         else scheduleRender();
       };
       qeEl.addEventListener("input", () => syncBack(false));
       qeEl.addEventListener("change", () => syncBack(true));
-      if (QE_CURRENCY_IDS.has(qeId)) {
-        qeEl.addEventListener("blur", () => formatQeCurrency(qeEl));
-      }
     });
 
-    bindRevertibleDialog(qeDialog, {
-      getSnap: () => getQeModalSnap(),
-      clearSnap: () => {
-        delete qeDialog.dataset.investAutoLocked;
-        setQeModalSnap(null);
-      },
-      onCancelled: () => {
-        restoreInvokerFocus(
-          lastQeInvoker,
-          `[data-quick-edit="${activeQeTab}"]`,
-        );
-      },
-      onCommit: () => {
-        let corrected = false;
-        const minRetire = getMinRetireAge();
-        for (const [qeId, srcId] of QE_BINDINGS) {
-          if (qeId === "qe-housing-mode" || qeId === "qe-housing-parties")
-            continue;
-          const qeEl = $("#" + qeId);
-          const srcEl = $("#" + srcId);
-          if (!qeEl || !srcEl) continue;
-          const rawVal = srcEl.value.trim();
-          // Validate against qeEl when srcEl is a hidden input (HTML5 bars hidden inputs from constraint validation)
-          const validatorEl = srcEl.type === "hidden" ? qeEl : srcEl;
-          if (srcId === "person-dob") {
-            const dobInfo = RetirementModel.computeAgeFromDob(rawVal);
-            if (
-              validatorEl.validity.badInput ||
-              !dobInfo.valid ||
-              dobInfo.age < 18 ||
-              dobInfo.age > 54
-            ) {
-              srcEl.value = lastValidFieldValues[srcId] || DEFAULT_DOB;
-              qeEl.value = srcEl.value;
-              corrected = true;
-            }
-            continue;
-          }
-          if (validatorEl.validity.badInput) {
-            srcEl.value =
-              lastValidFieldValues[srcId] ?? srcEl.defaultValue ?? "";
-            qeEl.value = srcEl.value;
-            corrected = true;
-          } else if (srcId === "person-salary" && rawVal === "") {
-            srcEl.value = lastValidFieldValues[srcId] || String(defSalary);
-            qeEl.value = srcEl.value;
-            corrected = true;
-          } else if (rawVal !== "" && !validatorEl.validity.valid) {
-            const minV =
-              srcId === "known-retire"
-                ? minRetire
-                : Number(validatorEl.min || 0);
-            const maxV =
-              validatorEl.max !== "" ? Number(validatorEl.max) : Infinity;
-            let clamped = Math.min(maxV, Math.max(minV, Number(rawVal)));
-            if (validatorEl.step === "1") clamped = Math.round(clamped);
-            srcEl.value = String(clamped);
-            qeEl.value = srcEl.value;
-            corrected = true;
-          }
+    qeDialog.addEventListener("close", () => {
+      $$(".qe-saving-warning").forEach((warning) => {
+        warning.hidden = true;
+      });
+      delete qeDialog.dataset.investAutoLocked;
+      let corrected = false;
+      const minRetire = getMinRetireAge();
+      for (const [qeId, srcId] of QE_BINDINGS) {
+        const qeEl = $("#" + qeId);
+        const srcEl = $("#" + srcId);
+        if (!qeEl || !srcEl) continue;
+        const rawVal = srcEl.value.trim();
+        // Validate against qeEl when srcEl is a hidden input (HTML5 bars hidden inputs from constraint validation)
+        const validatorEl = srcEl.type === "hidden" ? qeEl : srcEl;
+        if (validatorEl.validity.badInput) {
+          srcEl.value = lastValidFieldValues[srcId] ?? srcEl.defaultValue ?? "";
+          qeEl.value = srcEl.value;
+          corrected = true;
+        } else if (srcId === "person-salary" && rawVal === "") {
+          srcEl.value = lastValidFieldValues[srcId] || String(defSalary);
+          qeEl.value = srcEl.value;
+          corrected = true;
+        } else if (rawVal !== "" && !validatorEl.validity.valid) {
+          const minV =
+            srcId === "known-retire" ? minRetire : Number(validatorEl.min || 0);
+          const maxV =
+            validatorEl.max !== "" ? Number(validatorEl.max) : Infinity;
+          let clamped = Math.min(maxV, Math.max(minV, Number(rawVal)));
+          if (validatorEl.step === "1") clamped = Math.round(clamped);
+          srcEl.value = String(clamped);
+          qeEl.value = srcEl.value;
+          corrected = true;
         }
-        if (corrected) {
-          syncBucketsToTotal();
-          render();
-        }
-        if (qeDialog.dataset.flowNavigation) {
-          delete qeDialog.dataset.flowNavigation;
-          return;
-        }
-        restoreInvokerFocus(
-          lastQeInvoker,
-          `[data-quick-edit="${activeQeTab}"]`,
-        );
-      },
+      }
+      if (!flushPendingRender() && corrected) render();
+      if (qeDialog.dataset.flowNavigation) {
+        delete qeDialog.dataset.flowNavigation;
+        return;
+      }
+      restoreInvokerFocus(lastQeInvoker, `[data-quick-edit="${activeQeTab}"]`);
     });
   }
 
   return {
-    getMinRetireAge,
     syncQuickEditState,
-    setQuickEditPanel,
     getActiveQeTab: () => activeQeTab,
-    setLastQeInvoker: (el) => {
-      lastQeInvoker = el;
-    },
   };
 }

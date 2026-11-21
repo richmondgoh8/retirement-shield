@@ -6,6 +6,7 @@ import {
   html,
   raw,
   ICONS,
+  buildAllocationMix,
 } from "./format.js";
 
 function svgDonut(segments, centerTop, centerBottom) {
@@ -70,23 +71,12 @@ function buildBogleheadSection(bogle) {
     hol.totalNetWorth > 0 ? (hol.liquidBonds / curNW) * 100 : 0;
   const curCpfPct = hol.totalNetWorth > 0 ? (hol.cpfTotal / curNW) * 100 : 0;
 
-  const targetGlobalPct =
-    hol.targetGlobalPct ??
-    Math.round(hol.targetEquityPct * ((100 - hol.sgSleevePct) / 100));
-  const targetSgPct =
-    hol.targetSgPct ?? Math.max(0, hol.targetEquityPct - targetGlobalPct);
-  const globalSplitPct = hol.globalEquitySplitPct ?? 100 - hol.sgSleevePct;
-  const sgSplitPct = hol.sgEquitySplitPct ?? hol.sgSleevePct;
   const bondLabel =
     hol.cpfTotal > 0 && hol.liquidBonds > 0
       ? "Bond/CPF"
       : hol.cpfTotal > 0
         ? "CPF"
         : "SSB/Cash";
-  const targetBondColor =
-    hol.cpfTotal > 0 ? "var(--sem-cpf)" : "var(--sem-cash)";
-  const targetBondTitle =
-    hol.cpfTotal > 0 ? "Target Bond / CPF Floor" : "Target SSB / Cash Floor";
   const curEqRounded = Math.round(hol.effectiveEquityPct);
   const tgtEqRounded = Math.round(hol.targetEquityPct);
   const equityDeltaPct = curEqRounded - tgtEqRounded;
@@ -121,6 +111,7 @@ function buildBogleheadSection(bogle) {
         <h2 id="bogle-title">True Effective Stock / Bond Ratio</h2>
         <p>Current balances count CPF OA/SA/MA (${m(hol.cpfTotal)}) and SSB/Cash (${m(hol.liquidBonds)}) together as your defensive bond floor.</p>
       </div>
+      <button type="button" class="text-button" data-open-settings-field="known-equities">Edit balances</button>
     </div>
     <div class="bogle-donuts-grid">
       <div class="donut-panel">
@@ -175,39 +166,21 @@ function buildBogleheadSection(bogle) {
               ${curCpfPct > 0.4 ? `<span style="width:${curCpfPct.toFixed(1)}%;background:var(--sem-cpf);" title="CPF OA/SA/MA"></span>` : ""}
             </div>
           </div>
-          <div class="mix-bar-row">
-            <div class="mix-bar-meta">
-              <span>Target Mix</span>
-              <strong>${targetGlobalPct}% Global · ${targetSgPct}% SG · ${hol.targetBondPct}% ${bondLabel}</strong>
-            </div>
-            <div class="mix-track" aria-hidden="true">
-              ${targetGlobalPct > 0.4 ? `<span style="width:${targetGlobalPct}%;background:var(--sem-equities);" title="Target Global UCITS"></span>` : ""}
-              ${targetSgPct > 0.4 ? `<span style="width:${targetSgPct}%;background:var(--sem-equities-sg);" title="Target SG Dividends"></span>` : ""}
-              ${hol.targetBondPct > 0.4 ? `<span style="width:${hol.targetBondPct}%;background:${targetBondColor};" title="${targetBondTitle}"></span>` : ""}
-            </div>
-          </div>
         </div>
       </div>
 
-      <div class="bogle-sliders bogle-funnel">
-        <div class="bogle-funnel-stage is-stage-1">
-          <div class="bogle-funnel-head">
-            <div class="bogle-funnel-title-wrap">
-              <span class="bogle-step-badge">Step 1 · Total Split</span>
-              <label for="bogle-target-slider">Target Equity / Bond Split</label>
-            </div>
-            <strong class="bogle-funnel-readout" id="bogle-target-readout">${hol.targetEquityPct}% Equity · ${hol.targetBondPct}% Bond</strong>
-          </div>
-          <div class="bogle-stage1-bar" aria-hidden="true">
-            <span id="bogle-stage1-eq-bar" style="width:${hol.targetEquityPct}%;background:var(--sem-equities);"></span>
-            <span id="bogle-stage1-bond-bar" style="width:${hol.targetBondPct}%;background:var(--sem-cash);"></span>
-          </div>
+      <div class="allocation-editor">
+        <strong>Target allocation</strong>
+        ${buildAllocationMix(hol.targetEquityPct, hol.sgSleevePct)}
+        <div class="allocation-controls">
+        <div>
+          <label for="bogle-target-slider">Equity (% of portfolio)</label>
           <div class="bogle-funnel-controls">
             <div class="saving-stepper bogle-stepper">
               <button type="button" data-bogle-step="bogle-target-slider" data-delta="-5" aria-label="Decrease target equity percentage by 5%">−</button>
               <div class="input-wrap">
                 <input id="bogle-target-slider" type="number" min="0" max="100" step="1" value="${hol.targetEquityPct}" inputmode="numeric" />
-                <span>% Equity (${hol.targetBondPct}% Bond)</span>
+                <span>%</span>
               </div>
               <button type="button" data-bogle-step="bogle-target-slider" data-delta="5" aria-label="Increase target equity percentage by 5%">+</button>
             </div>
@@ -222,32 +195,14 @@ function buildBogleheadSection(bogle) {
           </div>
         </div>
 
-        <div class="bogle-funnel-connector" aria-hidden="true">
-          <span class="bogle-connector-elbow"></span>
-          <span class="bogle-connector-badge" id="bogle-funnel-connector-text">${
-            hol.targetEquityPct > 0
-              ? `Subdivides your <strong>${hol.targetEquityPct}% Equity Sleeve (${m(reb.buyGlobalMonthly + reb.buySgMonthly, "/mo")})</strong> into Global vs SG Dividend`
-              : `Target Equity is <strong>0%</strong> (100% Bond) — increase Equity above 0% to activate Global / SG sleeve`
-          }</span>
-        </div>
-
-        <div class="bogle-funnel-stage is-stage-2${hol.targetEquityPct === 0 ? " is-disabled-sleeve" : ""}" id="bogle-funnel-stage-2">
-          <div class="bogle-funnel-head">
-            <div class="bogle-funnel-title-wrap">
-              <span class="bogle-step-badge is-sub" id="bogle-stage2-badge">Step 2 · Inside ${hol.targetEquityPct}% Equity</span>
-              <label for="bogle-sg-slider">Equity Sleeve Split (Global / SG Dividend)</label>
-            </div>
-            <div class="bogle-funnel-readout-group">
-              <strong class="bogle-funnel-readout" id="bogle-sg-readout">${globalSplitPct}% Global / ${sgSplitPct}% SG <span class="bogle-of-eq">of Eq</span></strong>
-              <span class="bogle-effective-pill" id="bogle-sg-effective-pill">= ${Math.round(hol.targetGlobalPct * 10) / 10}% Global · ${Math.round(hol.targetSgPct * 10) / 10}% SG of total</span>
-            </div>
-          </div>
+        <div id="bogle-sg-controls">
+          <label for="bogle-sg-slider">SG (% of equity)</label>
           <div class="bogle-funnel-controls">
             <div class="saving-stepper bogle-stepper">
               <button type="button" data-bogle-step="bogle-sg-slider" data-delta="-5" aria-label="Decrease SG dividend sleeve by 5%"${hol.targetEquityPct === 0 ? " disabled" : ""}>−</button>
               <div class="input-wrap">
                 <input id="bogle-sg-slider" type="number" min="0" max="100" step="1" value="${hol.sgSleevePct}" inputmode="numeric"${hol.targetEquityPct === 0 ? " disabled" : ""} />
-                <span>% SG (${globalSplitPct}% Global)</span>
+                <span>%</span>
               </div>
               <button type="button" data-bogle-step="bogle-sg-slider" data-delta="5" aria-label="Increase SG dividend sleeve by 5%"${hol.targetEquityPct === 0 ? " disabled" : ""}>+</button>
             </div>
@@ -263,6 +218,7 @@ function buildBogleheadSection(bogle) {
         </div>
       </div>
 
+      </div>
       <div class="rebalance-directive">
         <div>
           <strong>Monthly Paycheck Action · ${m(reb.investPool, "/mo", "bogle-reb-pool")} investable</strong>
@@ -919,7 +875,7 @@ function buildCashAccountsEditorHTML(cp, context = "page") {
   return `<div class="cash-acc-editor" data-cash-acc-context="${context}">
     <div class="cash-acc-mode-bar">
       <div class="cash-acc-mode-copy">
-        <h3>${isQe ? "SSB / T-Bills / High-Yield Cash Accounts" : "Multi-Account Tiered Cash &amp; SSB Breakdown"}</h3>
+        <h3>${isQe ? "SSB / T-Bills / High-Yield Cash Accounts" : "Cash and SSB accounts"}</h3>
         <p>${
           isQe
             ? "Split your cash across banks &amp; SSBs to calculate your exact tiered effective interest rate (EIR) and $100k bonus caps."
@@ -1206,8 +1162,7 @@ function buildCashPlanCardHTML(cp) {
         }</small>
       </div>
     </dl>
-
-    ${buildCashAccountsEditorHTML(cp, "page")}
+    <button type="button" class="text-button" data-open-page-cash-accounts aria-controls="cash-accounts">Edit cash accounts</button>
 
     <div class="cash-ladder-grid" role="group" aria-label="Suggested cash parking waterfall">
       ${cp.tiers
@@ -1280,7 +1235,7 @@ function buildCashParkingSection(
   return `
     <header class="ember-page-header fin-page-header">
       <div class="fin-header-copy">
-        <h1>Cash Parking &amp; Yield Mediums</h1>
+        <h1>Cash Parking</h1>
         <p class="fin-page-sub">Compare Singapore cash vehicles, holding limits, and SDIC coverage. Click any card to view live rates on the official provider site.</p>
       </div>
       <div class="ember-header-meta cash-header-sync">
@@ -1291,6 +1246,7 @@ function buildCashParkingSection(
 
     <div class="cash-plan-slot">${buildCashPlanCardHTML(cp)}</div>
 
+    <h2 class="cash-comparison-title">Compare cash products</h2>
     <div class="cash-toolbar">
       <div class="cash-filter-bar" role="group" aria-label="Filter cash parking mediums">
         <span class="cash-filter-glider" aria-hidden="true"></span>
@@ -1322,6 +1278,11 @@ function buildCashParkingSection(
     <div class="cash-cards-wrap">
       ${buildCashCardsMarkup(cp, activeFilter, false, searchQuery, tagFilter)}
     </div>
+
+    <details class="cash-accounts-disclosure card-surface" id="cash-accounts">
+      <summary class="planner-summary">Edit cash accounts</summary>
+      <div class="cash-accounts-page-slot">${buildCashAccountsEditorHTML(cp, "page")}</div>
+    </details>
 
     <div class="cash-rules-note" role="note">
       <strong>Key Limit Reminders (${cp.asOf}):</strong>
@@ -1595,9 +1556,10 @@ function buildAnnuityResultsHTML(annuityModel) {
   if (!annuityModel) return "";
   const nominalIrr = Number(annuityModel.impliedAnnualIrrPct || 0);
   const realIrr = Number(annuityModel.realAnnualIrrPct || 0);
-  const participatingLine = annuityModel.startingMonthlyPayout > annuityModel.quotedMonthlyPayout
-    ? ` · +${m(Math.round(annuityModel.startingMonthlyPayout - annuityModel.quotedMonthlyPayout), "/mo")} non-guaranteed in Year 1`
-    : "";
+  const participatingLine =
+    annuityModel.startingMonthlyPayout > annuityModel.quotedMonthlyPayout
+      ? ` · +${m(Math.round(annuityModel.startingMonthlyPayout - annuityModel.quotedMonthlyPayout), "/mo")} non-guaranteed in Year 1`
+      : "";
   const irrStr =
     annuityModel.impliedAnnualIrrPct <= -99
       ? "−100%"
@@ -1624,13 +1586,18 @@ function buildAnnuityResultsHTML(annuityModel) {
         <div class="div-annuity-realization-row">
           <span>Bonus Realization</span>
           <div class="div-segmented-inline div-segmented-realization" role="group" aria-label="Bonus realization">
-            ${[0, 0.5, 1].map((realization) => {
-              const currentRealization = Number.isFinite(Number(annuityModel.bonusRealization))
-                ? Number(annuityModel.bonusRealization)
-                : 1;
-              const isActive = Math.abs(currentRealization - realization) < 0.01;
-              return `<button type="button" class="div-segment-btn${isActive ? " is-active" : ""}" data-div-annuity-realization="${realization}" aria-pressed="${isActive}">${realization === 0 ? "0% Guaranteed" : realization === 0.5 ? "50% Haircut" : "100% Full"}</button>`;
-            }).join("")}
+            ${[0, 0.5, 1]
+              .map((realization) => {
+                const currentRealization = Number.isFinite(
+                  Number(annuityModel.bonusRealization),
+                )
+                  ? Number(annuityModel.bonusRealization)
+                  : 1;
+                const isActive =
+                  Math.abs(currentRealization - realization) < 0.01;
+                return `<button type="button" class="div-segment-btn${isActive ? " is-active" : ""}" data-div-annuity-realization="${realization}" aria-pressed="${isActive}">${realization === 0 ? "0% Guaranteed" : realization === 0.5 ? "50% Haircut" : "100% Full"}</button>`;
+              })
+              .join("")}
           </div>
         </div>
         <p class="div-payout-sub"><strong>${m(annuityModel.monthlyContribution, "/mo")}</strong> × <strong>${annuityModel.contributeYears} yrs</strong>${annuityModel.deferYears > 0 ? ` · <strong>${annuityModel.deferYears} yrs</strong> deferment` : ""} → <strong>${m(annuityModel.quotedMonthlyPayout, "/mo")} guaranteed</strong> × <strong>${annuityModel.payoutYears} yrs</strong>${participatingLine}</p>
@@ -2079,12 +2046,11 @@ function buildDividendCalculatorSection({
 
     <section class="card-surface rules-card div-calc-card" id="dividend-calculator-card" aria-labelledby="div-calc-heading">
       <div class="div-calc-grid">
-        <div class="div-calc-controls">
-          ${controlsHTML}
-        </div>
-
         <div class="div-calc-results" id="div-calc-results-pane">
           ${resultsHTML}
+        </div>
+        <div class="div-calc-controls">
+          ${controlsHTML}
         </div>
       </div>
     </section>
