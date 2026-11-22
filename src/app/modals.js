@@ -25,7 +25,6 @@ export function captureModalSnapshot({ fields, getState }) {
   return {
     fieldValues,
     selected: s.selected,
-    learningTarget: s.learningTarget,
     lastBankLoanRate: s.lastBankLoanRate,
     lastCustomSpend: s.lastCustomSpend,
     lastCustomLifestyle: s.lastCustomLifestyle,
@@ -49,7 +48,6 @@ export function restoreModalSnapshot(
   }
   applyState({
     selected: snap.selected,
-    learningTarget: snap.learningTarget,
     lastBankLoanRate: snap.lastBankLoanRate,
     lastCustomSpend: snap.lastCustomSpend,
     lastCustomLifestyle: snap.lastCustomLifestyle,

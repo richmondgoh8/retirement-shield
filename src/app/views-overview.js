@@ -334,9 +334,9 @@ export function buildFinReadinessGaugeSVG(
       <path d="M ${startX} ${startY} A ${r} ${r} 0 0 1 ${knobX.toFixed(1)} ${knobY.toFixed(1)}" fill="none" stroke="url(#${uid}-arc-grad)" stroke-width="12" stroke-linecap="round" />
       <circle cx="${knobX.toFixed(1)}" cy="${knobY.toFixed(1)}" r="6.5" fill="#E83E8C" stroke="#FFFFFF" stroke-width="2.8" />
       <text x="120" y="90" text-anchor="middle" fill="#0F172A" font-size="25" font-weight="800" letter-spacing="-0.03em">${pctDisplay}</text>
-      <text x="120" y="108" text-anchor="middle" fill="#64748B" font-size="9.5" font-weight="600" letter-spacing="0.03em">FUNDED TO ${endAge}</text>
+      <text x="120" y="108" text-anchor="middle" fill="#64748B" font-size="9.5" font-weight="600" letter-spacing="0.03em">SAVINGS TARGET FUNDED</text>
     </svg>
-    <span class="sr-only">${pctDisplay} funded to age ${endAge}</span>
+    <span class="sr-only">${pctDisplay} of the retirement savings target funded through age ${endAge}</span>
     <div class="swell-gauge-status" style="color:${statusColor};">${statusWord}</div>
     <div class="fin-gauge-center swell-gauge-readout">
       <strong>${readyText}</strong>
@@ -382,18 +382,34 @@ function buildOverviewPageHeader({
   r,
   startingTotalAssets,
   rate,
-  recommendation,
+  contribution,
   budget,
+  selected,
+  cashflow,
+  cpfProgress,
+  savingsProgress,
 }) {
   const fn = fire.fireNumber;
   const onTrack = fn.pctFunded >= 100 && fn.fullyFundedTo95;
-  const verdict = onTrack ? "On track" : "Shortfall";
   const tone = onTrack ? "good" : "warn";
-  const targetRate = recommendation?.rate ?? rate;
-  const targetBand = savingsRateBand(targetRate);
-  const tightness = targetBand.tone !== "good" ? targetBand.label : "";
-  const previewHealth = recommendation?.health;
-  const hasSafeAge = fn.projectedFireAge != null;
+  const target = r.retiringNow ? "now" : `at age ${fire.retire}`;
+  const headline = onTrack
+    ? `Your plan funds retirement ${target}`
+    : `Your plan falls short for retirement ${target}`;
+  const savingsBand = savingsRateBand(rate);
+  const earliestAge =
+    fn.projectedFireAge != null
+      ? `Age ${fn.projectedFireAge}`
+      : "Beyond age 80";
+  const beforeCpfLife = fire.retire < 65;
+  const cpfLifeAge = beforeCpfLife ? "from age 65" : `at age ${fire.retire}`;
+  const cpfLifeToday = beforeCpfLife
+    ? fire.phase2.cpfLife65Today
+    : fire.atRetire.today.monthlyCpfLife;
+  const reviewSavings = (style) =>
+    `<button type="button" class="${style}" data-review-overview-savings>Review savings</button>`;
+  const reviewAge = (style) =>
+    `<button type="button" class="${style}" data-quick-edit="goal" data-qe-focus="#qe-retire">Review retirement age</button>`;
   return `<header class="overview-hero" aria-labelledby="fire-hero-title">
     <div class="ember-page-header fin-page-header overview-title-row">
       <h1 id="fire-hero-title" tabindex="-1">Retirement Overview</h1>
@@ -403,37 +419,55 @@ function buildOverviewPageHeader({
     </div>
     <section class="overview-verdict card-surface is-${tone}" tabindex="-1" aria-label="Retirement readiness">
       <div class="overview-verdict-copy">
-        <span class="status-pill is-${tone}">${verdict}</span>
-        <h2 class="overview-hero-figure">${hasSafeAge ? `Age ${fn.projectedFireAge}` : "Beyond age 80"}</h2>
-        <p class="overview-safe-age">Earliest projected retirement <span>· Plan through age ${fire.endAge}</span></p>
-      </div>
-      <div class="overview-hero-outcome">
-      ${
-        recommendation
-          ? `
-        <dl class="overview-action-outcome" aria-label="Estimated outcome after applying">
-          <div><dt>Funding at your target age of ${fire.retire}</dt><dd class="overview-funded">${formatFundedPct(fn.pctFunded)} → <strong data-preview-funded>${formatFundedPct(recommendation.funded)}</strong></dd></div>
-          <div><dt>Savings rate</dt><dd>${rate}% → <strong data-preview-rate>${recommendation.rate}%</strong> <span class="${previewHealth.label === targetBand.label ? "sr-only" : `status-pill is-${previewHealth.tone}`}" data-preview-savings-band>${previewHealth.label}</span></dd></div>
-        </dl>`
-          : `<dl class="overview-action-outcome">
-          <div><dt>Funding at your target age of ${fire.retire}</dt><dd class="overview-funded"><strong>${formatFundedPct(fn.pctFunded)}</strong></dd></div>
-        </dl>`
-      }
-      ${tightness ? `<p class="overview-saving-tightness">${recommendation?.move.action === "cap-affordable-save" ? "After applying the cap, save" : "Requires saving"} <strong>${targetRate}%</strong> of take-home pay to sustain this plan. <strong class="overview-tightness-band is-${targetBand.tone}">${tightness}</strong></p>` : ""}
-      </div>
-      ${
-        recommendation
-          ? `
+        <h2 class="overview-decision-title">${headline}</h2>
+        <p class="overview-decision-support">
+          ${
+            r.retiringNow
+              ? `Projection through age <strong>${fire.endAge}</strong>.`
+              : `This projection runs to age <strong>${fire.endAge}</strong> and assumes you save <strong>${m(contribution, "/mo")}</strong>.`
+          }
+          ${
+            !r.retiringNow && cashflow.netCashSurplus < 0
+              ? `<span class="overview-decision-band">Current plan is short by <strong>${m(-cashflow.netCashSurplus, "/mo")}</strong> after tax and fixed bills.</span>`
+              : !r.retiringNow && savingsBand.tone !== "good"
+                ? `<span class="overview-decision-band">Savings effort: ${savingsBand.label.toLowerCase()}.</span>`
+                : ""
+          }
+        </p>
         <div class="overview-hero-actions">
-          <button type="button" class="button button-primary" data-money-move="${recommendation.move.action}" data-move-val="${recommendation.move.value}"><span>${recommendation.move.action === "match-save" ? `Invest ${m(recommendation.move.value, "/mo")} outside CPF` : `Cap savings at ${m(recommendation.move.value, "/mo")}`}</span></button>
-          <button type="button" class="text-button" data-quick-edit="invest" data-qe-focus="#qe-invest" aria-label="Edit monthly investment">Edit</button>
-        </div>`
-          : `<div class="overview-hero-actions"><button type="button" class="button button-primary" data-quick-edit="goal" data-qe-focus="#qe-retire">Review retirement age</button></div>`
-      }
+          ${
+            r.retiringNow
+              ? reviewAge("button button-primary")
+              : `${reviewSavings("button button-primary")}${reviewAge("text-button")}`
+          }
+        </div>
+      </div>
+      <dl class="overview-action-outcome" aria-label="Current plan projections">
+        <div><dt class="overview-safe-age">Earliest projected retirement</dt><dd class="overview-hero-figure">${earliestAge}</dd></div>
+        <div>
+          <dt>${savingsProgress.title}</dt>
+          <dd class="overview-funded"><strong>${savingsProgress.percent}</strong></dd>
+          <dd class="overview-outcome-note">For spending left after projected retirement income.</dd>
+        </div>
+        <div class="overview-cpf-income">
+          <dt>CPF LIFE ${cpfLifeAge}</dt>
+          <dd><strong>${m(cpfLifeToday, "/mo")}</strong> <span class="overview-outcome-note">in today’s dollars</span></dd>
+        </div>
+      </dl>
+      <div class="overview-cpf-strategy">
+        <div>
+          <strong id="overview-cpf-strategy-label">CPF strategy</strong>
+          <p class="cpf-strategy-help"><strong><span id="overview-cpf-percent">${cpfProgress.percent}</span> of ${cpfProgress.strategy} funded at age 55</strong> · ${m(cpfProgress.balanceToday)} of ${m(cpfProgress.targetToday)} in today’s dollars</p>
+          <p id="overview-cpf-strategy-help" class="cpf-strategy-help">Switching strategies keeps your monthly savings and retirement budget fixed. BRS assumes an eligible property.</p>
+        </div>
+        <div id="overview-cpf-strategy-options" data-cpf-strategy-group role="group" aria-labelledby="overview-cpf-strategy-label" aria-describedby="overview-cpf-strategy-help">
+          ${["brs", "frs", "ers"].map((path) => `<button type="button" class="button button-small" data-cpf-strategy="${path}" aria-pressed="${path === selected}">${path.toUpperCase()}</button>`).join("")}
+        </div>
+      </div>
       <div class="overview-hero-summary" aria-label="Plan summary">
         <span>Pay after CPF <strong>${m(r.afterCpf, "/mo")}</strong></span>
         <span>Starting assets <strong>${m(startingTotalAssets)}</strong></span>
-        ${budget == null ? "" : `<button type="button" class="text-button overview-budget-link" data-go-tab="budget">Budget <strong>${m(budget, "/mo")}</strong></button>`}
+        ${budget == null ? "" : `<button type="button" class="text-button overview-budget-link" data-go-tab="budget">Retirement budget <strong>${m(budget, "/mo")}</strong></button>`}
       </div>
     </section>
   </header>`;
@@ -708,7 +742,8 @@ function getMoneyMoves({
       tax,
       expenseData,
     });
-  const unallocatedSurplusMo = Math.max(0, rawSurplusMo);
+  // The automatic budget already assigns the remaining pay to needs and wants.
+  const unallocatedSurplusMo = p.invest == null ? 0 : Math.max(0, rawSurplusMo);
 
   // 0. Cashflow Over-Commitment Guardrail (when planned savings + tax + fixed bills exceed take-home pay)
   if (
@@ -1092,7 +1127,6 @@ export function buildFinOverviewGrid(
   p,
   simulation,
   bogle,
-  pctOfPay,
   selected,
   isCustomSpend = false,
   expenseData = null,
@@ -1100,10 +1134,16 @@ export function buildFinOverviewGrid(
   tax = null,
   rangeNote = "",
   suggestedSavings = {},
+  netPay,
+  cpfProgress,
+  savingsProgress,
 ) {
   const contribution = r.retiringNow
     ? simulation.cpfExtra + s.privateSaving
     : simulation.cpfExtra + (simulation.cashSaving || 0) + simulation.invest;
+  const savingsRate = (amount) =>
+    netPay > 0 ? Math.round((100 * amount) / netPay) : 0;
+  const pctOfPay = savingsRate(contribution);
 
   const cpfCov65Pct = Math.min(
     100,
@@ -1246,53 +1286,29 @@ export function buildFinOverviewGrid(
     expenseData,
     cashflow,
   });
-  const primaryMove = moves.find(
-    (move) =>
-      move.action === "cap-affordable-save" || move.action === "match-save",
-  );
-  let recommendation = null;
-  if (primaryMove) {
-    const caps = primaryMove.action === "cap-affordable-save";
-    const nextParams = {
-      ...p,
-      ...(masRates ? { masRates } : {}),
-      ...(caps
-        ? getCappedSavings(primaryMove.value, p, simulation)
-        : { invest: primaryMove.value }),
-    };
-    try {
-      const projected = RetirementModel.solveBucketAwareSimulation(
-        nextParams,
-        caps && selected === "salary" ? "frs" : selected,
-      );
-      const nextSimulation = projected.simulation;
-      const nextContribution = r.retiringNow
-        ? nextSimulation.cpfExtra +
-          nextSimulation.selectedScenario.privateSaving
-        : nextSimulation.cpfExtra +
-          (nextSimulation.cashSaving || 0) +
-          nextSimulation.invest;
-      const rate =
-        r.afterCpf > 0 ? Math.round((100 * nextContribution) / r.afterCpf) : 0;
-      const nextCashflow = computeMonthlyTakeHomeCashflow({
+  const capMove = moves.find((move) => move.action === "cap-affordable-save");
+  if (capMove) {
+    // Lower CPF top-ups can raise income tax. Check the cap with the revised tax bill.
+    let proposedValue = capMove.value;
+    let fits = false;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const capped = getCappedSavings(proposedValue, p, simulation);
+      const { netCashSurplus } = computeMonthlyTakeHomeCashflow({
         r,
-        simulation: nextSimulation,
-        contribution: nextContribution,
-        p: nextParams,
-        tax: RetirementModel.taxSweetSpot(nextParams, {
-          simulation: nextSimulation,
-        }),
+        simulation: { ...simulation, ...capped },
+        contribution: capped.cpfExtra + capped.cashSaving + capped.invest,
+        p: { ...p, ...capped },
         expenseData,
       });
-      recommendation = {
-        move: primaryMove,
-        funded: projected.fire.fireNumber.pctFunded,
-        rate,
-        health: savingsHealth(rate, nextCashflow),
-      };
-    } catch {
-      // An unavailable preview leaves the existing recommendation in Actionable Insights.
+      if (netCashSurplus >= 0) {
+        capMove.value = proposedValue;
+        fits = true;
+        break;
+      }
+      if (proposedValue === 0) break;
+      proposedValue = Math.max(0, proposedValue + netCashSurplus);
     }
+    if (!fits) moves.splice(moves.indexOf(capMove), 1);
   }
   const currentHealth = savingsHealth(pctOfPay, cashflow);
   const overviewInputs = [
@@ -1305,17 +1321,7 @@ export function buildFinOverviewGrid(
     ["known-invest", "Outside investments", p.invest ?? simulation.invest],
   ];
 
-  const savingsMarkers = [
-    ["Now", pctOfPay, currentHealth.label],
-    ...(recommendation
-      ? [["After", recommendation.rate, recommendation.health.label]]
-      : []),
-  ];
-  const staggerSavingsLabels =
-    recommendation &&
-    Math.abs(Math.min(100, recommendation.rate) - Math.min(100, pctOfPay)) < 32;
-
-  return `${buildOverviewPageHeader({ fire, r, startingTotalAssets, rate: pctOfPay, recommendation, budget: expenseData?.total })}
+  return `${buildOverviewPageHeader({ fire, r, startingTotalAssets, rate: pctOfPay, contribution, budget: expenseData?.total, selected, cashflow, cpfProgress, savingsProgress })}
   <section class="swell-section-block" aria-label="Wealth trajectory, income taps, and retirement readiness">
     <div class="swell-section-head">
       <h2>Trajectory &amp; Readiness</h2>
@@ -1414,7 +1420,7 @@ export function buildFinOverviewGrid(
   </section>
 
   <section class="swell-section-block" aria-labelledby="overview-savings-title">
-    <div class="swell-section-head"><h2 id="overview-savings-title">Monthly Savings &amp; Investment Plan</h2></div>
+    <div class="swell-section-head"><h2 id="overview-savings-title" tabindex="-1">Monthly Savings &amp; Investment Plan</h2></div>
     <div class="overview-savings card-surface">
     <div class="overview-total-saving">
       <span>Total saving</span>
@@ -1456,16 +1462,11 @@ export function buildFinOverviewGrid(
       </div>
       <p class="settings-error" id="overview-saving-message" role="status"></p>
       <div class="overview-saving-health" role="group" aria-label="Savings rate as a share of pay after CPF">
-        <div class="overview-saving-meter${staggerSavingsLabels ? " is-staggered" : ""}">
+        <div class="overview-saving-meter">
           <div class="overview-saving-track" aria-hidden="true"></div>
-          ${savingsMarkers
-            .map(
-              ([name, rate, band], index) => `
-            <div class="overview-saving-marker${index ? " is-preview" : ""}" style="--saving-position:${Math.max(0, Math.min(100, rate))}%">
-              <span class="overview-saving-marker-label">${name} <strong${index ? "" : " data-current-savings-rate"}>${rate}%</strong><span class="sr-only"${index ? "" : " data-current-savings-band"}>${band}</span></span>
-            </div>`,
-            )
-            .join("")}
+          <div class="overview-saving-marker" style="--saving-position:${Math.max(0, Math.min(100, pctOfPay))}%">
+            <span class="overview-saving-marker-label">Now <strong data-current-savings-rate>${pctOfPay}%</strong><span class="sr-only" data-current-savings-band>${currentHealth.label}</span></span>
+          </div>
         </div>
         <ul class="overview-saving-zones" aria-label="Savings rate bands">
           <li><strong>Healthy</strong> <span>≤50%</span></li>
@@ -1496,7 +1497,7 @@ export function buildFinOverviewGrid(
     <section class="fin-card fin-table-card card-surface swell-path-full-card" aria-labelledby="ledger-title">
       <div class="ember-card-head">
         <div>
-          <h3 id="ledger-title">CPF Retirement Path</h3>
+          <h3 id="ledger-title">CPF strategy comparison</h3>
           <p>${r.retiringNow ? "With retirement set to now, BRS, FRS and ERS model Age-55 Retirement Sum levels using current balances or lump-sum top-ups." : "Compare how the Basic, Full and Enhanced Retirement Sums affect your lifelong CPF LIFE income."}</p>
         </div>
         <div class="ember-card-actions">
@@ -1508,7 +1509,7 @@ export function buildFinOverviewGrid(
       </div>
       ${rangeNote}
       <div class="table-scroll">
-        <table class="ember-ledger-table fin-table is-row-selectable">
+        <table class="ember-ledger-table fin-table cpf-strategy-table">
           <caption class="sr-only">CPF Retirement Path comparison across BRS, FRS, and ERS strategies</caption>
           <thead>
             <tr>
@@ -1545,22 +1546,18 @@ export function buildFinOverviewGrid(
                   isSelected &&
                   !r.retiringNow &&
                   Math.abs(rowOut - s.privateSaving) > 1;
-                return `<tr class="ledger-selectable-row${isSelected ? " is-selected" : ""}" data-path="${path.key}">
+                return `<tr${isSelected ? ' class="is-selected"' : ""}>
                   <td>
-                    <input type="radio" name="overview-cpf-path" class="sr-only ledger-path-selector" id="overview-cpf-path-${path.key}" data-path="${path.key}" ${isSelected ? "checked" : ""} aria-label="${escapeAttr(meta.name)} (${escapeAttr(meta.tag)}): Age-55 CPF ${money(rowBal)}, CPF LIFE ${money(rowLife)}/mo">
-                    <label for="overview-cpf-path-${path.key}" class="ledger-path-select-btn">
                       <span class="fin-table-path">
-                        <span class="ledger-row-radio${isSelected ? " is-active" : ""}" aria-hidden="true"></span>
                         <span class="fin-path-icon" style="background:${meta.softBg};color:${meta.accent};">${meta.icon}</span>
                         <span>
                           <span class="ledger-path-cell">
-                            <strong>${meta.name}</strong>
+                            <strong>${meta.name}</strong>${isSelected ? ' <span class="ledger-tag cpf-strategy-active">Active plan</span>' : ""}
                             <span class="ledger-tag">${meta.tag}</span>
                           </span>
                           <small class="ledger-sub">${meta.note}</small>
                         </span>
                       </span>
-                    </label>
                   </td>
                   <td class="num-cell num-col" data-label="Age-55 CPF">${m(rowBal, "", `path-${path.key}-bal`)}</td>
                   <td class="num-cell num-col" data-label="Extra CPF">${m(rowCpf, r.retiringNow ? " now" : "/mo", `path-${path.key}-cpf`)}${cpfDiffers ? `<small class="ledger-cell-sub">Path: ${m(path.cpfFunding, "/mo")}</small>` : ""}</td>
@@ -1593,7 +1590,7 @@ export function buildFinOverviewGrid(
     </section>
   </section>
 
-  ${buildMoneyMovesStripHTML(moves.filter((move) => move !== recommendation?.move).slice(0, 3))}
+  ${buildMoneyMovesStripHTML(moves.slice(0, 3))}
   <section class="swell-section-block overview-breakdown-section" aria-labelledby="overview-breakdown-title">
     <details class="overview-disclosure-card overview-detail card-surface" id="overview-portfolio-details">
       <summary class="overview-disclosure-summary overview-section-summary"><h2 id="overview-breakdown-title">Portfolio &amp; Cashflow Breakdown</h2></summary>

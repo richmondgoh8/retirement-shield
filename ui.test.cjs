@@ -207,6 +207,40 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       `Startup page exceptions: ${browser.exceptions.join("; ")}`,
     );
 
+    const cpfIncomeAtZeroSavings = await browser.evaluate(`(() => {
+      const inputs = {
+        "person-salary": "1000",
+        "known-sa": "50000",
+        "known-equities": "0",
+        "known-sg-dividends": "0",
+        "known-ssb-cash": "0",
+        "known-invest": "0",
+      };
+      const original = Object.fromEntries(Object.keys(inputs).map(id => [id, document.getElementById(id).value]));
+      const selectStrategy = (strategy) =>
+        document.querySelector('#overview-cpf-strategy-options [data-cpf-strategy="' + strategy + '"]').click();
+      for (const [id, value] of Object.entries(inputs)) document.getElementById(id).value = value;
+      const results = ["brs", "frs", "ers"].map(strategy => {
+        selectStrategy(strategy);
+        return {
+          cpfFunded: document.querySelector("#overview-cpf-percent").textContent,
+          savingFunded: document.querySelector(".overview-funded").textContent,
+          cpfIncome: document.querySelector(".overview-cpf-income")?.textContent.trim(),
+        };
+      });
+      for (const [id, value] of Object.entries(original)) document.getElementById(id).value = value;
+      selectStrategy("frs");
+      return results;
+    })()`);
+    assert.deepEqual(
+      cpfIncomeAtZeroSavings.map(({ cpfFunded }) => cpfFunded),
+      ["68%", "34%", "17%"],
+    );
+    for (const { cpfIncome, savingFunded } of cpfIncomeAtZeroSavings) {
+      assert.match(cpfIncome, /CPF LIFE at age 65\s*\$660\/mo/);
+      assert.equal(savingFunded, "0%");
+    }
+
     const insights = await browser.evaluate(`(() => {
       const set = (id, value) => {
         const input = document.getElementById(id);
@@ -216,22 +250,35 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       };
       const findInsights = () => document.getElementById("fin-money-moves");
       const original = Object.fromEntries(
-        ["known-invest", "known-srs", "known-srs-invested", "known-oa"].map((id) => [id, document.getElementById(id).value]),
+        ["known-invest", "known-cpf-extra", "known-srs", "known-srs-invested", "known-oa"].map((id) => [id, document.getElementById(id).value]),
       );
-      const none = !findInsights();
+      const initialInsights = findInsights()?.textContent.trim() ?? "";
+      const showsBudgetBreakdown = document.querySelector(".overview-savings").textContent.includes("50/30/20");
+      const strategies = ["brs", "frs", "ers"].map((strategy) => {
+        document.querySelector('#overview-cpf-strategy-options [data-cpf-strategy="' + strategy + '"]').click();
+        return {
+          strategy,
+          savings: Number(document.querySelector("#overview-known-invest").value),
+          budget: document.querySelector(".overview-budget-link strong").textContent,
+          funded: Number.parseInt(document.querySelector(".overview-funded").textContent, 10),
+          cpfFunded: Number.parseInt(document.querySelector("#overview-cpf-percent").textContent, 10),
+          sidebar: document.querySelector("#nav-badge-overview").textContent,
+          headline: document.querySelector(".overview-decision-title").textContent,
+          active: document.querySelector("#overview-cpf-strategy-options [aria-pressed=true]").dataset.cpfStrategy,
+        };
+      });
+      document.querySelector('#overview-cpf-strategy-options [data-cpf-strategy="frs"]').click();
       set("known-invest", "50");
       const hero = document.querySelector(".overview-verdict");
-      const preview = {
-        funded: hero.querySelector("[data-preview-funded]").textContent,
-        rate: hero.querySelector("[data-preview-rate]").textContent,
-        band: hero.querySelector("[data-preview-savings-band]").textContent,
-      };
-      hero.querySelector('[data-money-move="match-save"]').click();
-      const matchesPreview =
-        document.querySelector("#nav-badge-overview").textContent === preview.funded &&
-        document.querySelector("[data-current-savings-rate]").textContent === preview.rate &&
-        document.querySelector("[data-current-savings-band]").textContent === preview.band;
-      set("known-invest", "50");
+      const currentPlanOnly = !hero.querySelector("[data-money-move]") &&
+        !hero.textContent.includes("If you apply") &&
+        !document.querySelector(".overview-saving-marker.is-preview");
+      const increase = findInsights().querySelector('[data-money-move="match-save"]');
+      const proposedInvestment = Number(increase.dataset.moveVal);
+      increase.click();
+      const appliesInvestment = Number(document.getElementById("known-invest").value) === proposedInvestment;
+      set("known-invest", "");
+      set("known-cpf-extra", "700");
       set("known-srs", "1000");
       set("known-srs-invested", "cash");
       const single = findInsights();
@@ -250,6 +297,8 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
         luminance(getComputedStyle(singleTitle).color),
       ].sort((a, b) => b - a);
       const warningContrast = (levels[0] + 0.05) / (levels[1] + 0.05);
+      set("known-invest", "50");
+      set("known-cpf-extra", original["known-cpf-extra"]);
       set("known-oa", "40000");
       const rows = Array.from(findInsights().querySelectorAll("ol > li"));
       const ranks = rows.map((row) => row.querySelector(".fin-move-rank").textContent);
@@ -261,10 +310,46 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
           row.textContent.split("/mo").length <= 2;
       });
       for (const [id, value] of Object.entries(original)) set(id, value);
-      return { none, matchesPreview, singleRow, singleEdit, singleText, singleAction, warningContrast, ranks, uniqueFigures };
+      const retirementProgress = () => {
+        window.dispatchEvent(new Event("beforeprint"));
+        return {
+          overview: document.querySelector(".overview-funded").textContent,
+          sidebar: document.querySelector("#nav-badge-overview").textContent,
+          print: document.querySelector("#print-savings-progress").textContent,
+          overviewAge: document.querySelector(".overview-funded").previousElementSibling.textContent,
+          printAge: document.querySelector("#print-savings-progress").closest(".poster-verdict-badge").querySelector("small").textContent,
+        };
+      };
+      set("known-invest", "900");
+      const age65 = retirementProgress();
+      set("known-retire", "60");
+      const age60 = retirementProgress();
+      set("known-retire", "65");
+      set("known-invest", original["known-invest"]);
+      return { initialInsights, showsBudgetBreakdown, strategies, currentPlanOnly, appliesInvestment, singleRow, singleEdit, singleText, singleAction, warningContrast, ranks, uniqueFigures, age65, age60 };
     })()`);
-    assert.equal(insights.none, true);
-    assert.equal(insights.matchesPreview, true);
+    assert.equal(insights.initialInsights, "");
+    assert.equal(insights.showsBudgetBreakdown, false);
+    assert.equal(insights.strategies.length, 3);
+    for (const strategy of insights.strategies) {
+      assert.equal(strategy.savings, 857, strategy.strategy);
+      assert.match(strategy.budget, /\$\s*2,800/, strategy.strategy);
+      assert.equal(strategy.active, strategy.strategy);
+      assert.equal(strategy.funded, 41);
+      assert.equal(strategy.cpfFunded, { brs: 75, frs: 38, ers: 19 }[strategy.strategy]);
+      assert.equal(strategy.sidebar, `${strategy.funded}%`);
+      assert.match(strategy.headline, /falls short/, strategy.strategy);
+    }
+    assert.equal(insights.age65.overview, "43%");
+    assert.notEqual(insights.age60.overview, insights.age65.overview);
+    for (const [age, progress] of [[65, insights.age65], [60, insights.age60]]) {
+      assert.equal(progress.overview, progress.sidebar);
+      assert.equal(progress.overview, progress.print);
+      assert.equal(progress.overviewAge, `Savings target funded at age ${age}`);
+      assert.equal(progress.overviewAge, progress.printAge);
+    }
+    assert.equal(insights.currentPlanOnly, true);
+    assert.equal(insights.appliesInvestment, true);
     assert.equal(insights.singleRow, true);
     assert.equal(insights.singleEdit, "Edit");
     assert.equal(insights.singleAction, "invest-srs");
@@ -308,26 +393,23 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       const projectionsOpen = find("#overview-saving-details").open;
       find('#overview-slot [data-use-suggested="known-invest"]').click();
       const suggested = find("#known-invest").value;
+      const automaticRemainder = Number(find("#overview-known-invest").value);
       apply("#known-invest", "4400");
-      const cap = find('.overview-verdict [data-money-move="cap-affordable-save"]');
-      const preview = {
-        funded: find("[data-preview-funded]").textContent,
-        rate: find("[data-preview-rate]").textContent,
-        band: find("[data-preview-savings-band]").textContent,
-      };
+      const cap = find('#fin-money-moves [data-money-move="cap-affordable-save"]');
+      const capAmount = Number(cap.dataset.moveVal);
       cap.click();
-      const matchesCap =
-        find("#nav-badge-overview").textContent === preview.funded &&
-        find("[data-current-savings-rate]").textContent === preview.rate &&
-        find("[data-current-savings-band]").textContent === preview.band;
+      const actualSavings = sources.reduce((total, source) => total + Number(find(source).value), 0);
+      const matchesCap = actualSavings === capAmount &&
+        !find(".overview-verdict").textContent.includes("after tax and fixed bills");
       sources.forEach((source, i) => apply(source, original[i]));
       find("#overview-saving-details").open = false;
-      return { edited, editedTotal, projectionsOpen, suggested, matchesCap, allCollapsed, initiallyHidden, focusOpensEditor };
+      return { edited, editedTotal, projectionsOpen, suggested, automaticRemainder, matchesCap, allCollapsed, initiallyHidden, focusOpensEditor };
     })()`);
     assert.deepEqual(savings.edited, ["100", "200", "300"]);
     assert.match(savings.editedTotal, /600/);
     assert.equal(savings.projectionsOpen, true);
     assert.equal(savings.suggested, "");
+    assert.equal(savings.automaticRemainder, 557);
     assert.equal(savings.matchesCap, true);
     assert.equal(savings.allCollapsed, true);
     assert.equal(savings.initiallyHidden, true);
@@ -1632,20 +1714,32 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
     const resetUndo = await browser.evaluate(`(async () => {
       const find = (selector) => document.querySelector(selector);
       const salary = find("#person-salary").value;
+      const invest = find("#known-invest");
+      invest.value = "1200";
+      invest.dispatchEvent(new Event("change", { bubbles: true }));
       find("#plan-overflow").open = true;
       find("[data-sg-reset]").click();
       const resetSalary = find("#person-salary").value;
+      const resetInvest = invest.value;
+      const resetMonthlyInvest = Number(find("#overview-known-invest").value);
+      const storedAfterReset = JSON.parse(localStorage.getItem("rs_plan_state"));
       const undo = find("[data-toast-undo]");
       const undoShown = !undo.hidden && !find("#ui-toast").hidden;
       undo.click();
       return {
-        salary, resetSalary, undoShown,
+        salary, resetSalary, resetInvest, resetMonthlyInvest, undoShown,
+        storedResetInvest: storedAfterReset.invest || "",
+        restoredInvest: invest.value,
         restoredSalary: find("#person-salary").value,
         savedSalary: JSON.parse(localStorage.getItem("rs_plan_state")).salary,
         saveStatus: find("#plan-save-status").textContent
       };
     })()`);
     assert.equal(resetUndo.resetSalary, "5500");
+    assert.equal(resetUndo.resetInvest, "");
+    assert.equal(resetUndo.resetMonthlyInvest, 857);
+    assert.equal(resetUndo.storedResetInvest, "");
+    assert.equal(resetUndo.restoredInvest, "1200");
     assert.equal(resetUndo.undoShown, true);
     assert.equal(resetUndo.restoredSalary, resetUndo.salary);
     assert.equal(resetUndo.savedSalary, resetUndo.salary);
@@ -1791,6 +1885,8 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       const movesTextAge64 = document.getElementById("overview-slot")?.textContent || "";
 
       // (c) Money Moves 0% return rate & 0% cash rate safety (no falsy-zero || fallback)
+      const previousInvest = document.getElementById("known-invest").value;
+      setVal("known-invest", "");
       setVal("known-srs-invested", "global");
       setVal("known-srs", 0);
       setVal("known-srs-annual", 0);
@@ -1812,6 +1908,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       const boostDefaultCash = extractRebBoost();
       setVal("known-return", "0");
       const boostZeroReturn = extractRebBoost();
+      setVal("known-invest", previousInvest);
 
       return {
         tapsText,
@@ -2537,12 +2634,22 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       await new Promise((r) => setTimeout(r, 250));
       const firstToggleMorph = await browser.evaluate(`(() => {
         document.querySelector('[data-tab="cpf-rules"]')?.click();
-        const ersBtn = document.querySelector('#cpf-rules-slot button[data-learn="ers"]');
+        const ersBtn = document.querySelector('#cpf-rules-slot button[data-cpf-strategy="ers"]');
         if (!ersBtn) return { ok: false, reason: "no-ers-btn" };
+        const savingsFigures = () => ["known-cpf-extra", "known-cash-saving", "known-invest"].map(id => document.getElementById("overview-edit-" + id)?.textContent);
+        const previousSavings = savingsFigures();
         ersBtn.click();
+        const savingsUnchanged = JSON.stringify(previousSavings) === JSON.stringify(savingsFigures());
         const targetEl = document.querySelector('#cpf-rules-slot [data-anim-key="lesson-target"]');
         const nomEl = document.querySelector('#cpf-rules-slot [data-anim-key="lesson-target-nom"]');
+        const overviewStrategy = document.querySelector('#overview-cpf-strategy-options [aria-pressed="true"]')?.dataset.cpfStrategy;
+        const cpfProgress = document.querySelector('#cpf-goal-guide .tap-progress-track').getAttribute("aria-valuenow") + "%";
+        const overviewCpf = document.querySelector("#overview-cpf-percent").textContent;
         return {
+          overviewStrategy,
+          cpfProgress,
+          overviewCpf,
+          savingsUnchanged,
           ok: true,
           targetMorphing: Boolean(targetEl?.classList.contains("is-morphing")),
           nomMorphing: Boolean(nomEl?.classList.contains("is-morphing")),
@@ -2553,6 +2660,9 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
         true,
         `CPF Milestones tab should render ERS toggle button: ${JSON.stringify(firstToggleMorph)}`,
       );
+      assert.equal(firstToggleMorph.overviewStrategy, "ers");
+      assert.equal(firstToggleMorph.cpfProgress, firstToggleMorph.overviewCpf);
+      assert.equal(firstToggleMorph.savingsUnchanged, true);
       assert.equal(
         firstToggleMorph.targetMorphing,
         true,
@@ -2674,17 +2784,20 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
         funding: funded.textContent.trim(),
         sidebarFunding: document.querySelector("#nav-badge-overview").textContent,
         printFunding: document.querySelector("#print-sheet .fin-gauge-svg text").textContent,
+        printCpfProgress: document.querySelector("#print-cpf-progress").textContent,
+        printSavingsLabel: document.querySelector("#print-sheet .fin-gauge-svg text:nth-of-type(2)").textContent,
         valueTops: footer.map((value) => value.getBoundingClientRect().top),
       };
     })()`);
     assert.equal(readiness.earliestAge, "Age 55");
     assert.match(readiness.ageLabel, /^Earliest projected retirement/);
-    assert.equal(readiness.action, "Review retirement age");
-    assert.equal(readiness.fundingLabel, "Funding at your target age of 65");
-    assert.match(readiness.funding, /^\d+%$/);
+    assert.equal(readiness.action, "Review savings");
+    assert.equal(readiness.fundingLabel, "Savings target funded at age 65");
     assert.ok(Number.parseInt(readiness.funding, 10) > 150);
     assert.equal(readiness.sidebarFunding, readiness.funding);
+    assert.equal(readiness.printCpfProgress, "38% of FRS funded at age 55");
     assert.equal(readiness.printFunding, readiness.funding);
+    assert.equal(readiness.printSavingsLabel, "SAVINGS TARGET FUNDED");
     assert.equal(readiness.valueTops.length, 3);
     assert.ok(
       Math.max(...readiness.valueTops) - Math.min(...readiness.valueTops) <= 1,

@@ -4,7 +4,6 @@
 import {
   $,
   $$,
-  formatFundedPct,
   buildAllocationMix,
   money,
   m,
@@ -79,6 +78,7 @@ export function createQuickEditController(ctx) {
     simulation = null,
     bogle = null,
     tax = null,
+    savingsProgressLabel = "",
   ) {
     if (!qeDialog || !qeDialog.open) return;
     const minRetire = getMinRetireAge();
@@ -371,15 +371,11 @@ export function createQuickEditController(ctx) {
         }
       }
       const qeSummary = $("#qe-live-summary");
-      if (qeSummary) {
-        const funded =
-          fn.pctFunded >= 100 && fn.fullyFundedTo95
-            ? "On Track"
-            : `${formatFundedPct(fn.pctFunded)} Funded`;
+      if (qeSummary && savingsProgressLabel) {
         const horizon = fn.fullyFundedTo95
           ? `Sustained to ${fire.endAge}+`
           : `Funded to ${Math.floor(fn.depletionAge ?? fire.endAge)}`;
-        qeSummary.textContent = `${funded} · ${horizon}`;
+        qeSummary.textContent = `${savingsProgressLabel} · ${horizon}`;
       }
     }
   }

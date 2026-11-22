@@ -3,6 +3,7 @@ import {
   $$,
   fmtInt,
   formatFundedPct,
+  getSavingsProgress,
   money,
   formatMoneyInput,
   m,
@@ -152,6 +153,21 @@ function setupSimplePlan() {
     longevityAge: "known-longevity",
     bridgeIncome: "known-bridge-income",
   };
+  // Hidden inputs reflect .value back to .defaultValue when edited.
+  const initialHiddenPlanValues = new Map();
+  for (const id of Object.values(fields)) {
+    const field = document.getElementById(id);
+    if (field?.type === "hidden") initialHiddenPlanValues.set(id, field.value);
+  }
+  const resetPlanControl = (id, clearTextInputs) => {
+    const field = document.getElementById(id);
+    if (initialHiddenPlanValues.has(id)) {
+      field.value = initialHiddenPlanValues.get(id);
+    } else {
+      resetControl(field, clearTextInputs);
+    }
+  };
+
   const planRoot = $("#retirement-plan");
   const overviewSlot = $("#overview-slot");
   const budgetSlot = $("#budget-slot");
@@ -167,7 +183,6 @@ function setupSimplePlan() {
   const errorBanner = $("#plan-error-banner");
 
   let selected = "frs";
-  let learningTarget = "frs";
   let learningPlan = null;
   let chartMode = "cashflow";
   const dashChartBasis = "today";
@@ -363,13 +378,9 @@ function setupSimplePlan() {
     if (resetFirst) {
       clearCustomBudgetState();
       clearCustomCashAccountsState();
-      Object.values(fields).forEach((id) => {
-        const el = $("#" + id);
-        if (el) resetControl(el, false);
-      });
+      Object.values(fields).forEach((id) => resetPlanControl(id, false));
       if ($("#person-dob")) $("#person-dob").value = DEFAULT_DOB;
       selected = "frs";
-      learningTarget = "frs";
       [
         "#sim-cash-saving",
         "#sim-invest",
@@ -488,8 +499,6 @@ function setupSimplePlan() {
         $("#known-housing-mode").value = "custom";
       }
     }
-    if (["brs", "frs", "ers"].includes(params.get("learningTarget")))
-      learningTarget = params.get("learningTarget");
     const paramSelected = params.get("selected");
     if (["brs", "frs", "ers"].includes(paramSelected)) {
       selected = paramSelected;
@@ -680,7 +689,7 @@ function setupSimplePlan() {
     const data = {
       ...p,
       selected,
-      learningTarget,
+      learningTarget: selected, // Keep older shared-plan readers in sync.
       version: 3,
     };
     // Keep cashReturnRate serialized in percentage points matching DOM inputs (e.g. 2.5 for 2.5%).
@@ -812,7 +821,6 @@ function setupSimplePlan() {
       fields,
       getState: () => ({
         selected,
-        learningTarget,
         lastBankLoanRate,
         lastCustomSpend,
         lastCustomLifestyle,
@@ -833,7 +841,6 @@ function setupSimplePlan() {
       },
       applyState: (next) => {
         selected = next.selected;
-        learningTarget = next.learningTarget;
         lastBankLoanRate = next.lastBankLoanRate;
         lastCustomSpend = next.lastCustomSpend;
         lastCustomLifestyle = next.lastCustomLifestyle;
@@ -1072,15 +1079,6 @@ function setupSimplePlan() {
   };
 
   planRoot.addEventListener("click", (event) => {
-    const learn = event.target.closest("button[data-learn]");
-    if (learn) {
-      learningTarget = learn.dataset.learn;
-      render();
-      $(`button[data-learn="${learningTarget}"]`)?.focus({
-        preventScroll: true,
-      });
-      return;
-    }
     const togglePlanBtn = event.target.closest("[data-toggle-cpf-plan]");
     if (togglePlanBtn) {
       const nextPlan = togglePlanBtn.dataset.toggleCpfPlan || "standard";
@@ -1095,30 +1093,20 @@ function setupSimplePlan() {
       }
       return;
     }
-    if (event.target.closest("label.ledger-path-select-btn")) return;
-    const pathBtn = event.target.closest("[data-path]");
-    if (pathBtn) {
-      const nextPath = pathBtn.dataset.path;
-      if (nextPath === selected) return;
-      selected = nextPath;
-      $("#known-cpf-extra").value = "";
-      if ($("#qe-cpf-extra")) $("#qe-cpf-extra").value = "";
-      if ($("#known-invest")) $("#known-invest").value = "";
-      if ($("#sim-invest")) $("#sim-invest").value = "";
-      if ($("#qe-invest")) $("#qe-invest").value = "";
-      render();
-      (
-        $(`input.ledger-path-selector[data-path="${selected}"]`) ||
-        $(`[data-path="${selected}"]`)
-      )?.focus({ preventScroll: true });
-      const label =
-        selected === "brs"
-          ? "BRS Property Pledge (50% FRS)"
-          : selected === "ers"
-            ? "ERS Maximum (2026 ref $440.8k)"
-            : "FRS Target (2026 ref $220.4k)";
-      showToast(`Active strategy path: ${label}`);
-    }
+    const strategy = event.target.closest("button[data-cpf-strategy]");
+    if (!strategy) return;
+    const nextPath = strategy.dataset.cpfStrategy;
+    if (nextPath === selected) return;
+
+    const group = strategy.closest("[data-cpf-strategy-group]");
+    const undo = captureReplacementUndo();
+    selected = nextPath;
+    render();
+    document
+      .getElementById(group.id)
+      ?.querySelector(`[data-cpf-strategy="${selected}"]`)
+      ?.focus({ preventScroll: true });
+    showToast(`Active CPF strategy: ${selected.toUpperCase()}`, 12000, undo);
   });
   overviewSlot.addEventListener(
     "toggle",
@@ -1737,19 +1725,38 @@ function setupSimplePlan() {
       p.ssbCash = sumCustomCashAccounts();
     }
 
-    let r, simulation, fire, bogle, tax;
+    let r, simulation, fire, bogle, tax, netPay, automaticInvest;
     try {
       const pWithMas = liveMasRates ? { ...p, masRates: liveMasRates } : p;
+      const pay = RetirementModel.computeTaxSummary(p);
+      netPay = Math.max(
+        0,
+        Math.round(
+          (pay.regularGross - pay.regularEmployeeCpf) / 12 -
+            pay.regularBaselineTax.monthlyTax,
+        ),
+      );
+      const savings = Math.round(netPay * 0.2);
+      const cpfExtra = p.cpfExtra ?? 0;
+      automaticInvest = Math.max(0, savings - cpfExtra - (p.cashSaving ?? 0));
+      const activeParams = {
+        ...pWithMas,
+        cpfExtra,
+        invest: p.invest ?? automaticInvest,
+      };
       const solved = RetirementModel.solveBucketAwareSimulation(
-        pWithMas,
+        activeParams,
         selected,
       );
       const summary = solved.summary;
       simulation = solved.simulation;
       r = RetirementModel.todayPlan(summary);
       fire = solved.fire;
-      bogle = RetirementModel.bogleheadAllocation(pWithMas, simulation.invest);
-      tax = RetirementModel.taxSweetSpot(pWithMas, { simulation });
+      bogle = RetirementModel.bogleheadAllocation(
+        activeParams,
+        simulation.invest,
+      );
+      tax = RetirementModel.taxSweetSpot(activeParams, { simulation });
     } catch (e) {
       setError(e.message);
       return;
@@ -1757,6 +1764,24 @@ function setupSimplePlan() {
     currentFirePlan = fire;
     currentSimulation = simulation;
     currentSummaryToday = r;
+
+    const strategyTarget = selected === "salary" ? "frs" : selected;
+    const cpfAt55 = fire.milestones.age55;
+    const cpfTarget = {
+      brs: cpfAt55.frs / 2,
+      frs: cpfAt55.frs,
+      ers: cpfAt55.ers,
+    }[strategyTarget];
+    const cpfFundedPct = Math.min(100, Math.round((100 * cpfAt55.ra55) / cpfTarget));
+    const cpfProgress = {
+      strategy: strategyTarget.toUpperCase(),
+      pct: cpfFundedPct,
+      percent: formatFundedPct(cpfFundedPct),
+      balanceToday: RetirementModel.todayValue(cpfAt55.ra55, 55, r.age, r.inflation),
+      targetToday: RetirementModel.todayValue(cpfTarget, 55, r.age, r.inflation),
+    };
+    const cpfProgressLabel = `${cpfProgress.percent} of ${cpfProgress.strategy} funded at age 55`;
+    const savingsProgress = getSavingsProgress(fire);
 
     const simExtraForCpf = r.retiringNow ? 0 : simulation.cpfExtra;
     const keepOA =
@@ -1780,9 +1805,9 @@ function setupSimplePlan() {
       scenarios: [simulation.selectedScenario],
     }).scenarios[0];
     const suggested = {
-      "known-cpf-extra": s.cpfFunding,
+      "known-cpf-extra": 0,
       "known-cash-saving": 0,
-      "known-invest": s.privateSaving,
+      "known-invest": automaticInvest,
       "known-bridge-income": 0,
     };
     const simMoneyHtml = (value, age, suffix = "", animKey = "") =>
@@ -1890,7 +1915,7 @@ function setupSimplePlan() {
 
     const summaryText = r.retiringNow
       ? `Outside retirement savings: ${money(s.privateSaving)} needed now.`
-      : `${s.key === "brs" ? "BRS Pledge" : s.key.toUpperCase()}: CPF LIFE ${money(s.payout)}/mo · save ${money(s.privateSaving)}/mo outside CPF.`;
+      : `${s.key === "brs" ? "BRS Pledge" : s.key.toUpperCase()}: CPF LIFE ${money(s.payout)}/mo · investing ${money(simulation.invest)}/mo outside CPF.`;
     $("#settings-live-summary").dataset.budget = summaryText;
     $("#settings-live-summary").textContent = summaryText;
 
@@ -1898,7 +1923,7 @@ function setupSimplePlan() {
       if (!cpfRulesSlot) return;
       learningPlan = RetirementModel.milestonePlan(
         { ...p, cpfExtra: r.retiringNow ? 0 : simulation.cpfExtra },
-        learningTarget,
+        strategyTarget,
       );
       cpfRulesSlot.innerHTML = buildCpfRulesTabHTML({
         r,
@@ -1908,15 +1933,10 @@ function setupSimplePlan() {
         keepOA,
         tax,
         learningPlan,
-        learningTarget,
+        strategyTarget,
+        cpfProgress,
       });
     };
-
-    const contribution = r.retiringNow
-      ? simulation.cpfExtra + s.privateSaving
-      : simulation.cpfExtra + cashSavingVal + simulation.invest;
-    const pctOfPay =
-      r.afterCpf > 0 ? Math.round((contribution / r.afterCpf) * 100) : 0;
 
     Object.values(fields).forEach((id) => {
       const el = $("#" + id);
@@ -1978,7 +1998,6 @@ function setupSimplePlan() {
       p,
       simulation,
       bogle,
-      pctOfPay,
       selected,
       isCustomSpend,
       expenseData,
@@ -1986,6 +2005,9 @@ function setupSimplePlan() {
       tax,
       overviewRangeNote,
       suggested,
+      netPay,
+      cpfProgress,
+      savingsProgress,
     );
 
     const bogleHTML = buildAllocatorView(bogle, allocatorIncludesCpf);
@@ -2153,7 +2175,7 @@ function setupSimplePlan() {
     }
     if (qeDialog?.open) {
       ensureCashPlan();
-      syncQuickEditState(r, fire, simulation, bogle, tax);
+      syncQuickEditState(r, fire, simulation, bogle, tax, savingsProgress.label);
     }
 
     if (allocatorSlot.querySelector(".allocator-sheet")) {
@@ -2437,10 +2459,13 @@ function setupSimplePlan() {
 
     renderOrDeferTab("cpf-rules", renderCpfRulesTab);
 
-    if ($("#nav-badge-overview")) {
-      $("#nav-badge-overview").textContent = formatFundedPct(
-        fire.fireNumber.pctFunded,
-      );
+    const overviewBadge = $("#nav-badge-overview");
+    if (overviewBadge) {
+      overviewBadge.textContent = savingsProgress.percent;
+      overviewBadge.title = savingsProgress.label;
+      overviewBadge
+        .closest('[role="tab"]')
+        ?.setAttribute("aria-description", savingsProgress.label);
     }
     if ($("#nav-badge-trajectory")) {
       $("#nav-badge-trajectory").textContent = `Age ${fire.retire}`;
@@ -2493,6 +2518,8 @@ function setupSimplePlan() {
     });
     renderTrajectoryYearInspector();
     latestPrintPayload = {
+      cpfProgressLabel,
+      savingsProgress,
       r,
       s,
       simulation,
@@ -2746,7 +2773,7 @@ function setupSimplePlan() {
   const applyPlanObject = (planObj) => {
     if (!planObj || typeof planObj !== "object")
       throw new Error("Invalid plan format.");
-    Object.values(fields).forEach((id) => resetControl($("#" + id), true));
+    Object.values(fields).forEach((id) => resetPlanControl(id, true));
     for (const [key, id] of Object.entries(fields)) {
       const el = $("#" + id);
       if (!el || planObj[key] == null) continue;
@@ -2868,7 +2895,6 @@ function setupSimplePlan() {
     clearCustomCashAccountsState();
     applyPlanObject(SG_DEFAULT_PLAN);
     selected = "frs";
-    learningTarget = "frs";
     $$("[data-persona-preset]").forEach((button) => {
       button.classList.remove("is-active");
       button.setAttribute("aria-pressed", "false");
@@ -2876,7 +2902,7 @@ function setupSimplePlan() {
     render();
     if ($("#plan-status")) {
       $("#plan-status").textContent =
-        "Reset to typical Singapore age-35 defaults.";
+        "Reset to the age-35 Singapore worker example.";
     }
   };
 
@@ -2915,7 +2941,7 @@ function setupSimplePlan() {
       const snapshot = captureModalSnapshot();
       resetSgDefaults();
       flushPersistState();
-      showToast("Plan reset to defaults", 12000, () => {
+      showToast("Reset to the age-35 worker example", 12000, () => {
         restoreModalSnapshot(snapshot);
         flushPersistState();
       });
@@ -2949,9 +2975,6 @@ function setupSimplePlan() {
     if (moneyMoveBtn) {
       const moveType = moneyMoveBtn.dataset.moneyMove;
       const moveVal = moneyMoveBtn.dataset.moveVal;
-      const fromOverviewHero = Boolean(
-        moneyMoveBtn.closest(".overview-verdict"),
-      );
       if (moveType === "cap-affordable-save" && moveVal != null) {
         if (selected === "salary") selected = "frs";
         const savingsOverrides = Object.fromEntries(
@@ -2981,18 +3004,14 @@ function setupSimplePlan() {
           $("#known-cpf-extra").value = String(nextCpfEx);
         if ($("#qe-cpf-extra")) $("#qe-cpf-extra").value = String(nextCpfEx);
         render();
-        if (fromOverviewHero)
-          $(".overview-verdict")?.focus({ preventScroll: true });
         showToast(
-          `Capped monthly savings to ${money(nextInv + nextCashSav + nextCpfEx)}/mo within take-home cashflow`,
+          `Capped monthly savings to ${money(nextInv + nextCashSav + nextCpfEx)}/mo after tax and fixed bills`,
         );
       } else if (moveType === "match-save" && moveVal != null) {
         if ($("#known-invest")) $("#known-invest").value = String(moveVal);
         if ($("#sim-invest")) $("#sim-invest").value = String(moveVal);
         if ($("#qe-invest")) $("#qe-invest").value = String(moveVal);
         render();
-        if (fromOverviewHero)
-          $(".overview-verdict")?.focus({ preventScroll: true });
         showToast(`Updated monthly investment to ${money(Number(moveVal))}/mo`);
       } else if (moveType === "apply-rstu" && moveVal != null) {
         if ($("#known-cpf-extra"))
@@ -4353,6 +4372,12 @@ function setupSimplePlan() {
   });
 
   overviewSlot.addEventListener("click", (event) => {
+    if (event.target.closest("[data-review-overview-savings]")) {
+      const title = $("#overview-savings-title", overviewSlot);
+      title.focus({ preventScroll: true });
+      title.scrollIntoView({ block: "start" });
+      return;
+    }
     const button = event.target.closest("[data-overview-saving-edit]");
     if (!button) return;
     const editor = document.getElementById(

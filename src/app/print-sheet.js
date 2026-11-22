@@ -3,7 +3,7 @@ import {
   m,
   compactMoney,
   formatDobShort,
-  formatFundedPct,
+  getSavingsProgress,
   deriveReadinessSummary,
   html,
   raw,
@@ -25,12 +25,15 @@ export function renderPrintSheet({
   tax,
   guide,
   p,
+  cpfProgressLabel,
+  savingsProgress: planSavingsProgress,
   expenseData = null,
   masRates = null,
   basis = "today",
 }) {
   const printContainer = $("#print-sheet");
   if (!printContainer || !r || !s || !fire) return;
+  const savingsProgress = planSavingsProgress ?? getSavingsProgress(fire);
 
   const pm = RetirementModel.buildPrintReportModel({
     summary: r,
@@ -104,13 +107,11 @@ export function renderPrintSheet({
     depletionAgeDisplay,
     survivalAnswer,
     safeAgeAnswer,
-    fundedPctLabel,
-    deltaLine,
     deltaColor,
   } = deriveReadinessSummary({
     fire,
     endAge: printEndAge,
-    pctFunded: pm.rawPctFunded,
+    pctFunded: savingsProgress.pct,
     onTrack: pm.onTrack,
     compact: true,
   });
@@ -237,8 +238,8 @@ export function renderPrintSheet({
           </div>
         </div>
         <div class="poster-verdict-badge is-${pm.statusTone}">
-          <small>PLAN STATUS</small>
-          <strong>${fundedPctLabel} · ${pm.statusText}</strong>
+          <small>${savingsProgress.title}</small>
+          <strong><span id="print-savings-progress">${savingsProgress.percent}</span> · ${pm.statusText}</strong>
           <span>${pm.verdictSub}</span>
         </div>
       </div>
@@ -326,9 +327,6 @@ export function renderPrintSheet({
           <div class="poster-nw-kpi">
             <small>Net Worth at Age ${pm.retireAge}</small>
             <strong>${raw(m(pm.projectedAtRetire))}</strong>
-            <span class="poster-nw-delta"
-              >${fundedPctLabel} funded to ${printEndAge}</span
-            >
           </div>
           <div class="poster-nw-kpi">
             <small>${pm.savingKpiLabel}</small>
@@ -401,14 +399,14 @@ export function renderPrintSheet({
       <div class="poster-panel poster-readiness-card">
         <div class="poster-panel-head">
           <h2>Retirement Readiness</h2>
-          <span class="poster-pill">Goal: Age ${fire.retire}</span>
+          <span class="poster-pill">Savings target at age ${fire.retire}</span>
         </div>
         ${raw(
           buildFinReadinessGaugeSVG(
-            pm.rawPctFunded,
+            savingsProgress.pct,
             "Earliest Safe Retirement Age",
             pm.earliestSafeAgeText,
-            deltaLine,
+            `Projection through age ${printEndAge}`,
             deltaColor,
             pm.onTrack,
             "print-swell",
@@ -435,7 +433,8 @@ export function renderPrintSheet({
         <div class="poster-panel-head">
           <h2>CPF Path &amp; Action Plan</h2>
           <small
-            >${basis === "nominal" ? "Future Nominal $" : "Today’s $"} ·
+            >${cpfProgressLabel ? raw(html`<span id="print-cpf-progress">${cpfProgressLabel}</span><br />`) : ""}
+            ${basis === "nominal" ? "Future Nominal $" : "Today’s $"} ·
             ${pm.customSavingNote ? "Custom save" : "Target"}</small
           >
         </div>

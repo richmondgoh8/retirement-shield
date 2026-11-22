@@ -6,6 +6,16 @@ const $$ = (selector, root = document) => [
 const fmtInt = (value) =>
   Math.round(Math.max(0, value) || 0).toLocaleString("en-SG");
 const formatFundedPct = (pctFunded) => `${fmtInt(pctFunded)}%`;
+function getSavingsProgress(fire) {
+  const pct = fire.fireNumber.pctFunded;
+  const percent = formatFundedPct(pct);
+  return {
+    pct,
+    percent,
+    title: `Savings target funded at age ${fire.retire}`,
+    label: `${percent} of savings target funded at age ${fire.retire}`,
+  };
+}
 const money = (value) => `$${fmtInt(value)}`;
 const formatMoneyInput = (amount) =>
   Number(amount).toLocaleString("en-SG", { maximumFractionDigits: 20 });
@@ -258,6 +268,7 @@ export {
   $$,
   fmtInt,
   formatFundedPct,
+  getSavingsProgress,
   deriveReadinessSummary,
   money,
   formatMoneyInput,

@@ -130,16 +130,14 @@ export function buildCpfRulesTabHTML({
   keepOA,
   tax,
   learningPlan,
-  learningTarget,
+  strategyTarget,
+  cpfProgress,
 }) {
   const lesson = learningPlan;
   const cohortYear55 = RetirementModel.C.year + 55 - r.age;
   const planLabelShort =
     r.plan === "escalating" ? "Escalating +2%/yr" : "Standard";
-  const targetFundPct = Math.min(
-    100,
-    Math.round((lesson.availableToday / Math.max(1, lesson.targetToday)) * 100),
-  );
+  const targetFundPct = cpfProgress.pct;
   const gapZero =
     (lesson.plannedCpfExtra > 0
       ? lesson.withPlanned.remainingGapToday
@@ -147,19 +145,20 @@ export function buildCpfRulesTabHTML({
   const lessonHTML = `<section id="cpf-goal-guide" class="card-surface rules-card" aria-labelledby="cpf-goal-title">
       <div class="rules-card-head">
         <div>
-          <h2 id="cpf-goal-title">Choose your CPF retirement sum</h2>
+          <h2 id="cpf-goal-title">CPF strategy for your plan</h2>
           <p>Age ${r.age} cohort (turning 55 in ${cohortYear55}) · <strong>${planLabelShort}</strong> Plan · ${(r.inflation * 100).toFixed(1).replace(/\.0$/, "")}% inflation.</p>
         </div>
         <span class="fin-target-pill">Today’s $ · Age-55 nominal</span>
       </div>
-      <div class="goal-choices" role="group" aria-label="CPF milestone to learn about">${[
+      <p id="cpf-strategy-milestone-help" class="cpf-strategy-help">This is the same strategy shown on Overview. Your monthly savings and retirement budget stay fixed when you switch.</p>
+      <div class="goal-choices" id="milestone-cpf-strategy" data-cpf-strategy-group role="group" aria-label="Active CPF strategy" aria-describedby="cpf-strategy-milestone-help">${[
         ["brs", "Basic Retirement Sum · Property pledge"],
         ["frs", "Full Retirement Sum"],
         ["ers", "Enhanced Retirement Sum · Top up from 55"],
       ]
         .map(([key, tag]) => {
           const cm = lesson.cohortMilestones[key];
-          return `<button type="button" data-learn="${key}" aria-pressed="${key === learningTarget}">
+          return `<button type="button" data-cpf-strategy="${key}" aria-pressed="${key === selected}">
             <div class="goal-choice-top">
               <strong>${key.toUpperCase()}</strong>
               <span class="goal-choice-payout">${m(cm.payoutToday, "/mo")}</span>
@@ -171,25 +170,25 @@ export function buildCpfRulesTabHTML({
         .join("")}</div>
       <div class="tap-progress-wrap">
         <div class="tap-progress-meta">
-          <span>Projected age-55 balances before extra savings vs <strong>${learningTarget.toUpperCase()}</strong> target</span>
-          <strong>${targetFundPct}% funded${targetFundPct >= 100 ? " ✓" : ""}</strong>
+          <span>Projected Retirement Account at 55 · ${m(cpfProgress.balanceToday)} of ${m(cpfProgress.targetToday)} in today’s dollars</span>
+          <strong>${cpfProgress.percent} of ${cpfProgress.strategy} funded</strong>
         </div>
-        <div class="tap-progress-track" role="progressbar" aria-valuenow="${targetFundPct}" aria-valuemin="0" aria-valuemax="100" aria-label="${targetFundPct}% of ${learningTarget.toUpperCase()} funded by projected age-55 OA + SA">
+        <div class="tap-progress-track" role="progressbar" aria-valuenow="${targetFundPct}" aria-valuemin="0" aria-valuemax="100" aria-label="${cpfProgress.strategy} funded at age 55">
           <span class="tap-progress-fill is-tap1" data-meter-key="cpf-milestone-fill" data-meter-w="${targetFundPct}" style="width:${targetFundPct}%"></span>
         </div>
       </div>
       <dl class="tax-metrics-grid">
-        <div class="tax-metric-box"><dt>Target ${learningTarget.toUpperCase()} at age 55</dt><dd>${m(lesson.targetToday, "", "lesson-target")}<small>Nominal at 55: ${m(lesson.target, "", "lesson-target-nom")}</small></dd></div>
+        <div class="tax-metric-box"><dt>Target ${strategyTarget.toUpperCase()} at age 55</dt><dd>${m(lesson.targetToday, "", "lesson-target")}<small>Nominal at 55: ${m(lesson.target, "", "lesson-target-nom")}</small></dd></div>
         <div class="tax-metric-box"><dt>OA + SA at 55 (${r.awBonusAnnual > 0 ? "salary + bonus" : "salary"} only)</dt><dd>${m(lesson.availableToday, "", "lesson-avail")}<small>Nominal at 55: ${m(lesson.available)}</small></dd></div>
-        <div class="tax-metric-box"><dt>${lesson.plannedCpfExtra > 0 ? `Remaining gap after ${m(lesson.plannedCpfExtra, "/mo")} extra` : `Gap to ${learningTarget.toUpperCase()} at 55`}</dt><dd>${m(lesson.plannedCpfExtra > 0 ? lesson.withPlanned.remainingGapToday : lesson.gapToday, "", "lesson-gap")}<small>${lesson.plannedCpfExtra > 0 ? `Nominal remaining: ${m(lesson.withPlanned.remainingGap, "", "lesson-gap-nom")} (before extra: ${m(lesson.gapToday)} today’s $)` : `Nominal gap at 55: ${m(lesson.gap, "", "lesson-gap-nom")}`}</small></dd></div>
-        <div class="tax-metric-box"><dt>Extra CPF saving to hit ${learningTarget.toUpperCase()}</dt><dd>${lesson.monthly === null ? "Lump sum only" : m(lesson.monthly, "/mo", "lesson-monthly")}<small>${lesson.monthly === null ? "Retiring before/at current age" : lesson.plannedCpfExtra > 0 ? (lesson.withPlanned.hitsTarget ? `✓ Covered by your ${m(lesson.plannedCpfExtra, "/mo")} extra CPF` : `+${m(lesson.withPlanned.additionalMonthlyNeeded, "/mo")} above your ${m(lesson.plannedCpfExtra, "/mo")}`) : `Until age ${lesson.untilAge} (total monthly top-up)`}</small></dd></div>
+        <div class="tax-metric-box"><dt>${lesson.plannedCpfExtra > 0 ? `Remaining gap after ${m(lesson.plannedCpfExtra, "/mo")} extra` : `Gap to ${strategyTarget.toUpperCase()} at 55`}</dt><dd>${m(lesson.plannedCpfExtra > 0 ? lesson.withPlanned.remainingGapToday : lesson.gapToday, "", "lesson-gap")}<small>${lesson.plannedCpfExtra > 0 ? `Nominal remaining: ${m(lesson.withPlanned.remainingGap, "", "lesson-gap-nom")} (before extra: ${m(lesson.gapToday)} today’s $)` : `Nominal gap at 55: ${m(lesson.gap, "", "lesson-gap-nom")}`}</small></dd></div>
+        <div class="tax-metric-box"><dt>Extra CPF saving to hit ${strategyTarget.toUpperCase()}</dt><dd>${lesson.monthly === null ? "Lump sum only" : m(lesson.monthly, "/mo", "lesson-monthly")}<small>${lesson.monthly === null ? "Retiring before/at current age" : lesson.plannedCpfExtra > 0 ? (lesson.withPlanned.hitsTarget ? `✓ Covered by your ${m(lesson.plannedCpfExtra, "/mo")} extra CPF` : `+${m(lesson.withPlanned.additionalMonthlyNeeded, "/mo")} above your ${m(lesson.plannedCpfExtra, "/mo")}`) : `Until age ${lesson.untilAge} (total monthly top-up)`}</small></dd></div>
       </dl>
       <button type="button" class="text-button" data-quick-edit="cpf-extra">Edit extra CPF savings</button>
       <ul class="compact-list cpf-rules-notes cpf-milestone-timeline">
         <li><strong>Before 55</strong><span>Cash RSTU and OA-to-SA transfers share your remaining SA room of <strong>${centsHtml(lesson.currentRoom)}</strong> (to reach the ${RetirementModel.C.year} FRS cap of ${m(RetirementModel.C.frs)}) and are irreversible.</span></li>
         <li><strong>At 55</strong><span>SA closes; SA then OA fund RA up to cohort FRS (${m(lesson.cohortMilestones.frs.sumAt55)} nominal). Voluntary ERS top-ups into RA open from age 55 ($0 RSTU tax relief above FRS); any pre-55 extra saving beyond SA room is held aside until 55.</span></li>
         <li><strong>From 65</strong><span>CPF LIFE payouts support your monthly spending. The payout estimates above reflect the retirement sum you select.</span></li>
-        ${learningTarget === "brs" ? "<li><strong>BRS property rule</strong><span>Withdrawing RA above BRS requires pledging a property whose lease covers you to age 95+.</span></li>" : ""}
+        ${strategyTarget === "brs" ? "<li><strong>BRS property rule</strong><span>Withdrawing RA above BRS requires pledging a property whose lease covers you to age 95+.</span></li>" : ""}
       </ul>
     </section>`;
   return `
