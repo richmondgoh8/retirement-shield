@@ -298,6 +298,8 @@ export function renderTrajectoryChart(
   const maxHorizonAge = points[points.length - 1].age;
   $("#trajectory-caption").textContent =
     `${trajectoryData.selectedScenario.label}: yearly figures in ${basisLabel} (through age ${maxHorizonAge})`;
+  $("#trajectory-table-note").textContent =
+    `Values are rounded and shown in ${basisLabel}. Before retirement, spending shows the reference budget. The table ends at age ${maxHorizonAge}, and CPF LIFE payouts continue for life.`;
   const descEl = $(".trajectory-desc");
   if (descEl) {
     descEl.textContent = `Year-by-year projection to age ${maxHorizonAge} in ${basisLabel} (${basis === "nominal" ? "unadjusted future values" : "inflation-adjusted purchasing power"}).`;
@@ -775,7 +777,7 @@ export function renderStackedNetWorthSVG(
           ? 720
           : 860,
     H = compactPrint
-      ? 176
+      ? 154
       : isMobile
         ? isOverviewHero
           ? 276
@@ -785,7 +787,7 @@ export function renderStackedNetWorthSVG(
           : 322,
     padL = compactPrint ? 54 : isMobile ? 48 : isOverviewHero ? 58 : 76,
     padR = compactPrint ? 16 : isMobile ? 14 : isOverviewHero ? 20 : 34,
-    padT = isOverviewHero ? 94 : compactPrint ? 68 : isMobile ? 74 : 76,
+    padT = isOverviewHero ? 94 : compactPrint ? 61 : isMobile ? 74 : 76,
     padB = compactPrint ? 24 : isMobile ? 30 : isOverviewHero ? 32 : 40;
   const plotW = W - padL - padR,
     plotH = H - padT - padB;
@@ -1016,7 +1018,7 @@ export function renderStackedNetWorthSVG(
     rowYs: isOverviewHero
       ? [15, 36, 57, 78]
       : compactPrint
-        ? [15, 34, 53]
+        ? [15, 31, 47]
         : isMobile
           ? [14, 30, 46, 62]
           : [18, 36, 54, 72],
@@ -1170,7 +1172,15 @@ export function renderStackedNetWorthSVG(
     else
       netWorthSelectedSeries =
         netWorthSelectedSeries === seriesKey ? "all" : seriesKey;
+    const focusedSeries = legendEl?.contains(document.activeElement)
+      ? document.activeElement.dataset.series
+      : null;
     renderStackedNetWorthSVG(chartArea, tooltipEl, legendEl, fire, basis, opts);
+    if (focusedSeries) {
+      legendEl
+        .querySelector(`[data-series="${focusedSeries}"]`)
+        ?.focus({ preventScroll: true });
+    }
   };
 
   if (legendEl) {

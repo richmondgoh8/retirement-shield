@@ -71,7 +71,7 @@ export function buildCpfDetailsHTML({
     .replace(/\.0$/, "");
   const pathName =
     selected === "brs"
-      ? "BRS (Property Pledge)"
+      ? "BRS Target"
       : selected === "ers"
         ? "ERS Maximum"
         : selected === "salary"
@@ -99,7 +99,7 @@ export function buildCpfDetailsHTML({
               <span class="swell-slate-pill">2.5% p.a. liquid</span>
             </div>
             <dl>
-              <div><dt>Excess OA at 55 (${selected === "brs" ? "BRS Pledge" : selected.toUpperCase()})</dt><dd>${m(oaLeft55Today)} <small>(${m(oaLeft55Nominal)} at 55)</small></dd></div>
+              <div><dt>Excess OA at 55 (${selected.toUpperCase()})</dt><dd>${m(oaLeft55Today)} <small>(${m(oaLeft55Nominal)} at 55)</small></dd></div>
               <div><dt>Withdrawable OA interest</dt><dd>${m(oaInterest55Today, "/mo")} <small>(${m(oaInterest55Nominal, "/mo")} at 55)</small></dd></div>
               <div><dt>$500k OA benchmark</dt><dd>${m(1042, "/mo")} <small>(${m(12500, "/yr")})</small></dd></div>
               <div><dt>Withdrawal rule</dt><dd>On-demand once RA meets FRS</dd></div>
@@ -152,7 +152,7 @@ export function buildCpfRulesTabHTML({
       </div>
       <p id="cpf-strategy-milestone-help" class="cpf-strategy-help">This is the same strategy shown on Overview. Your monthly savings and retirement budget stay fixed when you switch.</p>
       <div class="goal-choices" id="milestone-cpf-strategy" data-cpf-strategy-group role="group" aria-label="Active CPF strategy" aria-describedby="cpf-strategy-milestone-help">${[
-        ["brs", "Basic Retirement Sum · Property pledge"],
+        ["brs", "Basic Retirement Sum"],
         ["frs", "Full Retirement Sum"],
         ["ers", "Enhanced Retirement Sum · Top up from 55"],
       ]
@@ -188,7 +188,6 @@ export function buildCpfRulesTabHTML({
         <li><strong>Before 55</strong><span>Cash RSTU and OA-to-SA transfers share your remaining SA room of <strong>${centsHtml(lesson.currentRoom)}</strong> (to reach the ${RetirementModel.C.year} FRS cap of ${m(RetirementModel.C.frs)}) and are irreversible.</span></li>
         <li><strong>At 55</strong><span>SA closes; SA then OA fund RA up to cohort FRS (${m(lesson.cohortMilestones.frs.sumAt55)} nominal). Voluntary ERS top-ups into RA open from age 55 ($0 RSTU tax relief above FRS); any pre-55 extra saving beyond SA room is held aside until 55.</span></li>
         <li><strong>From 65</strong><span>CPF LIFE payouts support your monthly spending. The payout estimates above reflect the retirement sum you select.</span></li>
-        ${strategyTarget === "brs" ? "<li><strong>BRS property rule</strong><span>Withdrawing RA above BRS requires pledging a property whose lease covers you to age 95+.</span></li>" : ""}
       </ul>
     </section>`;
   return `

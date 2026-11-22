@@ -2608,7 +2608,7 @@ test("evaluateAnnuityPlan models stepped participating payouts and maturity divi
   );
 });
 
-test("longevityAge (85/90/95/100), bridgeIncome (pre-65 Barista FIRE), BRS Property Pledge path, familyRstuAnnual, and SG_PERSONA_PRESETS", () => {
+test("longevityAge (85/90/95/100), bridgeIncome (pre-65 Barista FIRE), BRS savings milestone, familyRstuAnnual, and SG_PERSONA_PRESETS", () => {
   const M = RetirementModel;
   const base = {
     age: 35,
@@ -2665,18 +2665,31 @@ test("longevityAge (85/90/95/100), bridgeIncome (pre-65 Barista FIRE), BRS Prope
   );
   assert.equal(pt66.today.monthlyBridge, 0);
 
-  // 3. BRS Property Pledge path (50% FRS cap on RA at 55, keeping excess OA liquid)
+  // 3. Choosing the lower milestone never releases otherwise restricted OA.
   assert.ok(sumNoBridge.brsScenario, "calculate() includes brsScenario");
   assert.equal(sumNoBridge.brsScenario.key, "brs");
   assert.ok(
     sumNoBridge.brsScenario.balance < sumNoBridge.scenarios[1].balance,
-    "BRS scenario locks 50% of FRS in RA at 55",
+    "BRS has a lower savings target than FRS",
   );
-  assert.ok(
-    M.projectCPF(base, 0, "brs").oaAfter55 >=
-      M.projectCPF(base, 0, "frs").oaAfter55,
-    "BRS path preserves more or equal post-55 liquid OA than FRS path",
-  );
+  const overFrs = {
+    ...base,
+    oa: 400000,
+    sa: 100000,
+    housing: 0,
+    post55Work: true,
+  };
+  const brsPath = M.projectCPF(overFrs, 0, "brs");
+  const frsPath = M.projectCPF(overFrs, 0, "frs");
+  for (const field of [
+    "fundedRA",
+    "oaAfter55",
+    "post55OA",
+    "ra65",
+    "raSweepAt65",
+  ]) {
+    assert.equal(brsPath[field], frsPath[field], field);
+  }
   const simBrs = M.simulate(base, "brs", { summary: sumNoBridge });
   assert.equal(simBrs.selectedScenario.key, "brs");
 
@@ -4020,8 +4033,8 @@ test("Comprehensive Phase 1-5 audit regressions: cutoffYield, SRS discounting/ta
     "brs",
   );
   assert.ok(
-    msBrs.fundedRA <= msBrs.target * 1.05,
-    "BRS milestone must cap RA at BRS, not FRS",
+    msBrs.fundedRA > msBrs.target,
+    "CPF savings can exceed the BRS milestone without a property withdrawal",
   );
   const annNeg = M.evaluateAnnuityPlan({
     monthlyContrib: 1000,

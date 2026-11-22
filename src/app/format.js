@@ -16,6 +16,12 @@ function getSavingsProgress(fire) {
     label: `${percent} of savings target funded at age ${fire.retire}`,
   };
 }
+function getSavingsRunway(fire) {
+  const { depletionAge } = fire.fireNumber;
+  return depletionAge == null
+    ? `Funded through age ${fire.endAge}`
+    : `Lasts to age ${Math.floor(depletionAge)}`;
+}
 const money = (value) => `$${fmtInt(value)}`;
 const formatMoneyInput = (amount) =>
   Number(amount).toLocaleString("en-SG", { maximumFractionDigits: 20 });
@@ -221,16 +227,17 @@ function deriveReadinessSummary({
   const fn = fire?.fireNumber || {};
   const targetEndAge = endAge || fire?.endAge || 95;
   const projFireAge = fn.projectedFireAge;
-  const readyText = projFireAge == null ? "After 80" : `Age ${projFireAge}`;
+  const readyText =
+    projFireAge == null ? "No age through 80" : `Age ${projFireAge}`;
   const diffYears = projFireAge == null ? null : fire.retire - projFireAge;
   const depletionAgeDisplay =
     fn.depletionAge != null ? Math.floor(fn.depletionAge) : targetEndAge;
   const survivalAnswer = fn.fullyFundedTo95
-    ? `Lasts past age ${targetEndAge}+`
+    ? `Funded through age ${targetEndAge}`
     : `Lasts to age ${depletionAgeDisplay}`;
   const safeAgeAnswer =
     diffYears == null
-      ? "After age 80"
+      ? readyText
       : diffYears > 0
         ? compact
           ? `Age ${projFireAge} (-${diffYears} yr${diffYears > 1 ? "s" : ""} early)`
@@ -269,6 +276,7 @@ export {
   fmtInt,
   formatFundedPct,
   getSavingsProgress,
+  getSavingsRunway,
   deriveReadinessSummary,
   money,
   formatMoneyInput,

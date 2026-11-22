@@ -44,7 +44,7 @@
             <a
               class="brand"
               href="#retirement-plan"
-              aria-label="Retirement Shield home"
+              aria-label="RetirementShield home"
             >
               <span class="brand-mark fin-brand-badge" aria-hidden="true">
                 <svg
@@ -1119,11 +1119,7 @@
                       ></div>
                       <details class="result-details">
                         <summary>Explore the yearly figures table</summary>
-                        <p>
-                          Today’s dollars, rounded. Before retirement, spending
-                          is a reference budget, not a withdrawal. CPF LIFE
-                          lasts for life; the portfolio table ends at 90.
-                        </p>
+                        <p id="trajectory-table-note"></p>
                         <div
                           class="data-scroll"
                           tabindex="0"
@@ -1742,8 +1738,9 @@
             stroke-linejoin="round"
             aria-hidden="true"
           >
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-            <path d="m9 12 2 2 4-4" /></svg
+            <path
+              d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"
+            /></svg
           ><span>CPF &amp; Tax</span>
         </button>
       </div>
@@ -2544,6 +2541,26 @@
           </button>
         </div>
       </div>
+    </dialog>
+    <dialog
+      id="budget-comparison"
+      class="plan-settings"
+      aria-labelledby="budget-comparison-title"
+    >
+      <div class="settings-head">
+        <h2 id="budget-comparison-title">Compare retirement budgets</h2>
+        <form method="dialog">
+          <button
+            class="dialog-dismiss"
+            type="submit"
+            aria-label="Close budget comparison"
+            autofocus
+          >
+            ×
+          </button>
+        </form>
+      </div>
+      <div class="settings-scroll-body" id="budget-comparison-body"></div>
     </dialog>
     <button
       type="button"

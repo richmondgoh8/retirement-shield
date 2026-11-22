@@ -4,6 +4,7 @@ import {
   fmtInt,
   formatFundedPct,
   getSavingsProgress,
+  getSavingsRunway,
   money,
   formatMoneyInput,
   m,
@@ -30,6 +31,7 @@ import {
   getMinRetireAge,
 } from "./src/app/quick-edit.js";
 import {
+  buildBudgetComparisonHTML,
   buildExpenseCardHTML,
   buildExpenseModalBodyHTML,
 } from "./src/app/views-expense.js";
@@ -193,6 +195,9 @@ function setupSimplePlan() {
   let currentSummaryToday = null;
   let currentTrajectory = null;
   let currentFirePlan = null;
+  let currentProjectionInputs = null;
+  let fundingBeforeSavingsEdit = null;
+  let savingsFundingChange = null;
   let currentAfterCpfCap = 0;
   let currentCashPlan = null;
   let renderDividendTabOnly = null;
@@ -646,7 +651,7 @@ function setupSimplePlan() {
       } else if (existingSaved) {
         params = new URLSearchParams(JSON.parse(existingSaved));
       }
-      if (!params) return;
+      if (!params) return false;
       if (
         !loadedFromHash &&
         !isSharedSandbox &&
@@ -657,22 +662,23 @@ function setupSimplePlan() {
           params.set("sgSleevePct", "15");
         }
       }
-      if (
-        !applyStateParams(params, {
-          resetFirst: isSharedSandbox || loadedFromHash,
-        })
-      ) {
+      const restored = applyStateParams(params, {
+        resetFirst: isSharedSandbox || loadedFromHash,
+      });
+      if (!restored) {
         if (!isSharedSandbox) localStorage.removeItem("rs_plan_state");
         isSharedSandbox = false;
 
         if (isPlanShareHash(location.hash))
           history.replaceState(null, "", location.pathname + location.search);
       }
+      return restored;
     } catch (err) {
       console.warn("Failed to restore saved plan state:", err);
+      return false;
     }
   };
-  restoreSavedState();
+  const hasRestoredPlan = restoreSavedState();
   window.addEventListener("hashchange", () => {
     if (isPlanShareHash(location.hash)) {
       restoreSavedState();
@@ -1725,7 +1731,7 @@ function setupSimplePlan() {
       p.ssbCash = sumCustomCashAccounts();
     }
 
-    let r, simulation, fire, bogle, tax, netPay, automaticInvest;
+    let r, simulation, fire, bogle, tax, netPay, automaticInvest, activeParams;
     try {
       const pWithMas = liveMasRates ? { ...p, masRates: liveMasRates } : p;
       const pay = RetirementModel.computeTaxSummary(p);
@@ -1739,7 +1745,7 @@ function setupSimplePlan() {
       const savings = Math.round(netPay * 0.2);
       const cpfExtra = p.cpfExtra ?? 0;
       automaticInvest = Math.max(0, savings - cpfExtra - (p.cashSaving ?? 0));
-      const activeParams = {
+      activeParams = {
         ...pWithMas,
         cpfExtra,
         invest: p.invest ?? automaticInvest,
@@ -1762,6 +1768,7 @@ function setupSimplePlan() {
       return;
     }
     currentFirePlan = fire;
+    currentProjectionInputs = { params: activeParams, strategy: selected };
     currentSimulation = simulation;
     currentSummaryToday = r;
 
@@ -1772,13 +1779,10 @@ function setupSimplePlan() {
       frs: cpfAt55.frs,
       ers: cpfAt55.ers,
     }[strategyTarget];
-    const cpfFundedPct = Math.min(
-      100,
-      Math.round((100 * cpfAt55.ra55) / cpfTarget),
-    );
+    const cpfFundedPct = Math.round((100 * cpfAt55.ra55) / cpfTarget);
     const cpfProgress = {
       strategy: strategyTarget.toUpperCase(),
-      pct: cpfFundedPct,
+      pct: Math.min(100, cpfFundedPct),
       percent: formatFundedPct(cpfFundedPct),
       balanceToday: RetirementModel.todayValue(
         cpfAt55.ra55,
@@ -1795,6 +1799,20 @@ function setupSimplePlan() {
     };
     const cpfProgressLabel = `${cpfProgress.percent} of ${cpfProgress.strategy} funded at age 55`;
     const savingsProgress = getSavingsProgress(fire);
+    const announceSavingsChange = fundingBeforeSavingsEdit !== null;
+    if (announceSavingsChange) {
+      savingsFundingChange = {
+        before: fundingBeforeSavingsEdit,
+        after: savingsProgress.percent,
+        retire: fire.retire,
+      };
+      fundingBeforeSavingsEdit = null;
+    } else if (
+      savingsFundingChange?.after !== savingsProgress.percent ||
+      savingsFundingChange?.retire !== fire.retire
+    ) {
+      savingsFundingChange = null;
+    }
 
     const simExtraForCpf = r.retiringNow ? 0 : simulation.cpfExtra;
     const keepOA =
@@ -1898,7 +1916,7 @@ function setupSimplePlan() {
       </div>
       ${simulation.cpfResult.ra65 > 0 && simulation.cpfResult.ra65 < 60000 ? '<p class="estimate-note">Projected RA at 65 is below the $60,000 automatic CPF LIFE threshold; assumes voluntary CPF LIFE enrolment at 65.</p>' : ""}
       <dl class="simulation-metrics simulation-metrics-4">
-        <div><dt>${simulation.payoutCapped ? "CPF boundary from 65" : "CPF LIFE from 65"}</dt><dd>${m(s.payout, "/mo", "sim-cpf-life")}<small>Today’s dollars · ${selected === "brs" ? "BRS property pledge" : selected.toUpperCase() + " target"}</small></dd></div>
+        <div><dt>${simulation.payoutCapped ? "CPF boundary from 65" : "CPF LIFE from 65"}</dt><dd>${m(s.payout, "/mo", "sim-cpf-life")}<small>Today’s dollars · ${selected.toUpperCase() + " target"}</small></dd></div>
         <div><dt>Outside portfolio at ${r.retire}</dt><dd>${simMoneyHtml(simulation.portfolioAtRetire, r.retire, "", "sim-port-retire")}<small>At retirement age ${r.retire}${r.bridgeIncome > 0 && r.retire < 65 ? ` · +${m(r.bridgeIncome, "/mo")} bridge income` : ""}</small></dd></div>
         <div><dt>Funding status through ${simulation.endAge || 95}</dt><dd>${simulation.fullyFunded ? `${m(0, "", "sim-gap")} gap` : `${m(s.remainingPortfolioGap, "", "sim-gap")} gap`}<small>${simulation.fullyFunded ? `Funded through age ${simulation.endAge || 95}.` : `Depletes around ${simulation.depletionAge == null ? r.retire : ageLabel(simulation.depletionAge)}.`}</small></dd></div>
         <div><dt>Earliest modelled retirement</dt><dd id="readiness-result">Calculating…</dd></div>
@@ -1928,7 +1946,7 @@ function setupSimplePlan() {
 
     const summaryText = r.retiringNow
       ? `Outside retirement savings: ${money(s.privateSaving)} needed now.`
-      : `${s.key === "brs" ? "BRS Pledge" : s.key.toUpperCase()}: CPF LIFE ${money(s.payout)}/mo · investing ${money(simulation.invest)}/mo outside CPF.`;
+      : `${s.key.toUpperCase()}: CPF LIFE ${money(s.payout)}/mo · investing ${money(simulation.invest)}/mo outside CPF.`;
     $("#settings-live-summary").dataset.budget = summaryText;
     $("#settings-live-summary").textContent = summaryText;
 
@@ -2021,6 +2039,7 @@ function setupSimplePlan() {
       netPay,
       cpfProgress,
       savingsProgress,
+      savingsFundingChange?.before,
     );
 
     const bogleHTML = buildAllocatorView(bogle, allocatorIncludesCpf);
@@ -2028,6 +2047,7 @@ function setupSimplePlan() {
     const overviewDisclosures = [
       ".exp-breakdown-disclosure",
       "#overview-saving-details",
+      "#overview-starting-assets",
       "#overview-portfolio-details",
       "#overview-property-eligibility",
       "#overview-methodology",
@@ -2050,6 +2070,15 @@ function setupSimplePlan() {
       ? document.activeElement.id
       : null;
     overviewSlot.innerHTML = finGridHTML;
+    if (announceSavingsChange) {
+      const { before, after } = savingsFundingChange;
+      const change =
+        before === after
+          ? `stays at ${after}`
+          : `changed from ${before} to ${after}`;
+      $("#sr-status").textContent =
+        `Savings funding at age ${fire.retire} ${change}. ${getSavingsRunway(fire)}.`;
+    }
     $("#cpf-strategy-slot").replaceChildren($("#cpf-strategy-comparison"));
     budgetSlot.innerHTML = buildExpenseCardHTML(expenseData);
     if (activeSavingsField) {
@@ -2979,6 +3008,7 @@ function setupSimplePlan() {
       document.getElementById(id).value = "";
       if (id === "known-invest") delete qeDialog.dataset.investAutoLocked;
       if (suggested.closest("#overview-slot")) {
+        fundingBeforeSavingsEdit = getSavingsProgress(currentFirePlan).percent;
         render();
         document
           .getElementById(`overview-edit-${id}`)
@@ -3904,6 +3934,41 @@ function setupSimplePlan() {
     );
   }
 
+  const budgetComparison = $("#budget-comparison");
+  bindDialogBackdropDismiss(budgetComparison);
+  budgetSlot.addEventListener("click", (event) => {
+    if (!event.target.closest("#compare-retirement-budgets")) return;
+    flushPendingRender();
+    if (!currentProjectionInputs) return;
+    const { params, strategy } = currentProjectionInputs;
+    const { retire, endAge } = currentFirePlan;
+    const scenarios = Object.entries(RetirementModel.lifestyles).map(
+      ([lifestyle, { label, budget }]) => {
+        const projection =
+          lifestyle === "cca" && retire < 55
+            ? null
+            : RetirementModel.firePlan(
+                { ...params, lifestyle, retire, spend: budget },
+                strategy,
+                { skipSolvers: true },
+              );
+        return { label, budget, projection };
+      },
+    );
+    $("#budget-comparison-body").innerHTML = buildBudgetComparisonHTML({
+      retire,
+      endAge,
+      scenarios,
+    });
+    $("#compare-retirement-budgets").focus({ preventScroll: true });
+    budgetComparison.showModal();
+  });
+  budgetComparison.addEventListener("close", () => {
+    if (document.activeElement === document.body) {
+      $("#compare-retirement-budgets")?.focus({ preventScroll: true });
+    }
+  });
+
   function enterCustomExpenseMode(invoker = null) {
     const life = $("#known-lifestyle")?.value || "cca";
     const curState = getCustomSpendState(life);
@@ -4385,6 +4450,7 @@ function setupSimplePlan() {
     message.textContent = "";
     document.getElementById(id).value = input.value;
     input.defaultValue = input.value;
+    fundingBeforeSavingsEdit ??= getSavingsProgress(currentFirePlan).percent;
     if (id === "known-invest") delete qeDialog.dataset.investAutoLocked;
     if (clamped !== false)
       showToast("Amount adjusted to fit monthly pay after CPF");
@@ -5018,6 +5084,7 @@ function setupSimplePlan() {
     showToast,
   });
 
+  if (!hasRestoredPlan) applyPlanObject(SG_DEFAULT_PLAN);
   const finishSettingsEdit = setupInlineSettings(fields, formatFieldRangeError);
   if (
     !($("#known-savings")?.value || "").trim() &&

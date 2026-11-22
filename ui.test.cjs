@@ -207,6 +207,16 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       `Startup page exceptions: ${browser.exceptions.join("; ")}`,
     );
 
+    const starterSnapshot = `({
+      inputs: Object.fromEntries(
+        [...document.querySelectorAll('#top :is(input, select)[id]:not([id^="settings-draft-"]), #known-savings, #known-invest, #known-cpf-extra, #known-cash-saving')].map(
+          (field) => [field.id, field.value]
+        )
+      ),
+      funded: document.querySelector(".overview-funded").textContent,
+    })`;
+    const cleanStart = await browser.evaluate(starterSnapshot);
+
     const cpfIncomeAtZeroSavings = await browser.evaluate(`(() => {
       const inputs = {
         "person-salary": "1000",
@@ -1729,11 +1739,12 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       const resetInvest = invest.value;
       const resetMonthlyInvest = Number(find("#overview-known-invest").value);
       const storedAfterReset = JSON.parse(localStorage.getItem("rs_plan_state"));
+      const resetSnapshot = ${starterSnapshot};
       const undo = find("[data-toast-undo]");
       const undoShown = !undo.hidden && !find("#ui-toast").hidden;
       undo.click();
       return {
-        salary, resetSalary, resetInvest, resetMonthlyInvest, undoShown,
+        salary, resetSalary, resetInvest, resetMonthlyInvest, undoShown, resetSnapshot,
         storedResetInvest: storedAfterReset.invest || "",
         restoredInvest: invest.value,
         restoredSalary: find("#person-salary").value,
@@ -1741,6 +1752,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
         saveStatus: find("#plan-save-status").textContent
       };
     })()`);
+    assert.deepEqual(resetUndo.resetSnapshot, cleanStart);
     assert.equal(resetUndo.resetSalary, "5500");
     assert.equal(resetUndo.resetInvest, "");
     assert.equal(resetUndo.resetMonthlyInvest, 857);
@@ -2628,8 +2640,8 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
         }
         assert.equal(
           pillCheck.printVb,
-          "0 0 680 176",
-          `${vp.width}x${vp.height} compactPrint #print-nw-chart must keep viewBox="0 0 680 176", got "${pillCheck.printVb}"`,
+          "0 0 680 154",
+          `${vp.width}x${vp.height} compactPrint #print-nw-chart must keep its print viewBox`,
         );
       }
       await browser.send("Emulation.clearDeviceMetricsOverride");
@@ -2814,6 +2826,152 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       [],
       `Unexpected uncaught page exceptions: ${browser.exceptions.join("; ")}`,
     );
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
+test("Savings feedback, budget comparison, and A4 export use the active projection", async (t) => {
+  const chromePath = findChromeBinary();
+  if (!chromePath) {
+    t.skip("No local Chrome/Chromium binary found");
+    return;
+  }
+
+  const { server, baseUrl } = await startStaticServer(DIST_DIR);
+  const browser = await launchChromeCDP(chromePath);
+  const readPageCount = async () => {
+    const { data } = await browser.send("Page.printToPDF", {
+      preferCSSPageSize: true,
+      printBackground: true,
+    });
+    return Buffer.from(data, "base64")
+      .toString("latin1")
+      .match(/\/Type\s*\/Page\b/g)?.length;
+  };
+
+  try {
+    await browser.navigate(baseUrl);
+    assert.equal(
+      await browser.evaluate(
+        'document.querySelector(".overview-decision-title").textContent',
+      ),
+      "Your plan first falls short at age 77",
+    );
+    const startingAssets = await browser.evaluate(`(() => {
+      const details = document.querySelector("#overview-starting-assets");
+      details.querySelector("summary").click();
+      return {
+        open: details.open,
+        balances: [...details.querySelectorAll("dd")].map((dd) => dd.textContent),
+        total: document.querySelector(".overview-hero-summary > :nth-child(2) strong").textContent,
+      };
+    })()`);
+    assert.deepEqual(startingAssets, {
+      open: true,
+      balances: ["$34,000", "$6,000", "$20,000", "$0", "$0"],
+      total: "$60,000",
+    });
+    assert.equal(
+      await readPageCount(),
+      1,
+      "CCA example must print on one page",
+    );
+
+    const feedback = await browser.evaluate(`(async () => {
+      const find = (selector) => document.querySelector(selector);
+      find("#dash-networth-legend [data-series=eq]").focus();
+      document.activeElement.click();
+      const seriesFocus = document.activeElement.dataset.series;
+      find("#overview-edit-known-invest").click();
+      const invest = document.activeElement;
+      invest.value = "1000";
+      invest.dispatchEvent(new Event("change", { bubbles: true }));
+      invest.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const savings = find(".overview-savings-outcome").textContent;
+      const announcement = find("#sr-status").textContent;
+      const editorFocus = document.activeElement.id;
+      find("#destination-plan").click();
+      find("#section-budget").click();
+      const compare = find("#compare-retirement-budgets");
+      const before = find("#known-lifestyle").value;
+      compare.click();
+      const dialog = find("#budget-comparison");
+      const scenarios = [...dialog.querySelectorAll("section")].map((scenario) =>
+        [...scenario.querySelectorAll("dd")].map((value) => value.textContent.trim())
+      );
+      const compared = dialog.open;
+      dialog.close();
+      await new Promise((resolve) => dialog.addEventListener("close", resolve, { once: true }));
+      const comparisonFocus = document.activeElement.id;
+      const unchanged = find("#known-lifestyle").value === before;
+      find("#exp-card-dropdown-btn").click();
+      find('[data-switch-lifestyle="home-helper"]').click();
+      return {
+        seriesFocus, savings, announcement, editorFocus, compared, scenarios, comparisonFocus, unchanged,
+        applied: find(".overview-funded").textContent.trim()
+      };
+    })()`);
+    assert.equal(feedback.seriesFocus, "eq");
+    assert.match(feedback.savings, /41% → 47%/);
+    assert.match(feedback.announcement, /changed from 41% to 47%/);
+    assert.equal(feedback.editorFocus, "overview-edit-known-invest");
+    assert.equal(feedback.compared, true);
+    assert.deepEqual(feedback.scenarios, [
+      ["$2,800/mo", "47%", "Lasts to age 79"],
+      ["$3,900/mo", feedback.applied, "Lasts to age 76"],
+    ]);
+    assert.equal(feedback.comparisonFocus, "compare-retirement-budgets");
+    assert.equal(feedback.unchanged, true);
+    assert.equal(
+      await readPageCount(),
+      1,
+      "Home + Helper must print on one page",
+    );
+
+    const densePlan = new URLSearchParams({
+      version: "3",
+      lifestyle: "home-helper",
+      age: "48",
+      retire: "58",
+      longevityAge: "100",
+      salary: "23500",
+      annualBonus: "80000",
+      oa: "350000",
+      sa: "185000",
+      ma: "75000",
+      maSpend: "550",
+      equities: "975000",
+      existingReliefs: "17800",
+      srs: "160000",
+      srsAnnual: "15300",
+      srsAge: "64",
+      invest: "4500",
+      cashSaving: "1000",
+      cpfExtra: "250",
+      spend: "7500",
+      expMode: "itemized",
+      expItems: JSON.stringify([
+        ["Care", "care", 5500],
+        ["Housing", "housing", 2000],
+      ]),
+      housingMode: "bank",
+      housingBalance: "650000",
+      housingRate: "3.1",
+      housingYears: "19",
+      reserveReturn: "0.025",
+      plan: "escalating",
+      post55Work: "true",
+    });
+    await browser.navigate(`${baseUrl}/?test=dense#${densePlan}`);
+    assert.equal(
+      await readPageCount(),
+      1,
+      "Itemized SRS and mortgage plan must print on one page",
+    );
+    assert.deepEqual(browser.exceptions, []);
   } finally {
     await browser.close();
     server.close();

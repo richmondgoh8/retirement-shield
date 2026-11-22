@@ -1,4 +1,12 @@
-import { m, money, html, raw, formatExpSharePct } from "./format.js";
+import {
+  m,
+  money,
+  html,
+  raw,
+  formatExpSharePct,
+  getSavingsProgress,
+  getSavingsRunway,
+} from "./format.js";
 
 function describePieSlicePath(cx, cy, outerR, innerR, startDeg, endDeg) {
   const full = endDeg - startDeg >= 359.9;
@@ -382,6 +390,7 @@ function buildExpenseCardHTML(ep) {
           </div>
         </div>
         <button type="button" class="text-button exp-edit-items" data-quick-edit="budget">${isPreset ? "View expenses" : "Edit budget"}</button>
+        <button type="button" class="text-button" id="compare-retirement-budgets" aria-haspopup="dialog">Compare retirement budgets</button>
       </div>
     </div>
 
@@ -440,4 +449,47 @@ function buildExpenseCardHTML(ep) {
   </section>`;
 }
 
-export { buildExpensePieSVG, buildExpenseModalBodyHTML, buildExpenseCardHTML };
+function buildBudgetComparisonHTML({ retire, endAge, scenarios }) {
+  return html`
+    <p class="budget-comparison-context">
+      Retire at age ${retire} · Project through age ${endAge}. Both estimates
+      use your current savings, CPF strategy, and assumptions.
+    </p>
+    <div class="budget-comparison-grid">
+      ${scenarios.map(({ label, budget, projection }) => {
+        const progress = projection ? getSavingsProgress(projection) : null;
+        return raw(html`
+          <section class="budget-comparison-scenario">
+            <h3>${label}</h3>
+            <dl>
+              <dt>Budget in today’s dollars</dt>
+              <dd>${raw(m(budget, "/mo"))}</dd>
+              ${
+                projection
+                  ? raw(html`
+                      <dt>${progress.title}</dt>
+                      <dd>${progress.percent}</dd>
+                      <dt>Savings runway</dt>
+                      <dd>${getSavingsRunway(projection)}</dd>
+                    `)
+                  : raw(html`
+                      <dt>Projection</dt>
+                      <dd class="budget-comparison-unavailable">
+                        Available for retirement at age 55 or later.
+                      </dd>
+                    `)
+              }
+            </dl>
+          </section>
+        `);
+      })}
+    </div>
+  `;
+}
+
+export {
+  buildBudgetComparisonHTML,
+  buildExpensePieSVG,
+  buildExpenseModalBodyHTML,
+  buildExpenseCardHTML,
+};

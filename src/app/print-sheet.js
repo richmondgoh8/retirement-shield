@@ -2,7 +2,7 @@ import {
   $,
   m,
   compactMoney,
-  formatDobShort,
+  formatFundedPct,
   getSavingsProgress,
   deriveReadinessSummary,
   html,
@@ -11,7 +11,6 @@ import {
 import { buildExpensePieSVG } from "./views-expense.js";
 import { renderStackedNetWorthSVG } from "./charts.js";
 import {
-  getMilestoneNodes,
   buildFundingSourcesList,
   buildFinReadinessGaugeSVG,
 } from "./views-overview.js";
@@ -47,30 +46,13 @@ export function renderPrintSheet({
     masRates,
     basis,
   });
+  const fundingPercent = formatFundedPct(pm.rawPctFunded);
 
   const pipeRows = pm.paycheck.rows;
   const grossPlusEmp = pm.paycheck.grossPlusEmployer;
-  const milestones = getMilestoneNodes(fire, r, s, simulation, basis);
-  const pt95 = fire?.points?.[fire.points.length - 1];
-  const pt55 =
-    fire?.points?.find((pt) => pt.age === (fire.age < 55 ? 55 : fire.age)) ||
-    fire?.points?.[0];
   const sa = pm.startingAssets;
   const startingCpf = sa.cpfTotal;
-  const startingLiquid = sa.liquidOutside;
   const startingSrs = sa.srs;
-  const startingTotalAssets = sa.totalAssets;
-  const yearsToRetire = Math.max(0, fire.retire - fire.age);
-  const takeHomePctOfGross =
-    r.salary > 0 ? Math.round((r.afterCpf / r.salary) * 100) : 0;
-  const selectedPathName =
-    s.key === "brs"
-      ? "BRS Pledge"
-      : s.key === "ers"
-        ? "ERS Path"
-        : s.key === "salary"
-          ? "CPF Salary Only"
-          : "FRS Path";
   const isCustomBudget = Boolean(pm.isCustomBudget);
   const isItemizedTarget = Boolean(
     p?.itemizedActive || expenseData?.itemizedActive,
@@ -101,20 +83,14 @@ export function renderPrintSheet({
 
   const fn = fire.fireNumber || {};
   const printEndAge = pm.endAge || fire.endAge || 95;
-  const {
-    projFireAge,
-    diffYears,
-    depletionAgeDisplay,
-    survivalAnswer,
-    safeAgeAnswer,
-    deltaColor,
-  } = deriveReadinessSummary({
-    fire,
-    endAge: printEndAge,
-    pctFunded: savingsProgress.pct,
-    onTrack: pm.onTrack,
-    compact: true,
-  });
+  const { readyText, survivalAnswer, safeAgeAnswer, deltaColor } =
+    deriveReadinessSummary({
+      fire,
+      endAge: printEndAge,
+      pctFunded: pm.rawPctFunded,
+      onTrack: pm.onTrack,
+      compact: true,
+    });
 
   const ep =
     expenseData ||
@@ -126,22 +102,6 @@ export function renderPrintSheet({
       afterCpf: r.afterCpf,
       customActive: isCustomBudget,
     });
-
-  const formatCheckpointSub = (mn, idx) => {
-    const pt55Src = basis === "nominal" ? pt55 : pt55?.today;
-    const pt95Src = basis === "nominal" ? pt95 : pt95?.today;
-    if (idx === 1 && fire.age < 55) {
-      return `Age 55 · NW ${compactMoney(pt55Src?.totalNetWorth ?? 0)}`;
-    }
-    if (idx === 3 && !pm.fullyFundedTo95) {
-      const liq95 = (pt95Src?.liquidEquities ?? 0) + (pt95Src?.ssbCash ?? 0);
-      const cpf95 = pt95Src?.cpfTotal ?? 0;
-      return liq95 <= 1
-        ? `Liquid $0 · ${compactMoney(cpf95)} CPF`
-        : `${mn.tag} · ${mn.sub}`;
-    }
-    return `${mn.tag}`;
-  };
 
   const isNominal = basis === "nominal";
   const toDisplayMoney = (val, targetAge) => {
@@ -240,74 +200,22 @@ export function renderPrintSheet({
         <div class="poster-verdict-badge is-${pm.statusTone}">
           <small>${savingsProgress.title}</small>
           <strong
-            ><span id="print-savings-progress">${savingsProgress.percent}</span>
-            · ${pm.statusText}</strong
+            ><span id="print-savings-progress">${fundingPercent}</span> ·
+            ${pm.statusText}</strong
           >
           <span>${pm.verdictSub}</span>
         </div>
       </div>
     </header>
 
-    <section class="poster-snapshot-banner" aria-label="Plan Snapshot">
-      <div class="poster-kpi-strips">
-        <div class="poster-stat-strip">
-          <small>Your Age</small>
-          <div>
-            <strong>${fire.age} yrs</strong
-            ><span class="poster-pill"
-              >${p?.dob ? `DOB ${formatDobShort(p.dob)}` : "Current"}</span
-            >
-          </div>
-        </div>
-        <div class="poster-stat-strip">
-          <small>Target Retire Age</small>
-          <div>
-            <strong>Age ${fire.retire}</strong
-            ><span class="poster-pill"
-              >${r.retiringNow ? "Now" : `${yearsToRetire} yrs`} ·
-              ${fire.retire < 65 ? `${65 - fire.retire}-yr bridge` : fire.retire === 65 ? "CPF LIFE" : "Deferred"}</span
-            >
-          </div>
-        </div>
-        <div class="poster-stat-strip">
-          <small>Take-Home Pay</small>
-          <div>
-            <strong>${raw(m(r.afterCpf, "/mo"))}</strong
-            ><span class="poster-pill"
-              >${takeHomePctOfGross}% net on ${raw(m(r.salary))}</span
-            >
-          </div>
-        </div>
-        <div class="poster-stat-strip">
-          <small>Total Assets</small>
-          <div>
-            <strong>${raw(m(startingTotalAssets))}</strong
-            ><span class="poster-pill"
-              >${compactMoney(startingCpf)} CPF ·
-              ${compactMoney(startingLiquid)}
-              liq${startingSrs > 0 ? ` · ${compactMoney(startingSrs)} SRS` : ""}</span
-            >
-          </div>
-        </div>
-        <div class="poster-stat-strip">
-          <small>Retire Budget</small>
-          <div>
-            <strong>${raw(m(r.todaySpend, "/mo"))}</strong
-            ><span class="poster-pill"
-              >${selectedPathName} ·
-              ${isItemizedTarget ? "Itemized" : isCustomBudget ? "Custom" : r.lifestyle === "cca" ? "CCA" : "Helper"}</span
-            >
-          </div>
-        </div>
-      </div>
-      <div
-        class="poster-balances-strip"
-        role="group"
-        aria-label="Starting Asset Breakdown"
+    <section
+      class="poster-balances-strip"
+      aria-label="Starting asset breakdown"
+    >
+      <span class="poster-balances-tag"
+        >Starting assets ${compactMoney(sa.totalAssets)}</span
       >
-        <span class="poster-balances-tag">Starting Balances</span>
-        ${raw(assetBreakdownItems.join('<span class="poster-balances-sep" aria-hidden="true">·</span>'))}
-      </div>
+      ${raw(assetBreakdownItems.join('<span class="poster-balances-sep" aria-hidden="true">·</span>'))}
     </section>
 
     <section class="poster-discover-row">
@@ -406,9 +314,9 @@ export function renderPrintSheet({
         </div>
         ${raw(
           buildFinReadinessGaugeSVG(
-            savingsProgress.pct,
-            "Earliest Safe Retirement Age",
-            pm.earliestSafeAgeText,
+            pm.rawPctFunded,
+            "Earliest projected retirement",
+            readyText,
             `Projection through age ${printEndAge}`,
             deltaColor,
             pm.onTrack,
@@ -424,7 +332,7 @@ export function renderPrintSheet({
             >
           </div>
           <div class="poster-gauge-fact">
-            <span>Safe age (to ${printEndAge})</span>
+            <span>Earliest age (to ${printEndAge})</span>
             <strong>${safeAgeAnswer}</strong>
           </div>
         </div>
@@ -463,7 +371,7 @@ export function renderPrintSheet({
               raw(
                 html`<tr class="${sc.key === s.key ? "is-active" : ""}">
                   <td>
-                    ${sc.key === "brs" ? "BRS (Pledge)" : sc.key === "salary" ? "CPF Salary" : sc.key.toUpperCase()}${sc.key === s.key ? " ★" : ""}
+                    ${sc.key === "salary" ? "CPF Salary" : sc.key.toUpperCase()}${sc.key === s.key ? " ★" : ""}
                   </td>
                   <td class="num-col">
                     ${raw(m(toDisplayMoney(sc.balance, 55)))}
@@ -503,7 +411,7 @@ export function renderPrintSheet({
 
       <div class="poster-panel poster-cashflow-panel">
         <div class="poster-panel-head">
-          <h2>Paycheck Split &amp; Checkpoints</h2>
+          <h2>Paycheck Split</h2>
           <small>${raw(m(grossPlusEmp, "/mo"))} incl. Emp CPF</small>
         </div>
         <div class="poster-pipes">
@@ -529,32 +437,6 @@ export function renderPrintSheet({
             );
           })}
         </div>
-        ${
-          milestones.length
-            ? raw(
-                html`<div class="poster-checkpoints-grid">
-                  ${milestones.map((mn, idx) =>
-                    raw(
-                      html`<div class="poster-feed-row">
-                        <span
-                          class="poster-feed-avatar"
-                          style="background:${mn.softBg};color:${mn.color};"
-                          >${mn.badge}</span
-                        >
-                        <div class="poster-feed-copy">
-                          <strong>${mn.title}</strong>
-                          <small>${formatCheckpointSub(mn, idx)}</small>
-                        </div>
-                        <div class="poster-feed-right">
-                          <b>${raw(mn.metric)}</b>
-                        </div>
-                      </div>`,
-                    ),
-                  )}
-                </div>`,
-              )
-            : ""
-        }
       </div>
 
       <div class="poster-panel poster-budget-panel">

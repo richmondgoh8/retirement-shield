@@ -1,5 +1,6 @@
 import {
   formatFundedPct,
+  getSavingsRunway,
   money,
   m,
   signedM,
@@ -381,6 +382,8 @@ function buildOverviewPageHeader({
   fire,
   r,
   startingTotalAssets,
+  startingCpf,
+  buckets,
   rate,
   contribution,
   budget,
@@ -392,15 +395,25 @@ function buildOverviewPageHeader({
   const fn = fire.fireNumber;
   const onTrack = fn.pctFunded >= 100 && fn.fullyFundedTo95;
   const tone = onTrack ? "good" : "warn";
-  const target = r.retiringNow ? "now" : `at age ${fire.retire}`;
+  const coveredUntil = fn.depletionAge ?? fire.endAge;
+  const retirementSpan = fire.endAge - fire.retire;
+  const coveredFraction =
+    retirementSpan > 0
+      ? Math.min(1, Math.max(0, (coveredUntil - fire.retire) / retirementSpan))
+      : 0;
+  const strategyName = {
+    brs: "Basic Retirement Sum",
+    frs: "Full Retirement Sum",
+    ers: "Enhanced Retirement Sum",
+  }[cpfProgress.strategy.toLowerCase()];
   const headline = onTrack
-    ? `Your plan funds retirement ${target}`
-    : `Your plan falls short for retirement ${target}`;
+    ? `Spending is covered through age ${fire.endAge}`
+    : `Your plan first falls short at age ${Math.floor(coveredUntil)}`;
   const savingsBand = savingsRateBand(rate);
   const earliestAge =
     fn.projectedFireAge != null
       ? `Age ${fn.projectedFireAge}`
-      : "Beyond age 80";
+      : "No age through 80";
   const beforeCpfLife = fire.retire < 65;
   const cpfLifeAge = beforeCpfLife ? "from age 65" : `at age ${fire.retire}`;
   const cpfLifeToday = beforeCpfLife
@@ -410,6 +423,8 @@ function buildOverviewPageHeader({
     `<button type="button" class="${style}" data-review-overview-savings>Review savings</button>`;
   const reviewAge = (style) =>
     `<button type="button" class="${style}" data-quick-edit="goal" data-qe-focus="#qe-retire">Review retirement age</button>`;
+  const fundingTrack = (pct) =>
+    `<span class="overview-funding-track" aria-hidden="true"><span style="inline-size:${Math.min(100, Math.max(0, pct))}%"></span></span>`;
   return `<header class="overview-hero" aria-labelledby="fire-hero-title">
     <div class="ember-page-header fin-page-header overview-title-row">
       <h1 id="fire-hero-title" tabindex="-1">Retirement Overview</h1>
@@ -417,14 +432,14 @@ function buildOverviewPageHeader({
         Assumptions <span class="overview-assumption-values">· ${Number((r.inflation * 100).toFixed(1))}% inflation · ${Number((r.investmentReturn * 100).toFixed(1))}% return</span>
       </button>
     </div>
-    <section class="overview-verdict card-surface is-${tone}" tabindex="-1" aria-label="Retirement readiness">
+    <section class="overview-verdict is-${tone}" tabindex="-1" aria-label="Retirement readiness">
       <div class="overview-verdict-copy">
         <h2 class="overview-decision-title">${headline}</h2>
         <p class="overview-decision-support">
           ${
             r.retiringNow
-              ? `Projection through age <strong>${fire.endAge}</strong>.`
-              : `This projection runs to age <strong>${fire.endAge}</strong> and assumes you save <strong>${m(contribution, "/mo")}</strong>.`
+              ? `This projection assumes you retire now, at age <strong>${fire.retire}</strong>.`
+              : `This projection assumes you save <strong>${m(contribution, "/mo")}</strong> and retire at <strong>${fire.retire}</strong>.`
           }
           ${
             !r.retiringNow && cashflow.netCashSurplus < 0
@@ -434,40 +449,75 @@ function buildOverviewPageHeader({
                 : ""
           }
         </p>
+        <div class="overview-retirement-span">
+          <div class="overview-span-track" aria-hidden="true"><span style="inline-size:${coveredFraction * 100}%"></span></div>
+          <div class="overview-span-labels"><span>Retirement · ${fire.retire}</span><span>Plan ends · ${fire.endAge}</span></div>
+        </div>
         <div class="overview-hero-actions">
           ${
             r.retiringNow
               ? reviewAge("button button-primary")
-              : `${reviewSavings("button button-primary")}${reviewAge("text-button")}`
+              : `${reviewSavings("button button-primary")}${reviewAge("button")}`
           }
         </div>
       </div>
-      <dl class="overview-action-outcome" aria-label="Current plan projections">
-        <div><dt class="overview-safe-age">Earliest projected retirement</dt><dd class="overview-hero-figure">${earliestAge}</dd></div>
-        <div>
+      <dl class="overview-action-outcome card-surface" aria-label="Current plan projections">
+        <div class="overview-funding-metric">
           <dt>${savingsProgress.title}</dt>
-          <dd class="overview-funded"><strong>${savingsProgress.percent}</strong></dd>
-          <dd class="overview-outcome-note">For spending left after projected retirement income.</dd>
+          <dd class="overview-funded">${savingsProgress.percent}</dd>
+          <dd class="overview-funding-detail">
+            ${fundingTrack(savingsProgress.pct)}
+            <span class="overview-funding-amount">${fn.totalRequiredToday > 0 ? `${m(fn.projectedSpendableAtRetireToday)} projected · ${m(fn.totalRequiredToday)} target` : "Projected retirement income covers planned spending."}</span>
+            <span class="overview-outcome-note">${fn.totalRequiredToday > 0 ? "In today’s dollars, after projected retirement income." : "No additional savings required for this target."}</span>
+          </dd>
+        </div>
+        <div class="overview-age-metric">
+          <dt class="overview-safe-age">Earliest projected retirement</dt>
+          <dd class="overview-hero-figure">${earliestAge}</dd>
+          <dd class="overview-outcome-note">To fund spending through age ${fire.endAge}.</dd>
         </div>
         <div class="overview-cpf-income">
           <dt>CPF LIFE ${cpfLifeAge}</dt>
-          <dd><strong>${m(cpfLifeToday, "/mo")}</strong> <span class="overview-outcome-note">in today’s dollars</span></dd>
+          <dd class="overview-cpf-figure">${m(cpfLifeToday, "/mo")}</dd>
+          <dd class="overview-outcome-note">In today’s dollars.</dd>
         </div>
       </dl>
-      <div class="overview-cpf-strategy">
-        <div>
-          <strong id="overview-cpf-strategy-label">CPF strategy</strong>
-          <p class="cpf-strategy-help"><strong><span id="overview-cpf-percent">${cpfProgress.percent}</span> of ${cpfProgress.strategy} funded at age 55</strong> · ${m(cpfProgress.balanceToday)} of ${m(cpfProgress.targetToday)} in today’s dollars</p>
-          <p id="overview-cpf-strategy-help" class="cpf-strategy-help">Switching strategies keeps your monthly savings and retirement budget fixed. BRS assumes an eligible property.</p>
+      <div class="overview-cpf-strategy card-surface">
+        <div class="overview-strategy-header">
+          <h3 id="overview-cpf-strategy-label">CPF retirement sum</h3>
+          <div id="overview-cpf-strategy-options" data-cpf-strategy-group role="group" aria-labelledby="overview-cpf-strategy-label" aria-describedby="overview-cpf-strategy-help">
+            ${["brs", "frs", "ers"].map((path) => `<button type="button" class="button button-small" data-cpf-strategy="${path}" aria-pressed="${path === selected}">${path.toUpperCase()}</button>`).join("")}
+          </div>
         </div>
-        <div id="overview-cpf-strategy-options" data-cpf-strategy-group role="group" aria-labelledby="overview-cpf-strategy-label" aria-describedby="overview-cpf-strategy-help">
-          ${["brs", "frs", "ers"].map((path) => `<button type="button" class="button button-small" data-cpf-strategy="${path}" aria-pressed="${path === selected}">${path.toUpperCase()}</button>`).join("")}
+        <div class="overview-strategy-progress">
+          <strong><span id="overview-cpf-percent">${cpfProgress.percent}</span> of the ${strategyName} at age 55</strong>
+          ${fundingTrack(cpfProgress.pct)}
+          <span>${m(cpfProgress.balanceToday)} of ${m(cpfProgress.targetToday)} in today’s dollars</span>
         </div>
+        <p id="overview-cpf-strategy-help" class="cpf-strategy-help">${selected === "brs" ? "BRS is a savings target. CPF savings above it can still flow into your Retirement Account up to FRS at 55." : "Changing this target keeps your savings and retirement budget fixed."}</p>
       </div>
-      <div class="overview-hero-summary" aria-label="Plan summary">
-        <span>Pay after CPF <strong>${m(r.afterCpf, "/mo")}</strong></span>
-        <span>Starting assets <strong>${m(startingTotalAssets)}</strong></span>
-        ${budget == null ? "" : `<button type="button" class="text-button overview-budget-link" data-go-tab="budget">Retirement budget <strong>${m(budget, "/mo")}</strong></button>`}
+      <div class="overview-plan-summary card-surface">
+        <h3>Plan inputs</h3>
+        <div class="overview-hero-summary">
+          <div><span>Pay after CPF</span> <strong>${m(r.afterCpf, "/mo")}</strong></div>
+          <div><span>Starting assets</span> <strong>${m(startingTotalAssets)}</strong></div>
+          ${budget == null ? "" : `<button type="button" class="text-button overview-budget-link" data-go-tab="budget"><span>Retirement budget ${svgWrap('<path d="M5 12h14m-6-6 6 6-6 6"/>', 14)}</span> <strong>${m(budget, "/mo")}</strong></button>`}
+        </div>
+        <details class="overview-asset-details" id="overview-starting-assets">
+          <summary>Starting asset breakdown</summary>
+          <dl>${[
+            ["Global equities", buckets.equities],
+            ["Singapore dividend holdings", buckets.sgDividends],
+            ["Cash and SSBs", buckets.ssbCash],
+            ["SRS", buckets.srs],
+            ["CPF balances", startingCpf],
+          ]
+            .map(
+              ([label, value]) =>
+                `<div><dt>${label}</dt><dd>${m(value)}</dd></div>`,
+            )
+            .join("")}</dl>
+        </details>
       </div>
     </section>
   </header>`;
@@ -1137,6 +1187,7 @@ export function buildFinOverviewGrid(
   netPay,
   cpfProgress,
   savingsProgress,
+  previousSavingsPercent,
 ) {
   const contribution = r.retiringNow
     ? simulation.cpfExtra + s.privateSaving
@@ -1197,11 +1248,11 @@ export function buildFinOverviewGrid(
   const startPt = fire.points[0];
   const startingCpf = startPt?.cpfTotal ?? 0;
   const startingSrs = startPt?.srs ?? 0;
-  const startingOutside = startPt?.totalOutside ?? 0;
+  const startingOutside = bogle.buckets.total;
   const startingTotalAssets = startingCpf + startingOutside;
   const selectedPathName =
     s.key === "brs"
-      ? "BRS Pledge"
+      ? "BRS Target"
       : s.key === "ers"
         ? "ERS Path"
         : s.key === "salary"
@@ -1219,15 +1270,12 @@ export function buildFinOverviewGrid(
 
   const pathMeta = {
     brs: {
-      name: "BRS · Eligible property owners",
-      tag: "Lower monthly CPF LIFE payout",
+      name: "Basic Retirement Sum",
+      tag: "Basic target",
       accent: "#0F766E",
       softBg: "#F0FDFA",
-      icon: svgWrap(
-        '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
-        16,
-      ),
-      note: "Assumes you qualify to use your home toward your CPF retirement sum. You may be able to access some CPF savings upfront.",
+      icon: svgWrap('<path d="M3 20h18M6 16v-3m6 3V9m6 7V5"/>', 16),
+      note: "Targets half your cohort FRS at 55. Your actual CPF LIFE payout depends on the savings in your Retirement Account.",
     },
     frs: {
       name: "FRS Target",
@@ -1321,7 +1369,7 @@ export function buildFinOverviewGrid(
     ["known-invest", "Outside investments", p.invest ?? simulation.invest],
   ];
 
-  return `${buildOverviewPageHeader({ fire, r, startingTotalAssets, rate: pctOfPay, contribution, budget: expenseData?.total, selected, cashflow, cpfProgress, savingsProgress })}
+  return `${buildOverviewPageHeader({ fire, r, startingTotalAssets, startingCpf, buckets: bogle.buckets, rate: pctOfPay, contribution, budget: expenseData?.total, selected, cashflow, cpfProgress, savingsProgress })}
   <section class="swell-section-block" aria-label="Wealth trajectory, income taps, and retirement readiness">
     <div class="swell-section-head">
       <h2>Trajectory &amp; Readiness</h2>
@@ -1425,6 +1473,11 @@ export function buildFinOverviewGrid(
     <div class="overview-total-saving">
       <span>Total saving</span>
       <strong class="overview-savings-total">${r.retiringNow ? "Saving paused" : m(contribution, "/mo")}</strong>
+    </div>
+    <div class="overview-savings-outcome">
+      <span>${savingsProgress.title}</span>
+      <strong>${previousSavingsPercent && previousSavingsPercent !== savingsProgress.percent ? `<span class="overview-savings-previous">${previousSavingsPercent} → </span>` : ""}${savingsProgress.percent}</strong>
+      <span>${getSavingsRunway(fire)}</span>
     </div>
     ${
       r.retiringNow
@@ -1570,7 +1623,7 @@ export function buildFinOverviewGrid(
         </table>
       </div>
       <details class="overview-disclosure-card" id="overview-property-eligibility">
-        <summary class="overview-disclosure-summary">How property eligibility works</summary>
+        <summary class="overview-disclosure-summary">When property can be used for a CPF withdrawal</summary>
         <div class="overview-disclosure-body">
           <p>From age 55, CPF Board may allow you to withdraw eligible Retirement Account savings down to the Basic Retirement Sum if you own a completed property whose lease lasts until at least age 95 and meet the CPF refund requirements.</p>
           <p>Your existing CPF housing refund may be enough to qualify. If you pledge your property, you must refund the pledged amount to CPF when you sell or transfer it.</p>

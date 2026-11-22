@@ -783,6 +783,8 @@
       months65 = (65 - age) * 12,
       monthsRetire = Math.round((retire - age) * 12),
       frs = retirementSum(C.year + 55 - age);
+    // A savings milestone does not elect a property-backed withdrawal.
+    const target = goal === "ers" ? 2 * frs : goal === "brs" ? 0.5 * frs : frs;
     const b = {
       oa: Number(p.oa || 0),
       sa: Number(p.sa || 0),
@@ -834,12 +836,10 @@
       const year = C.year + Math.floor((C.startMonth + m) / 12);
       const currentFRS = retirementSum(year);
       const bhs = C.bhs * (1 + C.bhsGrowth) ** (year - C.year);
-      const post55RaCap = goal === "brs" ? 0.5 * frs : frs;
       if (m === months55) {
         const originalOA = b.oa,
           originalSA = b.sa;
-        const initialCap = goal === "brs" ? 0.5 * frs : frs;
-        const initial = Math.min(initialCap, b.sa + b.oa);
+        const initial = Math.min(frs, b.sa + b.oa);
         const fromSA = Math.min(b.sa, initial);
         b.sa -= fromSA;
         b.oa -= initial - fromSA;
@@ -847,7 +847,7 @@
         principal = initial;
         b.oa += b.sa;
         b.sa = 0;
-        // Pre-closure SA interest is credited at year end, up to post55RaCap in RA, then OA.
+        // Pre-closure SA interest is credited at year end, up to FRS in RA, then OA.
         closedSAInterest = pending.sa;
         pending.sa = 0;
         snapshot55 = {
@@ -858,12 +858,10 @@
           availableAt55: originalOA + originalSA,
           reserve,
         };
-        const limit =
-          goal === "ers" ? 2 * frs : goal === "brs" ? 0.5 * frs : frs;
-        if (goal !== "salary" && goal !== "brs") {
-          b.oa -= creditRA(b.oa, limit);
+        if (goal === "ers") {
+          b.oa -= creditRA(b.oa, target);
         }
-        const reserveTransfer = creditRA(reserve, limit);
+        const reserveTransfer = creditRA(reserve, target);
         reserve -= reserveTransfer;
         totalTopups += reserveTransfer;
         if (forcedAt55 != null) {
@@ -876,8 +874,6 @@
         snapshot55.oaAfter55 = b.oa;
         snapshot55.remainingReserve = reserve;
       }
-      const target =
-        goal === "ers" ? 2 * frs : goal === "brs" ? 0.5 * frs : frs;
       if (
         goalAge === null &&
         (currentAge < 55 ? b.sa + b.oa + reserve : principal) >= target - 0.005
@@ -899,16 +895,16 @@
           pending[key] = 0;
         }
         if (closedSAInterest > 0) {
-          addRetirement(closedSAInterest, post55RaCap, false);
+          addRetirement(closedSAInterest, frs, false);
           closedSAInterest = 0;
         }
         const overflow65 = Math.max(0, b.ma - bhs);
         if (overflow65 > 0) {
           b.ma -= overflow65;
-          addRetirement(overflow65, post55RaCap, false);
+          addRetirement(overflow65, frs, false);
         }
         // For these birth cohorts, OA is transferred up to RA requirement when payouts start.
-        raSweepAt65 = creditRA(b.oa, post55RaCap);
+        raSweepAt65 = creditRA(b.oa, frs);
         b.oa -= raSweepAt65;
         if (goalAge === null && principal >= target - 0.005)
           goalAge = currentAge;
@@ -939,10 +935,7 @@
       if (before55) incoming.sa = contribution * r;
       else {
         // Compute capped RA addition without mutating b.ra before interest eligibility is snapshotted.
-        incoming.ra = Math.min(
-          contribution * r,
-          Math.max(0, post55RaCap - principal),
-        );
+        incoming.ra = Math.min(contribution * r, Math.max(0, frs - principal));
         incoming.oa += contribution * r - incoming.ra;
         post55RAContributions += incoming.ra;
         post55RAContributionsToday += todayValue(
@@ -1002,7 +995,7 @@
       b.ma += maAddition;
       addRetirement(
         incoming.ma - maAddition,
-        before55 ? currentFRS : post55RaCap,
+        before55 ? currentFRS : frs,
         before55,
       );
       // New cash earns from the following month.
@@ -1021,7 +1014,7 @@
       if (!before55 && reserve > 0 && goal !== "salary") {
         const transfer = creditRA(
           reserve,
-          goal === "ers" ? 2 * currentFRS : post55RaCap,
+          goal === "ers" ? 2 * currentFRS : target,
         );
         reserve -= transfer;
         totalTopups += transfer;
@@ -1032,12 +1025,12 @@
           pending[key] = 0;
         }
         if (!before55 && closedSAInterest > 0) {
-          addRetirement(closedSAInterest, post55RaCap, false);
+          addRetirement(closedSAInterest, frs, false);
           closedSAInterest = 0;
         }
         const overflow = Math.max(0, b.ma - bhs);
         b.ma -= overflow;
-        addRetirement(overflow, before55 ? currentFRS : post55RaCap, before55);
+        addRetirement(overflow, before55 ? currentFRS : frs, before55);
       }
     }
     const owAnnualNow =
@@ -1292,12 +1285,7 @@
       }
       return {
         key,
-        label:
-          key === "salary"
-            ? "Salary path"
-            : key === "brs"
-              ? "BRS (Pledge)"
-              : key.toUpperCase(),
+        label: key === "salary" ? "Salary path" : key.toUpperCase(),
         balance,
         payout,
         payout75,

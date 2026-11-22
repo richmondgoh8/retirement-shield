@@ -347,6 +347,11 @@ h3 {
   margin-inline-start: 0.08em;
 }
 
+:is(#trajectory-saving-total, .affordability-right) .curr-wrap > .curr-suffix {
+  color: var(--ink-soft);
+  opacity: 1;
+}
+
 .sr-status {
   position: absolute;
   width: 1px;
@@ -1980,6 +1985,64 @@ h3 {
 .plan-settings .field-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+}
+
+.budget-comparison-context {
+  margin: 0 0 16px;
+  color: var(--ink-soft);
+}
+
+.budget-comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: auto 1fr;
+  gap: 12px;
+}
+
+.budget-comparison-scenario {
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: span 2;
+  gap: 8px;
+  padding: clamp(8px, 2.5vw, 16px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+  overflow-wrap: anywhere;
+}
+
+.budget-comparison-scenario h3 {
+  margin: 0;
+  font-size: clamp(0.875rem, 4vw, 1rem);
+}
+
+.budget-comparison-scenario dl {
+  margin: 0;
+}
+
+.budget-comparison-scenario dt,
+.budget-comparison-scenario .budget-comparison-unavailable {
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+.budget-comparison-scenario dd {
+  margin: 2px 0 12px;
+  font-weight: 700;
+}
+
+.budget-comparison-scenario dd:last-child {
+  margin-block-end: 0;
+}
+
+#budget-comparison-title {
+  font-size: clamp(1rem, 4.5vw, 1.4rem);
+}
+
+#budget-comparison .dialog-dismiss {
+  width: 44px;
+  height: 44px;
 }
 
 .assumptions-baseline-note {
@@ -10395,6 +10458,7 @@ code {
     display: block;
     width: 100%;
     max-width: 100%;
+    min-height: 0;
     margin: 0;
     padding: 0;
     border: 0;
@@ -10407,6 +10471,11 @@ code {
     max-width: 100%;
     padding: 0;
     margin: 0;
+  }
+
+  .print-only-sheet .curr-wrap > :is(.curr-prefix, .curr-suffix) {
+    font-size: max(6.5pt, 0.78em);
+    opacity: 1;
   }
 
   .poster-sheet {
@@ -10572,58 +10641,6 @@ code {
     color: var(--sem-alert-ink);
   }
 
-  .poster-snapshot-banner {
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-md);
-    background: var(--surface);
-    overflow: hidden;
-    break-inside: avoid;
-  }
-
-  .poster-kpi-strips {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 0;
-    break-inside: avoid;
-  }
-
-  .poster-stat-strip {
-    background: var(--surface);
-    padding: 4.5px 8px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    min-height: 34px;
-    border-right: 1px solid var(--border);
-  }
-
-  .poster-stat-strip:last-child {
-    border-right: 0;
-  }
-
-  .poster-stat-strip small {
-    display: block;
-    font-size: 6.5pt;
-    font-weight: 600;
-    color: var(--ink-soft);
-    margin-bottom: 1px;
-  }
-
-  .poster-stat-strip > div {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 2px 4px;
-  }
-
-  .poster-stat-strip strong {
-    font-size: 9pt;
-    font-weight: 700;
-    color: var(--ink);
-    line-height: 1.15;
-  }
-
   .poster-pill {
     font-size: 6.5pt;
     font-weight: 600;
@@ -10642,7 +10659,8 @@ code {
     align-items: center;
     gap: 2px 8px;
     padding: 3px 9px;
-    border-top: 1px solid var(--border);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
     background: var(--surface-subtle);
     font-size: 6.5pt;
     color: var(--ink-soft);
@@ -10838,7 +10856,7 @@ code {
     display: block;
     width: 100%;
     height: auto;
-    max-height: 44mm;
+    max-height: 40mm;
   }
 
   .poster-panel-head {
@@ -11167,73 +11185,6 @@ code {
     display: block;
     height: 100%;
     border-radius: var(--radius-pill);
-  }
-
-  .poster-checkpoints-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 2.5px;
-    margin-top: auto;
-    padding-top: 4px;
-    border-top: 1px solid var(--border);
-    min-width: 0;
-  }
-
-  .poster-feed-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 4px;
-    padding: 1.5px 5px;
-    border-radius: 4px;
-    border: 1px solid var(--border);
-    background: var(--surface-subtle);
-    min-width: 0;
-  }
-
-  .poster-feed-right {
-    flex-shrink: 0;
-  }
-
-  .poster-feed-avatar {
-    width: 16px;
-    height: 16px;
-    border-radius: var(--radius-pill);
-    display: inline-grid;
-    place-items: center;
-    font-size: 6.5pt;
-    font-weight: 700;
-    flex-shrink: 0;
-  }
-
-  .poster-feed-copy {
-    min-width: 0;
-    flex: 1;
-    display: flex;
-    align-items: baseline;
-    gap: 4px;
-    overflow: hidden;
-  }
-
-  .poster-feed-copy strong {
-    font-size: 6.5pt;
-    color: var(--ink);
-    line-height: 1.12;
-    white-space: nowrap;
-  }
-
-  .poster-feed-copy small {
-    font-size: 6.5pt;
-    color: var(--ink-soft);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .poster-feed-right b {
-    font-size: 6.5pt;
-    color: var(--ink);
-    white-space: nowrap;
   }
 
   .poster-override-note {
@@ -11776,6 +11727,7 @@ code {
 .overview-hero {
   display: grid;
   gap: 14px;
+  container: retirement-overview / inline-size;
 }
 
 .overview-hero .overview-title-row {
@@ -11812,7 +11764,6 @@ code {
 
 #overview-slot
   :is(
-    .overview-verdict,
     .overview-savings,
     .fin-expense-card,
     .fin-hero-card,
@@ -11822,8 +11773,7 @@ code {
   padding: clamp(20px, 2vw, 24px);
 }
 
-#overview-slot
-  :is(.swell-section-head h2, .fin-expense-title-row h2, .overview-verdict h2) {
+#overview-slot :is(.swell-section-head h2, .fin-expense-title-row h2) {
   margin: 0;
   font-size: 1.06rem;
   font-weight: 700;
@@ -11832,54 +11782,125 @@ code {
 }
 
 .overview-verdict {
+  --overview-funding-fill: var(--sem-cpf-ink);
+  --overview-panel-padding: clamp(16px, 3cqi, 26px);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(15rem, 0.55fr);
-  align-items: center;
-  gap: 1.25rem 2rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
 }
 
 .overview-verdict.is-warn {
-  background: var(--sem-cash-soft);
-  border-color: var(--sem-cash-border);
+  --overview-funding-fill: var(--sem-cash-ink);
+}
+
+.overview-verdict-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(20px, 4cqi, 38px);
+  border: 1px solid var(--ink);
+  border-radius: var(--radius-lg);
+  background: var(--ink);
+  background-image: radial-gradient(
+    ellipse at bottom right,
+    color-mix(in srgb, var(--primary) 42%, var(--ink)),
+    transparent 76%
+  );
+  color: var(--surface);
+  box-shadow: var(--surface-shadow);
 }
 
 #overview-slot .overview-verdict .overview-decision-title {
-  font-size: clamp(1.45rem, 1.1rem + 1vw, 2rem);
-  line-height: 1.18;
+  max-inline-size: 22ch;
+  margin: 0;
+  color: inherit;
+  font-size: clamp(1.5rem, 4.25cqi, 2.5rem);
+  font-weight: 750;
+  line-height: 1.12;
+  letter-spacing: -0.035em;
   text-wrap: balance;
 }
 
 .overview-decision-support {
   max-inline-size: 55ch;
-  margin: 0.65rem 0 0;
-  color: var(--ink-soft);
-  line-height: 1.5;
+  margin: 14px 0 0;
+  color: color-mix(in srgb, var(--surface) 82%, var(--ink));
+  line-height: 1.55;
+}
+
+.overview-retirement-span {
+  margin-block-start: 20px;
+}
+
+.overview-span-track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  block-size: 5px;
+}
+
+.overview-span-track::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  border-block-start: 2px dashed
+    color-mix(in srgb, var(--surface) 55%, transparent);
+}
+
+.overview-span-track > span {
+  position: relative;
+  block-size: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+}
+
+.overview-span-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-block-start: 6px;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .overview-decision-support strong {
-  color: var(--ink);
+  color: var(--surface);
 }
 
 .overview-decision-band {
   display: block;
-  margin-block-start: 0.15rem;
+  margin-block-start: 4px;
   font-size: 0.875rem;
 }
 
 .overview-action-outcome {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-  min-inline-size: 0;
   margin: 0;
-  padding-inline-start: 1.25rem;
-  border-inline-start: 1px solid var(--border-strong);
+}
+
+.overview-action-outcome > div,
+.overview-plan-summary,
+.overview-cpf-strategy {
+  min-inline-size: 0;
+  padding: var(--overview-panel-padding);
+}
+
+.overview-funding-metric {
+  grid-column: 1 / -1;
+  border-block-end: 1px solid var(--border);
+}
+
+.overview-age-metric {
+  border-inline-end: 1px solid var(--border);
 }
 
 .overview-action-outcome dt {
-  margin-block-end: 0.25rem;
+  margin-block-end: 4px;
   color: var(--ink-soft);
   font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.3;
 }
 
 .overview-action-outcome dd {
@@ -11887,65 +11908,195 @@ code {
   font-variant-numeric: tabular-nums;
 }
 
-.overview-action-outcome :is(.overview-hero-figure, .overview-funded) {
-  font-size: 1.4rem;
-  line-height: 1.18;
+.overview-funded {
+  color: var(--ink);
+  font-size: clamp(2.25rem, 5cqi, 3.25rem);
+  font-weight: 800;
+  line-height: 1.04;
+  letter-spacing: -0.045em;
+  overflow-wrap: anywhere;
+}
+
+.overview-action-outcome :is(.overview-hero-figure, .overview-cpf-figure) {
+  color: var(--ink);
+  font-size: clamp(1.23rem, 2.6cqi, 1.7rem);
   font-weight: 750;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.overview-action-outcome .overview-cpf-figure {
+  color: var(--sem-cpf-ink);
 }
 
 .overview-action-outcome .overview-outcome-note {
   color: var(--ink-soft);
   font-size: 0.8125rem;
+  line-height: 1.4;
 }
 
-.overview-funded + .overview-outcome-note {
-  margin-block-start: 0.25rem;
+.overview-action-outcome dd.overview-outcome-note {
+  margin-block-start: 6px;
 }
 
-.overview-action-outcome .overview-cpf-income {
-  grid-column: 1 / -1;
-  padding-block-start: 0.65rem;
-  border-block-start: 1px solid var(--border-strong);
+.overview-funding-detail {
+  display: grid;
+  gap: 3px;
+}
+
+.overview-funding-amount {
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+
+.overview-funding-track {
+  display: block;
+  block-size: 7px;
+  border-radius: var(--radius-pill);
+  background: var(--border-strong);
+}
+
+.overview-funding-detail > .overview-funding-track {
+  margin-block: 10px 7px;
+}
+
+.overview-funding-track > span {
+  display: block;
+  block-size: 100%;
+  border-radius: inherit;
+  background: var(--overview-funding-fill);
 }
 
 .overview-hero-actions {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 0.35rem 0.8rem;
-  margin-block-start: 0.9rem;
+  gap: 8px;
+  margin-block-start: 24px;
 }
 
-.overview-hero-actions > .text-button {
+.overview-hero-actions > .button {
   min-block-size: 44px;
-  text-align: start;
+  min-inline-size: 0;
+  border-color: color-mix(in srgb, var(--surface) 48%, transparent);
+  background: color-mix(in srgb, var(--surface) 6%, transparent);
+  color: var(--surface);
+  white-space: normal;
+}
+
+.overview-hero-actions > .button-primary {
+  border-color: var(--surface);
+  background: var(--surface);
+  color: var(--primary-ink);
+}
+
+.overview-verdict-copy :focus-visible {
+  outline-color: var(--surface);
+}
+
+@media (hover: hover) {
+  .overview-hero-actions > .button:hover {
+    border-color: var(--surface);
+    background: color-mix(in srgb, var(--surface) 14%, transparent);
+    color: var(--surface);
+  }
+
+  .overview-hero-actions > .button-primary:hover {
+    border-color: var(--primary-soft);
+    background: var(--primary-soft);
+    color: var(--primary-ink);
+  }
 }
 
 #overview-savings-title {
   scroll-margin-block-start: 5rem;
 }
 
-.overview-hero-summary {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px 16px;
-  padding-block-start: 8px;
-  border-block-start: 1px solid var(--border-strong);
+.overview-plan-summary h3,
+.overview-strategy-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 750;
 }
 
-.overview-hero-summary > .text-button {
-  display: inline-block;
+.overview-asset-details {
+  margin-block-start: 8px;
+  font-size: 0.875rem;
+}
+
+.overview-asset-details summary {
+  padding-block: 6px;
+  color: var(--primary-ink);
+  cursor: pointer;
+}
+
+.overview-asset-details dl {
+  margin: 0;
+}
+
+.overview-asset-details dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding-block: 4px;
+  border-block-start: 1px solid var(--border);
+}
+
+.overview-asset-details dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.overview-hero-summary {
+  display: grid;
+  gap: 6px;
+  margin-block-start: 12px;
+}
+
+.overview-hero-summary > * {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 3px 6px;
+  min-inline-size: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
   color: var(--ink-soft);
-  padding: 4px 0;
-  font-size: inherit;
-  line-height: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.overview-hero-summary > .overview-budget-link {
+  min-block-size: 44px;
+  border: 1px solid var(--primary-border);
+  background: var(--primary-soft);
+  color: var(--primary-ink);
   text-align: start;
+}
+
+@media (hover: hover) {
+  .overview-hero-summary > .overview-budget-link:hover {
+    border-color: var(--primary);
+    background: color-mix(
+      in srgb,
+      var(--primary-soft),
+      var(--primary-border) 25%
+    );
+  }
+}
+
+.overview-budget-link > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
 }
 
 .overview-hero-summary strong {
   color: var(--ink);
+  font-size: 1rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
 }
 
 .overview-savings-total {
@@ -11953,16 +12104,67 @@ code {
   line-height: 1.2;
 }
 
-@media (max-width: 960px) {
+@container retirement-overview (min-width: 44rem) {
   .overview-verdict {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+@container retirement-overview (min-width: 49rem) {
+  .overview-plan-summary {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .overview-hero-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: auto auto;
+  }
+
+  .overview-hero-summary > * {
+    display: grid;
+    grid-template-rows: subgrid;
+    grid-row: span 2;
+    justify-content: start;
+  }
+
+  .overview-hero-summary strong {
+    font-size: clamp(1rem, 1.7cqi, 1.3rem);
+    overflow-wrap: anywhere;
+    align-self: start;
+  }
+
+  .overview-hero-summary > * > span:first-child {
+    align-self: end;
+  }
+}
+
+@container retirement-overview (inline-size < 25rem) {
+  .overview-hero-actions > .button {
+    flex: 1 0 100%;
+  }
+}
+
+@container retirement-overview (inline-size < 18rem) {
+  .overview-action-outcome {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .overview-action-outcome {
-    padding-inline-start: 0;
-    padding-block-start: 0.9rem;
-    border-inline-start: 0;
-    border-block-start: 1px solid var(--border-strong);
+  .overview-action-outcome > :is(.overview-age-metric, .overview-cpf-income) {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: baseline;
+    column-gap: 8px;
+  }
+
+  .overview-age-metric {
+    border-inline-end: 0;
+    border-block-end: 1px solid var(--border);
+  }
+
+  .overview-action-outcome dd.overview-outcome-note {
+    grid-column: 1 / -1;
+    margin-block-start: 2px;
   }
 }
 
@@ -12138,6 +12340,30 @@ code {
 .overview-total-saving > span {
   color: var(--ink-soft);
   font-weight: 600;
+}
+
+.overview-savings-outcome {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-block: 12px 4px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+}
+
+.overview-savings-outcome strong {
+  color: var(--ink);
+  font-size: 1rem;
+  white-space: nowrap;
+}
+
+.overview-savings-previous {
+  color: var(--ink-soft);
+  font-weight: 500;
 }
 
 .overview-saving-hint {
@@ -12443,6 +12669,12 @@ code {
     padding-inline: 0;
   }
 
+  #compare-retirement-budgets {
+    grid-column: 1 / -1;
+    justify-self: start;
+    padding-inline: 0;
+  }
+
   #budget-slot .exp-top-list li > span {
     white-space: normal;
     overflow-wrap: anywhere;
@@ -12709,14 +12941,6 @@ code {
 }
 
 @media (max-width: 768px) {
-  .overview-verdict {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .overview-hero-actions > .button {
-    flex: 1 1 auto;
-  }
-
   #dash-networth-legend {
     display: flex;
     flex-wrap: nowrap;
@@ -14699,7 +14923,6 @@ code {
   width: 100%;
 }
 
-.overview-hero-summary > .overview-budget-link,
 .overview-chart-head > .overview-projection-link {
   min-block-size: 44px;
 }
@@ -14733,11 +14956,6 @@ code {
 
 #overview-slot .overview-chart-head {
   flex-wrap: wrap;
-}
-
-.overview-hero-actions > .button {
-  min-inline-size: 0;
-  white-space: normal;
 }
 
 #dash-networth-legend {
@@ -14946,14 +15164,32 @@ code {
 }
 
 .overview-cpf-strategy {
-  grid-column: 1 / -1;
+  --overview-funding-fill: var(--sem-cpf-ink);
+}
+
+.overview-strategy-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 0.75rem 1rem;
-  padding-block-start: 0.85rem;
-  border-block-start: 1px solid var(--border-strong);
+  gap: 8px 12px;
+}
+
+.overview-strategy-progress {
+  display: grid;
+  gap: 5px;
+  margin-block-start: 10px;
+  color: var(--ink-soft);
+  font-size: 0.8125rem;
+}
+
+.overview-strategy-progress > strong {
+  color: var(--ink);
+  font-size: 0.875rem;
+}
+
+.overview-strategy-progress > .overview-funding-track {
+  block-size: 5px;
 }
 
 .cpf-strategy-help {
@@ -14969,16 +15205,26 @@ code {
 #overview-cpf-strategy-options {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
 }
 
 #overview-cpf-strategy-options > button {
   min-block-size: 44px;
   min-inline-size: 44px;
+  padding-inline: 10px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-soft);
 }
 
 #overview-cpf-strategy-options > [aria-pressed="true"] {
-  background: var(--primary-soft);
-  border-color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+  background: var(--surface);
+  border-color: var(--primary-border);
   color: var(--primary-ink);
 }
