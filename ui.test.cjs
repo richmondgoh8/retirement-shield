@@ -336,13 +336,19 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       assert.match(strategy.budget, /\$\s*2,800/, strategy.strategy);
       assert.equal(strategy.active, strategy.strategy);
       assert.equal(strategy.funded, 41);
-      assert.equal(strategy.cpfFunded, { brs: 75, frs: 38, ers: 19 }[strategy.strategy]);
+      assert.equal(
+        strategy.cpfFunded,
+        { brs: 75, frs: 38, ers: 19 }[strategy.strategy],
+      );
       assert.equal(strategy.sidebar, `${strategy.funded}%`);
       assert.match(strategy.headline, /falls short/, strategy.strategy);
     }
     assert.equal(insights.age65.overview, "43%");
     assert.notEqual(insights.age60.overview, insights.age65.overview);
-    for (const [age, progress] of [[65, insights.age65], [60, insights.age60]]) {
+    for (const [age, progress] of [
+      [65, insights.age65],
+      [60, insights.age60],
+    ]) {
       assert.equal(progress.overview, progress.sidebar);
       assert.equal(progress.overview, progress.print);
       assert.equal(progress.overviewAge, `Savings target funded at age ${age}`);

@@ -7015,19 +7015,99 @@
     benchmarkRatePct = 5.0,
     masRates = null,
   } = {}) {
-    const moPayIn = Math.max(1, Number.isFinite(Number(monthlyContribution)) ? Number(monthlyContribution) : 1000);
-    const cYrs = Math.max(1, Math.min(50, Math.round(Number.isFinite(Number(contributeYears)) ? Number(contributeYears) : 15)));
-    const dYrs = Math.max(0, Math.min(30, Math.round(Number.isFinite(Number(deferYears)) ? Number(deferYears) : 0)));
-    const pYrs = Math.max(1, Math.min(50, Math.round(Number.isFinite(Number(payoutYears)) ? Number(payoutYears) : 20)));
-    const quotedMo = Math.max(0, Number.isFinite(Number(quotedMonthlyPayout)) ? Number(quotedMonthlyPayout) : 0);
-    const baseMonthlyDividends = Math.max(0, Number.isFinite(Number(nonGuaranteedMonthlyDividends)) ? Number(nonGuaranteedMonthlyDividends) : 0);
-    const realization = Math.max(0, Math.min(1, Number.isFinite(Number(bonusRealization)) ? Number(bonusRealization) : 1));
-    const stepUp = Math.max(0, Math.min(1, (Number.isFinite(Number(dividendStepUpRatePct)) ? Number(dividendStepUpRatePct) : 5) / 100));
-    const baseTerminalDividend = Math.max(0, Number.isFinite(Number(terminalDividend)) ? Number(terminalDividend) : 0);
-    const inflation = Math.max(-0.99, Math.min(1, (Number.isFinite(Number(inflationRatePct)) ? Number(inflationRatePct) : 2.5) / 100));
+    const moPayIn = Math.max(
+      1,
+      Number.isFinite(Number(monthlyContribution))
+        ? Number(monthlyContribution)
+        : 1000,
+    );
+    const cYrs = Math.max(
+      1,
+      Math.min(
+        50,
+        Math.round(
+          Number.isFinite(Number(contributeYears))
+            ? Number(contributeYears)
+            : 15,
+        ),
+      ),
+    );
+    const dYrs = Math.max(
+      0,
+      Math.min(
+        30,
+        Math.round(
+          Number.isFinite(Number(deferYears)) ? Number(deferYears) : 0,
+        ),
+      ),
+    );
+    const pYrs = Math.max(
+      1,
+      Math.min(
+        50,
+        Math.round(
+          Number.isFinite(Number(payoutYears)) ? Number(payoutYears) : 20,
+        ),
+      ),
+    );
+    const quotedMo = Math.max(
+      0,
+      Number.isFinite(Number(quotedMonthlyPayout))
+        ? Number(quotedMonthlyPayout)
+        : 0,
+    );
+    const baseMonthlyDividends = Math.max(
+      0,
+      Number.isFinite(Number(nonGuaranteedMonthlyDividends))
+        ? Number(nonGuaranteedMonthlyDividends)
+        : 0,
+    );
+    const realization = Math.max(
+      0,
+      Math.min(
+        1,
+        Number.isFinite(Number(bonusRealization))
+          ? Number(bonusRealization)
+          : 1,
+      ),
+    );
+    const stepUp = Math.max(
+      0,
+      Math.min(
+        1,
+        (Number.isFinite(Number(dividendStepUpRatePct))
+          ? Number(dividendStepUpRatePct)
+          : 5) / 100,
+      ),
+    );
+    const baseTerminalDividend = Math.max(
+      0,
+      Number.isFinite(Number(terminalDividend)) ? Number(terminalDividend) : 0,
+    );
+    const inflation = Math.max(
+      -0.99,
+      Math.min(
+        1,
+        (Number.isFinite(Number(inflationRatePct))
+          ? Number(inflationRatePct)
+          : 2.5) / 100,
+      ),
+    );
     const mode = paymentMode === "annual" ? "annual" : "monthly";
-    const benchRatePct = Math.max(0.5, Math.min(20, Number.isFinite(Number(benchmarkRatePct)) ? Number(benchmarkRatePct) : 5));
-    const ssbRatePct = Number(masRates?.ssb?.tenYearAvgReturn ?? masRates?.ssb?.year10Return ?? DEFAULT_MAS_LIVE_RATES.ssb.year10Return);
+    const benchRatePct = Math.max(
+      0.5,
+      Math.min(
+        20,
+        Number.isFinite(Number(benchmarkRatePct))
+          ? Number(benchmarkRatePct)
+          : 5,
+      ),
+    );
+    const ssbRatePct = Number(
+      masRates?.ssb?.tenYearAvgReturn ??
+        masRates?.ssb?.year10Return ??
+        DEFAULT_MAS_LIVE_RATES.ssb.year10Return,
+    );
 
     const premiumMonths = cYrs * 12;
     const payoutStartMonth = (cYrs + dYrs) * 12;
@@ -7049,7 +7129,8 @@
       } else {
         let divisor = 0;
         for (let y = 0; y < pYrs; y++) divisor += (1 + stepUp) ** y;
-        year1AnnualDividend = divisor > 0 ? scaledMonthlyDividends / divisor : 0;
+        year1AnnualDividend =
+          divisor > 0 ? scaledMonthlyDividends / divisor : 0;
       }
     }
     const scaledTerminalDividend = baseTerminalDividend * realization;
@@ -7064,12 +7145,21 @@
     }
     flows[totalMonths] += scaledTerminalDividend;
 
-    const totalPrincipalPaid = Math.round(mode === "monthly" ? moPayIn * premiumMonths : moPayIn * 12 * cYrs);
+    const totalPrincipalPaid = Math.round(
+      mode === "monthly" ? moPayIn * premiumMonths : moPayIn * 12 * cYrs,
+    );
     const guaranteedPayoutReceived = Math.round(quotedMo * payoutMonths);
-    const nonGuaranteedPayoutReceived = Math.round(scaledMonthlyDividends + scaledTerminalDividend);
-    const totalPayoutReceived = Math.round(guaranteedPayoutReceived + nonGuaranteedPayoutReceived);
+    const nonGuaranteedPayoutReceived = Math.round(
+      scaledMonthlyDividends + scaledTerminalDividend,
+    );
+    const totalPayoutReceived = Math.round(
+      guaranteedPayoutReceived + nonGuaranteedPayoutReceived,
+    );
     const netProfitNominal = totalPayoutReceived - totalPrincipalPaid;
-    const payoutMultiple = totalPrincipalPaid > 0 ? Math.round((totalPayoutReceived / totalPrincipalPaid) * 100) / 100 : 0;
+    const payoutMultiple =
+      totalPrincipalPaid > 0
+        ? Math.round((totalPayoutReceived / totalPrincipalPaid) * 100) / 100
+        : 0;
 
     const solveMonthlyLogGrowth = () => {
       if (flows[totalMonths] === 0) return null;
@@ -7094,25 +7184,36 @@
       return (lo + hi) / 2;
     };
     const monthlyLogGrowth = solveMonthlyLogGrowth();
-    const impliedAnnualIrrPct = monthlyLogGrowth === null
-      ? null
-      : Math.round(Math.expm1(12 * monthlyLogGrowth) * 10000) / 100;
-    const realAnnualIrrPct = monthlyLogGrowth === null
-      ? null
-      : Math.round(Math.expm1(12 * monthlyLogGrowth - Math.log1p(inflation)) * 10000) / 100;
+    const impliedAnnualIrrPct =
+      monthlyLogGrowth === null
+        ? null
+        : Math.round(Math.expm1(12 * monthlyLogGrowth) * 10000) / 100;
+    const realAnnualIrrPct =
+      monthlyLogGrowth === null
+        ? null
+        : Math.round(
+            Math.expm1(12 * monthlyLogGrowth - Math.log1p(inflation)) * 10000,
+          ) / 100;
 
     const accumulatePremiums = (monthlyGrowth) => {
       let pot = 0;
       for (let m = 0; m < premiumMonths; m++) {
-        pot = (pot + (mode === "monthly" ? moPayIn : (m % 12 === 0 ? moPayIn * 12 : 0))) * monthlyGrowth;
+        pot =
+          (pot +
+            (mode === "monthly" ? moPayIn : m % 12 === 0 ? moPayIn * 12 : 0)) *
+          monthlyGrowth;
       }
-      for (let m = premiumMonths; m < payoutStartMonth; m++) pot *= monthlyGrowth;
+      for (let m = premiumMonths; m < payoutStartMonth; m++)
+        pot *= monthlyGrowth;
       return pot;
     };
     const calcDiyAnnuity = (annualPct) => {
       const rm = (1 + annualPct / 100) ** (1 / 12) - 1;
       const pot = accumulatePremiums(1 + rm);
-      const monthlyDraw = rm === 0 ? pot / payoutMonths : pot * rm / (1 - (1 + rm) ** -payoutMonths);
+      const monthlyDraw =
+        rm === 0
+          ? pot / payoutMonths
+          : (pot * rm) / (1 - (1 + rm) ** -payoutMonths);
       const totalPayout = monthlyDraw * payoutMonths;
       return {
         ratePct: annualPct,
@@ -7120,15 +7221,22 @@
         monthlyPayout: Math.round(monthlyDraw * 100) / 100,
         totalPayout: Math.round(totalPayout),
         perpetualMonthly: Math.round(pot * rm * 100) / 100,
-        monthlyDeltaVsQuoted: Math.round((monthlyDraw - (quotedMo + (scaledMonthlyDividends / payoutMonths))) * 100) / 100,
+        monthlyDeltaVsQuoted:
+          Math.round(
+            (monthlyDraw - (quotedMo + scaledMonthlyDividends / payoutMonths)) *
+              100,
+          ) / 100,
       };
     };
     const diySsb = calcDiyAnnuity(ssbRatePct);
     const diyCpfSa = calcDiyAnnuity(4);
     const diyBench = calcDiyAnnuity(benchRatePct);
 
-    const startingMonthlyPayout = quotedMo + (pYrs > 0 ? year1AnnualDividend / 12 : 0);
-    const finalMonthlyPayout = quotedMo + (pYrs > 0 ? year1AnnualDividend * (1 + stepUp) ** (pYrs - 1) / 12 : 0);
+    const startingMonthlyPayout =
+      quotedMo + (pYrs > 0 ? year1AnnualDividend / 12 : 0);
+    const finalMonthlyPayout =
+      quotedMo +
+      (pYrs > 0 ? (year1AnnualDividend * (1 + stepUp) ** (pYrs - 1)) / 12 : 0);
     let verdictKey = "fair";
     let tone = "info";
     let badge = "Fair Risk-Free Floor";
@@ -7170,18 +7278,34 @@
         label: "Participating Annuity",
         sub: `${mode === "annual" ? "Annual" : "Monthly"} premium · ${pYrs}y payout`,
         ratePct: impliedAnnualIrrPct,
-        potAtPayoutStart: monthlyLogGrowth === null
-          ? null
-          : Math.round(accumulatePremiums(Math.exp(monthlyLogGrowth))),
+        potAtPayoutStart:
+          monthlyLogGrowth === null
+            ? null
+            : Math.round(accumulatePremiums(Math.exp(monthlyLogGrowth))),
         monthlyPayout: startingMonthlyPayout,
         totalPayout: totalPayoutReceived,
         perpetualMonthly: 0,
         monthlyDeltaVsQuoted: 0,
         isQuoted: true,
       },
-      { key: "ssb", label: "DIY · MAS 10Y SSB Floor", sub: "100% liquid sovereign floor · $0 lock-in penalty", ...diySsb },
-      { key: "cpf-sa", label: "DIY · CPF SA / RA (4.0% Floor)", sub: "AAA risk-free statutory rate · same premium cash flows", ...diyCpfSa },
-      { key: "diy-bench", label: `DIY · Portfolio @ ${benchRatePct.toFixed(1)}% p.a.`, sub: "Same premium, deferment and payout duration", ...diyBench },
+      {
+        key: "ssb",
+        label: "DIY · MAS 10Y SSB Floor",
+        sub: "100% liquid sovereign floor · $0 lock-in penalty",
+        ...diySsb,
+      },
+      {
+        key: "cpf-sa",
+        label: "DIY · CPF SA / RA (4.0% Floor)",
+        sub: "AAA risk-free statutory rate · same premium cash flows",
+        ...diyCpfSa,
+      },
+      {
+        key: "diy-bench",
+        label: `DIY · Portfolio @ ${benchRatePct.toFixed(1)}% p.a.`,
+        sub: "Same premium, deferment and payout duration",
+        ...diyBench,
+      },
     ];
 
     return {

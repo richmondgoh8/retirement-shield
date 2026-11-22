@@ -6870,6 +6870,46 @@ h3 {
     animation: tabPanelEnter 240ms cubic-bezier(0.2, 0, 0, 1) both;
   }
 
+  /* View Transitions API: Progressive Cross-Tab Navigation */
+  @view-transition {
+    navigation: auto;
+  }
+
+  ::view-transition-old(root) {
+    animation: 160ms var(--ease) both rsVtFadeOut;
+  }
+
+  ::view-transition-new(root) {
+    animation: 180ms var(--ease) both rsVtFadeIn;
+  }
+
+  @keyframes rsVtFadeOut {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes rsVtFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(3px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+      animation: none !important;
+    }
+  }
+
   @keyframes listRowEnter {
     from {
       opacity: 0;
@@ -10300,12 +10340,12 @@ code {
   }
 }
 
-/* Print Layout (FinScope Porcelain-Slate A4 Landscape 1-Page Blueprint Summary) */
+/* Print Layout (FinScope Porcelain-Slate A4 Portrait 1-Page Blueprint Summary) */
 
 @media print {
   @page {
     margin: 6.5mm 8mm;
-    size: A4 landscape;
+    size: A4 portrait;
   }
 
   :root {
@@ -10630,13 +10670,50 @@ code {
     color: var(--ink-soft);
   }
 
-  .poster-discover-row,
-  .poster-bottom-grid {
+  .poster-discover-row {
     display: grid;
-    grid-template-columns: minmax(0, 1.38fr) minmax(0, 1.06fr) minmax(0, 1.02fr);
-    gap: 6px;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    grid-template-areas:
+      "chart chart"
+      "sources readiness";
+    gap: 4.5px;
     break-inside: avoid;
     align-items: stretch;
+  }
+
+  .poster-bottom-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+    grid-template-areas:
+      "strategy budget"
+      "strategy cashflow";
+    gap: 4.5px;
+    break-inside: avoid;
+    align-items: stretch;
+  }
+
+  .poster-nw-card {
+    grid-area: chart;
+  }
+
+  .poster-sources-card {
+    grid-area: sources;
+  }
+
+  .poster-readiness-card {
+    grid-area: readiness;
+  }
+
+  .poster-strategy-panel {
+    grid-area: strategy;
+  }
+
+  .poster-budget-panel {
+    grid-area: budget;
+  }
+
+  .poster-cashflow-panel {
+    grid-area: cashflow;
   }
 
   .poster-chart-card,
@@ -10761,7 +10838,7 @@ code {
     display: block;
     width: 100%;
     height: auto;
-    max-height: 54mm;
+    max-height: 44mm;
   }
 
   .poster-panel-head {

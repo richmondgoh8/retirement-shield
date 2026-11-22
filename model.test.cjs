@@ -2592,13 +2592,20 @@ test("evaluateAnnuityPlan models stepped participating payouts and maturity divi
   });
 
   assert.equal(base.totalPayoutReceived, 527170);
-  assert.ok(base.impliedAnnualIrrPct >= 3.73 && base.impliedAnnualIrrPct <= 3.77);
+  assert.ok(
+    base.impliedAnnualIrrPct >= 3.73 && base.impliedAnnualIrrPct <= 3.77,
+  );
   assert.equal(baseAnnual.totalPayoutReceived, 527170);
-  assert.ok(baseAnnual.impliedAnnualIrrPct >= 3.67 && baseAnnual.impliedAnnualIrrPct <= 3.69);
+  assert.ok(
+    baseAnnual.impliedAnnualIrrPct >= 3.67 &&
+      baseAnnual.impliedAnnualIrrPct <= 3.69,
+  );
   assert.equal(base.scaledTerminalDividend, 149360);
   assert.ok(base.finalMonthlyPayout > base.startingMonthlyPayout);
   assert.ok(base.realAnnualIrrPct >= 0.6 && base.realAnnualIrrPct <= 1.5);
-  assert.ok(floor.impliedAnnualIrrPct >= 0.62 && floor.impliedAnnualIrrPct <= 0.66);
+  assert.ok(
+    floor.impliedAnnualIrrPct >= 0.62 && floor.impliedAnnualIrrPct <= 0.66,
+  );
 });
 
 test("longevityAge (85/90/95/100), bridgeIncome (pre-65 Barista FIRE), BRS Property Pledge path, familyRstuAnnual, and SG_PERSONA_PRESETS", () => {

@@ -524,12 +524,18 @@ export function renderTrajectoryChart(
     <svg role="img" aria-label="${trajLabel}" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="xMidYMid meet">
       <defs>${defs}</defs>
       ${yTicks}${xTicks}${series}
-      <line id="scrub-line" x1="0" y1="${padT}" x2="0" y2="${H - padB}" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="3,3" style="display:none;" />
+      <line id="scrub-line" x1="0" y1="${padT}" x2="0" y2="${H - padB}" stroke="var(--primary)" stroke-width="1.6" stroke-dasharray="3,3" stroke-opacity="0.85" style="display:none;" />
+      <line id="scrub-hline" x1="${padL}" y1="0" x2="${W - padR}" y2="0" stroke="var(--ink-soft)" stroke-width="1" stroke-dasharray="3,3" stroke-opacity="0.32" style="display:none;" />
+      <circle id="scrub-dot-primary" cx="0" cy="0" r="4.5" fill="var(--primary)" stroke="var(--surface)" stroke-width="2" style="display:none;" />
+      <circle id="scrub-dot-secondary" cx="0" cy="0" r="4" fill="#059669" stroke="var(--surface)" stroke-width="2" style="display:none;" />
     </svg>`;
   $("#chart-legend").innerHTML = legend;
 
   const tooltipEl = $("#chart-tooltip");
   const scrubLine = $("#scrub-line");
+  const scrubHLine = $("#scrub-hline");
+  const scrubDotPrimary = $("#scrub-dot-primary");
+  const scrubDotSecondary = $("#scrub-dot-secondary");
   if (!chartWrapper || !scrubLine || !tooltipEl) return;
 
   const resolveAgeFromEvent = (e) => {
@@ -558,6 +564,35 @@ export function renderTrajectoryChart(
     scrubLine.setAttribute("x1", svgX);
     scrubLine.setAttribute("x2", svgX);
     scrubLine.style.display = "block";
+    const anchorY =
+      chartMode === "portfolio"
+        ? dY(pt.portfolioBalance)
+        : dY(Math.max(pt.monthlySpend, pt.monthlyCPF));
+    if (scrubHLine) {
+      scrubHLine.setAttribute("y1", anchorY);
+      scrubHLine.setAttribute("y2", anchorY);
+      scrubHLine.style.display = "block";
+    }
+    if (scrubDotPrimary) {
+      if (chartMode === "portfolio") {
+        scrubDotPrimary.setAttribute("cx", svgX);
+        scrubDotPrimary.setAttribute("cy", dY(pt.portfolioBalance));
+        scrubDotPrimary.setAttribute("fill", "#2563EB");
+        scrubDotPrimary.style.display = "block";
+        if (scrubDotSecondary) scrubDotSecondary.style.display = "none";
+      } else {
+        scrubDotPrimary.setAttribute("cx", svgX);
+        scrubDotPrimary.setAttribute("cy", dY(pt.monthlySpend));
+        scrubDotPrimary.setAttribute("fill", "var(--ink-soft)");
+        scrubDotPrimary.style.display = "block";
+        if (scrubDotSecondary) {
+          scrubDotSecondary.setAttribute("cx", svgX);
+          scrubDotSecondary.setAttribute("cy", dY(pt.monthlyCPF));
+          scrubDotSecondary.setAttribute("fill", "#059669");
+          scrubDotSecondary.style.display = "block";
+        }
+      }
+    }
     tooltipEl.hidden = false;
     tooltipEl.innerHTML = `
       <div class="tt-head">Age ${pt.age} (${pt.year}) · ${pt.phase.toUpperCase()}</div>
@@ -566,10 +601,6 @@ export function renderTrajectoryChart(
       ${pt.monthlyGap > 0 ? `<div class="tt-row"><span>Outside gap</span><b class="sem-eq">${m(pt.monthlyGap, "/mo")}</b></div>` : ""}
       <div class="tt-row"><span>Portfolio</span><b>${m(pt.portfolioBalance)}</b></div>
       <div class="tt-note">Click or press Enter to inspect full year ledger</div>`;
-    const anchorY =
-      chartMode === "portfolio"
-        ? dY(pt.portfolioBalance)
-        : dY(Math.max(pt.monthlySpend, pt.monthlyCPF));
     positionChartTooltip(
       tooltipEl,
       wrapRect,
@@ -598,6 +629,9 @@ export function renderTrajectoryChart(
   const handleLeave = () => {
     throttledPointer.cancel();
     scrubLine.style.display = "none";
+    if (scrubHLine) scrubHLine.style.display = "none";
+    if (scrubDotPrimary) scrubDotPrimary.style.display = "none";
+    if (scrubDotSecondary) scrubDotSecondary.style.display = "none";
     tooltipEl.hidden = true;
   };
   chartWrapper.onmousemove = throttledPointer;
@@ -1077,6 +1111,7 @@ export function renderStackedNetWorthSVG(
       ${milestoneSVG}
       ${calloutsSVG}
       <line class="nw-scrub-line" x1="0" y1="${padT}" x2="0" y2="${H - padB}" stroke="var(--swell-pink)" stroke-width="1.6" stroke-dasharray="3,3" style="display:none;" />
+      <line class="nw-scrub-hline" x1="${padL + xInset}" y1="0" x2="${W - padR - xInset}" y2="0" stroke="var(--ink-soft)" stroke-width="1" stroke-dasharray="3,3" stroke-opacity="0.32" style="display:none;" />
       ${scrubDotsSVG}
     </svg>`;
 
@@ -1216,6 +1251,15 @@ export function renderStackedNetWorthSVG(
     scrub.setAttribute("x2", sx);
     scrub.style.display = "block";
 
+    const scrubH = chartArea.querySelector(".nw-scrub-hline");
+    if (scrubH) {
+      const topVal = soloSeries ? pt[soloSeries.key] : pt.total;
+      const hy = dY(topVal);
+      scrubH.setAttribute("y1", hy);
+      scrubH.setAttribute("y2", hy);
+      scrubH.style.display = "block";
+    }
+
     const bandTarget = e?.target?.closest?.(".nw-band");
     const hoveredKey = soloSeries
       ? soloSeries.key
@@ -1290,6 +1334,8 @@ export function renderStackedNetWorthSVG(
   };
   const onLeave = () => {
     scrub.style.display = "none";
+    const scrubH = chartArea.querySelector(".nw-scrub-hline");
+    if (scrubH) scrubH.style.display = "none";
     const svg = chartArea.querySelector("svg");
     if (svg) {
       svg
@@ -1500,6 +1546,7 @@ function renderCashflowWaterfallSVG(
       <path d="${spendLine}" fill="none" stroke="var(--ink)" stroke-width="2" stroke-dasharray="6,3" />
       ${markers}
       <line class="wf-scrub-line" x1="0" y1="${padT}" x2="0" y2="${H - padB}" stroke="var(--swell-pink)" stroke-width="1.6" stroke-dasharray="3,3" style="display:none;" />
+      <line class="wf-scrub-hline" x1="${padL}" y1="0" x2="${W - padR}" y2="0" stroke="var(--ink-soft)" stroke-width="1" stroke-dasharray="3,3" stroke-opacity="0.32" style="display:none;" />
     </svg>`;
 
   if (legendEl) {
@@ -1535,6 +1582,13 @@ function renderCashflowWaterfallSVG(
     scrub.setAttribute("x1", sx);
     scrub.setAttribute("x2", sx);
     scrub.style.display = "block";
+    const scrubH = chartArea.querySelector(".wf-scrub-hline");
+    if (scrubH) {
+      const hy = dY(pt.spend);
+      scrubH.setAttribute("y1", hy);
+      scrubH.setAttribute("y2", hy);
+      scrubH.style.display = "block";
+    }
     tooltipEl.hidden = false;
     tooltipEl.innerHTML = `
       <div class="tt-head">Age ${pt.age} (${pt.year})</div>
@@ -1563,6 +1617,8 @@ function renderCashflowWaterfallSVG(
   const onLeave = () => {
     throttledMove.cancel();
     scrub.style.display = "none";
+    const scrubH = chartArea.querySelector(".wf-scrub-hline");
+    if (scrubH) scrubH.style.display = "none";
     tooltipEl.hidden = true;
   };
   wrap.onmousemove = throttledMove;

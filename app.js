@@ -1772,13 +1772,26 @@ function setupSimplePlan() {
       frs: cpfAt55.frs,
       ers: cpfAt55.ers,
     }[strategyTarget];
-    const cpfFundedPct = Math.min(100, Math.round((100 * cpfAt55.ra55) / cpfTarget));
+    const cpfFundedPct = Math.min(
+      100,
+      Math.round((100 * cpfAt55.ra55) / cpfTarget),
+    );
     const cpfProgress = {
       strategy: strategyTarget.toUpperCase(),
       pct: cpfFundedPct,
       percent: formatFundedPct(cpfFundedPct),
-      balanceToday: RetirementModel.todayValue(cpfAt55.ra55, 55, r.age, r.inflation),
-      targetToday: RetirementModel.todayValue(cpfTarget, 55, r.age, r.inflation),
+      balanceToday: RetirementModel.todayValue(
+        cpfAt55.ra55,
+        55,
+        r.age,
+        r.inflation,
+      ),
+      targetToday: RetirementModel.todayValue(
+        cpfTarget,
+        55,
+        r.age,
+        r.inflation,
+      ),
     };
     const cpfProgressLabel = `${cpfProgress.percent} of ${cpfProgress.strategy} funded at age 55`;
     const savingsProgress = getSavingsProgress(fire);
@@ -2175,7 +2188,14 @@ function setupSimplePlan() {
     }
     if (qeDialog?.open) {
       ensureCashPlan();
-      syncQuickEditState(r, fire, simulation, bogle, tax, savingsProgress.label);
+      syncQuickEditState(
+        r,
+        fire,
+        simulation,
+        bogle,
+        tax,
+        savingsProgress.label,
+      );
     }
 
     if (allocatorSlot.querySelector(".allocator-sheet")) {
@@ -5120,60 +5140,77 @@ function setupGuidedFlow(finishSettingsEdit) {
     },
     true,
   );
-  const applyViewState = (focus = true, push = false) => {
-    const currentDestination = destinationByTab.get(activeTab);
-    document.body.dataset.view = activeTab;
-    for (const destination of Object.keys(destinations)) {
-      $(`#workspace-${destination}`).hidden =
-        destination !== currentDestination;
-    }
-    for (const tab of destinationByTab.keys()) {
-      $(`#tab-panel-${tab}`).hidden = tab !== activeTab;
-    }
+  const applyViewState = (focus = true, push = false, transition = false) => {
+    const updateDOM = () => {
+      const currentDestination = destinationByTab.get(activeTab);
+      document.body.dataset.view = activeTab;
+      for (const destination of Object.keys(destinations)) {
+        $(`#workspace-${destination}`).hidden =
+          destination !== currentDestination;
+      }
+      for (const tab of destinationByTab.keys()) {
+        $(`#tab-panel-${tab}`).hidden = tab !== activeTab;
+      }
 
-    for (const button of $$("[data-destination], [data-tab]")) {
-      const selected = button.dataset.destination
-        ? button.dataset.destination === currentDestination
-        : button.dataset.tab === activeTab;
-      button.classList.toggle("is-active", selected);
-      button.setAttribute("aria-selected", String(selected));
-      button.tabIndex = selected ? 0 : -1;
-    }
+      for (const button of $$("[data-destination], [data-tab]")) {
+        const selected = button.dataset.destination
+          ? button.dataset.destination === currentDestination
+          : button.dataset.tab === activeTab;
+        button.classList.toggle("is-active", selected);
+        button.setAttribute("aria-selected", String(selected));
+        button.tabIndex = selected ? 0 : -1;
+      }
 
-    const inputs = $("#top");
-    const inputSlot = inputSlots[activeTab] && $(inputSlots[activeTab]);
-    inputs.hidden = !inputSlot;
-    if (inputSlot && inputs.parentElement !== inputSlot)
-      inputSlot.append(inputs);
-    for (const group of $$("[data-settings-scope]", inputs)) {
-      group.hidden = group.dataset.settingsScope !== activeTab;
-    }
+      const inputs = $("#top");
+      const inputSlot = inputSlots[activeTab] && $(inputSlots[activeTab]);
+      inputs.hidden = !inputSlot;
+      if (inputSlot && inputs.parentElement !== inputSlot)
+        inputSlot.append(inputs);
+      for (const group of $$("[data-settings-scope]", inputs)) {
+        group.hidden = group.dataset.settingsScope !== activeTab;
+      }
 
-    if (applyViewState.lastTab !== activeTab) {
-      applyViewState.lastTab = activeTab;
-      window.dispatchEvent(
-        new CustomEvent("rs:tabchange", { detail: { tab: activeTab } }),
-      );
-    }
-    if (push) {
-      const url = new URL(location.href);
-      if (!isPlanShareHash(url.hash)) url.hash = activeTab;
-      history.pushState(
-        { ...history.state, plannerTab: activeTab, profileOpen: false },
-        "",
-        url,
-      );
-    }
+      if (applyViewState.lastTab !== activeTab) {
+        applyViewState.lastTab = activeTab;
+        window.dispatchEvent(
+          new CustomEvent("rs:tabchange", { detail: { tab: activeTab } }),
+        );
+      }
+      if (push) {
+        const url = new URL(location.href);
+        if (!isPlanShareHash(url.hash)) url.hash = activeTab;
+        history.pushState(
+          { ...history.state, plannerTab: activeTab, profileOpen: false },
+          "",
+          url,
+        );
+      }
 
-    if (focus) {
-      const targetEl = $(`#tab-panel-${activeTab}`);
-      targetEl?.setAttribute("tabindex", "-1");
-      targetEl?.focus({ preventScroll: true });
-      window.scrollTo({ top: 0, behavior: "instant" });
+      if (focus) {
+        const targetEl = $(`#tab-panel-${activeTab}`);
+        targetEl?.setAttribute("tabindex", "-1");
+        targetEl?.focus({ preventScroll: true });
+        window.scrollTo({ top: 0, behavior: "instant" });
+      }
+    };
+
+    if (
+      transition &&
+      typeof document.startViewTransition === "function" &&
+      !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
+    ) {
+      document.startViewTransition(() => {
+        updateDOM();
+      });
+    } else {
+      updateDOM();
     }
   };
 
-  const navigateTo = ({ tab = activeTab } = {}, focus = true) => {
+  const navigateTo = (
+    { tab = activeTab, transition = false } = {},
+    focus = true,
+  ) => {
     if (!finishSettingsEdit()) return false;
     if ($("#plan-settings").open)
       $("#plan-settings").dataset.flowNavigation = "true";
@@ -5189,7 +5226,7 @@ function setupGuidedFlow(finishSettingsEdit) {
     const nextTab = destinationByTab.has(tab) ? tab : "overview";
     const viewChanged = nextTab !== activeTab;
     activeTab = nextTab;
-    applyViewState(focus, viewChanged);
+    applyViewState(focus, viewChanged, transition && viewChanged);
     if (
       viewChanged &&
       !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
@@ -5232,7 +5269,15 @@ function setupGuidedFlow(finishSettingsEdit) {
     const targetTab = tabs[nextIdx];
     const destinationTab = destinations[targetTab.dataset.destination]?.[0];
     if (targetTab.dataset.tab || destinationTab) {
-      if (navigateTo({ tab: targetTab.dataset.tab || destinationTab }, false))
+      if (
+        navigateTo(
+          {
+            tab: targetTab.dataset.tab || destinationTab,
+            transition: Boolean(event.isTrusted),
+          },
+          false,
+        )
+      )
         targetTab.focus();
     } else {
       tabs.forEach((t) =>
@@ -5256,6 +5301,7 @@ function setupGuidedFlow(finishSettingsEdit) {
         tab:
           tabBtn.dataset.tab ||
           (tabs.includes(activeTab) ? activeTab : tabs[0]),
+        transition: Boolean(event.isTrusted),
       });
       return;
     }
@@ -5265,7 +5311,10 @@ function setupGuidedFlow(finishSettingsEdit) {
     );
     if (cashEditorLink) {
       event.preventDefault();
-      navigateTo({ tab: "cash-accounts" });
+      navigateTo({
+        tab: "cash-accounts",
+        transition: Boolean(event.isTrusted),
+      });
       return;
     }
 
@@ -5281,7 +5330,10 @@ function setupGuidedFlow(finishSettingsEdit) {
       )
         return;
       event.preventDefault();
-      navigateTo({ tab: goTabBtn.dataset.goTab });
+      navigateTo({
+        tab: goTabBtn.dataset.goTab,
+        transition: Boolean(event.isTrusted),
+      });
       return;
     }
 

@@ -239,7 +239,10 @@ export function renderPrintSheet({
         </div>
         <div class="poster-verdict-badge is-${pm.statusTone}">
           <small>${savingsProgress.title}</small>
-          <strong><span id="print-savings-progress">${savingsProgress.percent}</span> · ${pm.statusText}</strong>
+          <strong
+            ><span id="print-savings-progress">${savingsProgress.percent}</span>
+            · ${pm.statusText}</strong
+          >
           <span>${pm.verdictSub}</span>
         </div>
       </div>
