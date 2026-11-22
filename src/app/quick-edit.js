@@ -418,7 +418,10 @@ export function createQuickEditController(ctx) {
       if (!trigger) return;
       event.preventDefault();
       if (trigger.dataset.quickEdit === "budget") {
-        openExpenseModal("auto", trigger);
+        openExpenseModal(
+          trigger.matches(".exp-edit-items") ? "items" : "auto",
+          trigger,
+        );
         return;
       }
       lastQeInvoker = trigger;

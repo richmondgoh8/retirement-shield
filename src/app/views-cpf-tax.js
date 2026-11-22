@@ -147,15 +147,15 @@ export function buildCpfRulesTabHTML({
   const lessonHTML = `<section id="cpf-goal-guide" class="card-surface rules-card" aria-labelledby="cpf-goal-title">
       <div class="rules-card-head">
         <div>
-          <h2 id="cpf-goal-title">How to reach BRS, FRS or ERS at 55</h2>
+          <h2 id="cpf-goal-title">Choose your CPF retirement sum</h2>
           <p>Age ${r.age} cohort (turning 55 in ${cohortYear55}) · <strong>${planLabelShort}</strong> Plan · ${(r.inflation * 100).toFixed(1).replace(/\.0$/, "")}% inflation.</p>
         </div>
         <span class="fin-target-pill">Today’s $ · Age-55 nominal</span>
       </div>
       <div class="goal-choices" role="group" aria-label="CPF milestone to learn about">${[
-        ["brs", "Basic · Property Pledge"],
-        ["frs", "Standard · Default"],
-        ["ers", "Maximum · Post-55 Top-Up"],
+        ["brs", "Basic Retirement Sum · Property pledge"],
+        ["frs", "Full Retirement Sum"],
+        ["ers", "Enhanced Retirement Sum · Top up from 55"],
       ]
         .map(([key, tag]) => {
           const cm = lesson.cohortMilestones[key];
@@ -171,7 +171,7 @@ export function buildCpfRulesTabHTML({
         .join("")}</div>
       <div class="tap-progress-wrap">
         <div class="tap-progress-meta">
-          <span>Projected age-55 OA + SA vs <strong>${learningTarget.toUpperCase()}</strong> target</span>
+          <span>Projected age-55 balances before extra savings vs <strong>${learningTarget.toUpperCase()}</strong> target</span>
           <strong>${targetFundPct}% funded${targetFundPct >= 100 ? " ✓" : ""}</strong>
         </div>
         <div class="tap-progress-track" role="progressbar" aria-valuenow="${targetFundPct}" aria-valuemin="0" aria-valuemax="100" aria-label="${targetFundPct}% of ${learningTarget.toUpperCase()} funded by projected age-55 OA + SA">
@@ -185,10 +185,11 @@ export function buildCpfRulesTabHTML({
         <div class="tax-metric-box"><dt>Extra CPF saving to hit ${learningTarget.toUpperCase()}</dt><dd>${lesson.monthly === null ? "Lump sum only" : m(lesson.monthly, "/mo", "lesson-monthly")}<small>${lesson.monthly === null ? "Retiring before/at current age" : lesson.plannedCpfExtra > 0 ? (lesson.withPlanned.hitsTarget ? `✓ Covered by your ${m(lesson.plannedCpfExtra, "/mo")} extra CPF` : `+${m(lesson.withPlanned.additionalMonthlyNeeded, "/mo")} above your ${m(lesson.plannedCpfExtra, "/mo")}`) : `Until age ${lesson.untilAge} (total monthly top-up)`}</small></dd></div>
       </dl>
       <button type="button" class="text-button" data-quick-edit="cpf-extra">Edit extra CPF savings</button>
-      <ul class="compact-list cpf-rules-notes">
-        <li><strong>Before 55:</strong> Cash RSTU and OA-to-SA transfers share your remaining SA room of <strong>${centsHtml(lesson.currentRoom)}</strong> (to reach the ${RetirementModel.C.year} FRS cap of ${m(RetirementModel.C.frs)}) and are irreversible.</li>
-        <li><strong>At 55:</strong> SA closes; SA then OA fund RA up to cohort FRS (${m(lesson.cohortMilestones.frs.sumAt55)} nominal). Voluntary ERS top-ups into RA open from age 55 ($0 RSTU tax relief above FRS); any pre-55 extra saving beyond SA room is held aside until 55.</li>
-        ${learningTarget === "brs" ? "<li><strong>BRS property rule:</strong> Withdrawing RA above BRS requires pledging a property whose lease covers you to age 95+.</li>" : ""}
+      <ul class="compact-list cpf-rules-notes cpf-milestone-timeline">
+        <li><strong>Before 55</strong><span>Cash RSTU and OA-to-SA transfers share your remaining SA room of <strong>${centsHtml(lesson.currentRoom)}</strong> (to reach the ${RetirementModel.C.year} FRS cap of ${m(RetirementModel.C.frs)}) and are irreversible.</span></li>
+        <li><strong>At 55</strong><span>SA closes; SA then OA fund RA up to cohort FRS (${m(lesson.cohortMilestones.frs.sumAt55)} nominal). Voluntary ERS top-ups into RA open from age 55 ($0 RSTU tax relief above FRS); any pre-55 extra saving beyond SA room is held aside until 55.</span></li>
+        <li><strong>From 65</strong><span>CPF LIFE payouts support your monthly spending. The payout estimates above reflect the retirement sum you select.</span></li>
+        ${learningTarget === "brs" ? "<li><strong>BRS property rule</strong><span>Withdrawing RA above BRS requires pledging a property whose lease covers you to age 95+.</span></li>" : ""}
       </ul>
     </section>`;
   return `
@@ -330,16 +331,16 @@ function buildTaxSweetSpotSection(tax) {
         <small>After RSTU (${m(tax.srsStandaloneTaxSaved, "/yr")} standalone) · Lock-in age ${tax.srsLockInAge}</small>
       </div>
       <div class="tax-metric-box">
-        <dt>$80k Relief Cap Used</dt>
+        <dt>Reliefs before modeled top-ups</dt>
         <dd>${m(tax.reliefCapUsed, "", "tax-cap-used")} <span class="curr-muted">/ ${m(C.personalReliefCap)}</span></dd>
-        <small>${totalClaimedPct}% claimed · ${m(remainingAfterActive)} remaining</small>
+        <small>Mandatory CPF and existing reliefs</small>
       </div>
     </dl>
     <article class="fin-bento-card card-surface tax-bento-embedded" aria-label="IRAS $80,000 personal relief cap waterfall">
       <div class="fin-bento-head">
         <div>
           <span class="fin-bento-eyebrow">YA ${C.year} IRAS $80,000 Relief Cap</span>
-          <h3 class="fin-bento-title">${m(totalClaimed)} <small>claimed · ${m(remainingAfterActive)} room left</small></h3>
+          <h3 class="fin-bento-title">${m(totalClaimed)} <small>including modeled top-ups · ${m(remainingAfterActive)} room left</small></h3>
         </div>
         <span class="fin-bento-share-pill">${totalClaimedPct}%</span>
       </div>
@@ -351,7 +352,7 @@ function buildTaxSweetSpotSection(tax) {
       </div>
       <ul class="fin-bento-list">
         <li>
-          <span class="fin-bento-item-label"><i style="background:var(--sem-equities);"></i>Mandatory CPF &amp; Existing Reliefs</span>
+          <span class="fin-bento-item-label"><i style="background:var(--sem-equities);"></i>CPF &amp; existing reliefs</span>
           <span class="fin-bento-item-meta">Base IRAS reliefs before voluntary top-ups</span>
           <strong>${m(baseReliefs)} <small class="fin-bento-share-pill">${Math.round(basePct)}%</small></strong>
         </li>

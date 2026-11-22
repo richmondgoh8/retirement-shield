@@ -381,7 +381,7 @@ function buildExpenseCardHTML(ep) {
             </button>
           </div>
         </div>
-        <button type="button" class="text-button exp-edit-items" data-quick-edit="budget">Edit items</button>
+        <button type="button" class="text-button exp-edit-items" data-quick-edit="budget">${isPreset ? "View expenses" : "Edit budget"}</button>
       </div>
     </div>
 

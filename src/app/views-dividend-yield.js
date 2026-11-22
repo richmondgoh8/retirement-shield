@@ -1,5 +1,17 @@
 import { m, centsHtml, formatAnnuityIrr } from "./format.js";
 
+export const DAVE_ANNUITY_EXAMPLE = Object.freeze({
+  monthlyContribution: 13810 / 12,
+  contributeYears: 15,
+  deferYears: 5,
+  payoutYears: 20,
+  quotedMonthlyPayout: 1000,
+  nonGuaranteedMonthlyDividends: 137810,
+  dividendStepUpRatePct: 5,
+  terminalDividend: 149360,
+  paymentMode: "annual",
+});
+
 function buildDividendResultsHTML(divModel) {
   if (!divModel) return "";
   const realSign = divModel.realMonthlyPayout >= 0 ? "+" : "−";
@@ -269,6 +281,12 @@ function formatAnnuityBadge({ badge, impliedAnnualIrrPct }) {
 
 function buildAnnuityResultsHTML(annuityModel) {
   if (!annuityModel) return "";
+  const matchesDave = Object.entries(DAVE_ANNUITY_EXAMPLE).every(
+    ([key, value]) =>
+      key === "monthlyContribution"
+        ? Math.abs(annuityModel[key] - value) < 0.005
+        : annuityModel[key] === value,
+  );
   const nominalIrr = annuityModel.impliedAnnualIrrPct;
   const hasIrr = Number.isFinite(nominalIrr);
   const participatingLine =
@@ -295,6 +313,7 @@ function buildAnnuityResultsHTML(annuityModel) {
   return `
     <div class="div-payout-hero">
       <div class="div-payout-main">
+        <p class="div-annuity-example-label">${matchesDave ? "Dave’s brochure example" : "Edited annuity scenario"}</p>
         <span class="div-payout-eyebrow">Implied Annualized Return (IRR)</span>
         <strong class="div-payout-amount ${irrTone}" id="div-annuity-irr-readout">${irrStr}</strong>
         <p class="div-payout-sub">${
@@ -314,7 +333,7 @@ function buildAnnuityResultsHTML(annuityModel) {
                   : 1;
                 const isActive =
                   Math.abs(currentRealization - realization) < 0.01;
-                return `<button type="button" class="div-segment-btn${isActive ? " is-active" : ""}" data-div-annuity-realization="${realization}" aria-pressed="${isActive}">${realization === 0 ? "0% Guaranteed" : realization === 0.5 ? "50% Haircut" : "100% Full"}</button>`;
+                return `<button type="button" class="div-segment-btn${isActive ? " is-active" : ""}" data-div-annuity-realization="${realization}" aria-pressed="${isActive}">${realization === 0 ? "Guaranteed only" : realization === 0.5 ? "50% of bonus" : "Full bonus"}</button>`;
               })
               .join("")}
           </div>
@@ -330,12 +349,12 @@ function buildAnnuityResultsHTML(annuityModel) {
         <div class="div-payout-stat">
           <span>Final Monthly Payout (Final Year)</span>
           <strong>${m(Math.round(annuityModel.finalMonthlyPayout || 0), "/mo")}</strong>
-          <small>${annuityModel.dividendStepUpRatePct || 5}% annual dividend step-up</small>
+          <small>${annuityModel.dividendStepUpRatePct ?? 5}% annual dividend step-up</small>
         </div>
         <div class="div-payout-stat">
           <span>Maturity Lump Sum</span>
           <strong>${m(annuityModel.scaledTerminalDividend || 0)}</strong>
-          <small>Paid in the final payout month · ${Math.round((annuityModel.bonusRealization || 1) * 100)}% realization</small>
+          <small>Paid in the final payout month · ${Math.round((annuityModel.bonusRealization ?? 1) * 100)}% realization</small>
         </div>
         <div class="div-payout-stat">
           <span>Total Premium → Total Payout</span>
@@ -591,7 +610,7 @@ function buildDividendCalculatorSection({
       <section class="div-annuity-card div-annuity-card-primary">
         <div class="div-annuity-card-head">
           <div>
-            <h2>Contribution &amp; Timeline</h2>
+            <h2 id="div-calc-heading">Contribution &amp; Timeline</h2>
             <p>Premium schedule and accumulation horizon</p>
           </div>
           <div class="div-segmented-inline" role="group" aria-label="Premium payment mode">
@@ -606,7 +625,7 @@ function buildDividendCalculatorSection({
           <div class="div-annuity-premium-stack">
             <div class="div-compact-currency">
               <span>$</span>
-              <input id="div-annuity-mo-save" type="text" inputmode="decimal" value="${annuityModel.monthlyContribution.toLocaleString("en-SG")}" aria-label="Monthly premium" />
+              <input id="div-annuity-mo-save" type="text" inputmode="decimal" value="${annuityModel.monthlyContribution.toLocaleString("en-SG", { maximumFractionDigits: 2 })}" aria-label="Monthly premium" />
             </div>
             ${annuityModel.paymentMode === "annual" ? `<small>Annual equivalent: ${m(annuityModel.monthlyContribution * 12, "/yr")}</small>` : ""}
           </div>
@@ -663,10 +682,10 @@ function buildDividendCalculatorSection({
         <div class="div-annuity-bonus-body">
           <div class="div-annuity-two-col">
             <div class="div-annuity-field">
-              <label for="div-annuity-monthly-dividends">Total Monthly Dividends</label>
+              <label for="div-annuity-monthly-dividends">Total Dividends Over Payout Period</label>
               <div class="div-compact-currency">
                 <span>$</span>
-                <input id="div-annuity-monthly-dividends" type="text" inputmode="decimal" value="${Math.round(annuityModel.nonGuaranteedMonthlyDividends || 0).toLocaleString("en-SG")}" aria-label="Total non-guaranteed monthly dividends" />
+                <input id="div-annuity-monthly-dividends" type="text" inputmode="decimal" value="${Math.round(annuityModel.nonGuaranteedMonthlyDividends || 0).toLocaleString("en-SG")}" aria-label="Total non-guaranteed dividends over the payout period" />
               </div>
             </div>
             <div class="div-annuity-field">
@@ -680,7 +699,7 @@ function buildDividendCalculatorSection({
           <div class="div-annuity-step-row">
             <span>Annual Dividend Step-Up</span>
             <div class="div-segmented-inline" role="group" aria-label="Dividend step-up presets">
-              ${[0, 3, 5].map((pct) => `<button type="button" class="div-segment-btn${Math.abs((annuityModel.dividendStepUpRatePct || 5) - pct) < 0.01 ? " is-active" : ""}" data-div-annuity-step-up="${pct}" aria-pressed="${Math.abs((annuityModel.dividendStepUpRatePct || 5) - pct) < 0.01}">${pct}%</button>`).join("")}
+              ${[0, 3, 5].map((pct) => `<button type="button" class="div-segment-btn${Math.abs((annuityModel.dividendStepUpRatePct ?? 5) - pct) < 0.01 ? " is-active" : ""}" data-div-annuity-step-up="${pct}" aria-pressed="${Math.abs((annuityModel.dividendStepUpRatePct ?? 5) - pct) < 0.01}">${pct}%</button>`).join("")}
             </div>
           </div>
         </div>
@@ -740,8 +759,8 @@ function buildDividendCalculatorSection({
   return `
     <header class="ember-page-header fin-page-header">
       <div class="fin-header-copy">
-        <h1>Dividend, Target Income &amp; Annuity Calculator</h1>
-        <p class="fin-page-sub">Standalone Singapore calculator for lump-sum yield, target monthly passive income, and retirement annuity evaluation.</p>
+        <h1>Income calculators</h1>
+        <p class="fin-page-sub">Estimate income from a lump sum, plan for a monthly income target, or compare annuity payouts.</p>
       </div>
       <div class="ember-header-meta">
         <span class="status-pill is-${hdrTone}" id="div-header-badge">${hdrText}</span>
@@ -750,19 +769,31 @@ function buildDividendCalculatorSection({
 
     <div class="div-mode-bar" role="tablist" aria-label="Calculator mode">
       <button type="button" role="tab" class="div-mode-tab${mode === "lump" ? " is-active" : ""}" data-div-mode="lump" aria-selected="${mode === "lump"}">
-        <strong>Dividend &amp; Interest Yield</strong>
-        <span>Principal &amp; Yield → Monthly Income</span>
+        <strong>Yield</strong>
       </button>
       <button type="button" role="tab" class="div-mode-tab${mode === "target" ? " is-active" : ""}" data-div-mode="target" aria-selected="${mode === "target"}">
-        <strong>Target Monthly Income</strong>
-        <span>Required Capital &amp; Accumulation Horizon</span>
+        <strong>Target income</strong>
       </button>
       <button type="button" role="tab" class="div-mode-tab${mode === "annuity" ? " is-active" : ""}" data-div-mode="annuity" aria-selected="${mode === "annuity"}">
-        <strong>Annuity &amp; Savings Plan</strong>
-        <span>Premium, Deferment &amp; Payout IRR Analysis</span>
+        <strong>Annuity</strong>
       </button>
     </div>
 
+    ${
+      mode === "annuity"
+        ? `<details class="div-annuity-example card-surface">
+      <summary>Dave’s example and the age-32 timeline</summary>
+      <div class="div-annuity-example-body">
+        <p><strong>Dave, age 45.</strong> The AIA illustration starts payouts at 65 and pays for 20 years. The calculator uses a regular annual premium schedule. Dave’s projected dividends and maturity bonus are non-guaranteed.</p>
+        <p><strong>Starting at age 32.</strong> For the same payout start at 65, one option is 28 years of premiums to age 60, followed by 5 years before payouts begin. Use an age-32 AIA illustration for the premium and bonus amounts.</p>
+        <div class="div-annuity-example-actions">
+          <button type="button" class="button button-small" data-load-dave-annuity>Reload Dave’s example</button>
+          <a href="https://www.aia.com.sg/content/dam/sg-wise/en/docs/our-products/en/aia-retirement-saver-iv.pdf">View AIA brochure</a>
+        </div>
+      </div>
+    </details>`
+        : ""
+    }
     <section class="card-surface rules-card div-calc-card" id="dividend-calculator-card" aria-labelledby="div-calc-heading">
       <div class="div-calc-grid">
         <div class="div-calc-results" id="div-calc-results-pane">

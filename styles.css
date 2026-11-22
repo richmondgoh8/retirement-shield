@@ -11949,6 +11949,7 @@ code {
 
 .overview-savings {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
 }
 
@@ -12822,8 +12823,9 @@ code {
   }
 
   .overview-saving-zones li {
-    display: block;
-    white-space: nowrap;
+    display: grid;
+    gap: 0.1rem;
+    white-space: normal;
   }
 
   #overview-slot .fin-bento-list > li {
@@ -14770,4 +14772,223 @@ code {
   margin-inline-start: 4px;
   color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
+}
+
+/* Keep dashboard content inside its grid track at narrow widths. */
+#overview-slot {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#overview-slot .overview-chart-head {
+  flex-wrap: wrap;
+}
+
+.overview-hero-actions > .button {
+  min-inline-size: 0;
+  white-space: normal;
+}
+
+#dash-networth-legend {
+  flex-wrap: wrap;
+}
+
+#dash-networth-legend .legend-chip {
+  flex: 0 1 auto;
+  white-space: normal;
+}
+
+.allocator-monthly-link {
+  min-block-size: 44px;
+}
+
+#allocator-paycheck-title {
+  scroll-margin-block-start: 5rem;
+}
+
+#nav-badge-allocator,
+#nav-badge-tax,
+.workspace-tab-badge {
+  display: none;
+}
+
+#tab-panel-dividend-calc .div-mode-bar {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+  max-inline-size: 36rem;
+}
+
+#tab-panel-dividend-calc .div-mode-tab {
+  align-items: center;
+  justify-content: center;
+  min-block-size: 44px;
+  padding: 0.4rem;
+  background: transparent;
+  text-align: center;
+}
+
+#tab-panel-dividend-calc .div-mode-tab.is-active {
+  background: var(--surface);
+}
+
+.div-segmented-realization {
+  display: flex;
+  flex-wrap: wrap;
+  border-radius: var(--radius-md);
+}
+
+.div-segmented-realization button {
+  flex: 1 1 auto;
+  min-block-size: 44px;
+  white-space: normal;
+}
+
+.cash-filters > summary {
+  width: fit-content;
+  min-block-size: 44px;
+  padding: 0.65rem 0.75rem;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.cash-filters > .cash-tag-bar {
+  margin-block-start: 0.5rem;
+}
+
+.cash-filters > summary span {
+  margin-inline-start: 0.35rem;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+
+[data-settings-row="housing"] .settings-value-button,
+.settings-profile-card .settings-value-button,
+.settings-invest-card .settings-value-button {
+  justify-content: flex-start;
+  gap: 0.75rem;
+}
+
+@media (max-width: 960px) {
+  .workspace-sections {
+    flex-wrap: nowrap;
+  }
+
+  .workspace-sections > button {
+    flex: 1 1 0;
+    min-inline-size: 0;
+    white-space: normal;
+    text-wrap: balance;
+  }
+}
+
+@media (max-width: 640px) {
+  .exp-modal-source-bar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .exp-modal-source-btn {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem;
+    min-block-size: 44px;
+    padding-inline: 0.75rem;
+  }
+
+  .qe-footer-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0 0.75rem;
+  }
+
+  .qe-footer-actions > .text-button {
+    grid-row: 2;
+    text-align: start;
+  }
+
+  .qe-footer-actions > .button {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+
+  #settings-editor-holdings {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #settings-editor-holdings .settings-editor-actions {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: end;
+  }
+
+  .settings-profile-card .settings-value-row {
+    gap: 0.1rem;
+    padding-block: 0.65rem;
+  }
+}
+
+@media (min-width: 641px) {
+  [data-settings-row="housing"] {
+    grid-template-columns: minmax(0, min(28%, 16rem)) minmax(0, 1fr);
+  }
+}
+
+.cpf-rules-notes.cpf-milestone-timeline {
+  margin-block-start: 1rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  list-style: none;
+}
+
+.cpf-milestone-timeline > li {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, max-content) minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: baseline;
+  padding: 0.65rem 0.8rem;
+  border-inline-start: 2px solid var(--sem-cpf-border);
+}
+
+.cpf-milestone-timeline > li > strong {
+  color: var(--sem-cpf-ink);
+}
+
+@media (max-width: 480px) {
+  .cpf-milestone-timeline > li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.2rem;
+  }
+}
+
+.div-annuity-example {
+  margin-block-end: 0.9rem;
+}
+
+.div-annuity-example > summary {
+  min-block-size: 44px;
+  padding: 0.65rem 0.9rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.div-annuity-example-body {
+  padding: 0 0.9rem 0.9rem;
+  color: var(--ink-soft);
+  max-inline-size: 72ch;
+}
+
+.div-annuity-example-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.85rem;
+}
+
+.div-annuity-example-label {
+  margin: 0 0 0.5rem;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+  font-weight: 650;
 }

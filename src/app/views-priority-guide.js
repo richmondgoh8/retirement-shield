@@ -151,8 +151,8 @@ export function buildPriorityGuideView() {
   </header>
   <section class="priority-guide-sheet card-surface" aria-labelledby="priority-guide-list-title">
     <div class="priority-guide-intro">
-      <h2 id="priority-guide-list-title">Master priority waterfall</h2>
-      <p>Reference estimates supplied for this guide. Rates and product terms are not synced to live data and are not personalized recommendations. Confirm current terms and eligibility before acting.</p>
+      <h2 id="priority-guide-list-title">A starting order for extra cash</h2>
+      <p>Expand each option for its trade-offs, eligibility, and reference estimates. Check the current terms before deciding.</p>
     </div>
     <ol class="priority-guide-list">
       ${priorities
@@ -175,7 +175,7 @@ export function buildPriorityGuideView() {
                 <dl>
                   <div><dt>Basis</dt><dd>${item.returnBasis}</dd></div>
                   <div><dt>Tax &amp; protection</dt><dd>${item.protection}</dd></div>
-                  <div><dt>Sweet spot</dt><dd>${item.sweetSpot}</dd></div>
+                  <div><dt>When it fits</dt><dd>${item.sweetSpot}</dd></div>
                   <div><dt>Why it ranks here</dt><dd>${item.rationale}</dd></div>
                 </dl>
               </div>

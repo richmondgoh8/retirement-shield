@@ -2680,7 +2680,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
     assert.equal(readiness.earliestAge, "Age 55");
     assert.match(readiness.ageLabel, /^Earliest projected retirement/);
     assert.equal(readiness.action, "Review retirement age");
-    assert.equal(readiness.fundingLabel, "Funded at target age 65");
+    assert.equal(readiness.fundingLabel, "Funding at your target age of 65");
     assert.match(readiness.funding, /^\d+%$/);
     assert.ok(Number.parseInt(readiness.funding, 10) > 150);
     assert.equal(readiness.sidebarFunding, readiness.funding);

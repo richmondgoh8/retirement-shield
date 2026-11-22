@@ -58,6 +58,7 @@ import {
   buildDividendBenchmarksHTML,
   buildTargetResultsHTML,
   buildTargetBenchmarksHTML,
+  DAVE_ANNUITY_EXAMPLE,
   buildAnnuityResultsHTML,
   buildAnnuityBenchmarksHTML,
   formatAnnuityBadge,
@@ -230,6 +231,12 @@ function setupSimplePlan() {
   const refreshCashProducts = (focusProduct) => {
     const wrap = $(".cash-cards-wrap", cashParkingSlot);
     if (!wrap || !currentCashPlan) return;
+    const filterCount =
+      Number(cashComparison.filter !== "all") +
+      Number(cashComparison.tag !== "all");
+    $("[data-cash-active-filters]", cashParkingSlot).textContent = filterCount
+      ? `${filterCount} active`
+      : "";
     const active = document.activeElement;
     const sort = active?.dataset.cashSort;
     const product = focusProduct || active?.dataset.cashProduct;
@@ -251,16 +258,31 @@ function setupSimplePlan() {
   let divTargetRatePct = 5.0;
   let divTargetCurrCap = 100000;
   let divTargetMoSave = 2000;
-  let divAnnuityMoSave = 1000;
-  let divAnnuityPayYears = 10;
-  let divAnnuityDeferYears = 5;
-  let divAnnuityDrawYears = 15;
-  let divAnnuityQuotedMo = 1150;
-  let divAnnuityMonthlyDividends = 0;
-  let divAnnuityStepUpPct = 5;
-  let divAnnuityTerminalDividend = 0;
-  let divAnnuityPaymentMode = "monthly";
-  let divAnnuityBonusRealization = 1;
+  let divAnnuityMoSave;
+  let divAnnuityPayYears;
+  let divAnnuityDeferYears;
+  let divAnnuityDrawYears;
+  let divAnnuityQuotedMo;
+  let divAnnuityMonthlyDividends;
+  let divAnnuityStepUpPct;
+  let divAnnuityTerminalDividend;
+  let divAnnuityPaymentMode;
+  let divAnnuityBonusRealization;
+  const loadDaveAnnuity = () => {
+    ({
+      monthlyContribution: divAnnuityMoSave,
+      contributeYears: divAnnuityPayYears,
+      deferYears: divAnnuityDeferYears,
+      payoutYears: divAnnuityDrawYears,
+      quotedMonthlyPayout: divAnnuityQuotedMo,
+      nonGuaranteedMonthlyDividends: divAnnuityMonthlyDividends,
+      dividendStepUpRatePct: divAnnuityStepUpPct,
+      terminalDividend: divAnnuityTerminalDividend,
+      paymentMode: divAnnuityPaymentMode,
+    } = DAVE_ANNUITY_EXAMPLE);
+    divAnnuityBonusRealization = 1;
+  };
+  loadDaveAnnuity();
   let divAnnuityInflationPct = 2.5;
   let divAnnuityBenchRatePct = 5.0;
   let toastTimer = null;
@@ -1972,6 +1994,7 @@ function setupSimplePlan() {
       ".exp-breakdown-disclosure",
       "#overview-saving-details",
       "#overview-portfolio-details",
+      "#overview-property-eligibility",
       "#overview-methodology",
       "#retirement-taps-card",
     ].filter((selector) => $(selector)?.open);
@@ -3180,6 +3203,18 @@ function setupSimplePlan() {
       search.focus();
       return;
     }
+    if (event.target.closest("[data-load-dave-annuity]")) {
+      loadDaveAnnuity();
+      if (renderDividendTabOnly) renderDividendTabOnly();
+      else scheduleRender();
+      const example = $(".div-annuity-example", dividendCalcSlot);
+      if (example) {
+        example.open = true;
+        $("[data-load-dave-annuity]", example)?.focus({ preventScroll: true });
+      }
+      showToast("Dave’s example loaded");
+      return;
+    }
     const realizationBtn = event.target.closest(
       "[data-div-annuity-realization]",
     );
@@ -3795,6 +3830,10 @@ function setupSimplePlan() {
             ?.querySelector('[data-exp-custom-mode="itemized"]')
             ?.focus({ preventScroll: true });
         }
+      } else if (mode === "items" && $(".exp-preset-items", expModalBody)) {
+        const items = $(".exp-preset-items", expModalBody);
+        items.open = true;
+        $("summary", items)?.focus({ preventScroll: true });
       } else if (!expDialog.contains(document.activeElement)) {
         expModalBody
           ?.querySelector(".exp-modal-source-btn.is-active, [data-exp-load]")
@@ -4200,10 +4239,7 @@ function setupSimplePlan() {
       divAnnuityMoSave =
         raw === ""
           ? 100
-          : Math.min(
-              500000,
-              Math.max(1, Math.round(Number(raw.replace(/,/g, "")) || 100)),
-            );
+          : Math.min(500000, Math.max(1, Number(raw.replace(/,/g, "")) || 100));
       scheduleDividendOnlyRender();
       return;
     }
@@ -4490,6 +4526,12 @@ function setupSimplePlan() {
     if (field) event.target.value = String(allocatorValue(field));
   });
   allocatorSlot.addEventListener("click", (event) => {
+    if (event.target.closest("[data-allocator-monthly]")) {
+      const title = $("#allocator-paycheck-title");
+      title.focus({ preventScroll: true });
+      title.scrollIntoView({ block: "start" });
+      return;
+    }
     const preset = event.target.closest("[data-allocator-preset]");
     if (preset) {
       setAllocatorValue("equity", Number(preset.dataset.allocatorPreset));

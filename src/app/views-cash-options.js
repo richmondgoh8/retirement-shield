@@ -728,7 +728,7 @@ function buildCashAccountsEditorHTML(cp) {
           By account
         </button>
       </div>
-      ${raw(addButton)}
+      ${active ? raw(addButton) : ""}
     </div>
     ${
       !active
@@ -1035,13 +1035,6 @@ function buildCashOptionsView(cp, options) {
         </div>
       </div>
       <div class="cash-toolbar">
-        <div
-          class="cash-filter-bar"
-          role="group"
-          aria-label="Filter by product type"
-        >
-          ${categories.map(({ key, label }) => raw(html`<button type="button" class="qe-picker-chip" data-cash-filter="${key}" aria-pressed="${key === options.filter}">${label} <span class="cash-filter-count">${counts[key] || 0}</span></button>`))}
-        </div>
         <div class="cash-search-tag-bar">
           <div class="cash-search-wrap">
             <svg
@@ -1076,10 +1069,22 @@ function buildCashOptionsView(cp, options) {
               ×
             </button>
           </div>
+        </div>
+        <details class="cash-filters">
+          <summary>
+            Product filters <span data-cash-active-filters></span>
+          </summary>
+          <div
+            class="cash-filter-bar"
+            role="group"
+            aria-label="Filter by product type"
+          >
+            ${categories.map(({ key, label }) => raw(html`<button type="button" class="qe-picker-chip" data-cash-filter="${key}" aria-pressed="${key === options.filter}">${label} <span class="cash-filter-count">${counts[key] || 0}</span></button>`))}
+          </div>
           <div class="cash-tag-bar" role="group" aria-label="Filter by tag">
             ${tags.map(({ key, label }) => raw(html`<button type="button" class="qe-picker-chip" data-cash-tag="${key}" aria-pressed="${options.tag === key}">${label}</button>`))}
           </div>
-        </div>
+        </details>
       </div>
       <div class="cash-cards-wrap">
         ${raw(buildCashCardsMarkup(cp, options))}

@@ -405,21 +405,21 @@ function buildOverviewPageHeader({
       <div class="overview-verdict-copy">
         <span class="status-pill is-${tone}">${verdict}</span>
         <h2 class="overview-hero-figure">${hasSafeAge ? `Age ${fn.projectedFireAge}` : "Beyond age 80"}</h2>
-        <p class="overview-safe-age">Earliest projected retirement <span>· Goal through age ${fire.endAge}</span></p>
+        <p class="overview-safe-age">Earliest projected retirement <span>· Plan through age ${fire.endAge}</span></p>
       </div>
       <div class="overview-hero-outcome">
       ${
         recommendation
           ? `
         <dl class="overview-action-outcome" aria-label="Estimated outcome after applying">
-          <div><dt>Funded at target age ${fire.retire}</dt><dd class="overview-funded">${formatFundedPct(fn.pctFunded)} → <strong data-preview-funded>${formatFundedPct(recommendation.funded)}</strong></dd></div>
+          <div><dt>Funding at your target age of ${fire.retire}</dt><dd class="overview-funded">${formatFundedPct(fn.pctFunded)} → <strong data-preview-funded>${formatFundedPct(recommendation.funded)}</strong></dd></div>
           <div><dt>Savings rate</dt><dd>${rate}% → <strong data-preview-rate>${recommendation.rate}%</strong> <span class="${previewHealth.label === targetBand.label ? "sr-only" : `status-pill is-${previewHealth.tone}`}" data-preview-savings-band>${previewHealth.label}</span></dd></div>
         </dl>`
           : `<dl class="overview-action-outcome">
-          <div><dt>Funded at target age ${fire.retire}</dt><dd class="overview-funded"><strong>${formatFundedPct(fn.pctFunded)}</strong></dd></div>
+          <div><dt>Funding at your target age of ${fire.retire}</dt><dd class="overview-funded"><strong>${formatFundedPct(fn.pctFunded)}</strong></dd></div>
         </dl>`
       }
-      ${tightness ? `<p class="overview-saving-tightness">${recommendation?.move.action === "cap-affordable-save" ? "After applying the cap, save" : "Requires saving"} <strong>${targetRate}%</strong> of take-home · <strong class="overview-tightness-band is-${targetBand.tone}">${tightness}</strong></p>` : ""}
+      ${tightness ? `<p class="overview-saving-tightness">${recommendation?.move.action === "cap-affordable-save" ? "After applying the cap, save" : "Requires saving"} <strong>${targetRate}%</strong> of take-home pay to sustain this plan. <strong class="overview-tightness-band is-${targetBand.tone}">${tightness}</strong></p>` : ""}
       </div>
       ${
         recommendation
@@ -1179,15 +1179,15 @@ export function buildFinOverviewGrid(
 
   const pathMeta = {
     brs: {
-      name: "BRS (Property Pledge)",
-      tag: "50% Sum · Liquid OA",
+      name: "BRS · Eligible property owners",
+      tag: "Lower monthly CPF LIFE payout",
       accent: "#0F766E",
       softBg: "#F0FDFA",
       icon: svgWrap(
         '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
         16,
       ),
-      note: `Caps age-55 RA at ${compactMoney(r.brs || r.frs / 2)} BRS (property lease to 95+); excess stays in 2.5% liquid OA.`,
+      note: "Assumes you qualify to use your home toward your CPF retirement sum. You may be able to access some CPF savings upfront.",
     },
     frs: {
       name: "FRS Target",
@@ -1497,7 +1497,7 @@ export function buildFinOverviewGrid(
       <div class="ember-card-head">
         <div>
           <h3 id="ledger-title">CPF Retirement Path</h3>
-          <p>${r.retiringNow ? "With retirement set to now, BRS, FRS and ERS model Age-55 Retirement Sum levels using current balances or lump-sum top-ups." : "Compare BRS (Property Pledge), FRS Target, and ERS Maximum to set your Age-55 Retirement Sum and lifelong CPF LIFE income."}</p>
+          <p>${r.retiringNow ? "With retirement set to now, BRS, FRS and ERS model Age-55 Retirement Sum levels using current balances or lump-sum top-ups." : "Compare how the Basic, Full and Enhanced Retirement Sums affect your lifelong CPF LIFE income."}</p>
         </div>
         <div class="ember-card-actions">
           <div class="cpf-plan-inline-toggle" role="group" aria-label="CPF LIFE payout plan">
@@ -1572,6 +1572,14 @@ export function buildFinOverviewGrid(
           </tbody>
         </table>
       </div>
+      <details class="overview-disclosure-card" id="overview-property-eligibility">
+        <summary class="overview-disclosure-summary">How property eligibility works</summary>
+        <div class="overview-disclosure-body">
+          <p>From age 55, CPF Board may allow you to withdraw eligible Retirement Account savings down to the Basic Retirement Sum if you own a completed property whose lease lasts until at least age 95 and meet the CPF refund requirements.</p>
+          <p>Your existing CPF housing refund may be enough to qualify. If you pledge your property, you must refund the pledged amount to CPF when you sell or transfer it.</p>
+          <a href="https://www.cpf.gov.sg/member/retirement-income/retirement-withdrawals/withdrawing-for-immediate-retirement-needs/withdrawal-of-cpf-savings-for-property-owners">CPF Board guide for property owners</a>
+        </div>
+      </details>
       <details class="overview-disclosure-card" id="overview-methodology">
         <summary class="overview-disclosure-summary">CPF rules and methodology</summary>
         <div class="overview-disclosure-body ember-disclaimer-body">

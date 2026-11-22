@@ -54,7 +54,8 @@ export function buildAllocatorView(bogle, includeCpf = true) {
   return `<header class="fin-page-header allocator-header">
     <div class="fin-header-copy">
       <h1>Portfolio Allocator</h1>
-      <p>Compare your holdings with your target and see how to split your monthly investment.</p>
+      <p>Compare your holdings with your target and plan your next contribution.</p>
+      <button type="button" class="text-button allocator-monthly-link" data-allocator-monthly>See monthly amounts ↓</button>
     </div>
   </header>
   <div class="allocator-sheet card-surface" id="boglehead-allocator">
@@ -105,7 +106,7 @@ export function buildAllocatorView(bogle, includeCpf = true) {
     </section>
 
     <section class="allocator-paycheck" aria-labelledby="allocator-paycheck-title">
-      <h2 id="allocator-paycheck-title">Your monthly investment split</h2>
+      <h2 id="allocator-paycheck-title" tabindex="-1">Your monthly investment split</h2>
       <p class="allocator-support">Use these amounts when placing your monthly orders.</p>
       <dl class="allocator-paycheck-values">
         ${[
