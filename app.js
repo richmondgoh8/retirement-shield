@@ -159,7 +159,6 @@ function setupSimplePlan() {
   const priorityGuideSlot = $("#priority-guide-slot");
   if (priorityGuideSlot) priorityGuideSlot.innerHTML = buildPriorityGuideView();
   let allocatorIncludesCpf = true;
-  let allocatorDrag;
   const cashParkingSlot = $("#cash-parking-slot");
   const dividendCalcSlot = $("#dividend-calc-slot");
   const taxSlot = $("#tax-slot");
@@ -2136,44 +2135,19 @@ function setupSimplePlan() {
 
     if (allocatorSlot.querySelector(".allocator-sheet")) {
       patchSubtrees(allocatorSlot, bogleHTML, [
-        ".allocator-status",
         ".allocator-comparison",
-        ".allocator-target-track",
         ".allocator-target-readout",
         ".allocator-paycheck-values",
       ]);
     } else {
       allocatorSlot.innerHTML = bogleHTML;
-      if (!("popover" in HTMLElement.prototype)) {
-        const help = $("#allocator-help");
-        const details = document.createElement("details");
-        const summary = document.createElement("summary");
-        summary.className = "text-button";
-        summary.textContent = "About the split";
-        help.removeAttribute("popover");
-        $(".allocator-info", allocatorSlot).replaceWith(details);
-        details.append(summary, help);
-      }
     }
     const { targetEquityPct, sgSleevePct } = bogle.holistic;
-    const targetSlider = $("#allocator-slider");
-    targetSlider.style.setProperty("--equity-position", `${targetEquityPct}%`);
-    targetSlider.style.setProperty(
-      "--sg-position",
-      `${(targetEquityPct * (100 - sgSleevePct)) / 100}%`,
-    );
     for (const [field, value, inputId] of [
       ["equity", targetEquityPct, "bogle-target-slider"],
       ["sg", sgSleevePct, "bogle-sg-slider"],
     ]) {
       const disabled = field === "sg" && targetEquityPct === 0;
-      const handle = targetSlider.querySelector(
-        `[data-allocator-handle="${field}"]`,
-      );
-      handle.setAttribute("aria-valuenow", String(value));
-      handle.setAttribute("aria-valuetext", `${value}%`);
-      handle.setAttribute("aria-disabled", String(disabled));
-      handle.tabIndex = disabled ? -1 : 0;
       const input = document.getElementById(inputId);
       input.disabled = disabled;
       if (input !== document.activeElement) input.value = String(value);
@@ -2186,11 +2160,6 @@ function setupSimplePlan() {
     $$("[data-allocator-preset]", allocatorSlot).forEach((button) => {
       const selected =
         Number(button.dataset.allocatorPreset) === targetEquityPct;
-      button.setAttribute("aria-pressed", String(selected));
-    });
-    $$("[data-allocator-basis]", allocatorSlot).forEach((button) => {
-      const selected =
-        (button.dataset.allocatorBasis === "cpf") === allocatorIncludesCpf;
       button.setAttribute("aria-pressed", String(selected));
     });
 
@@ -4521,19 +4490,6 @@ function setupSimplePlan() {
     if (field) event.target.value = String(allocatorValue(field));
   });
   allocatorSlot.addEventListener("click", (event) => {
-    const exact = event.target.closest(".allocator-exact-toggle");
-    if (exact) {
-      const fields = $("#allocator-exact-fields");
-      fields.hidden = !fields.hidden;
-      exact.setAttribute("aria-expanded", String(!fields.hidden));
-      return;
-    }
-    const basis = event.target.closest("[data-allocator-basis]");
-    if (basis) {
-      allocatorIncludesCpf = basis.dataset.allocatorBasis === "cpf";
-      render();
-      return;
-    }
     const preset = event.target.closest("[data-allocator-preset]");
     if (preset) {
       setAllocatorValue("equity", Number(preset.dataset.allocatorPreset));
@@ -4548,56 +4504,10 @@ function setupSimplePlan() {
       );
     }
   });
-  allocatorSlot.addEventListener("keydown", (event) => {
-    const handle = event.target.closest("[data-allocator-handle]");
-    if (!handle || handle.getAttribute("aria-disabled") === "true") return;
-    const field = handle.dataset.allocatorHandle;
-    const current = allocatorValue(field);
-    const nextByKey = {
-      ArrowLeft: current - 1,
-      ArrowDown: current - 1,
-      ArrowRight: current + 1,
-      ArrowUp: current + 1,
-      Home: 0,
-      End: 100,
-    };
-    if (!Object.hasOwn(nextByKey, event.key)) return;
-    event.preventDefault();
-    setAllocatorValue(field, nextByKey[event.key]);
-  });
-  allocatorSlot.addEventListener("pointerdown", (event) => {
-    const handle = event.target.closest("[data-allocator-handle]");
-    if (
-      !handle ||
-      handle.getAttribute("aria-disabled") === "true" ||
-      event.button !== 0 ||
-      allocatorDrag
-    )
-      return;
-    const track = $("#allocator-slider").getBoundingClientRect();
-    const thumb = handle.getBoundingClientRect();
-    allocatorDrag = {
-      pointerId: event.pointerId,
-      field: handle.dataset.allocatorHandle,
-      left: track.left,
-      width: track.width,
-      offset: event.clientX - (thumb.left + thumb.width / 2),
-    };
-    handle.setPointerCapture(event.pointerId);
-  });
-  allocatorSlot.addEventListener("pointermove", (event) => {
-    if (allocatorDrag?.pointerId !== event.pointerId) return;
-    const { left, width, offset, field } = allocatorDrag;
-    const position = ((event.clientX - offset - left) / width) * 100;
-    const equity = allocatorValue("equity");
-    if (field === "sg" && equity === 0) return;
-    setAllocatorValue(
-      field,
-      field === "equity" ? position : 100 - (position / equity) * 100,
-    );
-  });
-  allocatorSlot.addEventListener("lostpointercapture", (event) => {
-    if (allocatorDrag?.pointerId === event.pointerId) allocatorDrag = null;
+  allocatorSlot.addEventListener("change", (event) => {
+    if (!event.target.matches("[data-allocator-basis]")) return;
+    allocatorIncludesCpf = event.target.checked;
+    render();
   });
   $("#savings-simulator").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-adjust]");

@@ -1656,7 +1656,6 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       find('[data-destination="overview"]').click();
       find("#overview-saving-details").open = true;
       find('#overview-saving-details [data-go-tab="allocator"]').click();
-      find(".allocator-exact-toggle").click();
       const equity = find("#bogle-target-slider");
       const sg = find("#bogle-sg-slider");
       const original = [equity.value, sg.value];
