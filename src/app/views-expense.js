@@ -484,6 +484,33 @@ function buildBudgetComparisonHTML({ retire, endAge, scenarios }) {
         `);
       })}
     </div>
+    <table class="brief-cost-table">
+      <caption>
+        Monthly costs in today’s dollars
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">Category</th>
+          ${scenarios.map((scenario) => raw(html`<th scope="col">${scenario.label}</th>`))}
+        </tr>
+      </thead>
+      <tbody>
+        ${scenarios[0].categories.map((category) =>
+          raw(
+            html`<tr>
+              <th scope="row">${category.label}</th>
+              ${scenarios.map((scenario) => raw(html`<td>${money(scenario.categories.find((row) => row.key === category.key)?.amount ?? 0)}</td>`))}
+            </tr>`,
+          ),
+        )}
+      </tbody>
+      <tfoot>
+        <tr>
+          <th scope="row">Total</th>
+          ${scenarios.map((scenario) => raw(html`<td>${money(scenario.budget)}</td>`))}
+        </tr>
+      </tfoot>
+    </table>
   `;
 }
 

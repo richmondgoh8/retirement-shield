@@ -378,22 +378,67 @@ function savingsHealth(rate, cashflow) {
   return savingsRateBand(rate);
 }
 
+function buildMonthlyPaycheck(point) {
+  const monthly = point.today;
+  const spend = monthly.monthlySpend;
+  // Total income includes only the post-tax SRS draw applied to spending.
+  const srs =
+    monthly.monthlyTotalIncome -
+    monthly.monthlyLiquidDraw -
+    monthly.monthlyCpfLife -
+    monthly.monthlyBridge;
+  const sources = [
+    ["CPF LIFE", monthly.monthlyCpfLife, "--sem-cpf"],
+    ["Bridge income", monthly.monthlyBridge, "--ink-soft"],
+    ["SRS withdrawals", srs, "--sem-srs"],
+    ["Cash & bonds", monthly.monthlyCashDraw, "--sem-cash"],
+    ["CPF Ordinary Account", monthly.monthlyOaDraw, "--sem-teal"],
+    ["Equities", monthly.monthlyEqDraw, "--sem-equities"],
+    ["Uncovered spending", monthly.monthlyShortfall, "--sem-alert"],
+  ];
+  let allocated = 0;
+  const rows = [];
+  for (const [label, income, color] of sources) {
+    const previous = allocated;
+    allocated = Math.min(spend, previous + Math.max(0, income));
+    // Round cumulative amounts so the displayed rows add up to the target.
+    const amount = Math.round(allocated) - Math.round(previous);
+    if (amount > 0) rows.push({ label, amount, color });
+  }
+  return `<div class="brief-paycheck-values">
+    <p class="brief-spend-label">Monthly spending at age ${point.age}</p>
+    <strong class="brief-spend">${m(spend, "/mo")}</strong>
+    <p class="brief-basis">In today’s dollars, including projected insurance costs.</p>
+    <div class="brief-income-bar" aria-hidden="true">${rows
+      .map(
+        (row) =>
+          `<span style="flex:${row.amount};background:var(${row.color})"></span>`,
+      )
+      .join("")}</div>
+    <dl class="brief-income-list">${rows
+      .map(
+        (row) =>
+          `<div><dt><i aria-hidden="true" style="background:var(${row.color})"></i>${row.label}</dt><dd>${m(row.amount)}</dd></div>`,
+      )
+      .join("")}</dl>
+  </div>`;
+}
+
+const fundingTrack = (pct) =>
+  `<span class="overview-funding-track" aria-hidden="true"><span style="inline-size:${Math.min(100, Math.max(0, pct))}%"></span></span>`;
+
 function buildOverviewPageHeader({
   fire,
   r,
-  startingTotalAssets,
-  startingCpf,
-  buckets,
   rate,
   contribution,
   budget,
-  selected,
+  scenarioLabel,
   cashflow,
-  cpfProgress,
   savingsProgress,
 }) {
   const fn = fire.fireNumber;
-  const onTrack = fn.pctFunded >= 100 && fn.fullyFundedTo95;
+  const onTrack = fn.depletionAge == null;
   const tone = onTrack ? "good" : "warn";
   const coveredUntil = fn.depletionAge ?? fire.endAge;
   const retirementSpan = fire.endAge - fire.retire;
@@ -401,11 +446,6 @@ function buildOverviewPageHeader({
     retirementSpan > 0
       ? Math.min(1, Math.max(0, (coveredUntil - fire.retire) / retirementSpan))
       : 0;
-  const strategyName = {
-    brs: "Basic Retirement Sum",
-    frs: "Full Retirement Sum",
-    ers: "Enhanced Retirement Sum",
-  }[cpfProgress.strategy.toLowerCase()];
   const headline = onTrack
     ? `Spending is covered through age ${fire.endAge}`
     : `Your plan first falls short at age ${Math.floor(coveredUntil)}`;
@@ -415,6 +455,8 @@ function buildOverviewPageHeader({
       ? `Age ${fn.projectedFireAge}`
       : "No age through 80";
   const beforeCpfLife = fire.retire < 65;
+  const age65Point =
+    beforeCpfLife && fire.points.find((point) => point.age === 65);
   const cpfLifeAge = beforeCpfLife ? "from age 65" : `at age ${fire.retire}`;
   const cpfLifeToday = beforeCpfLife
     ? fire.phase2.cpfLife65Today
@@ -423,23 +465,22 @@ function buildOverviewPageHeader({
     `<button type="button" class="${style}" data-review-overview-savings>Review savings</button>`;
   const reviewAge = (style) =>
     `<button type="button" class="${style}" data-quick-edit="goal" data-qe-focus="#qe-retire">Review retirement age</button>`;
-  const fundingTrack = (pct) =>
-    `<span class="overview-funding-track" aria-hidden="true"><span style="inline-size:${Math.min(100, Math.max(0, pct))}%"></span></span>`;
   return `<header class="overview-hero" aria-labelledby="fire-hero-title">
     <div class="ember-page-header fin-page-header overview-title-row">
-      <h1 id="fire-hero-title" tabindex="-1">Retirement Overview</h1>
+      <h1 id="fire-hero-title" tabindex="-1">Your retirement brief</h1>
       <button type="button" class="button button-small" commandfor="plan-settings" command="show-modal" aria-haspopup="dialog">
         Assumptions <span class="overview-assumption-values">· ${Number((r.inflation * 100).toFixed(1))}% inflation · ${Number((r.investmentReturn * 100).toFixed(1))}% return</span>
       </button>
     </div>
     <section class="overview-verdict is-${tone}" tabindex="-1" aria-label="Retirement readiness">
       <div class="overview-verdict-copy">
+        <p class="brief-section-label">${svgWrap('<path d="M12 3 4 6v5c0 5 3 8 8 11 5-3 8-6 8-11V6Z"/>')} Spending horizon</p>
         <h2 class="overview-decision-title">${headline}</h2>
         <p class="overview-decision-support">
           ${
             r.retiringNow
               ? `This projection assumes you retire now, at age <strong>${fire.retire}</strong>.`
-              : `This projection assumes you save <strong>${m(contribution, "/mo")}</strong> and retire at <strong>${fire.retire}</strong>.`
+              : `You save <strong>${m(contribution, "/mo")}</strong> and plan to retire at <strong>${fire.retire}</strong>.`
           }
           ${
             !r.retiringNow && cashflow.netCashSurplus < 0
@@ -449,10 +490,19 @@ function buildOverviewPageHeader({
                 : ""
           }
         </p>
-        <div class="overview-retirement-span">
-          <div class="overview-span-track" aria-hidden="true"><span style="inline-size:${coveredFraction * 100}%"></span></div>
-          <div class="overview-span-labels"><span>Retirement · ${fire.retire}</span><span>Plan ends · ${fire.endAge}</span></div>
+        <div class="overview-retirement-span" style="--covered:${coveredFraction * 100}%">
+          ${onTrack ? "" : `<div class="brief-shortfall-age"><span>Shortfall · ${Math.floor(fn.depletionAge)}</span></div>`}
+          <div class="overview-span-track" aria-hidden="true"><span style="inline-size:var(--covered)"></span></div>
+          <div class="overview-span-labels"><span>Retire <b>${fire.retire}</b></span><span>Horizon <b>${fire.endAge}</b></span></div>
         </div>
+
+      </div>
+      <section class="brief-paycheck" aria-labelledby="brief-paycheck-title">
+        <div class="brief-paycheck-heading"><h2 id="brief-paycheck-title">Retirement paycheck</h2><span>${scenarioLabel}</span></div>
+        ${buildMonthlyPaycheck(fire.atRetire)}
+        <button type="button" class="text-button brief-budget-edit" data-go-tab="budget">Edit base budget · ${m(budget ?? r.todaySpend, "/mo")} →</button>
+        ${age65Point ? `<details id="brief-paycheck-65"><summary>See paycheck at age 65</summary>${buildMonthlyPaycheck(age65Point)}</details>` : ""}
+      </section>
         <div class="overview-hero-actions">
           ${
             r.retiringNow
@@ -460,7 +510,6 @@ function buildOverviewPageHeader({
               : `${reviewSavings("button button-primary")}${reviewAge("button")}`
           }
         </div>
-      </div>
       <dl class="overview-action-outcome card-surface" aria-label="Current plan projections">
         <div class="overview-funding-metric">
           <dt>${savingsProgress.title}</dt>
@@ -482,43 +531,6 @@ function buildOverviewPageHeader({
           <dd class="overview-outcome-note">In today’s dollars.</dd>
         </div>
       </dl>
-      <div class="overview-cpf-strategy card-surface">
-        <div class="overview-strategy-header">
-          <h3 id="overview-cpf-strategy-label">CPF retirement sum</h3>
-          <div id="overview-cpf-strategy-options" data-cpf-strategy-group role="group" aria-labelledby="overview-cpf-strategy-label" aria-describedby="overview-cpf-strategy-help">
-            ${["brs", "frs", "ers"].map((path) => `<button type="button" class="button button-small" data-cpf-strategy="${path}" aria-pressed="${path === selected}">${path.toUpperCase()}</button>`).join("")}
-          </div>
-        </div>
-        <div class="overview-strategy-progress">
-          <strong><span id="overview-cpf-percent">${cpfProgress.percent}</span> of the ${strategyName} at age 55</strong>
-          ${fundingTrack(cpfProgress.pct)}
-          <span>${m(cpfProgress.balanceToday)} of ${m(cpfProgress.targetToday)} in today’s dollars</span>
-        </div>
-        <p id="overview-cpf-strategy-help" class="cpf-strategy-help">${selected === "brs" ? "BRS is a savings target. CPF savings above it can still flow into your Retirement Account up to FRS at 55." : "Changing this target keeps your savings and retirement budget fixed."}</p>
-      </div>
-      <div class="overview-plan-summary card-surface">
-        <h3>Plan inputs</h3>
-        <div class="overview-hero-summary">
-          <div><span>Pay after CPF</span> <strong>${m(r.afterCpf, "/mo")}</strong></div>
-          <div><span>Starting assets</span> <strong>${m(startingTotalAssets)}</strong></div>
-          ${budget == null ? "" : `<button type="button" class="text-button overview-budget-link" data-go-tab="budget"><span>Retirement budget ${svgWrap('<path d="M5 12h14m-6-6 6 6-6 6"/>', 14)}</span> <strong>${m(budget, "/mo")}</strong></button>`}
-        </div>
-        <details class="overview-asset-details" id="overview-starting-assets">
-          <summary>Starting asset breakdown</summary>
-          <dl>${[
-            ["Global equities", buckets.equities],
-            ["Singapore dividend holdings", buckets.sgDividends],
-            ["Cash and SSBs", buckets.ssbCash],
-            ["SRS", buckets.srs],
-            ["CPF balances", startingCpf],
-          ]
-            .map(
-              ([label, value]) =>
-                `<div><dt>${label}</dt><dd>${m(value)}</dd></div>`,
-            )
-            .join("")}</dl>
-        </details>
-      </div>
     </section>
   </header>`;
 }
@@ -1206,9 +1218,7 @@ export function buildFinOverviewGrid(
     fire.points[fire.points.length - 1];
   const retireNw = ptAtRetire?.today?.totalNetWorth ?? 0;
   const chartStatus =
-    fire.fireNumber.pctFunded >= 100 && fire.fireNumber.fullyFundedTo95
-      ? "On track"
-      : "Shortfall";
+    fire.fireNumber.depletionAge == null ? "On track" : "Shortfall";
   const chartMilestones = [65, 95]
     .map((age) => {
       const point = fire.points.find((entry) => entry.age === age);
@@ -1258,15 +1268,12 @@ export function buildFinOverviewGrid(
         : s.key === "salary"
           ? "CPF Salary Only"
           : "FRS Path";
-  const isItemizedTarget = Boolean(expenseData?.itemizedActive);
-  const lifestyleCardLabel = isItemizedTarget
-    ? "Custom itemized"
-    : isCustomSpend
-      ? "Custom"
-      : r.lifestyle === "cca"
-        ? "Community Care"
-        : "Home + Helper";
-  const lifestyleCardAria = `${lifestyleCardLabel} (${money(r.todaySpend)}/mo)`;
+  const housingLabel =
+    r.lifestyle === "cca" ? "Community Care Apartment" : "Home + Helper";
+  const lifestyleCardLabel =
+    isCustomSpend || expenseData?.itemizedActive
+      ? `${housingLabel} · custom`
+      : housingLabel;
 
   const pathMeta = {
     brs: {
@@ -1369,104 +1376,14 @@ export function buildFinOverviewGrid(
     ["known-invest", "Outside investments", p.invest ?? simulation.invest],
   ];
 
-  return `${buildOverviewPageHeader({ fire, r, startingTotalAssets, startingCpf, buckets: bogle.buckets, rate: pctOfPay, contribution, budget: expenseData?.total, selected, cashflow, cpfProgress, savingsProgress })}
-  <section class="swell-section-block" aria-label="Wealth trajectory, income taps, and retirement readiness">
-    <div class="swell-section-head">
-      <h2>Trajectory &amp; Readiness</h2>
-    </div>
-    <div class="swell-discover-grid">
-      <section class="fin-card fin-hero-card card-surface" aria-labelledby="ember-traj-title">
-        <div class="overview-chart-head">
-          <div class="swell-mini-kpi is-primary">
-            <h3 id="ember-traj-title">Net Worth at Age ${fire.retire}</h3>
-            <div class="fin-big-figure-row">
-              <strong class="fin-big-figure" id="hero-nw-live">${m(retireNw, "", "hero-nw")}</strong>
-            </div>
-          </div>
-          <button type="button" class="text-button overview-projection-link" data-go-tab="trajectory">View projection →</button>
-        </div>
-        <div class="chart-wrapper">
-          <div id="dash-networth-chart" class="chart-area" role="img" aria-label="Stacked net worth trajectory from age ${fire.age} to ${fire.endAge}" aria-describedby="overview-networth-description"></div>
-          <p class="sr-only" id="overview-networth-description">Projected net worth in today’s dollars. ${chartMilestones.join(" ")} ${chartStatus}.</p>
-          <div id="dash-networth-tooltip" class="chart-tooltip" hidden></div>
-        </div>
-        <div class="chart-legend fin-chart-legend" id="dash-networth-legend" role="group" aria-label="Net worth chart layers"></div>
-      </section>
-
-      <section class="fin-card fin-activity-card card-surface" aria-label="Key milestones and paycheck allocation">
-        <div class="fin-activity-head">
-          <h3>Milestones &amp; Paycheck</h3>
-          <button type="button" class="fin-link-pill" data-go-tab="budget">Edit budget</button>
-        </div>
-        <div class="fin-segmented-tabs" id="fin-activity-tabs" data-seg-idx="${activeSegIdx}" style="--seg-idx:${activeSegIdx};--seg-count:2" role="tablist" aria-label="Cashflow and milestone views">
-          <button type="button" role="tab" class="fin-seg-tab${activeMilestones ? " is-active" : ""}" data-fin-activity="milestones" aria-selected="${activeMilestones}">Milestones</button>
-          <button type="button" role="tab" class="fin-seg-tab${activePaycheck ? " is-active" : ""}" data-fin-activity="paycheck" aria-selected="${activePaycheck}">Paycheck</button>
-        </div>
-
-        <div class="fin-activity-pane" ${activeMilestones ? "" : "hidden"}>
-          <ul class="ember-feed-list">
-            ${milestones
-              .map(
-                (
-                  n,
-                  idx,
-                ) => `<li class="ember-feed-item" style="--item-idx:${idx}">
-                  <span class="ember-feed-avatar" style="background:${n.softBg};color:${n.color};">${n.badge}</span>
-                  <div class="ember-feed-info">
-                    <strong>${n.title}</strong>
-                    <span>${n.tag ? `${n.tag} · ` : ""}${n.sub}</span>
-                  </div>
-                  ${n.metric ? `<div class="ember-feed-right"><b>${n.metric}</b></div>` : ""}
-                </li>`,
-              )
-              .join("")}
-          </ul>
-          <div class="fin-coverage-card">
-            <div class="fin-cov-head">
-              <span>Age-65 income split · CPF LIFE and savings</span>
-              <strong>${m(r.spend65, "/mo")} need</strong>
-            </div>
-            <div class="fin-cov-track" aria-hidden="true">
-              <span class="fin-cov-cpf" data-meter-key="cov-cpf" data-meter-w="${cpfCov65Pct}" style="width:${cpfCov65Pct}%"></span>
-              <span class="fin-cov-out" data-meter-key="cov-out" data-meter-w="${Math.max(0, 100 - cpfCov65Pct)}" style="width:${Math.max(0, 100 - cpfCov65Pct)}%"></span>
-            </div>
-            <div class="fin-cov-legend">
-              <span><i style="background:#10B981;"></i>CPF LIFE <b>${cpfCov65Pct}%</b></span>
-              <span><i style="background:#2563EB;"></i><b>${m(s.gap65, "/mo")}</b> from savings, including SSBs (${Math.max(0, 100 - cpfCov65Pct)}%)</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="fin-activity-pane" ${activePaycheck ? "" : "hidden"}>
-          <div class="ember-bars-list">
-            ${paycheckBars
-              .map((row, idx) => {
-                const w = Math.min(
-                  100,
-                  Math.round((row.amt / Math.max(1, grossPlusEmployer)) * 100),
-                );
-                return `<div class="ember-bar-row" style="--item-idx:${idx}">
-                  <div class="ember-bar-meta">
-                    <span><i style="background:${row.color};"></i>${row.label} <small>(${m(row.amt)})</small></span>
-                    <span class="swell-slate-pill">${w}%</span>
-                  </div>
-                  <div class="ember-bar-track" aria-hidden="true">
-                    <span style="width:${row.amt > 0 ? Math.max(3, w) : 0}%;background:${row.color};"></span>
-                  </div>
-                </div>`;
-              })
-              .join("")}
-          </div>
-          <div class="ember-card-foot">
-
-            <button type="button" class="text-button" data-go-tab="allocator">Allocator →</button>
-          </div>
-        </div>
-      </section>
-
-    </div>
-  </section>
-
+  const strategyName = {
+    brs: "Basic Retirement Sum",
+    frs: "Full Retirement Sum",
+    ers: "Enhanced Retirement Sum",
+  }[cpfProgress.strategy.toLowerCase()];
+  const budget = expenseData?.total;
+  const buckets = bogle.buckets;
+  return `${buildOverviewPageHeader({ fire, r, rate: pctOfPay, contribution, budget, scenarioLabel: lifestyleCardLabel, cashflow, savingsProgress })}
   <section class="swell-section-block" aria-labelledby="overview-savings-title">
     <div class="swell-section-head"><h2 id="overview-savings-title" tabindex="-1">Monthly Savings &amp; Investment Plan</h2></div>
     <div class="overview-savings card-surface">
@@ -1541,6 +1458,143 @@ export function buildFinOverviewGrid(
       </div>
     </details>
     </div>
+  </section>
+
+  <section class="swell-section-block" aria-label="Wealth trajectory, income taps, and retirement readiness">
+    <div class="swell-section-head">
+      <h2>Trajectory &amp; Readiness</h2>
+    </div>
+    <div class="swell-discover-grid">
+      <section class="fin-card fin-hero-card card-surface" aria-labelledby="ember-traj-title">
+        <div class="overview-chart-head">
+          <div class="swell-mini-kpi is-primary">
+            <h3 id="ember-traj-title">Net Worth at Age ${fire.retire}</h3>
+            <div class="fin-big-figure-row">
+              <strong class="fin-big-figure" id="hero-nw-live">${m(retireNw, "", "hero-nw")}</strong>
+            </div>
+          </div>
+          <button type="button" class="text-button overview-projection-link" data-go-tab="trajectory">View projection →</button>
+        </div>
+        <div class="chart-wrapper">
+          <div id="dash-networth-chart" class="chart-area" role="img" aria-label="Stacked net worth trajectory from age ${fire.age} to ${fire.endAge}" aria-describedby="overview-networth-description"></div>
+          <p class="sr-only" id="overview-networth-description">Projected net worth in today’s dollars. ${chartMilestones.join(" ")} ${chartStatus}.</p>
+          <div id="dash-networth-tooltip" class="chart-tooltip" hidden></div>
+        </div>
+        <div class="chart-legend fin-chart-legend" id="dash-networth-legend" role="group" aria-label="Net worth chart layers"></div>
+      </section>
+
+      <section class="fin-card fin-activity-card card-surface" aria-label="Key milestones and paycheck allocation">
+        <div class="fin-activity-head">
+          <h3>Milestones &amp; working income</h3>
+          <button type="button" class="fin-link-pill" data-go-tab="budget">Edit budget</button>
+        </div>
+        <div class="fin-segmented-tabs" id="fin-activity-tabs" data-seg-idx="${activeSegIdx}" style="--seg-idx:${activeSegIdx};--seg-count:2" role="tablist" aria-label="Cashflow and milestone views">
+          <button type="button" role="tab" class="fin-seg-tab${activeMilestones ? " is-active" : ""}" data-fin-activity="milestones" aria-selected="${activeMilestones}">Milestones</button>
+          <button type="button" role="tab" class="fin-seg-tab${activePaycheck ? " is-active" : ""}" data-fin-activity="paycheck" aria-selected="${activePaycheck}">Working paycheck</button>
+        </div>
+
+        <div class="fin-activity-pane" ${activeMilestones ? "" : "hidden"}>
+          <ul class="ember-feed-list">
+            ${milestones
+              .map(
+                (
+                  n,
+                  idx,
+                ) => `<li class="ember-feed-item" style="--item-idx:${idx}">
+                  <span class="ember-feed-avatar" style="background:${n.softBg};color:${n.color};">${n.badge}</span>
+                  <div class="ember-feed-info">
+                    <strong>${n.title}</strong>
+                    <span>${n.tag ? `${n.tag} · ` : ""}${n.sub}</span>
+                  </div>
+                  ${n.metric ? `<div class="ember-feed-right"><b>${n.metric}</b></div>` : ""}
+                </li>`,
+              )
+              .join("")}
+          </ul>
+          <div class="fin-coverage-card">
+            <div class="fin-cov-head">
+              <span>Age-65 income split · CPF LIFE and savings</span>
+              <strong>${m(r.spend65, "/mo")} need</strong>
+            </div>
+            <div class="fin-cov-track" aria-hidden="true">
+              <span class="fin-cov-cpf" data-meter-key="cov-cpf" data-meter-w="${cpfCov65Pct}" style="width:${cpfCov65Pct}%"></span>
+              <span class="fin-cov-out" data-meter-key="cov-out" data-meter-w="${Math.max(0, 100 - cpfCov65Pct)}" style="width:${Math.max(0, 100 - cpfCov65Pct)}%"></span>
+            </div>
+            <div class="fin-cov-legend">
+              <span><i style="background:#10B981;"></i>CPF LIFE <b>${cpfCov65Pct}%</b></span>
+              <span><i style="background:#2563EB;"></i><b>${m(s.gap65, "/mo")}</b> from savings, including SSBs (${Math.max(0, 100 - cpfCov65Pct)}%)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="fin-activity-pane" ${activePaycheck ? "" : "hidden"}>
+          <div class="ember-bars-list">
+            ${paycheckBars
+              .map((row, idx) => {
+                const w = Math.min(
+                  100,
+                  Math.round((row.amt / Math.max(1, grossPlusEmployer)) * 100),
+                );
+                return `<div class="ember-bar-row" style="--item-idx:${idx}">
+                  <div class="ember-bar-meta">
+                    <span><i style="background:${row.color};"></i>${row.label} <small>(${m(row.amt)})</small></span>
+                    <span class="swell-slate-pill">${w}%</span>
+                  </div>
+                  <div class="ember-bar-track" aria-hidden="true">
+                    <span style="width:${row.amt > 0 ? Math.max(3, w) : 0}%;background:${row.color};"></span>
+                  </div>
+                </div>`;
+              })
+              .join("")}
+          </div>
+          <div class="ember-card-foot">
+
+            <button type="button" class="text-button" data-go-tab="allocator">Allocator →</button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </section>
+
+  <section class="brief-inputs" aria-label="Plan inputs and CPF target">
+      <div class="overview-cpf-strategy card-surface">
+        <div class="overview-strategy-header">
+          <h3 id="overview-cpf-strategy-label">CPF retirement sum</h3>
+          <div id="overview-cpf-strategy-options" data-cpf-strategy-group role="group" aria-labelledby="overview-cpf-strategy-label" aria-describedby="overview-cpf-strategy-help">
+            ${["brs", "frs", "ers"].map((path) => `<button type="button" class="button button-small" data-cpf-strategy="${path}" aria-pressed="${path === selected}">${path.toUpperCase()}</button>`).join("")}
+          </div>
+        </div>
+        <div class="overview-strategy-progress">
+          <strong><span id="overview-cpf-percent">${cpfProgress.percent}</span> of the ${strategyName} at age 55</strong>
+          ${fundingTrack(cpfProgress.pct)}
+          <span>${m(cpfProgress.balanceToday)} of ${m(cpfProgress.targetToday)} in today’s dollars</span>
+        </div>
+        <p id="overview-cpf-strategy-help" class="cpf-strategy-help">${selected === "brs" ? "BRS is a savings target. CPF savings above it can still flow into your Retirement Account up to FRS at 55." : "Changing this target keeps your savings and retirement budget fixed."}</p>
+      </div>
+      <div class="overview-plan-summary card-surface">
+        <h3>Plan inputs</h3>
+        <div class="overview-hero-summary">
+          <div><span>Pay after CPF</span> <strong>${m(r.afterCpf, "/mo")}</strong></div>
+          <div><span>Starting assets</span> <strong>${m(startingTotalAssets)}</strong></div>
+          ${budget == null ? "" : `<button type="button" class="text-button overview-budget-link" data-go-tab="budget"><span>Retirement budget ${svgWrap('<path d="M5 12h14m-6-6 6 6-6 6"/>', 14)}</span> <strong>${m(budget, "/mo")}</strong></button>`}
+        </div>
+        <details class="overview-asset-details" id="overview-starting-assets">
+          <summary>Starting asset breakdown</summary>
+          <dl>${[
+            ["Global equities", buckets.equities],
+            ["Singapore dividend holdings", buckets.sgDividends],
+            ["Cash and SSBs", buckets.ssbCash],
+            ["SRS", buckets.srs],
+            ["CPF balances", startingCpf],
+          ]
+            .map(
+              ([label, value]) =>
+                `<div><dt>${label}</dt><dd>${m(value)}</dd></div>`,
+            )
+            .join("")}</dl>
+        </details>
+      </div>
   </section>
 
   <section class="swell-section-block" id="cpf-strategy-comparison" aria-label="CPF strategy paths and retirement income architecture">

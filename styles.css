@@ -1995,15 +1995,14 @@ h3 {
 .budget-comparison-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: auto 1fr;
-  gap: 12px;
+  grid-template-rows: repeat(7, auto);
+  gap: 6px 12px;
 }
 
 .budget-comparison-scenario {
   display: grid;
   grid-template-rows: subgrid;
-  grid-row: span 2;
-  gap: 8px;
+  grid-row: span 7;
   padding: clamp(8px, 2.5vw, 16px);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -2017,6 +2016,9 @@ h3 {
 }
 
 .budget-comparison-scenario dl {
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: span 6;
   margin: 0;
 }
 
@@ -2034,6 +2036,38 @@ h3 {
 
 .budget-comparison-scenario dd:last-child {
   margin-block-end: 0;
+}
+
+.brief-cost-table {
+  margin-block-start: 20px;
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.875rem;
+}
+.brief-cost-table caption {
+  text-align: start;
+  font-size: 1rem;
+  font-weight: 700;
+  margin-block-end: 8px;
+}
+.brief-cost-table :is(td, th) {
+  padding: 8px 4px;
+  border-block-end: 1px solid var(--border);
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+.brief-cost-table th:first-child {
+  width: 38%;
+  text-align: start;
+}
+.brief-cost-table tbody th {
+  font-weight: 500;
+}
+.brief-cost-table tfoot {
+  font-weight: 750;
+  background: var(--surface-subtle);
 }
 
 #budget-comparison-title {
@@ -3697,6 +3731,15 @@ h3 {
 .allocator-total {
   font-weight: 700;
 }
+.allocator-total dd {
+  font-size: clamp(1.05rem, 0.9rem + 0.55vw, 1.4rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.025em;
+}
+.settings-value-readout [data-value-format="monthly"],
+.settings-value-readout [data-value-format="money"] {
+  font-variant-numeric: tabular-nums;
+}
 
 .allocator-paycheck-detail {
   color: var(--ink-soft);
@@ -3986,6 +4029,22 @@ h3 {
   margin-bottom: 18px;
 }
 
+.tab-panel .fin-page-header {
+  padding-block-end: 14px;
+  border-block-end: 1px solid var(--border-strong);
+}
+.tab-panel .fin-page-header .text-button,
+.brief-budget-edit {
+  color: var(--primary-ink);
+  text-underline-offset: 0.2em;
+}
+@media (hover: hover) {
+  .tab-panel .fin-page-header .text-button:hover,
+  .brief-budget-edit:hover {
+    text-decoration: underline;
+  }
+}
+
 .fin-title-row {
   display: flex;
   flex-wrap: wrap;
@@ -3998,8 +4057,8 @@ h3 {
 .fin-page-header h1,
 .fin-header-copy h1 {
   margin: 0;
-  font-size: clamp(1.38rem, 2.2vw, 1.62rem);
-  font-weight: 600;
+  font-size: clamp(1.5rem, 1.15rem + 1.2vw, 2.15rem);
+  font-weight: 720;
   letter-spacing: -0.025em;
   line-height: 1.2;
   color: var(--ink);
@@ -9428,7 +9487,7 @@ h3 {
 
 .fin-bento-title {
   margin: 0;
-  font-size: 1.32rem;
+  font-size: clamp(1.32rem, 1.12rem + 0.75vw, 1.8rem);
   font-weight: 800;
   letter-spacing: -0.025em;
   color: var(--ink);
@@ -11793,86 +11852,217 @@ code {
   --overview-funding-fill: var(--sem-cash-ink);
 }
 
-.overview-verdict-copy {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: clamp(20px, 4cqi, 38px);
-  border: 1px solid var(--ink);
+.overview-verdict-copy,
+.brief-paycheck {
+  min-inline-size: 0;
+  padding: clamp(20px, 3cqi, 36px);
+}
+
+.overview-verdict {
+  gap: 0;
+  overflow: clip;
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
-  background: var(--ink);
-  background-image: radial-gradient(
-    ellipse at bottom right,
-    color-mix(in srgb, var(--primary) 42%, var(--ink)),
-    transparent 76%
-  );
-  color: var(--surface);
+  background: var(--surface);
   box-shadow: var(--surface-shadow);
 }
 
-#overview-slot .overview-verdict .overview-decision-title {
-  max-inline-size: 22ch;
+.overview-verdict-copy,
+.overview-hero-actions {
+  background: color-mix(in srgb, var(--surface) 55%, var(--swell-pink-soft));
+}
+
+.brief-section-label,
+.brief-paycheck-heading h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
-  color: inherit;
-  font-size: clamp(1.5rem, 4.25cqi, 2.5rem);
-  font-weight: 750;
-  line-height: 1.12;
-  letter-spacing: -0.035em;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.brief-section-label svg {
+  color: var(--swell-pink-ink);
+}
+
+#overview-slot .overview-verdict .overview-decision-title {
+  max-inline-size: 19ch;
+  margin: clamp(14px, 2.2cqi, 25px) 0 0;
+  color: var(--ink);
+  font-size: clamp(1.85rem, 1.4rem + 2cqi, 3.5rem);
+  line-height: 1.04;
+  letter-spacing: -0.05em;
   text-wrap: balance;
 }
 
 .overview-decision-support {
-  max-inline-size: 55ch;
-  margin: 14px 0 0;
-  color: color-mix(in srgb, var(--surface) 82%, var(--ink));
-  line-height: 1.55;
+  margin: 12px 0 0;
+  color: var(--ink-soft);
+  line-height: 1.5;
 }
 
+.overview-decision-band {
+  display: block;
+}
 .overview-retirement-span {
+  --covered: 100%;
   margin-block-start: 20px;
+}
+
+.brief-shortfall-age {
+  display: grid;
+  grid-template-columns:
+    clamp(0px, calc(var(--covered) - 4em), calc(100% - 8em))
+    minmax(0, 8em) 1fr;
+  margin-block-end: 6px;
+  font-size: 0.75rem;
+  font-weight: 650;
+  color: var(--swell-pink-ink);
+}
+.brief-shortfall-age span {
+  grid-column: 2;
+  text-align: center;
 }
 
 .overview-span-track {
   position: relative;
-  display: flex;
-  align-items: center;
-  block-size: 5px;
-}
-
-.overview-span-track::before {
-  content: "";
-  position: absolute;
-  inset-inline: 0;
-  border-block-start: 2px dashed
-    color-mix(in srgb, var(--surface) 55%, transparent);
+  height: 16px;
+  background: repeating-linear-gradient(
+      to right,
+      var(--border-strong) 0 1px,
+      transparent 1px 5%
+    )
+    left bottom / 100% 6px no-repeat;
+  border-block-end: 1px solid var(--border-strong);
 }
 
 .overview-span-track > span {
-  position: relative;
-  block-size: 100%;
-  border-radius: var(--radius-pill);
-  background: var(--surface);
+  position: absolute;
+  inset: 0 auto auto 0;
+  height: 4px;
+  background: var(--swell-pink-ink);
+}
+
+.overview-span-track::after {
+  content: "";
+  position: absolute;
+  inset-block-start: -3px;
+  inset-inline-start: clamp(5px, var(--covered), calc(100% - 5px));
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--swell-pink-ink);
+  transform: translateX(-50%);
 }
 
 .overview-span-labels {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
-  margin-block-start: 6px;
+  gap: 6px;
+  color: var(--ink-soft);
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
 }
 
-.overview-decision-support strong {
-  color: var(--surface);
+.overview-span-labels b {
+  color: var(--ink);
+}
+.overview-span-labels > :last-child {
+  text-align: end;
 }
 
-.overview-decision-band {
-  display: block;
-  margin-block-start: 4px;
+.brief-paycheck {
+  border-block-start: 1px solid var(--border);
+}
+
+.brief-paycheck-heading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 10px;
+}
+
+.brief-paycheck-heading > span,
+.brief-basis,
+.brief-spend-label {
+  color: var(--ink-soft);
+  font-size: 0.8125rem;
+}
+
+.brief-spend-label {
+  margin: 14px 0 2px;
+}
+.brief-spend {
+  font-size: clamp(1.75rem, 1.4rem + 1.5cqi, 2.75rem);
+  font-weight: 750;
+  line-height: 1.1;
+  letter-spacing: -0.045em;
+}
+.brief-basis {
+  margin: 3px 0 0;
+}
+
+.brief-income-bar {
+  display: flex;
+  gap: 2px;
+  block-size: 12px;
+  margin-block: 16px 10px;
+  border-radius: 3px;
+  overflow: clip;
+}
+
+.brief-income-list {
+  margin: 0;
+}
+.brief-income-list > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-block: 5px;
+  border-block-end: 1px solid var(--border);
   font-size: 0.875rem;
 }
+.brief-income-list dt {
+  color: var(--ink-soft);
+}
+.brief-income-list i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-inline-end: 8px;
+  border-radius: 2px;
+}
+.brief-income-list dd {
+  margin: 0;
+  font-weight: 700;
+}
+.brief-budget-edit,
+#brief-paycheck-65 summary {
+  min-block-size: 44px;
+  color: var(--primary-ink);
+}
+#brief-paycheck-65 summary {
+  cursor: pointer;
+  padding-block: 10px;
+}
+.brief-inputs {
+  display: grid;
+  gap: 12px;
+  container: plan-inputs / inline-size;
+  --overview-panel-padding: clamp(16px, 2vw, 24px);
+}
 
+.overview-verdict .overview-action-outcome {
+  grid-column: 1 / -1;
+  border: 0;
+  border-block-start: 1px solid var(--border-strong);
+  border-radius: 0;
+  box-shadow: none;
+}
 .overview-action-outcome {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -11970,41 +12160,15 @@ code {
 .overview-hero-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-block-start: 24px;
+  align-content: start;
+  gap: 4px 8px;
+  padding: 12px var(--overview-panel-padding);
+  border-block-start: 1px solid var(--border);
 }
 
 .overview-hero-actions > .button {
   min-block-size: 44px;
-  min-inline-size: 0;
-  border-color: color-mix(in srgb, var(--surface) 48%, transparent);
-  background: color-mix(in srgb, var(--surface) 6%, transparent);
-  color: var(--surface);
   white-space: normal;
-}
-
-.overview-hero-actions > .button-primary {
-  border-color: var(--surface);
-  background: var(--surface);
-  color: var(--primary-ink);
-}
-
-.overview-verdict-copy :focus-visible {
-  outline-color: var(--surface);
-}
-
-@media (hover: hover) {
-  .overview-hero-actions > .button:hover {
-    border-color: var(--surface);
-    background: color-mix(in srgb, var(--surface) 14%, transparent);
-    color: var(--surface);
-  }
-
-  .overview-hero-actions > .button-primary:hover {
-    border-color: var(--primary-soft);
-    background: var(--primary-soft);
-    color: var(--primary-ink);
-  }
 }
 
 #overview-savings-title {
@@ -12108,9 +12272,39 @@ code {
   .overview-verdict {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
+  .overview-verdict-copy {
+    grid-column: 1;
+    grid-row: 1;
+    padding-block-end: 12px;
+  }
+  .overview-hero-actions {
+    grid-column: 1;
+    grid-row: 2;
+    padding: 0 clamp(20px, 3cqi, 36px) clamp(20px, 3cqi, 36px);
+    border: 0;
+  }
+  .brief-paycheck {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    border-block-start: 0;
+    border-inline-start: 1px solid var(--border);
+  }
+  .overview-action-outcome {
+    grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr));
+  }
+  .overview-funding-metric {
+    grid-column: auto;
+    border-block-end: 0;
+    border-inline-end: 1px solid var(--border);
+  }
+}
+@media (min-width: 820px) {
+  .brief-inputs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-@container retirement-overview (min-width: 49rem) {
+@container plan-inputs (min-width: 49rem) {
   .overview-plan-summary {
     display: flex;
     flex-direction: column;
@@ -12140,8 +12334,8 @@ code {
 }
 
 @container retirement-overview (inline-size < 25rem) {
-  .overview-hero-actions > .button {
-    flex: 1 0 100%;
+  .overview-hero-actions .button {
+    padding-inline: 10px;
   }
 }
 

@@ -2792,7 +2792,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
     const readiness = await browser.evaluate(`(() => {
       const hero = document.querySelector(".overview-verdict");
       const funded = hero.querySelector(".overview-funded");
-      const footer = [...hero.querySelectorAll(".overview-hero-summary .curr-num")];
+      const footer = [...document.querySelectorAll(".overview-hero-summary .curr-num")];
       window.dispatchEvent(new Event("beforeprint"));
       return {
         earliestAge: hero.querySelector(".overview-hero-figure").textContent,
@@ -2859,6 +2859,29 @@ test("Savings feedback, budget comparison, and A4 export use the active projecti
       ),
       "Your plan first falls short at age 77",
     );
+    const checkPaychecks = () =>
+      browser.evaluate(`[...document.querySelectorAll(".brief-paycheck-values")].map(panel => {
+      const amount = el => Number(el.querySelector(".curr-num").textContent.replaceAll(",", ""));
+      return {
+        target: amount(panel.querySelector(".brief-spend")),
+        sources: Object.fromEntries([...panel.querySelectorAll("dl > div")].map(row =>
+          [row.querySelector("dt").textContent, amount(row.querySelector("dd"))])),
+      };
+    })`);
+    const [firstPaycheck] = await checkPaychecks();
+    assert.deepEqual(firstPaycheck, {
+      target: 2963,
+      sources: { "CPF LIFE": 719, "Cash & bonds": 2244 },
+    });
+    assert.equal(
+      await browser.evaluate(`(() => {
+      document.querySelector("[data-review-overview-savings]").click();
+      const input = document.activeElement;
+      input.dispatchEvent(new KeyboardEvent("keydown", {key:"Escape", bubbles:true}));
+      return input.id;
+    })()`),
+      "overview-known-cpf-extra",
+    );
     const startingAssets = await browser.evaluate(`(() => {
       const details = document.querySelector("#overview-starting-assets");
       details.querySelector("summary").click();
@@ -2902,6 +2925,10 @@ test("Savings feedback, budget comparison, and A4 export use the active projecti
       const scenarios = [...dialog.querySelectorAll("section")].map((scenario) =>
         [...scenario.querySelectorAll("dd")].map((value) => value.textContent.trim())
       );
+      const totals = [...dialog.querySelectorAll(".brief-cost-table tfoot td")].map(cell => cell.textContent);
+      const costRows = [...dialog.querySelectorAll(".brief-cost-table tbody tr")];
+      const costs = totals.map((_, column) => costRows.reduce((sum, row) => sum +
+        Number(row.querySelectorAll("td")[column].textContent.replace(/[^0-9.]/g, "")), 0));
       const compared = dialog.open;
       dialog.close();
       await new Promise((resolve) => dialog.addEventListener("close", resolve, { once: true }));
@@ -2910,7 +2937,7 @@ test("Savings feedback, budget comparison, and A4 export use the active projecti
       find("#exp-card-dropdown-btn").click();
       find('[data-switch-lifestyle="home-helper"]').click();
       return {
-        seriesFocus, savings, announcement, editorFocus, compared, scenarios, comparisonFocus, unchanged,
+        seriesFocus, savings, announcement, editorFocus, compared, totals, costs, scenarios, comparisonFocus, unchanged,
         applied: find(".overview-funded").textContent.trim()
       };
     })()`);
@@ -2919,6 +2946,8 @@ test("Savings feedback, budget comparison, and A4 export use the active projecti
     assert.match(feedback.announcement, /changed from 41% to 47%/);
     assert.equal(feedback.editorFocus, "overview-edit-known-invest");
     assert.equal(feedback.compared, true);
+    assert.deepEqual(feedback.totals, ["$2,800", "$3,900"]);
+    assert.deepEqual(feedback.costs, [2800, 3900]);
     assert.deepEqual(feedback.scenarios, [
       ["$2,800/mo", "47%", "Lasts to age 79"],
       ["$3,900/mo", feedback.applied, "Lasts to age 76"],
@@ -2970,6 +2999,29 @@ test("Savings feedback, budget comparison, and A4 export use the active projecti
       await readPageCount(),
       1,
       "Itemized SRS and mortgage plan must print on one page",
+    );
+    const earlyPaychecks = await checkPaychecks();
+    assert.equal(earlyPaychecks.length, 2);
+    assert.equal(earlyPaychecks[0].sources["CPF LIFE"], undefined);
+    assert.ok(earlyPaychecks[1].sources["CPF LIFE"] > 0);
+    for (const { target, sources } of earlyPaychecks) {
+      assert.equal(
+        Object.values(sources).reduce((total, amount) => total + amount, 0),
+        target,
+      );
+    }
+
+    // An oversized bridge paycheck only funds the spending actually planned.
+    await browser.navigate(
+      `${baseUrl}/?test=retire-now#version=3&age=48&retire=48&lifestyle=home-helper&bridgeIncome=9000&srs=160000`,
+    );
+    const [retireNow] = await checkPaychecks();
+    assert.deepEqual(retireNow.sources, { "Bridge income": retireNow.target });
+    assert.equal(
+      await browser.evaluate(
+        'document.querySelector(".overview-hero-actions button").textContent',
+      ),
+      "Review retirement age",
     );
     assert.deepEqual(browser.exceptions, []);
   } finally {

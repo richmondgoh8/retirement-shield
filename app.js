@@ -2046,6 +2046,7 @@ function setupSimplePlan() {
 
     const overviewDisclosures = [
       ".exp-breakdown-disclosure",
+      "#brief-paycheck-65",
       "#overview-saving-details",
       "#overview-starting-assets",
       "#overview-portfolio-details",
@@ -3952,7 +3953,12 @@ function setupSimplePlan() {
                 strategy,
                 { skipSolvers: true },
               );
-        return { label, budget, projection };
+        return {
+          label,
+          budget,
+          projection,
+          categories: RetirementModel.expensePlan({ lifestyle }).categories,
+        };
       },
     );
     $("#budget-comparison-body").innerHTML = buildBudgetComparisonHTML({
@@ -4459,9 +4465,7 @@ function setupSimplePlan() {
 
   overviewSlot.addEventListener("click", (event) => {
     if (event.target.closest("[data-review-overview-savings]")) {
-      const title = $("#overview-savings-title", overviewSlot);
-      title.focus({ preventScroll: true });
-      title.scrollIntoView({ block: "start" });
+      $("[data-overview-saving-edit]", overviewSlot)?.click();
       return;
     }
     const button = event.target.closest("[data-overview-saving-edit]");
