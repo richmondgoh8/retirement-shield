@@ -302,7 +302,7 @@ export function renderTrajectoryChart(
     `Values are rounded and shown in ${basisLabel}. Before retirement, spending shows the reference budget. The table ends at age ${maxHorizonAge}, and CPF LIFE payouts continue for life.`;
   const descEl = $(".trajectory-desc");
   if (descEl) {
-    descEl.textContent = `Year-by-year projection to age ${maxHorizonAge} in ${basisLabel} (${basis === "nominal" ? "unadjusted future values" : "inflation-adjusted purchasing power"}).`;
+    descEl.textContent = `Retire at age ${summary.retire} · Project through age ${maxHorizonAge} · ${basisLabel}.`;
   }
   const chartArea = $("#trajectory-chart");
   const chartWrapper = chartArea?.parentElement;
@@ -330,7 +330,7 @@ export function renderTrajectoryChart(
 
   chartArea.setAttribute(
     "aria-label",
-    `${chartMode === "cashflow" ? "Monthly spending and CPF income" : chartMode === "networth" ? "Stacked total net worth" : chartMode === "waterfall" ? "4-tap retirement income waterfall" : "Outside portfolio balance"} from age ${summary.age} to ${maxHorizonAge} in ${basisLabel}. Click any year to inspect full balances.`,
+    `${chartMode === "cashflow" ? "Monthly spending and CPF income" : chartMode === "networth" ? "Stacked total net worth" : chartMode === "waterfall" ? "4-tap retirement income waterfall" : "Outside portfolio balance"} from age ${summary.age} to ${maxHorizonAge} in ${basisLabel}.`,
   );
 
   if (chartMode === "networth" && currentFirePlan) {

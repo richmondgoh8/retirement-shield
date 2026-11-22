@@ -962,7 +962,10 @@
                   aria-labelledby="section-profile"
                   hidden
                 >
-                  <header class="fin-page-header"><h1>Profile</h1></header>
+                  <header class="fin-page-header">
+                    <h1>Profile</h1>
+                    <button type="button" class="button button-small" data-go-tab="budget">Review retirement budget</button>
+                  </header>
                   <div id="plan-inputs-slot"></div>
                 </section>
                 <section
@@ -974,6 +977,7 @@
                 >
                   <header class="fin-page-header">
                     <h1>Retirement budget</h1>
+                    <button type="button" class="button button-small" data-go-tab="trajectory">View retirement projection</button>
                   </header>
                   <div id="budget-slot"></div>
                 </section>
@@ -994,16 +998,11 @@
                         <div class="fin-title-row">
                           <h1 id="simulator-title">Retirement projection</h1>
                         </div>
-                        <p class="fin-page-sub">
-                          <span id="trajectory-saving-total"></span>
-                          <button
-                            class="text-button"
-                            type="button"
-                            data-go-tab="dividend-calc"
-                          >
-                            Explore income calculators →
-                          </button>
-                        </p>
+                        <p class="fin-page-sub" id="trajectory-saving-total"></p>
+                      </div>
+                      <div class="ember-header-meta">
+                        <a class="button button-small" href="#trajectory-saving-controls">Adjust monthly savings</a>
+                        <button type="button" class="text-button" data-go-tab="dividend-calc">Income calculators</button>
                       </div>
                     </header>
 
@@ -1018,9 +1017,7 @@
                             Cashflow &amp; Wealth Trajectory
                           </h2>
                           <p class="trajectory-desc">
-                            Monthly spending, CPF LIFE payouts and outside
-                            portfolio balance over your planning horizon, in
-                            today’s purchasing power.
+                            Explore monthly income and spending, or see how your savings change over time.
                           </p>
                         </div>
                         <div class="trajectory-controls">
@@ -1096,8 +1093,9 @@
                         <div
                           id="trajectory-chart"
                           class="chart-area"
-                          role="img"
-                          aria-label="Interactive retirement trajectory chart"
+                          role="group"
+                          aria-label="Retirement trajectory chart"
+                          aria-describedby="trajectory-keyboard-help"
                         ></div>
                         <div
                           id="chart-tooltip"
@@ -1107,9 +1105,12 @@
                       </div>
                       <div class="chart-legend" id="chart-legend"></div>
                       <p class="traj-click-hint" id="trajectory-click-hint">
-                        Click any age bar or point on the chart (or any row in
-                        the yearly table) to open its single-year CPF &amp;
-                        4-Tap audit breakdown.
+                        Select an age on the chart or in the yearly table to see
+                        that year’s CPF and withdrawal breakdown.
+                      </p>
+                      <p class="sr-only" id="trajectory-keyboard-help">
+                        Use the left and right arrow keys to move between ages.
+                        Press Enter to open the breakdown for the selected age.
                       </p>
                       <div
                         id="trajectory-year-inspector"
@@ -1417,7 +1418,10 @@
                   aria-labelledby="section-balances"
                   hidden
                 >
-                  <header class="fin-page-header"><h1>Balances</h1></header>
+                  <header class="fin-page-header">
+                    <h1>Balances</h1>
+                    <button type="button" class="button button-small" data-go-tab="cash-accounts">Manage cash accounts</button>
+                  </header>
                   <div id="balances-inputs-slot"></div>
                 </section>
                 <section

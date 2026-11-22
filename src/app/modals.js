@@ -64,8 +64,13 @@ export function restoreModalSnapshot(
 }
 
 export function restoreInvokerFocus(invoker, fallbackSelector = null) {
-  if (invoker?.isConnected) {
-    invoker.focus({ preventScroll: true });
+  const currentInvoker = invoker?.isConnected
+    ? invoker
+    : invoker?.id
+      ? document.getElementById(invoker.id)
+      : null;
+  if (currentInvoker?.getClientRects().length) {
+    currentInvoker.focus({ preventScroll: true });
     return;
   }
   const target =

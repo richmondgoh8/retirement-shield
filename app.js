@@ -679,9 +679,11 @@ function setupSimplePlan() {
     }
   };
   const hasRestoredPlan = restoreSavedState();
+  let showExampleIntro = !hasRestoredPlan;
+  let exampleInputs = null;
   window.addEventListener("hashchange", () => {
     if (isPlanShareHash(location.hash)) {
-      restoreSavedState();
+      if (restoreSavedState()) showExampleIntro = false;
       render();
     }
   });
@@ -782,6 +784,11 @@ function setupSimplePlan() {
     try {
       const search = buildSerializedParams(p);
       lastSerializedSearch = search;
+      if (showExampleIntro) {
+        const inputs = search.toString();
+        exampleInputs ??= inputs;
+        showExampleIntro = inputs === exampleInputs;
+      }
       if (!savingEnabled) {
         setSaveStatus("Session only");
         return;
@@ -1388,8 +1395,8 @@ function setupSimplePlan() {
               type="button"
               class="button button-small fin-pill-btn"
               data-inspect-step="-1"
+              id="trajectory-inspect-previous"
               ${raw(hasPrev ? "" : "disabled")}
-              aria-label="Inspect previous age"
             >
               ← Age ${hasPrev ? pts[idx - 1].age : pt.age}
             </button>
@@ -1397,8 +1404,8 @@ function setupSimplePlan() {
               type="button"
               class="button button-small fin-pill-btn"
               data-inspect-step="1"
+              id="trajectory-inspect-next"
               ${raw(hasNext ? "" : "disabled")}
-              aria-label="Inspect next age"
             >
               Age ${hasNext ? pts[idx + 1].age : pt.age} →
             </button>
@@ -1406,7 +1413,6 @@ function setupSimplePlan() {
               type="button"
               class="button button-small fin-pill-btn"
               data-inspect-close
-              aria-label="Close year inspector"
             >
               ✕ Close
             </button>
@@ -2040,6 +2046,7 @@ function setupSimplePlan() {
       cpfProgress,
       savingsProgress,
       savingsFundingChange?.before,
+      showExampleIntro,
     );
 
     const bogleHTML = buildAllocatorView(bogle, allocatorIncludesCpf);
@@ -3710,6 +3717,7 @@ function setupSimplePlan() {
     }
     const inspectStepBtn = event.target.closest("[data-inspect-step]");
     if (inspectStepBtn && currentFirePlan?.points?.length) {
+      const restoreFocus = document.activeElement === inspectStepBtn;
       const stepDelta = Number(inspectStepBtn.dataset.inspectStep || 0);
       const pts = currentFirePlan.points;
       const curAge = getTrajectoryInspectedAge();
@@ -3726,9 +3734,17 @@ function setupSimplePlan() {
         trajectoryBasis,
       );
       renderTrajectoryYearInspector();
+      if (restoreFocus) {
+        const nextButton = document.getElementById(inspectStepBtn.id);
+        (nextButton.disabled
+          ? $("#trajectory-year-inspector [data-inspect-step]:enabled")
+          : nextButton)?.focus({ preventScroll: true });
+      }
       return;
     }
-    if (event.target.closest("[data-inspect-close]")) {
+    const closeInspector = event.target.closest("[data-inspect-close]");
+    if (closeInspector) {
+      const restoreFocus = document.activeElement === closeInspector;
       setTrajectoryInspectedAge(null);
       renderTrajectoryChart(
         getTrajectoryForBasis(),
@@ -3737,6 +3753,7 @@ function setupSimplePlan() {
         trajectoryBasis,
       );
       renderTrajectoryYearInspector();
+      if (restoreFocus) $("#trajectory-chart").focus({ preventScroll: true });
       return;
     }
     const famRstuBtn = event.target.closest("[data-apply-family-rstu]");
@@ -3817,6 +3834,7 @@ function setupSimplePlan() {
                   : "";
             }
             markStarterPlan(key);
+            showExampleIntro = false;
             $("#starter-plan-dialog").close();
             render();
             flushPersistState();
@@ -3843,10 +3861,13 @@ function setupSimplePlan() {
     }
     const switchLifeBtn = event.target.closest("[data-switch-lifestyle]");
     if (switchLifeBtn) {
+      const restoreFocus = expDropMenu?.contains(document.activeElement);
       const nextVal = switchLifeBtn.dataset.switchLifestyle;
       if (expDropMenu) expDropMenu.hidden = true;
       $("#exp-card-dropdown-btn")?.setAttribute("aria-expanded", "false");
       selectLifestylePreset(nextVal);
+      if (restoreFocus)
+        $("#exp-card-dropdown-btn")?.focus({ preventScroll: true });
       return;
     }
 
@@ -3858,6 +3879,16 @@ function setupSimplePlan() {
       expDropMenu.hidden = true;
       $("#exp-card-dropdown-btn")?.setAttribute("aria-expanded", "false");
     }
+  });
+
+  budgetSlot.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    const scenarios = $("#exp-card-dropdown-menu");
+    if (scenarios?.hidden !== false) return;
+    event.preventDefault();
+    const toggle = $("#exp-card-dropdown-btn");
+    toggle.click();
+    toggle.focus();
   });
 
   function openExpenseModal(mode = "auto", invoker = null) {
@@ -4980,6 +5011,8 @@ function setupSimplePlan() {
         flashConfirmButton(labelSpan || importBtn, "✓ Imported");
       }
       markStarterPlan(null);
+      showExampleIntro = false;
+      $("#overview-example-intro")?.remove();
       showToast(
         savingEnabled
           ? "Imported retirement plan into local storage"
@@ -5103,9 +5136,19 @@ function setupSimplePlan() {
 function setupSettings() {
   const dialog = $("#plan-settings");
   const starterDialog = $("#starter-plan-dialog");
+  const focusDialogInvoker = (invoker) => {
+    const menuTrigger = invoker
+      ?.closest("#plan-overflow")
+      ?.querySelector("summary");
+    const fallback = invoker?.id.startsWith("overview-")
+      ? "#fire-hero-title"
+      : "#plan-overflow summary";
+    restoreInvokerFocus(menuTrigger || invoker, fallback);
+  };
+  let starterInvoker = null;
   bindDialogBackdropDismiss(starterDialog);
   starterDialog.addEventListener("close", () => {
-    if (!$("#replace-plan-dialog").open) $("#plan-overflow summary").focus();
+    if (!$("#replace-plan-dialog").open) focusDialogInvoker(starterInvoker);
   });
   document.addEventListener("click", (event) => {
     const starterAction = event.target?.closest?.(
@@ -5115,7 +5158,10 @@ function setupSettings() {
     event.preventDefault();
     if (starterAction.getAttribute("command") === "close")
       starterDialog.close();
-    else starterDialog.showModal();
+    else {
+      starterInvoker = starterAction;
+      starterDialog.showModal();
+    }
   });
   let lastInvoker = null;
 
@@ -5143,10 +5189,7 @@ function setupSettings() {
       delete dialog.dataset.flowNavigation;
       return;
     }
-    const target =
-      lastInvoker?.closest("#plan-overflow")?.querySelector("summary") ||
-      (lastInvoker?.isConnected ? lastInvoker : $("#plan-overflow summary"));
-    target?.focus({ preventScroll: true });
+    focusDialogInvoker(lastInvoker);
   });
   bindDialogBackdropDismiss(dialog);
   $$('button[command="show-modal"]').forEach((button) => {
@@ -5426,8 +5469,11 @@ function setupGuidedFlow(finishSettingsEdit) {
         const disclosure = $("#top").closest("details");
         if (disclosure) disclosure.open = true;
         if (row) {
-          const edit = $("[data-settings-edit]", row);
-          if (edit?.hidden && $("[data-settings-sources]", row).hidden) {
+          const scopeDisclosure = row.closest("details");
+          if (scopeDisclosure) scopeDisclosure.open = true;
+          const editor = $("[data-settings-sources]", row);
+          const edit = $(`button[aria-controls="${editor.id}"]`);
+          if (edit?.hidden && editor.hidden) {
             $(".settings-row-extra button", row)?.focus();
           } else {
             if (edit && !edit.hidden) edit.click();

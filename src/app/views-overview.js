@@ -436,6 +436,7 @@ function buildOverviewPageHeader({
   scenarioLabel,
   cashflow,
   savingsProgress,
+  showExampleIntro,
 }) {
   const fn = fire.fireNumber;
   const onTrack = fn.depletionAge == null;
@@ -464,14 +465,21 @@ function buildOverviewPageHeader({
   const reviewSavings = (style) =>
     `<button type="button" class="${style}" data-review-overview-savings>Review savings</button>`;
   const reviewAge = (style) =>
-    `<button type="button" class="${style}" data-quick-edit="goal" data-qe-focus="#qe-retire">Review retirement age</button>`;
+    `<button type="button" id="overview-review-age" class="${style}" data-quick-edit="goal" data-qe-focus="#qe-retire">Review retirement age</button>`;
   return `<header class="overview-hero" aria-labelledby="fire-hero-title">
     <div class="ember-page-header fin-page-header overview-title-row">
       <h1 id="fire-hero-title" tabindex="-1">Your retirement brief</h1>
-      <button type="button" class="button button-small" commandfor="plan-settings" command="show-modal" aria-haspopup="dialog">
+      <button type="button" id="overview-assumptions" class="button button-small" commandfor="plan-settings" command="show-modal" aria-haspopup="dialog">
         Assumptions <span class="overview-assumption-values">· ${Number((r.inflation * 100).toFixed(1))}% inflation · ${Number((r.investmentReturn * 100).toFixed(1))}% return</span>
       </button>
     </div>
+    ${showExampleIntro ? `<div class="overview-example-intro" id="overview-example-intro">
+      <p><strong>You’re viewing an example.</strong> Add your details to see your own projection.</p>
+      <div class="overview-example-actions">
+        <button type="button" class="button button-small" data-open-profile>Use my details</button>
+        <button type="button" class="text-button" id="overview-browse-examples" commandfor="starter-plan-dialog" command="show-modal" aria-haspopup="dialog">Browse examples</button>
+      </div>
+    </div>` : ""}
     <section class="overview-verdict is-${tone}" tabindex="-1" aria-label="Retirement readiness">
       <div class="overview-verdict-copy">
         <p class="brief-section-label">${svgWrap('<path d="M12 3 4 6v5c0 5 3 8 8 11 5-3 8-6 8-11V6Z"/>')} Spending horizon</p>
@@ -497,19 +505,20 @@ function buildOverviewPageHeader({
         </div>
 
       </div>
+      <div class="overview-hero-actions">
+        ${r.retiringNow
+          ? reviewAge("button button-primary")
+          : `${reviewSavings("button button-primary")}${reviewAge("button")}`}
+      </div>
       <section class="brief-paycheck" aria-labelledby="brief-paycheck-title">
         <div class="brief-paycheck-heading"><h2 id="brief-paycheck-title">Retirement paycheck</h2><span>${scenarioLabel}</span></div>
         ${buildMonthlyPaycheck(fire.atRetire)}
-        <button type="button" class="text-button brief-budget-edit" data-go-tab="budget">Edit base budget · ${m(budget ?? r.todaySpend, "/mo")} →</button>
+        <div class="brief-base-budget">
+          <span>Base budget in today’s dollars <strong>${m(budget ?? r.todaySpend, "/mo")}</strong></span>
+          <button type="button" class="text-button brief-budget-edit" data-go-tab="budget">Edit budget</button>
+        </div>
         ${age65Point ? `<details id="brief-paycheck-65"><summary>See paycheck at age 65</summary>${buildMonthlyPaycheck(age65Point)}</details>` : ""}
       </section>
-        <div class="overview-hero-actions">
-          ${
-            r.retiringNow
-              ? reviewAge("button button-primary")
-              : `${reviewSavings("button button-primary")}${reviewAge("button")}`
-          }
-        </div>
       <dl class="overview-action-outcome card-surface" aria-label="Current plan projections">
         <div class="overview-funding-metric">
           <dt>${savingsProgress.title}</dt>
@@ -1200,6 +1209,7 @@ export function buildFinOverviewGrid(
   cpfProgress,
   savingsProgress,
   previousSavingsPercent,
+  showExampleIntro,
 ) {
   const contribution = r.retiringNow
     ? simulation.cpfExtra + s.privateSaving
@@ -1383,7 +1393,7 @@ export function buildFinOverviewGrid(
   }[cpfProgress.strategy.toLowerCase()];
   const budget = expenseData?.total;
   const buckets = bogle.buckets;
-  return `${buildOverviewPageHeader({ fire, r, rate: pctOfPay, contribution, budget, scenarioLabel: lifestyleCardLabel, cashflow, savingsProgress })}
+  return `${buildOverviewPageHeader({ fire, r, rate: pctOfPay, contribution, budget, scenarioLabel: lifestyleCardLabel, cashflow, savingsProgress, showExampleIntro })}
   <section class="swell-section-block" aria-labelledby="overview-savings-title">
     <div class="swell-section-head"><h2 id="overview-savings-title" tabindex="-1">Monthly Savings &amp; Investment Plan</h2></div>
     <div class="overview-savings card-surface">

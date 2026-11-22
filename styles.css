@@ -138,7 +138,7 @@
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-pill: 999px;
-  --sidebar-w: 244px;
+  --sidebar-w: 15.25rem;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 
   /* Centralized Layering Scale */
@@ -221,9 +221,9 @@ a[href] {
   outline-offset: 2px;
 }
 
-.tab-panel[tabindex="-1"]:focus,
-#hero-title[tabindex="-1"]:focus,
-#fire-hero-title[tabindex="-1"]:focus {
+.tab-panel[tabindex="-1"]:focus:not(:focus-visible),
+#hero-title[tabindex="-1"]:focus:not(:focus-visible),
+#fire-hero-title[tabindex="-1"]:focus:not(:focus-visible) {
   outline: none;
 }
 
@@ -330,7 +330,6 @@ h3 {
 
 .curr-prefix,
 .curr-dec {
-  opacity: 0.72;
   font-size: 0.88em;
   font-weight: 500;
   letter-spacing: 0;
@@ -341,7 +340,6 @@ h3 {
 }
 
 .curr-wrap > .curr-suffix {
-  opacity: 0.72;
   font-size: 0.78em;
   font-weight: 500;
   margin-inline-start: 0.08em;
@@ -2519,8 +2517,7 @@ h3 {
 .exp-edit-items {
   flex: 0 0 auto;
   min-block-size: 44px;
-  padding-inline: 4px;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .exp-top-block {
@@ -7414,7 +7411,9 @@ h3 {
 
 .cpf-plan-inline-toggle {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
+  min-inline-size: 0;
   padding: 3px;
   border-radius: var(--radius-pill);
   background: var(--surface-subtle);
@@ -7433,7 +7432,7 @@ h3 {
   font-weight: 600;
   color: var(--ink-soft);
   cursor: pointer;
-  white-space: nowrap;
+  white-space: normal;
   transition:
     background-color 150ms ease,
     color 150ms ease,
@@ -11798,6 +11797,40 @@ code {
   margin: 0;
 }
 
+.overview-example-intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 8px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.overview-example-intro p {
+  flex: 1 1 22rem;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+}
+
+.overview-example-intro strong,
+.brief-base-budget strong {
+  color: var(--ink);
+}
+
+.overview-example-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.overview-example-intro button {
+  min-block-size: 44px;
+}
+
 #overview-slot {
   display: grid;
   gap: 32px;
@@ -12040,6 +12073,17 @@ code {
   margin: 0;
   font-weight: 700;
 }
+.brief-base-budget {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  column-gap: 12px;
+  margin-block-start: 8px;
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+}
+
 .brief-budget-edit,
 #brief-paycheck-65 summary {
   min-block-size: 44px;
@@ -12162,8 +12206,11 @@ code {
   flex-wrap: wrap;
   align-content: start;
   gap: 4px 8px;
-  padding: 12px var(--overview-panel-padding);
-  border-block-start: 1px solid var(--border);
+  padding: 0 clamp(20px, 3cqi, 36px) clamp(20px, 3cqi, 36px);
+}
+
+.overview-verdict-copy {
+  padding-block-end: 12px;
 }
 
 .overview-hero-actions > .button {
@@ -12275,13 +12322,10 @@ code {
   .overview-verdict-copy {
     grid-column: 1;
     grid-row: 1;
-    padding-block-end: 12px;
   }
   .overview-hero-actions {
     grid-column: 1;
     grid-row: 2;
-    padding: 0 clamp(20px, 3cqi, 36px) clamp(20px, 3cqi, 36px);
-    border: 0;
   }
   .brief-paycheck {
     grid-column: 2;
@@ -12854,11 +12898,11 @@ code {
     text-align: start;
   }
 
-  #budget-slot .exp-card-dropdown-pill .header-account-avatar {
-    display: none;
+  #budget-slot .exp-edit-items {
+    justify-self: start;
   }
 
-  #budget-slot :is(.exp-edit-items, .exp-breakdown-disclosure > summary) {
+  #budget-slot .exp-breakdown-disclosure > summary {
     justify-self: start;
     padding-inline: 0;
   }
@@ -13114,6 +13158,10 @@ code {
 }
 
 @media (max-width: 960px) {
+  html {
+    scroll-padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  }
+
   .mobile-tabbar {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -13688,6 +13736,9 @@ code {
 
 .cash-table-surface {
   min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
 }
 
 .cash-product-table {
@@ -14254,28 +14305,6 @@ code {
   border-block-start: 0;
 }
 
-.settings-value-row[role="button"] {
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  transition:
-    background-color 150ms ease,
-    color 150ms ease;
-}
-
-.settings-value-row[role="button"]:hover,
-.settings-value-row[role="button"]:focus-visible {
-  background-color: var(--primary-soft);
-}
-
-.settings-value-row[role="button"]:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-
-.settings-value-row.is-readonly {
-  cursor: default;
-}
-
 .settings-value-row[hidden],
 .settings-value-row [hidden] {
   display: none;
@@ -14308,7 +14337,18 @@ code {
   color: var(--ink);
   font-size: 0.95rem;
   font-weight: 650;
-  pointer-events: none;
+}
+
+button.settings-value-button {
+  white-space: normal;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  button.settings-value-button:hover {
+    background: var(--primary-soft);
+    border-color: var(--primary-border);
+  }
 }
 
 .settings-cpf-group > .settings-value-button,
@@ -14392,8 +14432,7 @@ code {
   opacity: 0.8;
 }
 
-.settings-value-row[role="button"]:hover .settings-value-button > svg,
-.settings-value-row[role="button"]:focus-visible .settings-value-button > svg {
+button.settings-value-button:is(:hover, :focus-visible) > svg {
   opacity: 1;
 }
 

@@ -193,7 +193,7 @@ export function buildCpfRulesTabHTML({
   return `
     <header class="ember-page-header fin-page-header">
       <div class="fin-header-copy">
-        <h1>CPF Milestones &amp; Age-55 Rules</h1>
+        <h1>CPF milestones</h1>
         <p class="fin-page-sub">SA closure, RA formation, BRS/FRS/ERS thresholds, and CPF LIFE mechanics.</p>
       </div>
       <div class="ember-header-meta">
@@ -226,11 +226,11 @@ export function buildTaxTabHTML({ r, tax, marginalTaxPct }) {
   return `
       <header class="ember-page-header fin-page-header">
         <div class="fin-header-copy">
-          <h1>Tax Relief Optimization</h1>
+          <h1>Tax &amp; SRS</h1>
           <p class="fin-page-sub">IRAS YA ${C.year} relief waterfall across CPF RSTU, Family Top-Ups, and SRS.</p>
         </div>
         <div class="ember-header-meta">
-          <button type="button" class="fin-action-chip" data-open-settings-field="known-srs">Edit SRS balance</button>
+          <button type="button" class="button button-small" data-open-settings-field="known-srs-annual">Edit planned SRS</button>
           <span class="status-pill is-info">${marginalTaxPct} IRAS Bracket</span>
         </div>
       </header>
@@ -315,23 +315,27 @@ function buildTaxSweetSpotSection(tax) {
     <dl class="tax-metrics-grid">
       <div class="tax-metric-box">
         <dt>Chargeable Income (est.)</dt>
-        <dd>${m(tax.chargeableIncome, "/yr", "tax-chargeable")}</dd>
-        <small>${marginalPct} marginal bracket · ${m(tax.taxBefore.annualTax, "/yr")} tax</small>
+        <dd>${m(tax.chargeableIncome, "/yr", "tax-chargeable")}
+          <small>${marginalPct} marginal bracket · ${m(tax.taxBefore.annualTax, "/yr")} tax</small>
+        </dd>
       </div>
       <div class="tax-metric-box">
         <dt>CPF RSTU ($8k cap to FRS)</dt>
-        <dd>${m(tax.rstuTaxSaved, "/yr saved", "tax-rstu-saved")}</dd>
-        <small>Eligible room: ${m(tax.maxRstu, "/yr")} (SA room ${m(tax.saRoom)})</small>
+        <dd>${m(tax.rstuTaxSaved, "/yr saved", "tax-rstu-saved")}
+          <small>Eligible room: ${m(tax.maxRstu, "/yr")} (SA room ${m(tax.saRoom)})</small>
+        </dd>
       </div>
       <div class="tax-metric-box">
         <dt>SRS ($15.3k Citizen/PR cap)</dt>
-        <dd>${m(tax.srsTaxSavedAfterRstu, "/yr saved", "tax-srs-saved")}</dd>
-        <small>After RSTU (${m(tax.srsStandaloneTaxSaved, "/yr")} standalone) · Lock-in age ${tax.srsLockInAge}</small>
+        <dd>${m(tax.srsTaxSavedAfterRstu, "/yr saved", "tax-srs-saved")}
+          <small>After RSTU (${m(tax.srsStandaloneTaxSaved, "/yr")} standalone) · Lock-in age ${tax.srsLockInAge}</small>
+        </dd>
       </div>
       <div class="tax-metric-box">
         <dt>Reliefs before modeled top-ups</dt>
-        <dd>${m(tax.reliefCapUsed, "", "tax-cap-used")} <span class="curr-muted">/ ${m(C.personalReliefCap)}</span></dd>
-        <small>Mandatory CPF and existing reliefs</small>
+        <dd>${m(tax.reliefCapUsed, "", "tax-cap-used")} <span class="curr-muted">/ ${m(C.personalReliefCap)}</span>
+          <small>Mandatory CPF and existing reliefs</small>
+        </dd>
       </div>
     </dl>
     <article class="fin-bento-card card-surface tax-bento-embedded" aria-label="IRAS $80,000 personal relief cap waterfall">
@@ -422,23 +426,27 @@ function buildTaxSweetSpotSection(tax) {
       <dl class="tax-metrics-grid srs-trap-metrics">
         <div class="tax-metric-box">
           <dt>Projected SRS at Age ${srsStartAge}</dt>
-          <dd>${m(tax.srsProjectedAt63, "", "tax-srs-proj63")}</dd>
-          <small>${tax.srsProjectedAt63 > 0 ? `${((tax.srsReturnRate ?? 0) * 100).toFixed(2).replace(/\.00$/, "")}% p.a. (${tax.srsInvestedIn === "cash" ? "idle cash" : tax.srsInvestedIn === "ssb" ? "SSB" : tax.srsInvestedIn === "balanced" ? "60/40" : "Global ETFs"}) · ${m(tax.srsBalanceToday)} now + ${m(tax.srsAnnualPlanned, "/yr")}` : `$0 balance · $0/yr planned (${((tax.srsReturnRate ?? 0) * 100).toFixed(2).replace(/\.00$/, "")}% ${tax.srsInvestedIn === "cash" ? "idle cash" : tax.srsInvestedIn === "ssb" ? "SSB" : tax.srsInvestedIn === "balanced" ? "60/40" : "Global ETFs"} assumed)`}</small>
+          <dd>${m(tax.srsProjectedAt63, "", "tax-srs-proj63")}
+            <small>${tax.srsProjectedAt63 > 0 ? `${((tax.srsReturnRate ?? 0) * 100).toFixed(2).replace(/\.00$/, "")}% p.a. (${tax.srsInvestedIn === "cash" ? "idle cash" : tax.srsInvestedIn === "ssb" ? "SSB" : tax.srsInvestedIn === "balanced" ? "60/40" : "Global ETFs"}) · ${m(tax.srsBalanceToday)} now + ${m(tax.srsAnnualPlanned, "/yr")}` : `$0 balance · $0/yr planned (${((tax.srsReturnRate ?? 0) * 100).toFixed(2).replace(/\.00$/, "")}% ${tax.srsInvestedIn === "cash" ? "idle cash" : tax.srsInvestedIn === "ssb" ? "SSB" : tax.srsInvestedIn === "balanced" ? "60/40" : "Global ETFs"} assumed)`}</small>
+          </dd>
         </div>
         <div class="tax-metric-box">
           <dt>10-Yr Drawdown (${srsStartAge}–${srsStartAge + 10})</dt>
-          <dd>${m(tax.srsTenYearAnnualDraw, "/yr", "tax-srs-draw")}</dd>
-          <small>${tax.srsProjectedAt63 > 0 ? `${m(tax.srsTenYearMonthlyDraw, "/mo")} nominal · Tax-free ≤ $40k/yr` : `Up to $40,000/yr ($3,333/mo) tax-free at ${srsZeroTaxCapCompact} pot`}</small>
+          <dd>${m(tax.srsTenYearAnnualDraw, "/yr", "tax-srs-draw")}
+            <small>${tax.srsProjectedAt63 > 0 ? `${m(tax.srsTenYearMonthlyDraw, "/mo")} nominal · Tax-free ≤ $40k/yr` : `Up to $40,000/yr ($3,333/mo) tax-free at ${srsZeroTaxCapCompact} pot`}</small>
+          </dd>
         </div>
         <div class="tax-metric-box">
           <dt>Safe Annual Pace to ${srsZeroTaxCapCompact}</dt>
-          <dd>${m(tax.srsMaxSafeAnnualTo400k, "/yr", "tax-srs-safe-pace")}</dd>
-          <small>${tax.srsFullCapProjectedAt63 > tax.srsTrapFloorAt63 && tax.srsMaxSafeAnnualTo400k < 15250 ? `Over ${tax.srsYearsToLockIn ?? Math.max(0, srsStartAge - 35)} yrs @ ${((tax.srsReturnRate ?? 0) * 100).toFixed(2).replace(/\.00$/, "")}% · $15.3k/yr max → ${compactMoney(tax.srsFullCapProjectedAt63)} pot` : `Statutory cap $15,300/yr · Direct excess to brokerage`}</small>
+          <dd>${m(tax.srsMaxSafeAnnualTo400k, "/yr", "tax-srs-safe-pace")}
+            <small>${tax.srsFullCapProjectedAt63 > tax.srsTrapFloorAt63 && tax.srsMaxSafeAnnualTo400k < 15250 ? `Over ${tax.srsYearsToLockIn ?? Math.max(0, srsStartAge - 35)} yrs @ ${((tax.srsReturnRate ?? 0) * 100).toFixed(2).replace(/\.00$/, "")}% · $15.3k/yr max → ${compactMoney(tax.srsFullCapProjectedAt63)} pot` : `Statutory cap $15,300/yr · Direct excess to brokerage`}</small>
+          </dd>
         </div>
         <div class="tax-metric-box">
           <dt>Est. Withdrawal Tax (50% Rule)</dt>
-          <dd>${m(tax.srsWithdrawalTaxAt63?.annualTax || 0, "/yr", "tax-srs-wdtax")}</dd>
-          <small>${tax.srsProjectedAt63 > 0 ? `50% taxable (${m(tax.srsTaxableAnnualAt63, "/yr")} vs $20k IRAS 0% threshold)` : `50% taxable · $0 tax when draw ≤ $40k/yr ($20k chargeable)`}</small>
+          <dd>${m(tax.srsWithdrawalTaxAt63?.annualTax || 0, "/yr", "tax-srs-wdtax")}
+            <small>${tax.srsProjectedAt63 > 0 ? `50% taxable (${m(tax.srsTaxableAnnualAt63, "/yr")} vs $20k IRAS 0% threshold)` : `50% taxable · $0 tax when draw ≤ $40k/yr ($20k chargeable)`}</small>
+          </dd>
         </div>
       </dl>
     </div>`;

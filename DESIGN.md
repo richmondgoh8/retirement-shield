@@ -305,13 +305,13 @@ The palette balances authoritative cobalt action controls and signature Swell ro
 
 ### Named Rules
 
-**The Tabular Currency Rule.** Every monetary amount, percentage, age, and countdown across HTML tables, KPI strips, SVG charts, and print sheets must render with `font-variant-numeric: tabular-nums` and wrap currency prefixes/suffixes (`$`, `/mo`, `/yr`) in `.curr-wrap` (`0.72em` optical scale, muted weight) so numerals command primary visual hierarchy.
+**The Tabular Currency Rule.** Use tabular numerals for amounts, percentages, ages, and countdowns. Wrap currency amounts in `.curr-wrap` and use size and weight to distinguish their units and decimal digits. Keep unit and decimal text at full opacity for readability.
 
 **The Single H1 Scale Rule.** Every workspace tab opens with one `.fin-page-header` using the exact same `clamp(1.38rem, 2.2vw, 1.62rem)` `<h1>` scale (applied uniformly to `.ember-header-main h1`, `.fin-page-header h1`, and `.fin-header-copy h1`)—never allow secondary tabs to fall back to generic `2.35rem` document headings. (Only `.poster-title-block h1` inside `@media print` overrides to `12.2pt` for A4 density.)
 
 ## Layout & Spatial Grouping
 
-- **Desktop Workspace Shell (`> 960px`):** Fixed-width collapsible left sidebar (`244px` expanded, `72px` icon rail when collapsed via `#sidebar-collapse-toggle`) paired with a fluid main workspace capped at `1360px` max-width (`24px–32px` horizontal padding) below a sticky `60px` top workspace bar.
+- **Desktop Workspace Shell (`> 960px`)** The expanded sidebar uses `15.25rem` so labels and badges have room when text grows. The sidebar collapses to a `72px` icon rail. The fluid workspace sits below a sticky `60px` header.
 - **Analytical Bento Rhythm:**
   - **Executive KPI Strip:** 5-column equal-height summary grid (`12px–14px` gap) collapsing cleanly to `2–3` columns at `<= 960px` and stacked/2-up cards on mobile (`<= 640px`). Above-the-fold priority places monthly target, readiness status, and projected Age-65 income first before secondary trajectory/breakdown modules.
   - **Primary Analytical Row:** Asymmetric `1.55fr / 1fr` or `1.35fr / 1fr` two-column bento split pairing wide time-series trajectories with focused breakdown donuts or readiness gauges (`16px–20px` grid gap).
@@ -407,12 +407,12 @@ Grounded in Figma's **5 Dimensions of Interaction Design** (Words, Visuals, Phys
 
 ### Navigation & Header Shell
 
-- **Desktop Sidebar:** `244px` white rail with Swell Rose `.fin-brand-badge` header, `role="tablist"` navigation buttons showing live tabular status badges (`83%`, `Age 65`, `60/40`, `2.86%`, `SRS`, `Sal`/`FRS`/`ERS`), and collapsible `72px` icon mode.
+- **Desktop Sidebar** A `15.25rem` white rail with the rose shield, tab navigation, and live status badges. The collapsed icon rail is `72px`.
 - **Mobile Tabbar (`<= 960px`):** Fixed bottom 5-item bar (grouping `Allocator` + `Dividend & Yield` and `Tax Relief` + `CPF Milestones`) with clear active Cobalt/Rose indicator and safe-area inset padding.
 
 ### Signature Component: 1-Page A4 Print Summary (`#print-sheet`)
 
-- **Purpose:** Self-contained executive retirement blueprint designed specifically for `A4 landscape` (`6.5mm 8mm` margins) physical printing and PDF export.
+- **Purpose** A single-page retirement summary for A4 portrait printing and PDF export with `6.5mm 8mm` margins.
 - **Structure:** Opens with a light Porcelain-Slate & White FinScope masthead card (`.fin-brand-badge` SVG + plan title + assumption chips + readiness status pill), followed by the 5-card KPI strip, starting CPF/outside portfolio breakdown, full-series net worth area chart (`forcedSeries: "all"`), readiness gauge, Age-65 spending donut, 4-Tap retirement income table in real today-dollars, paycheck allocation bars, life milestones, strategy comparison table, 5-row action checklist, and statutory methodology colophon.
 
 ## Governance & Sync Protocol

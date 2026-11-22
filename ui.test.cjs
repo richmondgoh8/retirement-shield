@@ -526,9 +526,28 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
     );
 
     // 5. Settings edits use one Save/Cancel model, with keyboard and zero behavior
+    await browser.evaluate(`(() => {
+      document.querySelector("#section-profile").click();
+      document.querySelector('[data-settings-row="salary"] [data-settings-edit]').focus();
+    })()`);
+    for (const type of ["keyDown", "keyUp"]) {
+      await browser.send("Input.dispatchKeyEvent", {
+        type,
+        key: " ",
+        code: "Space",
+        windowsVirtualKeyCode: 32,
+      });
+    }
+    assert.equal(
+      await browser.evaluate('document.activeElement.id'),
+      "settings-draft-person-salary",
+    );
+    await browser.evaluate(
+      `document.querySelector('#settings-editor-salary [data-settings-action="cancel"]').click()`,
+    );
     const salaryEdit = await browser.evaluate(`(() => {
       document.querySelector("#section-profile").click();
-      const trigger = document.querySelector('[data-settings-row="salary"]');
+      const trigger = document.querySelector('[data-settings-row="salary"] [data-settings-edit]');
       trigger.click();
       const draft = document.querySelector("#settings-draft-person-salary");
       const save = document.querySelector('#settings-editor-salary [data-settings-action="save"]');
@@ -661,12 +680,13 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
             }
             continue;
           }
-          if (row.getAttribute("role") !== "button" || row.tabIndex !== 0) {
-            throw new Error("Row is not an accessible edit control");
+          const trigger = document.querySelector('button[aria-controls="' + editor.id + '"]');
+          if (!trigger || row.hasAttribute("role") || row.hasAttribute("tabindex") || trigger.hidden) {
+            throw new Error("Settings row lacks a visible native edit button");
           }
           const original = document.getElementById(sourceId).value;
 
-          row.click();
+          trigger.click();
           if (editor.hidden) throw new Error("Pointer click did not open editor");
           const save = editor.querySelector('[data-settings-action="save"]');
           if (!save.disabled)
@@ -674,7 +694,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
           let changed = writeDraftChange(editor, sourceId, "a");
           if (save.disabled) throw new Error("Save stayed disabled after change");
           save.click();
-          if (!editor.hidden || document.activeElement !== row) {
+          if (!editor.hidden || document.activeElement !== trigger) {
             throw new Error(
               "✓ result: editorHidden=" +
                 editor.hidden +
@@ -693,30 +713,26 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
           }
           if (!(await waitForSaved())) throw new Error("Saved status was not shown");
 
-          row.focus();
-          row.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
-          if (editor.hidden) throw new Error("Enter did not open editor");
+          trigger.click();
           changed = writeDraftChange(editor, sourceId, "b");
           changed.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
-          if (!editor.hidden || document.activeElement !== row) {
-            throw new Error("Enter did not save and return focus to the row");
+          if (!editor.hidden || document.activeElement !== trigger) {
+            throw new Error("Enter did not save and return focus to the edit button");
           }
           if (!(await waitForSaved())) throw new Error("Saved status was not shown after Enter");
 
-          row.click();
+          trigger.click();
           writeDraftChange(editor, sourceId, "a");
           editor.querySelector('[data-settings-action="cancel"]').click();
-          if (!editor.hidden || document.activeElement !== row) {
-            throw new Error("✕ did not cancel and return focus to the row");
+          if (!editor.hidden || document.activeElement !== trigger) {
+            throw new Error("✕ did not cancel and return focus to the edit button");
           }
 
-          row.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true }));
-          row.dispatchEvent(new KeyboardEvent("keyup", { key: " ", bubbles: true, cancelable: true }));
-          if (editor.hidden) throw new Error("Space did not open editor");
+          trigger.click();
           const escapeDraft = writeDraftChange(editor, sourceId, "b");
           escapeDraft.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
-          if (!editor.hidden || document.activeElement !== row) {
-            throw new Error("Escape did not cancel and return focus to the row");
+          if (!editor.hidden || document.activeElement !== trigger) {
+            throw new Error("Escape did not cancel and return focus to the edit button");
           }
 
           if (key === "housing") {
@@ -818,13 +834,13 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       const editor = document.querySelector("#settings-editor-salary");
       const source = document.querySelector("#person-salary");
       const original = source.value;
-      row.click();
+      row.querySelector("[data-settings-edit]").click();
       const draft = document.querySelector("#settings-draft-person-salary");
       draft.value = "8765";
       draft.dispatchEvent(new Event("input", { bubbles: true }));
       row.closest(".settings-value-card").querySelector("h2").click();
       const changedClickCommitted = editor.hidden && source.value === "8765";
-      row.click();
+      row.querySelector("[data-settings-edit]").click();
       row.closest(".settings-value-card").querySelector("h2").click();
       const unchangedClickClosed = editor.hidden && source.value === "8765";
       source.value = original;
@@ -842,7 +858,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       const before = oaSource.value;
       oaSource.value = "123";
       oaSource.dispatchEvent(new Event("input", { bubbles: true }));
-      row.querySelector("[data-settings-edit]").click();
+      document.querySelector("[data-settings-cpf-edit]").click();
       const editor = document.querySelector("#settings-editor-cpf");
       const labels = [...editor.querySelectorAll(".field-label > label")].map((label) => label.textContent.trim());
       const help = editor.querySelector('.field-help-trigger[aria-label="More about Ordinary Account (OA)"]');
@@ -851,7 +867,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       const fields = ["known-oa", "known-sa", "known-ma", "known-sa-invested"].map((id) => editor.querySelector('[data-settings-draft="' + id + '"]'));
       const tops = fields.map((input) => Math.round(input.getBoundingClientRect().top));
       const save = editor.querySelector('[data-settings-action="save"]');
-      const trigger = row.querySelector("[data-settings-edit]");
+      const trigger = document.querySelector("[data-settings-cpf-edit]");
       const oa = editor.querySelector('[data-settings-draft="known-oa"]');
       oa.value = "";
       oa.dispatchEvent(new Event("input", { bubbles: true }));
@@ -918,7 +934,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       const profileRows = [...profile.querySelectorAll("[data-settings-row]")];
       const birthRow = profile.querySelector('[data-settings-row="birth"]');
       const birthEditor = document.querySelector("#settings-editor-birth");
-      birthRow.click();
+      birthRow.querySelector("[data-settings-edit]").click();
       const birthInput =
         birthEditor.querySelector("#settings-draft-person-dob-display") ||
         birthEditor.querySelector('[data-settings-draft="person-dob"]');
@@ -963,7 +979,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
         birthGeometry,
       };
       birthEditor.querySelector('[data-settings-action="cancel"]').click();
-      profile.querySelector('[data-settings-row="retire"]').click();
+      profile.querySelector('[data-settings-row="retire"] [data-settings-edit]').click();
       const retireEditor = document.querySelector("#settings-editor-retire");
       const retireInput = retireEditor.querySelector('[data-settings-draft="known-retire"]');
       const retireFieldWidth = Math.round(retireInput.closest(".field").getBoundingClientRect().width);
@@ -1070,7 +1086,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
     });
     const cpfMobile = await browser.evaluate(`(() => {
       const row = document.querySelector('[data-settings-row="cpf"]');
-      row.querySelector("[data-settings-edit]").click();
+      document.querySelector("[data-settings-cpf-edit]").click();
       const editor = document.querySelector("#settings-editor-cpf");
       const input = editor.querySelector('[data-settings-draft="known-oa"]');
       const monthly = editor.querySelector('[data-settings-draft="known-ma-spend"]');
@@ -1161,7 +1177,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
           const inputs = document.querySelector("#top").closest("details");
           if (inputs) inputs.open = true;
           row.scrollIntoView({ block: "center", behavior: "instant" });
-          row.click();
+          document.querySelector('button[aria-controls="settings-editor-${key}"]').click();
         })()`);
         const opened = await browser.evaluate(
           `!document.querySelector("#settings-editor-${key}").hidden`,
@@ -1213,7 +1229,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
         if (inputs) inputs.open = true;
         row.scrollIntoView({ block: "center", behavior: "instant" });
         await new Promise(requestAnimationFrame);
-        const affordance = row.querySelector("[data-settings-edit]");
+        const affordance = document.querySelector('button[aria-controls="settings-editor-${key}"]');
         const rect = affordance.getBoundingClientRect();
         return {
           point: {
@@ -1244,7 +1260,6 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
         const row = document.querySelector('[data-settings-row="' + key + '"]');
         const editor = document.querySelector("#settings-editor-" + key);
         const opened = !editor.hidden;
-        const pencilVisible = !row.querySelector("[data-settings-edit]").hidden;
         const editorRect = editor.getBoundingClientRect();
         const rowRect = row.getBoundingClientRect();
         return {
@@ -1604,7 +1619,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       const summary = find('[data-plan-value="person-salary"]');
       const before = summary.textContent;
       const original = salary.value;
-      const editIncome = find('[data-settings-row="salary"]');
+      const editIncome = find('[data-settings-row="salary"] [data-settings-edit]');
       editIncome.click();
       await nextFrame();
       const draft = find("#settings-draft-person-salary");
@@ -2362,7 +2377,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       const budgetMenu = await browser.evaluate(`(() => {
         const readMenu = () => ({
           label: document.querySelector("#exp-card-dropdown-label").textContent,
-          selected: [...document.querySelectorAll("#exp-card-dropdown-menu [aria-checked=true] strong")]
+          selected: [...document.querySelectorAll("#exp-card-dropdown-menu [aria-pressed=true] strong")]
             .map((option) => option.textContent),
           total: document.querySelector(".overview-budget-total").textContent,
         });
@@ -2853,6 +2868,17 @@ test("Savings feedback, budget comparison, and A4 export use the active projecti
 
   try {
     await browser.navigate(baseUrl);
+    const firstVisit = await browser.evaluate(`(() => {
+      const intro = document.querySelector("#overview-example-intro");
+      const actions = document.querySelector(".overview-hero-actions");
+      const paycheck = document.querySelector(".brief-paycheck");
+      const actionsBeforePaycheck = Boolean(actions.compareDocumentPosition(paycheck) & Node.DOCUMENT_POSITION_FOLLOWING);
+      intro.querySelector("[data-open-profile]").click();
+      const openedProfile = document.body.dataset.view === "profile";
+      document.querySelector("#destination-overview").click();
+      return { openedProfile, actionsBeforePaycheck };
+    })()`);
+    assert.deepEqual(firstVisit, { openedProfile: true, actionsBeforePaycheck: true });
     assert.equal(
       await browser.evaluate(
         'document.querySelector(".overview-decision-title").textContent',

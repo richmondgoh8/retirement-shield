@@ -481,7 +481,7 @@ function buildCashCardsMarkup(cp, options) {
     .filter((item) => singleCashHeadlineRate(item) === null)
     .map((item) => item.name);
   return html`${sort === "rate" ? raw(html`<p class="cash-sort-note">Sorted by the single published headline percentage (including advertised ceilings). Rows without one sortable headline value follow: ${unsortableRateNames.join(", ")}.</p>`) : ""}
-    <div class="cash-table-surface card-surface">
+    <div class="cash-table-surface card-surface" tabindex="0" role="region" aria-labelledby="cash-comparison-title">
       <table class="cash-product-table" aria-label="Cash products">
         <thead>
           <tr>

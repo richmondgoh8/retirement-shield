@@ -53,7 +53,7 @@ export function buildAllocatorView(bogle, includeCpf = true) {
 
   return `<header class="fin-page-header allocator-header">
     <div class="fin-header-copy">
-      <h1>Portfolio Allocator</h1>
+      <h1>Portfolio allocation</h1>
       <p>Compare your holdings with your target and plan your next contribution.</p>
       <button type="button" class="text-button allocator-monthly-link" data-allocator-monthly>See monthly amounts ↓</button>
     </div>
@@ -69,6 +69,7 @@ export function buildAllocatorView(bogle, includeCpf = true) {
       </label>
       <p class="allocator-support">When included, CPF counts toward fixed income in this comparison.</p>
       <div class="allocator-comparison">
+        <p class="allocator-gap-note">${gapMessage}</p>
         <table class="allocator-mix-table">
           <caption class="sr-only">Current holdings compared with the target split</caption>
           <thead><tr><th scope="col">Allocation</th><th scope="col">Current</th><th scope="col">Target</th></tr></thead>
@@ -77,7 +78,6 @@ export function buildAllocatorView(bogle, includeCpf = true) {
             <tr><th scope="row">Fixed income</th><td>${Math.round(currentFixed)}%</td><td>${targetBondPct}%</td></tr>
           </tbody>
         </table>
-        <p class="allocator-gap-note">${gapMessage}</p>
         <dl class="allocator-holdings">
           ${holdings
             .map(
@@ -129,5 +129,5 @@ export function buildAllocatorView(bogle, includeCpf = true) {
       </dl>
       <a class="text-button allocator-cash-link" href="#tab-panel-cash-parking" data-go-tab="cash-parking">Compare SSB, HYSA &amp; MMFs</a>
     </section>
-  </section>`;
+  </div>`;
 }

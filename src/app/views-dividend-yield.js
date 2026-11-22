@@ -112,7 +112,7 @@ function buildDividendBenchmarksHTML(divModel) {
       </div>
       <span class="fin-target-pill">Capital: ${m(divModel.capital)}</span>
     </div>
-    <div class="table-scroll">
+    <div class="table-scroll" tabindex="0" role="region" aria-labelledby="div-bench-title">
       <table class="ember-ledger-table div-bench-table" aria-label="Singapore yield benchmark comparison">
         <thead>
           <tr>
@@ -236,7 +236,7 @@ function buildTargetBenchmarksHTML(targetModel) {
       </div>
       <span class="fin-target-pill">Goal: ${m(targetModel.targetMonthly, "/mo")}</span>
     </div>
-    <div class="table-scroll">
+    <div class="table-scroll" tabindex="0" role="region" aria-labelledby="div-bench-title">
       <table class="ember-ledger-table div-bench-table" aria-label="Target monthly income capital comparison">
         <thead>
           <tr>
@@ -393,7 +393,7 @@ function buildAnnuityBenchmarksHTML(annuityModel) {
       </div>
       <span class="fin-target-pill">Total Premium: ${m(annuityModel.totalPrincipalPaid)}</span>
     </div>
-    <div class="table-scroll">
+    <div class="table-scroll" tabindex="0" role="region" aria-labelledby="div-bench-title">
       <table class="ember-ledger-table div-bench-table" aria-label="Annuity vs DIY benchmark comparison">
         <thead>
           <tr>
@@ -714,12 +714,12 @@ function buildDividendCalculatorSection({
           <span class="div-control-hint">Lump sum invested</span>
         </div>
         <div class="div-input-stepper-row">
-          <button type="button" class="div-step-btn" data-div-cap-step="-10000" aria-label="Decrease capital by $10,000">−$10k</button>
+          <button type="button" class="div-step-btn" data-div-cap-step="-10000" aria-label="−$10k from capital">−$10k</button>
           <div class="input-prefix div-cap-input-wrap">
             <span>$</span>
             <input id="div-calc-capital" type="number" inputmode="numeric" min="0" max="50000000" step="1000" value="${Math.round(divModel.capital)}" aria-label="Capital amount in SGD" />
           </div>
-          <button type="button" class="div-step-btn" data-div-cap-step="10000" aria-label="Increase capital by $10,000">+$10k</button>
+          <button type="button" class="div-step-btn" data-div-cap-step="10000" aria-label="+$10k to capital">+$10k</button>
         </div>
         <div class="div-chip-row" role="group" aria-label="Quick capital presets">
           ${capPresets

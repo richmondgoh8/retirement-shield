@@ -1,7 +1,6 @@
 import {
   $,
   $$,
-  money,
   svgWrap,
   html,
   raw,
@@ -168,6 +167,8 @@ function buildSettingsSections() {
                       class="button button-small settings-cpf-edit"
                       data-settings-cpf-edit
                       aria-label="Edit CPF"
+                      aria-controls="settings-editor-cpf"
+                      aria-expanded="false"
                     >
                       ${raw(pencil)}
                     </button>`,
@@ -186,9 +187,6 @@ function buildSettingsSections() {
                 html`<div
                   class="settings-value-row${className ? ` ${className}` : ""}"
                   data-settings-row="${key}"
-                  data-settings-edit-label="${label}"
-                  aria-expanded="false"
-                  aria-controls="settings-editor-${key}"
                   ${modes ? raw(html`data-settings-when="${modes}" hidden`) : ""}
                 >
                   <div class="settings-row-label">
@@ -198,16 +196,22 @@ function buildSettingsSections() {
                       >${label}</span
                     >
                   </div>
-                  <span
-                    class="overview-saving-figure settings-value-button"
-                    data-settings-edit
-                    aria-hidden="true"
-                  >
-                    <span class="settings-value-readout"
-                      >${fields.map((field) => raw(buildReadout(field)))}</span
-                    >
-                    ${key === "cpf" ? "" : raw(pencil)}
-                  </span>
+                  ${key === "cpf"
+                    ? raw(html`<div class="settings-value-button" data-settings-cpf-readout>
+                        <span class="settings-value-readout">${fields.map((field) => raw(buildReadout(field)))}</span>
+                      </div>`)
+                    : raw(html`<button
+                        type="button"
+                        class="overview-saving-figure settings-value-button"
+                        data-settings-edit
+                        aria-expanded="false"
+                        aria-controls="settings-editor-${key}"
+                        aria-labelledby="settings-edit-${key} settings-label-${key} settings-value-${key}"
+                      >
+                        <span class="sr-only" id="settings-edit-${key}">Edit</span>
+                        <span class="settings-value-readout" id="settings-value-${key}">${fields.map((field) => raw(buildReadout(field)))}</span>
+                        ${raw(pencil)}
+                      </button>`)}
                   ${derivedValue ? raw(html`<span class="settings-readonly-value" data-plan-value="${fields[0][0]}" data-value-format="${fields[0][1]}" hidden></span>`) : ""}
                   <div
                     class="settings-inline-editor"
@@ -232,6 +236,7 @@ export function setupInlineSettings(fields, formatRangeError) {
     Object.entries(fields).map(([key, id]) => [id, key]),
   );
   const rows = new Map();
+  const editButtons = new Map();
   let active = null;
   $(".settings-sections", form).insertAdjacentHTML(
     "afterbegin",
@@ -254,7 +259,9 @@ export function setupInlineSettings(fields, formatRangeError) {
 
   for (const row of $$("[data-settings-row]", form)) {
     const editor = $("[data-settings-sources]", row);
-    const trigger = $("[data-settings-edit]", row);
+    const trigger =
+      $("[data-settings-edit]", row) ||
+      $("[data-settings-cpf-edit]", row.closest(".settings-value-card"));
     const controls = editor.dataset.settingsSources.split(" ").map((id) => {
       const source = document.getElementById(id);
       const sourceField = source.closest(".field");
@@ -316,17 +323,17 @@ export function setupInlineSettings(fields, formatRangeError) {
     error.setAttribute("role", "status");
     error.hidden = true;
     editor.append(error, actions);
-    rows.set(row, {
+    const editing = {
       row,
       editor,
       trigger,
       controls,
       error,
-      cpfEditButton: row
-        .closest(".settings-value-card")
-        .querySelector("[data-settings-cpf-edit]"),
+      readout: $("[data-settings-cpf-readout]", row),
       saveButton: $('[data-settings-action="save"]', actions),
-    });
+    };
+    rows.set(row, editing);
+    editButtons.set(trigger, editing);
   }
 
   const canonicalValue = (control, value) => {
@@ -372,31 +379,17 @@ export function setupInlineSettings(fields, formatRangeError) {
     active = null;
     clearError(editing);
     editing.editor.hidden = true;
-    editing.row.setAttribute("aria-expanded", "false");
     syncEditability(editing);
-    if (refocus && canEdit(editing)) editing.row.focus({ preventScroll: true });
+    if (refocus && canEdit(editing)) editing.trigger.focus({ preventScroll: true });
   };
 
   const canEdit = (editing) => editing.row.dataset.cashDriven !== "true";
   const syncEditability = (editing) => {
     const editable = canEdit(editing);
-    editing.row.dataset.settingsEditable = String(editable);
-    editing.trigger.hidden = !editable || active === editing;
-    if (editing.cpfEditButton)
-      editing.cpfEditButton.hidden = !editable || active === editing;
-    if (editable && active !== editing) {
-      editing.row.setAttribute("role", "button");
-      editing.row.tabIndex = 0;
-      editing.row.setAttribute(
-        "aria-label",
-        `Edit ${editing.row.dataset.settingsEditLabel}`,
-      );
-    } else {
-      editing.row.removeAttribute("role");
-      editing.row.removeAttribute("aria-label");
-      if (active === editing) editing.row.tabIndex = -1;
-      else editing.row.removeAttribute("tabindex");
-    }
+    const expanded = active === editing;
+    editing.trigger.hidden = !editable || expanded;
+    editing.trigger.setAttribute("aria-expanded", String(expanded));
+    if (editing.readout) editing.readout.hidden = expanded;
   };
 
   for (const editing of rows.values()) syncEditability(editing);
@@ -478,12 +471,7 @@ export function setupInlineSettings(fields, formatRangeError) {
     }
     active = editing;
     editing.row.dataset.settingsEditing = "true";
-    editing.trigger.hidden = true;
-    if (editing.cpfEditButton) editing.cpfEditButton.hidden = true;
-    editing.row.setAttribute("aria-expanded", "true");
-    editing.row.removeAttribute("role");
-    editing.row.removeAttribute("aria-label");
-    editing.row.tabIndex = -1;
+    syncEditability(editing);
     editing.editor.hidden = false;
     for (const control of editing.controls) {
       const { source, draft, moneyInput } = control;
@@ -508,43 +496,23 @@ export function setupInlineSettings(fields, formatRangeError) {
     input?.scrollIntoView({ block: "nearest", behavior: "instant" });
   };
 
-  const isNestedControl = (target) =>
-    Boolean(
-      target.closest(
-        'a[href], button, input, select, textarea, summary, [role="radio"], [data-settings-action]',
-      ),
-    );
   const handleRowClick = (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
-    const cpfEditButton = target.closest("[data-settings-cpf-edit]");
-    const row = cpfEditButton
-      ? cpfEditButton
-          .closest(".settings-value-card")
-          .querySelector('[data-settings-row="cpf"]')
-      : target.closest("[data-settings-row]");
-    const editing = rows.get(row);
+    const trigger = target.closest("[data-settings-edit], [data-settings-cpf-edit]");
+    const editing = editButtons.get(trigger);
     const action = target.closest("[data-settings-action]")?.dataset
       .settingsAction;
 
-    if (cpfEditButton && editing) {
-      if (active && active !== editing && !commit(false)) return;
-      if (!active) start(editing);
-      return;
-    }
-
-    if (active && editing === active && action) {
+    if (active?.editor.contains(target) && action) {
       if (action === "save") commit(true);
       if (action === "cancel") close(true);
       return;
     }
 
-    if (active && editing !== active) {
-      if (!commit(false)) return;
-      if (editing && !isNestedControl(target)) start(editing);
-      return;
-    }
-    if (editing && !active && !isNestedControl(target)) start(editing);
+    if (active && active.row.contains(target)) return;
+    if (active && !commit(false)) return;
+    if (editing) start(editing);
   };
   form.addEventListener("click", handleRowClick);
   document.addEventListener("click", (event) => {
@@ -559,25 +527,6 @@ export function setupInlineSettings(fields, formatRangeError) {
   });
   form.addEventListener("keydown", (event) => {
     const target = event.target instanceof Element ? event.target : null;
-    const row = target?.closest("[data-settings-row]");
-    const rowEditing = rows.get(row);
-    if (
-      rowEditing &&
-      row === target &&
-      row.getAttribute("role") === "button" &&
-      !isNestedControl(target)
-    ) {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        start(rowEditing);
-        return;
-      }
-      if (event.key === " ") {
-        event.preventDefault();
-        row.dataset.settingsSpacePending = "true";
-        return;
-      }
-    }
     if (
       !active ||
       !target ||
@@ -593,19 +542,6 @@ export function setupInlineSettings(fields, formatRangeError) {
     } else if (event.key === "Enter" && event.target.matches("input, select")) {
       event.preventDefault();
       commit(true);
-    }
-  });
-  form.addEventListener("keyup", (event) => {
-    const target = event.target instanceof Element ? event.target : null;
-    const row = target?.closest("[data-settings-row]");
-    const editing = rows.get(row);
-    if (
-      editing &&
-      row === target &&
-      row.dataset.settingsSpacePending === "true"
-    ) {
-      delete row.dataset.settingsSpacePending;
-      start(editing);
     }
   });
   form.addEventListener("change", (event) => {
@@ -637,12 +573,11 @@ export function syncSettingsCashBalance(opts) {
       $(".settings-readonly-value", row).hidden = !active;
     }
     if (active && count > 0) {
-      const rawCash = ($("#known-ssb-cash")?.value || "").trim();
       const eirStr =
         opts.cashEffectiveRatePct != null
-          ? ` @ ${Number(opts.cashEffectiveRatePct).toFixed(2)}% EIR`
+          ? ` · ${Number(opts.cashEffectiveRatePct).toFixed(2)}% EIR`
           : "";
-      const msg = `Driven by ${count} cash & SSB account${count === 1 ? "" : "s"} (${money(Number(rawCash || 0))}${eirStr}).`;
+      const msg = `Total from ${count} itemized cash and SSB account${count === 1 ? "" : "s"}${eirStr}.`;
       const span = cashNote.querySelector("span");
       if (span) span.textContent = msg;
       else cashNote.textContent = msg;

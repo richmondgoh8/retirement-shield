@@ -333,30 +333,29 @@ function buildExpenseCardHTML(ep) {
   return `<section class="swell-section-block" aria-label="Monthly budget">
     <div class="fin-card fin-expense-card card-surface" id="expense-breakdown-card">
     <div class="fin-expense-head">
-      <p class="overview-budget-total"><strong>${m(ep.total, "/mo", "kpi-budget")}</strong> <span>in today’s dollars</span></p>
+      <p class="overview-budget-total"><strong>${m(ep.total, "/mo", "kpi-budget")}</strong> <span>base budget in today’s dollars</span></p>
       <div class="fin-expense-actions">
         <div class="exp-card-dropdown-wrap" id="exp-card-dropdown-wrap">
           <button
             type="button"
             class="header-account-pill exp-card-dropdown-pill"
             id="exp-card-dropdown-btn"
-            aria-haspopup="menu"
+            aria-labelledby="exp-card-scenario-label exp-card-dropdown-label"
             aria-expanded="false"
             aria-controls="exp-card-dropdown-menu"
           >
-            <span class="header-account-avatar" data-tone="${isPreset ? ep.lifestyle : "custom"}" aria-hidden="true">${isPreset ? (ep.lifestyle === "cca" ? "C" : "H") : "$"}</span>
+            <span id="exp-card-scenario-label" class="sr-only">Retirement scenario</span>
             <span id="exp-card-dropdown-label">${dropdownLabel}</span>
             <svg class="header-account-caret" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="m6 9 6 6 6-6" />
             </svg>
           </button>
-          <div class="header-account-menu exp-card-dropdown-menu" id="exp-card-dropdown-menu" role="menu" hidden>
+          <div class="header-account-menu exp-card-dropdown-menu" id="exp-card-dropdown-menu" role="group" aria-label="Retirement scenarios" hidden>
             <button
               type="button"
-              role="menuitemradio"
               class="header-menu-item${isPreset && ep.lifestyle === "cca" ? " is-active" : ""}"
               data-switch-lifestyle="cca"
-              aria-checked="${isPreset && ep.lifestyle === "cca"}"
+              aria-pressed="${isPreset && ep.lifestyle === "cca"}"
             >
               <div>
                 <strong>Community Care Apartments</strong>
@@ -365,10 +364,9 @@ function buildExpenseCardHTML(ep) {
             </button>
             <button
               type="button"
-              role="menuitemradio"
               class="header-menu-item${isPreset && ep.lifestyle === "home-helper" ? " is-active" : ""}"
               data-switch-lifestyle="home-helper"
-              aria-checked="${isPreset && ep.lifestyle === "home-helper"}"
+              aria-pressed="${isPreset && ep.lifestyle === "home-helper"}"
             >
               <div>
                 <strong>Home + Helper</strong>
@@ -377,10 +375,9 @@ function buildExpenseCardHTML(ep) {
             </button>
             <button
               type="button"
-              role="menuitemradio"
               class="header-menu-item${!isPreset ? " is-active" : ""}"
               data-select-custom
-              aria-checked="${!isPreset}"
+              aria-pressed="${!isPreset}"
             >
               <div>
                 <strong>Custom</strong>
@@ -389,7 +386,7 @@ function buildExpenseCardHTML(ep) {
             </button>
           </div>
         </div>
-        <button type="button" class="text-button exp-edit-items" data-quick-edit="budget">${isPreset ? "View expenses" : "Edit budget"}</button>
+        <button type="button" class="button button-primary exp-edit-items" data-quick-edit="budget">${isPreset ? "View expenses" : "Edit budget"}</button>
         <button type="button" class="text-button" id="compare-retirement-budgets" aria-haspopup="dialog">Compare retirement budgets</button>
       </div>
     </div>
