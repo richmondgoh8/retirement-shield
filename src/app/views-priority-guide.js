@@ -54,7 +54,7 @@ const priorities = [
     protection:
       "15% US dividend withholding tax versus 30% on US ETFs; daily liquidity; zero US estate tax claim supplied for this structure",
     sweetSpot:
-      "Core wealth engine: 60%–90% of liquid investable net worth for a 10+ year horizon",
+      "For money you can keep invested for 10 years or more. The reference allocation is 60%–90% of investable savings.",
     rationale:
       "The supplied guide cites low fee drag (~0.19% TER and S$0 platform fee), inflation protection and liquidity. Verify fund, broker and tax details before relying on them.",
   },

@@ -1,27 +1,27 @@
-import { $, m, compactMoney, svgCompactMoney, svgMoney } from "./format.js";
+import {
+  $,
+  m,
+  compactMoney,
+  formatDollarBasis,
+  svgCompactMoney,
+  svgMoney,
+} from "./format.js";
+
+export const NET_WORTH_SCOPE =
+  "Includes CPF, SRS, equities, cash and bonds. Excludes home value and outstanding debts.";
+
+export function getSrsUsedForSpending(point) {
+  return Math.max(
+    0,
+    point.monthlyTotalIncome -
+      point.monthlyCpfLife -
+      point.monthlyBridge -
+      point.monthlyLiquidDraw,
+  );
+}
 
 let trajectoryInspectedAge = null;
 let onTrajectoryInspectAge = null;
-
-function buildSmoothSpline(coords, minY, maxY) {
-  if (!coords.length) return "";
-  if (coords.length === 1) return `M ${coords[0].x} ${coords[0].y}`;
-  const clampY = (y) => Math.max(minY, Math.min(maxY, y));
-  let d = `M ${coords[0].x.toFixed(1)} ${clampY(coords[0].y).toFixed(1)}`;
-  for (let i = 0; i < coords.length - 1; i++) {
-    const p0 = coords[Math.max(0, i - 1)];
-    const p1 = coords[i];
-    const p2 = coords[i + 1];
-    const p3 = coords[Math.min(coords.length - 1, i + 2)];
-    const tension = 0.22;
-    const cp1x = p1.x + (p2.x - p0.x) * tension;
-    const cp1y = clampY(p1.y + (p2.y - p0.y) * tension);
-    const cp2x = p2.x - (p3.x - p1.x) * tension;
-    const cp2y = clampY(p2.y - (p3.y - p1.y) * tension);
-    d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${clampY(p2.y).toFixed(1)}`;
-  }
-  return d;
-}
 
 function niceAxis(rawMax, steps = 4) {
   const safeMax = Math.max(1000, rawMax);
@@ -153,7 +153,11 @@ function buildAxisMilestonesSVG({
   compactPrint = false,
   isMobile = false,
   saLabel = "55 SA → RA",
-  saStyle = { color: "#0F766E", bg: "#F0FDFA", border: "#99F6E4" },
+  saStyle = {
+    color: "var(--sem-teal)",
+    bg: "var(--sem-teal-soft)",
+    border: "var(--sem-teal-border)",
+  },
   srsLabelSuffix = "SRS Draw",
   includeAge55AtMin = false,
   emphasize = false,
@@ -173,27 +177,27 @@ function buildAxisMilestonesSVG({
     raw.push({
       age: retireAge,
       label: `Retire ${retireAge}`,
-      color: "#BE185D",
-      bg: "#FDF2F8",
-      border: "#FBCFE8",
+      color: "var(--swell-pink-ink)",
+      bg: "var(--swell-pink-soft)",
+      border: "var(--swell-pink-border)",
     });
   }
   if (showSrs && srsAge != null && srsAge >= minAge && srsAge <= maxAge) {
     raw.push({
       age: srsAge,
       label: narrow ? `${srsAge} SRS` : `${srsAge} ${srsLabelSuffix}`,
-      color: "#6D28D9",
-      bg: "#F5F3FF",
-      border: "#DDD6FE",
+      color: "var(--sem-srs)",
+      bg: "var(--sem-srs-soft)",
+      border: "var(--sem-srs-border)",
     });
   }
   if (65 >= minAge && 65 <= maxAge) {
     raw.push({
       age: 65,
       label: narrow ? "65 CPF" : "65 CPF LIFE",
-      color: "#047857",
-      bg: "#ECFDF5",
-      border: "#A7F3D0",
+      color: "var(--sem-cpf-ink)",
+      bg: "var(--sem-cpf-soft)",
+      border: "var(--sem-cpf-border)",
     });
   }
   raw.sort((a, b) => a.age - b.age);
@@ -203,9 +207,9 @@ function buildAxisMilestonesSVG({
     if (ex) {
       if (item.age === 65 && ex.label.startsWith("Retire")) {
         ex.label = narrow ? "65 Retire·CPF" : "65 Retire · CPF LIFE";
-        ex.color = "#BE185D";
-        ex.bg = "#FDF2F8";
-        ex.border = "#FBCFE8";
+        ex.color = "var(--swell-pink-ink)";
+        ex.bg = "var(--swell-pink-soft)";
+        ex.border = "var(--swell-pink-border)";
       } else if (ex.label.startsWith("Retire")) {
         ex.label = `${item.age} Retire · ${item.label.replace(/^\d+\s*/, "")}`;
       } else {
@@ -216,16 +220,16 @@ function buildAxisMilestonesSVG({
     }
   }
   const rowBoxes = rowYs.map(() => []);
-  const charW = emphasize ? 7.2 : compactPrint ? 6.8 : narrow ? 5.6 : 6.1;
-  const pillH = emphasize ? 19 : compactPrint ? 17 : narrow ? 15 : 16;
+  const charW = compactPrint ? 8 : emphasize ? 7.2 : narrow ? 6.2 : 6.6;
+  const pillH = compactPrint || emphasize ? 19 : narrow ? 15 : 17;
   const pillYOffset = emphasize
     ? 13.5
     : compactPrint
-      ? 12
+      ? 14
       : narrow
         ? 10.5
         : 11.5;
-  const fontSize = emphasize ? 12 : compactPrint ? 11.5 : narrow ? 9.5 : 10;
+  const fontSize = compactPrint ? 14 : emphasize ? 12 : 11;
   const gapX = narrow ? 6 : 10;
   const maxPillW = Math.max(44, W - padL - padR);
   const flags = merged.map((mItem, index) => {
@@ -262,7 +266,7 @@ function buildAxisMilestonesSVG({
     const textX = (x1 + pillW / 2).toFixed(1);
     return {
       line: `<line x1="${x}" y1="${(pillY + pillH).toFixed(1)}" x2="${x}" y2="${H - padB}" stroke="${mItem.color}" stroke-width="1.25" stroke-dasharray="3,3" stroke-opacity="0.6" />`,
-      label: `<rect x="${x1.toFixed(1)}" y="${pillY.toFixed(1)}" width="${pillW.toFixed(1)}" height="${pillH}" rx="4.5" fill="${mItem.bg || "#FFFFFF"}" stroke="${mItem.border || mItem.color}" stroke-width="1" />
+      label: `<rect x="${x1.toFixed(1)}" y="${pillY.toFixed(1)}" width="${pillW.toFixed(1)}" height="${pillH}" rx="4.5" fill="${mItem.bg || "var(--surface)"}" stroke="${mItem.border || mItem.color}" stroke-width="1" />
         <text x="${textX}" y="${labelY}" text-anchor="middle" font-size="${fontSize}" font-weight="650" fill="${mItem.color}">${mItem.label}</text>`,
     };
   });
@@ -279,6 +283,39 @@ function buildAxisMilestonesSVG({
         .join("");
 }
 
+function renderTrajectoryTable(view, points, basisLabel, scenarioLabel) {
+  const tableBody = $("#trajectory-values");
+  const focusedAge = tableBody.contains(document.activeElement)
+    ? document.activeElement.dataset.inspectAge
+    : null;
+  $("#trajectory-columns").innerHTML =
+    '<th scope="col">Age / year</th>' +
+    view.columns
+      .map(
+        ([, label]) =>
+          `<th scope="col">${label}${view.monthly ? " / month" : ""}</th>`,
+      )
+      .join("");
+  tableBody.innerHTML = points
+    .map((pt) => {
+      const inspected = trajectoryInspectedAge === pt.age;
+      const amounts = view.columns
+        .map(([key]) => `<td>${m(pt[key])}</td>`)
+        .join("");
+      return `<tr data-inspect-age="${pt.age}" class="${inspected ? "is-inspected-row" : ""}"><th scope="row"><button type="button" class="traj-age-btn" data-inspect-age="${pt.age}" aria-expanded="${inspected}" aria-controls="trajectory-year-inspector">${pt.age} / ${pt.year}</button></th>${amounts}</tr>`;
+    })
+    .join("");
+  if (focusedAge != null) {
+    tableBody
+      .querySelector(`button[data-inspect-age="${focusedAge}"]`)
+      ?.focus({ preventScroll: true });
+  }
+  $("#trajectory-caption").textContent =
+    `${view.title} in ${basisLabel} · ${scenarioLabel}`;
+  $("#trajectory-table-note").textContent =
+    "Values rounded to the nearest dollar.";
+}
+
 export function renderTrajectoryChart(
   trajectoryData,
   chartMode,
@@ -286,24 +323,36 @@ export function renderTrajectoryChart(
   basis = "today",
 ) {
   if (!trajectoryData?.points.length) return;
+  if (
+    !TRAJECTORY_VIEWS[chartMode] ||
+    (!currentFirePlan?.points?.length &&
+      ["networth", "waterfall"].includes(chartMode))
+  ) {
+    chartMode = "cashflow";
+  }
   const { points, summary } = trajectoryData;
-  const basisLabel =
-    basis === "nominal" ? "future nominal dollars" : "today’s dollars";
-  $("#trajectory-values").innerHTML = points
-    .map(
-      (pt) =>
-        `<tr data-inspect-age="${pt.age}" class="${trajectoryInspectedAge === pt.age ? "is-inspected-row" : ""}" title="Click to inspect age ${pt.age} ledger"><th scope="row"><button type="button" class="traj-age-btn" data-inspect-age="${pt.age}" aria-expanded="${trajectoryInspectedAge === pt.age}">${pt.age} / ${pt.year}</button></th><td>${m(pt.monthlySpend)}</td><td>${m(pt.monthlyCPF)}</td><td>${m(pt.monthlyGap)}</td><td>${m(pt.portfolioBalance)}</td></tr>`,
-    )
-    .join("");
-  const maxHorizonAge = points[points.length - 1].age;
-  $("#trajectory-caption").textContent =
-    `${trajectoryData.selectedScenario.label}: yearly figures in ${basisLabel} (through age ${maxHorizonAge})`;
-  $("#trajectory-table-note").textContent =
-    `Values are rounded and shown in ${basisLabel}. Before retirement, spending shows the reference budget. The table ends at age ${maxHorizonAge}, and CPF LIFE payouts continue for life.`;
+  const view = TRAJECTORY_VIEWS[chartMode];
+  const basisLabel = formatDollarBasis(basis);
+  const plottedPoints =
+    chartMode === "networth"
+      ? getNetWorthPoints(currentFirePlan, basis)
+      : chartMode === "waterfall"
+        ? getIncomePoints(currentFirePlan, basis)
+        : points;
+  const firstAge = plottedPoints[0].age;
+  const lastAge = plottedPoints.at(-1).age;
+  renderTrajectoryTable(
+    view,
+    plottedPoints,
+    basisLabel,
+    trajectoryData.selectedScenario.label,
+  );
+
   const descEl = $(".trajectory-desc");
   if (descEl) {
-    descEl.textContent = `Retire at age ${summary.retire} · Project through age ${maxHorizonAge} · ${basisLabel}.`;
+    descEl.textContent = `Ages ${firstAge}–${lastAge} · ${basisLabel} · retire at age ${summary.retire}.`;
   }
+  $("#trajectory-chart-note").textContent = view.note;
   const chartArea = $("#trajectory-chart");
   const chartWrapper = chartArea?.parentElement;
   if (chartWrapper) {
@@ -314,6 +363,7 @@ export function renderTrajectoryChart(
     chartWrapper.ontouchcancel = null;
     chartWrapper.onclick = null;
   }
+  $("#chart-tooltip").hidden = true;
   chartArea.onclick = null;
   chartArea.onkeydown = null;
   chartArea.onblur = null;
@@ -328,12 +378,10 @@ export function renderTrajectoryChart(
     clickHintEl.hidden = false;
   }
 
-  chartArea.setAttribute(
-    "aria-label",
-    `${chartMode === "cashflow" ? "Monthly spending and CPF income" : chartMode === "networth" ? "Stacked total net worth" : chartMode === "waterfall" ? "4-tap retirement income waterfall" : "Outside portfolio balance"} from age ${summary.age} to ${maxHorizonAge} in ${basisLabel}.`,
-  );
+  const chartLabel = `${view.title} from age ${firstAge} to ${lastAge} in ${basisLabel}`;
+  chartArea.setAttribute("aria-label", chartLabel);
 
-  if (chartMode === "networth" && currentFirePlan) {
+  if (chartMode === "networth") {
     renderStackedNetWorthSVG(
       chartArea,
       $("#chart-tooltip"),
@@ -343,20 +391,21 @@ export function renderTrajectoryChart(
     );
     return;
   }
-  if (chartMode === "waterfall" && currentFirePlan) {
+  if (chartMode === "waterfall") {
     renderCashflowWaterfallSVG(
       chartArea,
       $("#chart-tooltip"),
       $("#chart-legend"),
       currentFirePlan,
-      basis,
+      plottedPoints,
+      chartLabel,
     );
     return;
   }
 
   const mobileW = getMobileChartWidth(chartArea, false);
   const isMobile = mobileW != null;
-  const W = isMobile ? mobileW : 760,
+  const W = mobileW ?? Math.min(chartArea.clientWidth || 760, 760),
     H = isMobile ? 260 : 318,
     padL = isMobile ? 52 : 74,
     padR = isMobile ? 14 : 26,
@@ -385,12 +434,11 @@ export function renderTrajectoryChart(
       ? svgCompactMoney
       : svgMoney
     : svgCompactMoney;
-  const tickFontSize = isMobile ? 11 : 12;
   const yTicks = ticks
     .map(
       (v) =>
         `<line x1="${padL}" y1="${dY(v)}" x2="${W - padR}" y2="${dY(v)}" stroke="var(--chart-grid)" stroke-opacity="0.5" stroke-dasharray="3,3" />
-         <text x="${padL - (isMobile ? 7 : 10)}" y="${dY(v) + 4}" text-anchor="end" font-size="${tickFontSize}" fill="var(--ink-soft)">${formatTickSvg(v)}</text>`,
+         <text x="${padL - (isMobile ? 7 : 10)}" y="${dY(v) + 4}" text-anchor="end" class="chart-axis-label" fill="var(--ink-soft)">${formatTickSvg(v)}</text>`,
     )
     .join("");
 
@@ -420,7 +468,7 @@ export function renderTrajectoryChart(
     .map(
       (a) =>
         `<line x1="${dX(a)}" y1="${padT}" x2="${dX(a)}" y2="${H - padB}" stroke="var(--chart-grid)" stroke-opacity="0.35" />
-         <text x="${dX(a)}" y="${H - padB + (isMobile ? 20 : 22)}" text-anchor="middle" font-size="${tickFontSize}" fill="var(--ink-soft)">${isMobile ? a : `Age ${a}`}</text>`,
+         <text x="${dX(a)}" y="${H - padB + (isMobile ? 20 : 22)}" text-anchor="middle" class="chart-axis-label" fill="var(--ink-soft)">${isMobile ? a : `Age ${a}`}</text>`,
     )
     .join("");
 
@@ -478,23 +526,22 @@ export function renderTrajectoryChart(
     const cpfPath = stepCpfPath();
     defs = `
       <linearGradient id="spendGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#2563EB" stop-opacity="0.18"/>
-        <stop offset="100%" stop-color="#2563EB" stop-opacity="0.03"/>
+        <stop offset="0%" stop-color="var(--ink-soft)" stop-opacity="0.18"/>
+        <stop offset="100%" stop-color="var(--ink-soft)" stop-opacity="0.03"/>
       </linearGradient>
       <linearGradient id="cpfGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#059669" stop-opacity="0.28"/>
-        <stop offset="100%" stop-color="#059669" stop-opacity="0.06"/>
+        <stop offset="0%" stop-color="var(--sem-cpf-ink)" stop-opacity="0.28"/>
+        <stop offset="100%" stop-color="var(--sem-cpf-ink)" stop-opacity="0.06"/>
       </linearGradient>`;
     series = `
       <path d="${spendPath} L ${dX(maxAge)} ${dY(0)} L ${dX(minAge)} ${dY(0)} Z" fill="url(#spendGrad)" />
       <path d="${spendPath}" fill="none" stroke="var(--ink-soft)" stroke-width="2.2" stroke-dasharray="6,3" />
       <path d="${cpfPath} L ${dX(maxAge)} ${dY(0)} L ${dX(minAge)} ${dY(0)} Z" fill="url(#cpfGrad)" />
-      <path d="${cpfPath}" fill="none" stroke="#059669" stroke-width="2.4" />
+      <path d="${cpfPath}" fill="none" stroke="var(--sem-cpf-ink)" stroke-width="2.4" />
       ${milestoneFlagsSVG}${inspectedPinSVG}`;
     legend = `
-      <span class="legend-item"><i class="legend-swatch" style="background:var(--ink-soft);"></i> Target Monthly Spend</span>
-      <span class="legend-item"><i class="legend-swatch" style="background:#059669;"></i> CPF LIFE Payout (${summary.plan === "escalating" ? "Escalating +2%/yr" : "Standard Flat"})</span>
-      <span class="legend-item"><i class="legend-swatch" style="background:#2563EB;"></i> Outside Portfolio Funding Gap</span>`;
+      <span class="legend-item"><i class="legend-line is-spending" aria-hidden="true"></i> Spending target</span>
+      <span class="legend-item"><i class="legend-swatch" style="background:var(--sem-cpf-ink);"></i> CPF LIFE (${summary.plan === "escalating" ? "Escalating +2%/yr" : "Standard"})</span>`;
   } else {
     const balPath = linePath((pt) => pt.portfolioBalance);
     const peakPt = points.reduce(
@@ -504,32 +551,28 @@ export function renderTrajectoryChart(
     );
     defs = `
       <linearGradient id="portGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#2563EB" stop-opacity="0.28"/>
-        <stop offset="100%" stop-color="#2563EB" stop-opacity="0.03"/>
+        <stop offset="0%" stop-color="var(--ink-soft)" stop-opacity="0.28"/>
+        <stop offset="100%" stop-color="var(--ink-soft)" stop-opacity="0.03"/>
       </linearGradient>`;
     series = `
       <path d="${balPath} L ${dX(maxAge)} ${dY(0)} L ${dX(minAge)} ${dY(0)} Z" fill="url(#portGrad)" />
-      <path d="${balPath}" fill="none" stroke="#2563EB" stroke-width="2.4" />
+      <path d="${balPath}" fill="none" stroke="var(--ink-soft)" stroke-width="2.4" />
       ${milestoneFlagsSVG}${inspectedPinSVG}
-      <circle cx="${dX(peakPt.age)}" cy="${dY(peakPt.portfolioBalance)}" r="3.5" fill="#2563EB" />
-      <text x="${dX(peakPt.age)}" y="${Math.max(padT + 14, dY(peakPt.portfolioBalance) - 10)}" text-anchor="${markerAnchor(dX(peakPt.age))}" font-size="11.5" font-weight="700" fill="#2563EB" paint-order="stroke" stroke="var(--surface)" stroke-width="3" stroke-linejoin="round">Peak ${svgCompactMoney(peakPt.portfolioBalance)}</text>`;
+      <circle cx="${dX(peakPt.age)}" cy="${dY(peakPt.portfolioBalance)}" r="3.5" fill="var(--ink-soft)" />
+      <text x="${dX(peakPt.age)}" y="${Math.max(padT + 14, dY(peakPt.portfolioBalance) - 10)}" text-anchor="${markerAnchor(dX(peakPt.age))}" font-size="11.5" font-weight="700" fill="var(--ink-soft)" paint-order="stroke" stroke="var(--surface)" stroke-width="3" stroke-linejoin="round">Peak ${svgCompactMoney(peakPt.portfolioBalance)}</text>`;
     legend = `
-      <span class="legend-item"><i class="legend-swatch" style="background:#2563EB;"></i> Outside Portfolio Balance</span>
-      <span class="legend-item"><i class="legend-swatch" style="background:#E83E8C;"></i> Target Retirement Age ${summary.retire}</span>`;
+      <span class="legend-item"><i class="legend-line is-portfolio" aria-hidden="true"></i> Portfolio + CPF OA</span>
+      <span class="legend-item"><i class="legend-line is-retirement" aria-hidden="true"></i> Retirement at age ${summary.retire}</span>`;
   }
 
-  const trajLabel =
-    chartMode === "cashflow"
-      ? `Monthly retirement income vs spending chart from age ${summary.age} to ${maxHorizonAge}, retiring at age ${summary.retire}`
-      : `Outside portfolio balance chart from age ${summary.age} to ${maxHorizonAge}, retiring at age ${summary.retire}`;
   chartArea.innerHTML = `
-    <svg role="img" aria-label="${trajLabel}" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="xMidYMid meet">
+    <svg role="img" aria-label="${chartLabel}" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="xMidYMid meet">
       <defs>${defs}</defs>
       ${yTicks}${xTicks}${series}
       <line id="scrub-line" x1="0" y1="${padT}" x2="0" y2="${H - padB}" stroke="var(--primary)" stroke-width="1.6" stroke-dasharray="3,3" stroke-opacity="0.85" style="display:none;" />
       <line id="scrub-hline" x1="${padL}" y1="0" x2="${W - padR}" y2="0" stroke="var(--ink-soft)" stroke-width="1" stroke-dasharray="3,3" stroke-opacity="0.32" style="display:none;" />
       <circle id="scrub-dot-primary" cx="0" cy="0" r="4.5" fill="var(--primary)" stroke="var(--surface)" stroke-width="2" style="display:none;" />
-      <circle id="scrub-dot-secondary" cx="0" cy="0" r="4" fill="#059669" stroke="var(--surface)" stroke-width="2" style="display:none;" />
+      <circle id="scrub-dot-secondary" cx="0" cy="0" r="4" fill="var(--sem-cpf-ink)" stroke="var(--surface)" stroke-width="2" style="display:none;" />
     </svg>`;
   $("#chart-legend").innerHTML = legend;
 
@@ -579,7 +622,7 @@ export function renderTrajectoryChart(
       if (chartMode === "portfolio") {
         scrubDotPrimary.setAttribute("cx", svgX);
         scrubDotPrimary.setAttribute("cy", dY(pt.portfolioBalance));
-        scrubDotPrimary.setAttribute("fill", "#2563EB");
+        scrubDotPrimary.setAttribute("fill", "var(--ink-soft)");
         scrubDotPrimary.style.display = "block";
         if (scrubDotSecondary) scrubDotSecondary.style.display = "none";
       } else {
@@ -590,19 +633,25 @@ export function renderTrajectoryChart(
         if (scrubDotSecondary) {
           scrubDotSecondary.setAttribute("cx", svgX);
           scrubDotSecondary.setAttribute("cy", dY(pt.monthlyCPF));
-          scrubDotSecondary.setAttribute("fill", "#059669");
+          scrubDotSecondary.setAttribute("fill", "var(--sem-cpf-ink)");
           scrubDotSecondary.style.display = "block";
         }
       }
     }
     tooltipEl.hidden = false;
     tooltipEl.innerHTML = `
-      <div class="tt-head">Age ${pt.age} (${pt.year}) · ${pt.phase.toUpperCase()}</div>
-      <div class="tt-row"><span>Spend</span><b>${m(pt.monthlySpend, "/mo")}</b></div>
-      <div class="tt-row"><span>CPF LIFE</span><b class="sem-cpf">${m(pt.monthlyCPF, "/mo")}</b></div>
-      ${pt.monthlyGap > 0 ? `<div class="tt-row"><span>Outside gap</span><b class="sem-eq">${m(pt.monthlyGap, "/mo")}</b></div>` : ""}
-      <div class="tt-row"><span>Portfolio</span><b>${m(pt.portfolioBalance)}</b></div>
-      <div class="tt-note">Click or press Enter to inspect full year ledger</div>`;
+      <div class="tt-head">Age ${pt.age} (${pt.year})</div>
+      ${
+        isCashflow
+          ? `
+        <div class="tt-row"><span>Spending target</span><b>${m(pt.monthlySpend, "/mo")}</b></div>
+        <div class="tt-row"><span>CPF LIFE</span><b class="sem-cpf">${m(pt.monthlyCPF, "/mo")}</b></div>
+        ${pt.monthlyBridge > 0 ? `<div class="tt-row"><span>Work income</span><b>${m(pt.monthlyBridge, "/mo")}</b></div>` : ""}
+        ${pt.monthlyGap > 0 ? `<div class="tt-row"><span>Needed from savings</span><b>${m(pt.monthlyGap, "/mo")}</b></div>` : ""}
+      `
+          : `<div class="tt-row"><span>Portfolio + CPF OA</span><b>${m(pt.portfolioBalance)}</b></div>`
+      }
+      <div class="tt-note">Select the age or press Enter for the year breakdown</div>`;
     positionChartTooltip(
       tooltipEl,
       wrapRect,
@@ -615,7 +664,9 @@ export function renderTrajectoryChart(
     );
     if (announce) {
       announceChartStatus(
-        `Age ${pt.age}: spend ${compactMoney(pt.monthlySpend)} per month, CPF LIFE ${compactMoney(pt.monthlyCPF)} per month, portfolio ${compactMoney(pt.portfolioBalance)}.`,
+        isCashflow
+          ? `Age ${pt.age}. Spending target ${compactMoney(pt.monthlySpend)}, CPF LIFE ${compactMoney(pt.monthlyCPF)}, work income ${compactMoney(pt.monthlyBridge)}, needed from savings ${compactMoney(pt.monthlyGap)} per month.`
+          : `Age ${pt.age}. Portfolio plus CPF OA ${compactMoney(pt.portfolioBalance)}.`,
       );
     }
   };
@@ -671,33 +722,90 @@ export function renderTrajectoryChart(
 const NW_SERIES = [
   {
     key: "cpf",
-    name: "CPF (OA + SA/RA + MA)",
-    short: "CPF",
-    color: "#10B981",
+    name: "CPF",
+    color: "var(--sem-cpf-ink)",
+    dash: "",
     ttClass: "sem-cpf",
   },
   {
     key: "srs",
     name: "SRS",
-    short: "SRS",
-    color: "#7C3AED",
+    color: "var(--sem-srs)",
+    dash: "2 3",
     ttClass: "sem-srs",
   },
   {
     key: "ssb",
-    name: "SSB / T-Bills / Cash",
-    short: "SSB / Cash",
-    color: "#D97706",
+    name: "Cash & bonds",
+    color: "var(--sem-cash-ink)",
+    dash: "6 3",
     ttClass: "sem-cash",
   },
   {
     key: "eq",
-    name: "Global & SG Equities",
-    short: "Equities",
-    color: "#2563EB",
+    name: "Equities",
+    color: "var(--sem-equities)",
+    dash: "8 3 2 3",
     ttClass: "sem-eq",
   },
 ];
+
+const INCOME_SERIES = [
+  { key: "cpf", name: "CPF LIFE", color: "var(--sem-cpf-ink)" },
+  {
+    key: "bridge",
+    name: "Work income",
+    color: "url(#work-income-pattern)",
+    swatch: "is-work-income",
+  },
+  { key: "srs", name: "SRS used for spending", color: "var(--sem-srs)" },
+  {
+    key: "liquid",
+    name: "Portfolio and OA withdrawals",
+    color: "var(--ink-soft)",
+  },
+  { key: "shortfall", name: "Spending shortfall", color: "var(--sem-alert)" },
+];
+
+const TRAJECTORY_VIEWS = {
+  cashflow: {
+    title: "Monthly cashflow",
+    note: "Spending before retirement is your reference budget. The amount needed from savings is what remains after CPF LIFE and work income.",
+    monthly: true,
+    columns: [
+      ["monthlySpend", "Spending target"],
+      ["monthlyCPF", "CPF LIFE"],
+      ["monthlyBridge", "Work income"],
+      ["monthlyGap", "Needed from savings"],
+    ],
+  },
+  networth: {
+    title: "Projected net worth",
+    note: NET_WORTH_SCOPE,
+    columns: [
+      ["total", "Projected net worth"],
+      ...NW_SERIES.map(({ key, name }) => [key, name]).reverse(),
+    ],
+  },
+  waterfall: {
+    title: "Income & withdrawals",
+    note: "Spending before retirement is your reference budget. The SRS column shows after-tax withdrawals used for spending.",
+    monthly: true,
+    columns: [
+      ["spend", "Spending target"],
+      ...INCOME_SERIES.map(({ key, name }) => [key, name]),
+    ],
+  },
+  portfolio: {
+    title: "Portfolio + CPF OA",
+    note: "Includes equities, cash and bonds, and SRS. Adds modeled CPF OA from age 55. SRS withdrawal rules still apply.",
+    columns: [["portfolioBalance", "Portfolio + CPF OA"]],
+  },
+};
+
+function netWorthSwatch({ color, dash }) {
+  return `<svg class="legend-line" viewBox="0 0 18 8" aria-hidden="true"><path d="M0 4H18" stroke="${color}" stroke-width="3" stroke-dasharray="${dash || "none"}" /></svg>`;
+}
 
 let netWorthSelectedSeries = "all";
 
@@ -733,6 +841,22 @@ function positionChartTooltip(
   tooltipEl.style.transform = "none";
 }
 
+function getNetWorthPoints(fire, basis) {
+  return fire.points.map((pt) => {
+    const src = basis === "today" ? pt.today : pt;
+    return {
+      age: pt.age,
+      year: pt.year,
+      phase: pt.phase,
+      cpf: src.cpfTotal,
+      srs: src.srs,
+      ssb: src.ssbCash,
+      eq: src.liquidEquities,
+      total: src.totalNetWorth,
+    };
+  });
+}
+
 export function renderStackedNetWorthSVG(
   chartArea,
   tooltipEl,
@@ -750,32 +874,15 @@ export function renderStackedNetWorthSVG(
       ? NW_SERIES.find((item) => item.key === activeSeries) || null
       : null;
 
-  const pts = fire.points.map((pt) => {
-    const src = basis === "today" ? pt.today : pt;
-    return {
-      age: pt.age,
-      year: pt.year,
-      phase: pt.phase,
-      cpf: src.cpfTotal,
-      srs: src.srs,
-      ssb: src.ssbCash,
-      eq: src.liquidEquities,
-      total: src.totalNetWorth,
-    };
-  });
+  const pts = getNetWorthPoints(fire, basis);
   const compactPrint = Boolean(opts.compactPrint);
   const mobileW = getMobileChartWidth(chartArea, compactPrint);
   const isMobile = mobileW != null;
-  const isDashCombo =
-    Boolean(opts.swellCombo) || chartArea.id === "print-nw-chart";
   const isOverviewHero = chartArea.id === "dash-networth-chart";
+  const desktopW = isOverviewHero ? 720 : 860;
   const W = compactPrint
       ? 680
-      : isMobile
-        ? mobileW
-        : isOverviewHero
-          ? 720
-          : 860,
+      : (mobileW ?? Math.min(chartArea.clientWidth || desktopW, desktopW)),
     H = compactPrint
       ? 154
       : isMobile
@@ -793,11 +900,8 @@ export function renderStackedNetWorthSVG(
     plotH = H - padT - padB;
   const minAge = pts[0].age,
     maxAge = pts[pts.length - 1].age;
-  const xInset = isDashCombo ? (isMobile ? 10 : 16) : 0;
   const dX = (age) =>
-    padL +
-    xInset +
-    ((age - minAge) / Math.max(1, maxAge - minAge)) * (plotW - xInset * 2);
+    padL + ((age - minAge) / Math.max(1, maxAge - minAge)) * plotW;
   const rawMax = Math.max(
     10000,
     ...pts.map((p) => (soloSeries ? p[soloSeries.key] : p.total)),
@@ -805,12 +909,11 @@ export function renderStackedNetWorthSVG(
   const { maxVal, ticks } = niceAxis(rawMax, isMobile ? 3 : 4);
   const dY = (val) => padT + (1 - Math.max(0, val) / maxVal) * plotH;
 
-  const tickFontSize = compactPrint ? 13.5 : isMobile ? 11 : 12;
   const yTicks = ticks
     .map(
       (v) =>
         `<line x1="${padL}" y1="${dY(v)}" x2="${W - padR}" y2="${dY(v)}" stroke="var(--chart-grid)" stroke-opacity="0.5" stroke-dasharray="3,3" />
-         <text x="${padL - (isMobile ? 7 : 10)}" y="${dY(v) + 4}" text-anchor="end" font-size="${tickFontSize}" fill="var(--ink-soft)">${svgCompactMoney(v)}</text>`,
+         <text x="${padL - (isMobile ? 7 : 10)}" y="${dY(v) + 4}" text-anchor="end" class="chart-axis-label" fill="var(--ink-soft)">${svgCompactMoney(v)}</text>`,
     )
     .join("");
 
@@ -838,7 +941,7 @@ export function renderStackedNetWorthSVG(
     .map(
       (a) =>
         `<line x1="${dX(a)}" y1="${padT}" x2="${dX(a)}" y2="${H - padB}" stroke="var(--chart-grid)" stroke-opacity="0.3" />
-         <text x="${dX(a)}" y="${H - padB + (isMobile ? 19 : 22)}" text-anchor="middle" font-size="${tickFontSize}" fill="var(--ink-soft)">${a}</text>`,
+         <text x="${dX(a)}" y="${H - padB + (isMobile ? 19 : 22)}" text-anchor="middle" class="chart-axis-label" fill="var(--ink-soft)">${a}</text>`,
     )
     .join("");
 
@@ -892,112 +995,22 @@ export function renderStackedNetWorthSVG(
     ).join("")}
   </defs>`;
 
-  const barSampleAges = (() => {
-    const span = Math.max(1, maxAge - minAge);
-    const targetCount = isMobile ? 8 : 12;
-    const step = Math.max(1, Math.round(span / (targetCount - 1)));
-    const list = [];
-    for (let a = minAge; a <= maxAge; a += step) list.push(a);
-    if (list[list.length - 1] !== maxAge) {
-      if (maxAge - list[list.length - 1] < step * 0.45 && list.length > 2) {
-        list[list.length - 1] = maxAge;
-      } else {
-        list.push(maxAge);
-      }
-    }
-    const mustInclude = [fire.retire, 55, 65].filter(
-      (a) => a > minAge && a < maxAge,
-    );
-    for (const reqAge of mustInclude) {
-      if (!list.includes(reqAge)) {
-        let nearestIdx = 1;
-        let bestDist = Infinity;
-        for (let i = 1; i < list.length - 1; i++) {
-          const d = Math.abs(list[i] - reqAge);
-          if (d < bestDist) {
-            bestDist = d;
-            nearestIdx = i;
-          }
-        }
-        list[nearestIdx] = reqAge;
-      }
-    }
-    return [...new Set(list)].sort((a, b) => a - b);
-  })();
-
-  const swellComboSVG = (() => {
-    if (!isDashCombo) return "";
-    const barW = Math.max(
-      isMobile ? 10 : 14,
-      Math.min(isMobile ? 22 : 28, (plotW / barSampleAges.length) * 0.48),
-    );
-    const pivotAge = Math.min(55, fire.retire);
-    const barRects = barSampleAges
-      .map((ageVal) => {
-        const pt =
-          pts.find((p) => p.age === ageVal) ||
-          pts.reduce((best, p) =>
-            Math.abs(p.age - ageVal) < Math.abs(best.age - ageVal) ? p : best,
-          );
-        const val = soloSeries ? pt[soloSeries.key] : pt.total;
-        const x = dX(pt.age);
-        const y = dY(val);
-        const h = Math.max(4, H - padB - y);
-        const isPostPivot = pt.age >= pivotAge;
-        const barFill = soloSeries
-          ? soloSeries.color
-          : isPostPivot
-            ? "#EC4899"
-            : "#68768A";
-        return `<g class="swell-bar-col" data-age="${pt.age}">
-          <rect x="${(x - barW / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="3.5" fill="${barFill}" fill-opacity="${soloSeries ? "0.86" : "0.92"}" />
-        </g>`;
-      })
-      .join("");
-
-    const splineCoords = barSampleAges.map((ageVal) => {
-      const pt =
-        pts.find((p) => p.age === ageVal) ||
-        pts.reduce((best, p) =>
-          Math.abs(p.age - ageVal) < Math.abs(best.age - ageVal) ? p : best,
-        );
-      const lineVal = soloSeries ? pt[soloSeries.key] : pt.total;
-      return { x: dX(pt.age), y: dY(lineVal) };
-    });
-    const splinePath = buildSmoothSpline(splineCoords, padT + 2, H - padB);
-    const lastCoord = splineCoords[splineCoords.length - 1];
-    return `<g class="swell-combo-layer">
-      ${barRects}
-      <path d="${splinePath}" fill="none" stroke="#2563EB" stroke-width="2.4" stroke-linecap="round" />
-      ${lastCoord ? `<circle cx="${lastCoord.x.toFixed(1)}" cy="${lastCoord.y.toFixed(1)}" r="4.5" fill="#FFFFFF" stroke="#2563EB" stroke-width="2.8" />` : ""}
-    </g>`;
-  })();
-
   const bandsSVG = soloSeries
     ? `<g class="nw-band is-solo" data-series="${soloSeries.key}">
         <path class="nw-band-fill" d="${areaPath(
           (p) => p[soloSeries.key],
           () => 0,
-        )}" fill="url(#${uid}-grad-${soloSeries.key})" fill-opacity="${isDashCombo ? "0.22" : "1"}" />
-        ${isDashCombo ? "" : `<path class="nw-band-stroke" d="${topLinePath((p) => p[soloSeries.key])}" fill="none" stroke="${soloSeries.color}" stroke-width="2.5" stroke-linejoin="round" />`}
-      </g>${swellComboSVG}`
-    : isDashCombo
-      ? `${stackDefs
-          .map(
-            (band) => `<g class="nw-band" data-series="${band.key}">
-              <path class="nw-band-fill" d="${areaPath(band.top, band.bot)}" fill="url(#${uid}-grad-${band.key})" fill-opacity="0.46" />
-              <path class="nw-band-stroke" d="${topLinePath(band.top)}" fill="none" stroke="${band.color}" stroke-width="1.2" stroke-opacity="0.45" stroke-linejoin="round" />
-            </g>`,
-          )
-          .join("")}${swellComboSVG}`
-      : stackDefs
-          .map(
-            (band) => `<g class="nw-band" data-series="${band.key}">
-              <path class="nw-band-fill" d="${areaPath(band.top, band.bot)}" fill="url(#${uid}-grad-${band.key})" />
-              <path class="nw-band-stroke" d="${topLinePath(band.top)}" fill="none" stroke="${band.color}" stroke-width="1.85" stroke-linejoin="round" />
-            </g>`,
-          )
-          .join("");
+        )}" fill="url(#${uid}-grad-${soloSeries.key})" />
+        <path class="nw-band-stroke" d="${topLinePath((p) => p[soloSeries.key])}" fill="none" stroke="${soloSeries.color}" stroke-width="2.5" />
+      </g>`
+    : stackDefs
+        .map(
+          (band) => `<g class="nw-band" data-series="${band.key}">
+            <path class="nw-band-fill" d="${areaPath(band.top, band.bot)}" fill="url(#${uid}-grad-${band.key})" />
+            <path class="nw-band-stroke" d="${topLinePath(band.top)}" fill="none" stroke="${band.color}" stroke-dasharray="${band.dash || "none"}" stroke-width="1.85" stroke-linejoin="round" />
+          </g>`,
+        )
+        .join("");
 
   const showSrs =
     opts.showSrsMilestone != null
@@ -1025,18 +1038,20 @@ export function renderStackedNetWorthSVG(
     compactPrint,
     isMobile,
     saLabel: "55 SA Closure",
-    saStyle: { color: "#047857", bg: "#ECFDF5", border: "#A7F3D0" },
+    saStyle: {
+      color: "var(--sem-cpf-ink)",
+      bg: "var(--sem-cpf-soft)",
+      border: "var(--sem-cpf-border)",
+    },
     srsLabelSuffix: "SRS",
     includeAge55AtMin: true,
     emphasize: isOverviewHero,
   });
 
   const valForCallout = (pt) => (soloSeries ? pt[soloSeries.key] : pt.total);
-  const pivotCalloutSkip = isDashCombo ? Math.min(55, fire.retire) : -1;
   const calloutAges = [fire.retire, 65, maxAge].filter(
     (a, idx, arr) =>
       arr.indexOf(a) === idx &&
-      a !== pivotCalloutSkip &&
       (!isOverviewHero || soloSeries || (a !== fire.retire && a !== maxAge)) &&
       a >= minAge + 2 &&
       a <= maxAge,
@@ -1052,8 +1067,9 @@ export function renderStackedNetWorthSVG(
       const anchor = x > W - padR - 48 ? "end" : "middle";
       const labelText = compactMoney(val);
       const pillW = Math.max(
-        compactPrint ? 48 : 44,
-        labelText.length * (compactPrint || isOverviewHero ? 7.6 : 6.6) + 12,
+        compactPrint ? 56 : 44,
+        labelText.length * (compactPrint ? 8.5 : isOverviewHero ? 7.6 : 6.6) +
+          12,
       );
       const pillH = compactPrint || isOverviewHero ? 18 : 17;
       const pillX = Math.max(
@@ -1091,9 +1107,9 @@ export function renderStackedNetWorthSVG(
       }
       const dotColor = soloSeries ? soloSeries.color : "var(--ink)";
       const pillText = svgCompactMoney(val);
-      const pillY = labelY - (compactPrint || isOverviewHero ? 13 : 12);
+      const pillY = labelY - (compactPrint ? 15 : isOverviewHero ? 13 : 12);
       return `<circle cx="${x}" cy="${dotY}" r="3.5" fill="${dotColor}" stroke="var(--surface)" stroke-width="1.5" />
-        ${showLabel ? `<g class="nw-callout-pill"><rect x="${pillX.toFixed(1)}" y="${pillY.toFixed(1)}" width="${pillW.toFixed(1)}" height="${pillH}" rx="4.5" fill="var(--surface)" fill-opacity="0.94" stroke="var(--border-strong)" stroke-width="1" /><text x="${(pillX + pillW / 2).toFixed(1)}" y="${labelY}" text-anchor="middle" font-size="${compactPrint || isOverviewHero ? 12.5 : 11}" font-weight="700" fill="var(--ink)">${pillText}</text></g>` : ""}`;
+        ${showLabel ? `<g class="nw-callout-pill"><rect x="${pillX.toFixed(1)}" y="${pillY.toFixed(1)}" width="${pillW.toFixed(1)}" height="${pillH}" rx="4.5" fill="var(--surface)" fill-opacity="0.94" stroke="var(--border-strong)" stroke-width="1" /><text x="${(pillX + pillW / 2).toFixed(1)}" y="${labelY}" text-anchor="middle" font-size="${compactPrint ? 14 : isOverviewHero ? 12.5 : 11}" font-weight="700" fill="var(--ink)">${pillText}</text></g>` : ""}`;
     })
     .join("");
 
@@ -1104,7 +1120,7 @@ export function renderStackedNetWorthSVG(
     )
     .join("");
 
-  const nwLabel = `Projected net worth stacked area chart from age ${fire.age} to ${fire.endAge}, retiring at age ${fire.retire}`;
+  const nwLabel = `${soloSeries?.name || "Projected net worth"} from age ${minAge} to ${maxAge} in ${formatDollarBasis(basis)}`;
   chartArea.innerHTML = `
     <svg role="img" aria-label="${nwLabel}" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="xMidYMid meet">
       ${gradientsSVG}
@@ -1113,7 +1129,7 @@ export function renderStackedNetWorthSVG(
       ${milestoneSVG}
       ${calloutsSVG}
       <line class="nw-scrub-line" x1="0" y1="${padT}" x2="0" y2="${H - padB}" stroke="var(--swell-pink)" stroke-width="1.6" stroke-dasharray="3,3" style="display:none;" />
-      <line class="nw-scrub-hline" x1="${padL + xInset}" y1="0" x2="${W - padR - xInset}" y2="0" stroke="var(--ink-soft)" stroke-width="1" stroke-dasharray="3,3" stroke-opacity="0.32" style="display:none;" />
+      <line class="nw-scrub-hline" x1="${padL}" y1="0" x2="${W - padR}" y2="0" stroke="var(--ink-soft)" stroke-width="1" stroke-dasharray="3,3" stroke-opacity="0.32" style="display:none;" />
       ${scrubDotsSVG}
     </svg>`;
 
@@ -1121,14 +1137,14 @@ export function renderStackedNetWorthSVG(
     if (interactive) {
       legendEl.innerHTML = `
         <button type="button" class="legend-chip${!soloSeries ? " is-active" : ""}" data-series="all" aria-pressed="${!soloSeries}">
-          All Layers
+          All assets
         </button>
         ${[...NW_SERIES]
           .reverse()
           .map((sItem) => {
             const isSel = soloSeries?.key === sItem.key;
             return `<button type="button" class="legend-chip${isSel ? " is-active" : ""}" data-series="${sItem.key}" aria-pressed="${isSel}">
-              <i class="legend-swatch" style="background:${sItem.color};"></i>
+              ${netWorthSwatch(sItem)}
               <span>${sItem.name}</span>
             </button>`;
           })
@@ -1136,10 +1152,9 @@ export function renderStackedNetWorthSVG(
     } else {
       legendEl.innerHTML = [...NW_SERIES]
         .reverse()
-        .filter((sItem) => showSrs || sItem.key !== "srs")
         .map(
           (sItem) =>
-            `<span class="legend-item"><i class="legend-swatch" style="background:${sItem.color};"></i> ${sItem.name}</span>`,
+            `<span class="legend-item">${netWorthSwatch(sItem)} ${sItem.name}</span>`,
         )
         .join("");
     }
@@ -1210,8 +1225,8 @@ export function renderStackedNetWorthSVG(
       if (svg) {
         const svgRect = svg.getBoundingClientRect();
         if (!svgRect.width || !svgRect.height) return;
-        const left = svgRect.left + ((padL + xInset) / W) * svgRect.width;
-        const width = ((plotW - xInset * 2) / W) * svgRect.width;
+        const left = svgRect.left + (padL / W) * svgRect.width;
+        const width = (plotW / W) * svgRect.width;
         const frac = Math.max(
           0,
           Math.min(1, (e.clientX - left) / Math.max(1, width)),
@@ -1229,18 +1244,6 @@ export function renderStackedNetWorthSVG(
   const scrub = chartArea.querySelector(".nw-scrub-line");
   if (!wrap || !tooltipEl || !scrub) return;
 
-  // Snapshot hero live header synchronously at render time so scrubbing during transitions
-  // never freezes an intermediate morphed value into dataset.defaultHtml.
-  if (chartArea.id === "dash-networth-chart") {
-    const heroTitleEl = document.getElementById("ember-traj-title");
-    const heroValEl = document.getElementById("hero-nw-live");
-    const heroSubEl = document.getElementById("hero-nw-sub-live");
-    if (heroTitleEl && !heroTitleEl.querySelector(".nw-live-scrub-pill")) {
-      heroTitleEl.dataset.defaultHtml = heroTitleEl.innerHTML;
-      if (heroValEl) heroValEl.dataset.defaultHtml = heroValEl.innerHTML;
-      if (heroSubEl) heroSubEl.dataset.defaultHtml = heroSubEl.innerHTML;
-    }
-  }
   const onMove = (e) => {
     const svg = chartArea.querySelector("svg");
     if (!svg) return;
@@ -1251,8 +1254,8 @@ export function renderStackedNetWorthSVG(
     if (e.touches && !touch) return;
     const cx = touch ? touch.clientX : e.clientX;
     const cy = touch ? touch.clientY : e.clientY;
-    const left = svgRect.left + ((padL + xInset) / W) * svgRect.width;
-    const width = Math.max(1, ((plotW - xInset * 2) / W) * svgRect.width);
+    const left = svgRect.left + (padL / W) * svgRect.width;
+    const width = Math.max(1, (plotW / W) * svgRect.width);
     const frac = Math.max(0, Math.min(1, (cx - left) / width));
     const targetAge = Math.round(minAge + frac * (maxAge - minAge));
     const pt = pts.find((p) => p.age === targetAge) || pts[0];
@@ -1289,41 +1292,17 @@ export function renderStackedNetWorthSVG(
       dot.setAttribute("cy", dY(val));
       dot.style.display = "block";
     });
-    svg.querySelectorAll(".swell-bar-col").forEach((col) => {
-      col.classList.toggle(
-        "is-scrub-active",
-        Number(col.dataset.age) === pt.age,
-      );
-    });
-    if (chartArea.id === "dash-networth-chart") {
-      const heroTitleEl = document.getElementById("ember-traj-title");
-      const heroValEl = document.getElementById("hero-nw-live");
-      const heroSubEl = document.getElementById("hero-nw-sub-live");
-      if (heroTitleEl && heroValEl && heroSubEl) {
-        if (!heroTitleEl.dataset.defaultHtml)
-          heroTitleEl.dataset.defaultHtml = heroTitleEl.innerHTML;
-        if (!heroValEl.dataset.defaultHtml)
-          heroValEl.dataset.defaultHtml = heroValEl.innerHTML;
-        if (!heroSubEl.dataset.defaultHtml)
-          heroSubEl.dataset.defaultHtml = heroSubEl.innerHTML;
-        const dispVal = soloSeries ? pt[soloSeries.key] : pt.total;
-        heroTitleEl.innerHTML = `Age ${pt.age} (${pt.year}) <span class="nw-live-scrub-pill">Live Scrub</span>`;
-        heroValEl.innerHTML = m(dispVal);
-        heroSubEl.innerHTML = `<span class="nw-live-breakdown">CPF <b>${compactMoney(pt.cpf)}</b> · Eq <b>${compactMoney(pt.eq)}</b> · Cash <b>${compactMoney(pt.ssb)}</b>${pt.srs > 0 ? ` · SRS <b>${compactMoney(pt.srs)}</b>` : ""}</span>`;
-      }
-    }
-
     tooltipEl.hidden = false;
     tooltipEl.innerHTML = soloSeries
       ? `
       <div class="tt-head">Age ${pt.age} (${pt.year})</div>
-      <div class="tt-row is-highlighted"><span>${soloSeries.short}</span><b class="${soloSeries.ttClass}">${m(pt[soloSeries.key])}</b></div>
-      <div class="tt-row"><span>Total Net Worth</span><b>${m(pt.total)}</b></div>`
+      <div class="tt-row is-highlighted"><span>${soloSeries.name}</span><b class="${soloSeries.ttClass}">${m(pt[soloSeries.key])}</b></div>
+      <div class="tt-row"><span>Projected net worth</span><b>${m(pt.total)}</b></div>`
       : `
       <div class="tt-head">Age ${pt.age} (${pt.year})</div>
-      <div class="tt-row"><span>Total Net Worth</span><b>${m(pt.total)}</b></div>
+      <div class="tt-row"><span>Projected net worth</span><b>${m(pt.total)}</b></div>
       <div class="tt-row${hoveredKey === "eq" ? " is-highlighted" : ""}"><span>Equities</span><b class="sem-eq">${m(pt.eq)}</b></div>
-      <div class="tt-row${hoveredKey === "ssb" ? " is-highlighted" : ""}"><span>SSB / Cash</span><b class="sem-cash">${m(pt.ssb)}</b></div>
+      <div class="tt-row${hoveredKey === "ssb" ? " is-highlighted" : ""}"><span>Cash &amp; bonds</span><b class="sem-cash">${m(pt.ssb)}</b></div>
       <div class="tt-row${hoveredKey === "srs" ? " is-highlighted" : ""}"><span>SRS</span><b class="sem-srs">${m(pt.srs)}</b></div>
       <div class="tt-row${hoveredKey === "cpf" ? " is-highlighted" : ""}"><span>CPF</span><b class="sem-cpf">${m(pt.cpf)}</b></div>`;
 
@@ -1347,25 +1326,9 @@ export function renderStackedNetWorthSVG(
     const scrubH = chartArea.querySelector(".nw-scrub-hline");
     if (scrubH) scrubH.style.display = "none";
     const svg = chartArea.querySelector("svg");
-    if (svg) {
-      svg
-        .querySelectorAll(".nw-scrub-dot")
-        .forEach((dot) => (dot.style.display = "none"));
-      svg
-        .querySelectorAll(".swell-bar-col.is-scrub-active")
-        .forEach((col) => col.classList.remove("is-scrub-active"));
-    }
-    if (chartArea.id === "dash-networth-chart") {
-      const heroTitleEl = document.getElementById("ember-traj-title");
-      const heroValEl = document.getElementById("hero-nw-live");
-      const heroSubEl = document.getElementById("hero-nw-sub-live");
-      if (heroTitleEl?.dataset.defaultHtml)
-        heroTitleEl.innerHTML = heroTitleEl.dataset.defaultHtml;
-      if (heroValEl?.dataset.defaultHtml)
-        heroValEl.innerHTML = heroValEl.dataset.defaultHtml;
-      if (heroSubEl?.dataset.defaultHtml)
-        heroSubEl.innerHTML = heroSubEl.dataset.defaultHtml;
-    }
+    svg?.querySelectorAll(".nw-scrub-dot").forEach((dot) => {
+      dot.style.display = "none";
+    });
     setHoveredBand(null);
     tooltipEl.hidden = true;
   };
@@ -1396,7 +1359,7 @@ export function renderStackedNetWorthSVG(
       const clientY = svgRect.top + (dY(pt.total) / H) * svgRect.height;
       onMove({ clientX, clientY });
       announceChartStatus(
-        `Age ${pt.age}: total net worth ${compactMoney(pt.total)}, CPF ${compactMoney(pt.cpf)}, equities ${compactMoney(pt.eq)}, cash ${compactMoney(pt.ssb)}.`,
+        `Age ${pt.age}: projected net worth ${compactMoney(pt.total)}, CPF ${compactMoney(pt.cpf)}, equities ${compactMoney(pt.eq)}, cash and bonds ${compactMoney(pt.ssb)}, SRS ${compactMoney(pt.srs)} in ${formatDollarBasis(basis)}.`,
       );
     },
     onLeave: handleLeave,
@@ -1412,44 +1375,47 @@ export function renderStackedNetWorthSVG(
   });
 }
 
+function getIncomePoints(fire, basis) {
+  const startAge = Math.max(fire.age, Math.min(50, fire.retire));
+  return fire.points
+    .filter((pt) => pt.age >= startAge)
+    .map((pt) => {
+      const src = basis === "today" ? pt.today : pt;
+      const retired = pt.age >= fire.retire;
+      const cpf = retired ? src.monthlyCpfLife : 0;
+      const bridge = retired ? src.monthlyBridge : 0;
+      const liquid = retired ? src.monthlyLiquidDraw : 0;
+      return {
+        age: pt.age,
+        year: pt.year,
+        spend: src.monthlySpend,
+        cpf,
+        bridge,
+        liquid,
+        srs: retired ? getSrsUsedForSpending(src) : 0,
+        shortfall: retired ? src.monthlyShortfall : 0,
+      };
+    });
+}
+
 function renderCashflowWaterfallSVG(
   chartArea,
   tooltipEl,
   legendEl,
   fire,
-  basis = "today",
-  opts = {},
+  pts,
+  chartLabel,
 ) {
-  if (!chartArea || !fire?.points?.length) return;
-  const startAge =
-    opts.startAge ?? Math.max(fire.age, Math.min(50, fire.retire));
-  const endAge = Math.min(fire.endAge, opts.endAge ?? fire.endAge);
-  const pts = fire.points
-    .filter((pt) => pt.age >= startAge && pt.age <= endAge)
-    .map((pt) => {
-      const src = basis === "today" ? pt.today : pt;
-      return {
-        age: pt.age,
-        year: pt.year,
-        retired: pt.age >= fire.retire,
-        spend: src.monthlySpend,
-        cpf: src.monthlyCpfLife,
-        srs: src.monthlySrsDraw,
-        bridge: src.monthlyBridge || 0,
-        liquid: src.monthlyLiquidDraw,
-        shortfall: src.monthlyShortfall,
-      };
-    });
-  if (!pts.length) return;
-  const compactPrint = Boolean(opts.compactPrint);
-  const mobileW = getMobileChartWidth(chartArea, compactPrint);
+  const startAge = pts[0].age;
+  const endAge = pts.at(-1).age;
+  const mobileW = getMobileChartWidth(chartArea, false);
   const isMobile = mobileW != null;
-  const W = compactPrint ? 640 : isMobile ? mobileW : 760,
-    H = compactPrint ? 256 : isMobile ? 256 : 304,
-    padL = compactPrint ? 68 : isMobile ? 52 : 78,
-    padR = compactPrint ? 22 : isMobile ? 14 : 26,
-    padT = compactPrint ? 58 : isMobile ? 74 : 60,
-    padB = compactPrint ? 32 : isMobile ? 32 : 40;
+  const W = mobileW ?? Math.min(chartArea.clientWidth || 760, 760),
+    H = isMobile ? 256 : 304,
+    padL = isMobile ? 52 : 78,
+    padR = isMobile ? 14 : 26,
+    padT = isMobile ? 74 : 60,
+    padB = isMobile ? 32 : 40;
   const plotW = W - padL - padR,
     plotH = H - padT - padB;
   const rawMax = Math.max(
@@ -1468,12 +1434,11 @@ function renderCashflowWaterfallSVG(
   const barX = (i) => padL + i * stepX + (stepX - barW) / 2;
   const centerX = (i) => padL + i * stepX + stepX / 2;
 
-  const tickFontSize = isMobile ? 11 : 12;
   const yTicks = ticks
     .map(
       (v) =>
         `<line x1="${padL}" y1="${dY(v)}" x2="${W - padR}" y2="${dY(v)}" stroke="var(--chart-grid)" stroke-opacity="0.5" stroke-dasharray="3,3" />
-         <text x="${padL - (isMobile ? 7 : 10)}" y="${dY(v) + 4}" text-anchor="end" font-size="${tickFontSize}" fill="var(--ink-soft)">${isMobile || maxVal >= 10000 ? svgCompactMoney(v) : svgMoney(v)}</text>`,
+         <text x="${padL - (isMobile ? 7 : 10)}" y="${dY(v) + 4}" text-anchor="end" class="chart-axis-label" fill="var(--ink-soft)">${isMobile || maxVal >= 10000 ? svgCompactMoney(v) : svgMoney(v)}</text>`,
     )
     .join("");
 
@@ -1496,26 +1461,26 @@ function renderCashflowWaterfallSVG(
         return "";
       }
       lastWfLabelX = cx;
-      return `<text x="${cx}" y="${H - padB + (isMobile ? 20 : 22)}" text-anchor="middle" font-size="${tickFontSize}" fill="var(--ink-soft)">${p.age}</text>`;
+      return `<text x="${cx}" y="${H - padB + (isMobile ? 20 : 22)}" text-anchor="middle" class="chart-axis-label" fill="var(--ink-soft)">${p.age}</text>`;
     })
     .join("");
 
+  const visibleSeries = INCOME_SERIES.filter(({ key }) =>
+    pts.some((point) => point[key] > 0.005),
+  );
   const bars = pts
-    .map((p, i) => {
-      if (!p.retired) return "";
-      const x = barX(i);
-      const yBase = dY(0);
-      const yCpf = dY(p.cpf);
-      const yBridge = dY(p.cpf + p.bridge);
-      const ySrs = dY(p.cpf + p.bridge + p.srs);
-      const yLiq = dY(p.cpf + p.bridge + p.srs + p.liquid);
-      const yShort = dY(p.cpf + p.bridge + p.srs + p.liquid + p.shortfall);
-      return `
-        ${p.cpf > 0 ? `<rect x="${x}" y="${yCpf}" width="${barW}" height="${Math.max(0, yBase - yCpf)}" fill="#059669" rx="1.5" />` : ""}
-        ${p.bridge > 0 ? `<rect x="${x}" y="${yBridge}" width="${barW}" height="${Math.max(0, yCpf - yBridge)}" fill="#D97706" rx="1.5" />` : ""}
-        ${p.srs > 0 ? `<rect x="${x}" y="${ySrs}" width="${barW}" height="${Math.max(0, yBridge - ySrs)}" fill="#7C3AED" rx="1.5" />` : ""}
-        ${p.liquid > 0 ? `<rect x="${x}" y="${yLiq}" width="${barW}" height="${Math.max(0, ySrs - yLiq)}" fill="#2563EB" rx="1.5" />` : ""}
-        ${p.shortfall > 0.5 ? `<rect x="${x}" y="${yShort}" width="${barW}" height="${Math.max(0, yLiq - yShort)}" fill="#DC2626" fill-opacity="0.82" rx="1.5" />` : ""}`;
+    .map((point, index) => {
+      let lower = 0;
+      return visibleSeries
+        .map(({ key, color }) => {
+          const amount = point[key];
+          if (amount <= 0.005) return "";
+          const upper = lower + amount;
+          const segment = `<rect data-income-series="${key}" data-age="${point.age}" x="${barX(index)}" y="${dY(upper)}" width="${barW}" height="${dY(lower) - dY(upper)}" fill="${color}" />`;
+          lower = upper;
+          return segment;
+        })
+        .join("");
     })
     .join("");
 
@@ -1523,8 +1488,7 @@ function renderCashflowWaterfallSVG(
     .map((p, i) => `${i === 0 ? "M" : "L"} ${centerX(i)} ${dY(p.spend)}`)
     .join(" ");
 
-  const showSrs =
-    opts.hasSrs != null ? Boolean(opts.hasSrs) : pts.some((p) => p.srs > 0.5);
+  const showSrs = visibleSeries.some(({ key }) => key === "srs");
   const markers = buildAxisMilestonesSVG({
     minAge: pts[0].age,
     maxAge: pts[pts.length - 1].age,
@@ -1540,18 +1504,17 @@ function renderCashflowWaterfallSVG(
     retireAge: fire.retire,
     srsAge: fire.srsWithdrawalAge,
     showSrs,
-    rowYs: compactPrint
-      ? [15, 34, 53]
-      : isMobile
-        ? [14, 30, 46, 62]
-        : [16, 35, 54],
-    compactPrint,
+    rowYs: isMobile ? [14, 30, 46, 62] : [16, 35, 54],
     isMobile,
   });
 
-  const wfLabel = `Retirement income waterfall chart from age ${fire.retire} to ${fire.endAge}`;
   chartArea.innerHTML = `
-    <svg role="img" aria-label="${wfLabel}" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="xMidYMid meet">
+    <svg role="img" aria-label="${chartLabel}" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <pattern id="work-income-pattern" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
+          <path d="M0 0V4" fill="none" stroke="var(--ink)" stroke-width="3" />
+        </pattern>
+      </defs>
       ${yTicks}${xLabels}${bars}
       <path d="${spendLine}" fill="none" stroke="var(--ink)" stroke-width="2" stroke-dasharray="6,3" />
       ${markers}
@@ -1560,15 +1523,14 @@ function renderCashflowWaterfallSVG(
     </svg>`;
 
   if (legendEl) {
-    const hasAnyBridge = pts.some((p) => p.retired && p.bridge > 0.5);
-    const hasAnyShortfall = pts.some((p) => p.retired && p.shortfall > 0.5);
     legendEl.innerHTML = `
-      <span class="legend-item"><i class="legend-swatch" style="background:var(--ink);"></i> Target Monthly Spending</span>
-      <span class="legend-item"><i class="legend-swatch" style="background:#2563EB;"></i> Equity / Dividend / SSB Drawdown</span>
-      ${showSrs ? `<span class="legend-item"><i class="legend-swatch" style="background:#7C3AED;"></i> SRS 10-Yr Drawdown (${fire.srsWithdrawalAge}+)</span>` : ""}
-      ${hasAnyBridge ? '<span class="legend-item"><i class="legend-swatch" style="background:#D97706;"></i> Bridge Income (Pre-65)</span>' : ""}
-      <span class="legend-item"><i class="legend-swatch" style="background:#059669;"></i> CPF LIFE Payout (65+)</span>
-      ${hasAnyShortfall ? '<span class="legend-item"><i class="legend-swatch" style="background:#DC2626;"></i> Monthly Shortfall (Unfunded)</span>' : ""}`;
+      <span class="legend-item"><i class="legend-line is-spending" aria-hidden="true"></i> Spending target</span>
+      ${visibleSeries
+        .map(
+          ({ name, color, swatch = "" }) => `
+        <span class="legend-item"><i class="legend-swatch ${swatch}" style="background-color:${swatch ? "var(--surface)" : color}" aria-hidden="true"></i> ${name}</span>`,
+        )
+        .join("")}`;
   }
 
   const wrap = chartArea.parentElement;
@@ -1602,15 +1564,16 @@ function renderCashflowWaterfallSVG(
     tooltipEl.hidden = false;
     tooltipEl.innerHTML = `
       <div class="tt-head">Age ${pt.age} (${pt.year})</div>
-      <div class="tt-row"><span>Target Spend</span><b>${m(pt.spend, "/mo")}</b></div>
+      <div class="tt-row"><span>Spending target</span><b>${m(pt.spend, "/mo")}</b></div>
       ${
-        pt.retired
-          ? `<div class="tt-row"><span>Equity / SSB</span><b class="sem-eq">${m(pt.liquid, "/mo")}</b></div>
-             <div class="tt-row"><span>SRS Draw</span><b class="sem-srs">${m(pt.srs, "/mo")}</b></div>
-             ${pt.bridge > 0.5 ? `<div class="tt-row"><span>Bridge Income</span><b>${m(pt.bridge, "/mo")}</b></div>` : ""}
-             <div class="tt-row"><span>CPF LIFE</span><b class="sem-cpf">${m(pt.cpf, "/mo")}</b></div>
-             ${pt.shortfall > 0.5 ? `<div class="tt-row tt-alert"><span>Shortfall Alert</span><b>${m(pt.shortfall, "/mo")}</b></div>` : ""}`
-          : `<div class="tt-note">Accumulating (pre-FIRE)</div>`
+        pt.age < fire.retire
+          ? '<div class="tt-note">Before retirement</div>'
+          : visibleSeries
+              .map(
+                ({ key, name }) => `
+          <div class="tt-row${key === "shortfall" ? " tt-alert" : ""}"><span>${name}</span><b>${m(pt[key], "/mo")}</b></div>`,
+              )
+              .join("")
       }`;
     positionChartTooltip(
       tooltipEl,
@@ -1652,7 +1615,7 @@ function renderCashflowWaterfallSVG(
       const clientX = svgRect.left + (sx / W) * svgRect.width;
       onMove({ clientX });
       announceChartStatus(
-        `Age ${pt.age}: target spend ${compactMoney(pt.spend)} per month, CPF LIFE ${compactMoney(pt.cpf)}, outside draw ${compactMoney(pt.liquid)}.`,
+        `Age ${pt.age}: spending target ${compactMoney(pt.spend)} per month. ${visibleSeries.map(({ key, name }) => `${name} ${compactMoney(pt[key])}`).join(", ")}.`,
       );
     },
     onLeave,

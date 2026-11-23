@@ -3,6 +3,7 @@ import {
   $$,
   fmtInt,
   formatFundedPct,
+  formatDollarBasis,
   getSavingsProgress,
   getSavingsRunway,
   money,
@@ -70,6 +71,7 @@ import {
 import {
   renderTrajectoryChart,
   renderStackedNetWorthSVG,
+  getSrsUsedForSpending,
   getTrajectoryInspectedAge,
   setTrajectoryInspectedAge,
   setOnTrajectoryInspectAge,
@@ -1131,15 +1133,6 @@ function setupSimplePlan() {
     },
     true,
   );
-  $("#trajectory-values")?.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    const row = event.target.closest("tr[data-inspect-age]");
-    if (row) {
-      event.preventDefault();
-      row.click();
-    }
-  });
-
   let lastBankLoanRate = "2.5";
   const syncHousingDisplay = () => {
     const mode = $("#known-housing-mode")?.value || "all-oa";
@@ -1347,18 +1340,17 @@ function setupSimplePlan() {
     const hasPrev = idx > 0;
     const hasNext = idx < pts.length - 1;
     const src = trajectoryBasis === "nominal" ? pt : pt.today;
-    const basisTag =
-      trajectoryBasis === "nominal" ? "Future Nominal $" : "Today’s $";
+    const basisTag = formatDollarBasis(trajectoryBasis);
     const isAccum = pt.phase === "accumulating";
     const phaseLabel = isAccum
-      ? "Accumulating"
+      ? "Before retirement"
       : pt.age < 65
-        ? "Pre-65 Bridge"
-        : "CPF LIFE + Drawdown";
+        ? "Before CPF LIFE"
+        : "CPF LIFE and withdrawals";
     const phaseTone = isAccum ? "info" : pt.age < 65 ? "warn" : "good";
     const inflowParts = [];
     if (isAccum) {
-      inflowParts.push(`Outside save ${m(src.monthlyOutsideSave || 0, "/mo")}`);
+      inflowParts.push(`Savings outside CPF ${m(src.monthlyOutsideSave || 0, "/mo")}`);
       if ((src.monthlyExtraCpf || 0) > 0.5) {
         inflowParts.push(`Extra CPF ${m(src.monthlyExtraCpf, "/mo")}`);
       }
@@ -1367,17 +1359,18 @@ function setupSimplePlan() {
         inflowParts.push(`CPF LIFE ${m(src.monthlyCpfLife, "/mo")}`);
       }
       if ((src.monthlyBridge || 0) > 0.5) {
-        inflowParts.push(`Bridge work ${m(src.monthlyBridge, "/mo")}`);
+        inflowParts.push(`Work income ${m(src.monthlyBridge, "/mo")}`);
       }
-      if ((src.monthlySrsDraw || 0) > 0.5) {
-        inflowParts.push(`SRS draw ${m(src.monthlySrsDraw, "/mo")}`);
+      const srsUsed = getSrsUsedForSpending(src);
+      if (srsUsed > 0.5) {
+        inflowParts.push(`SRS used for spending ${m(srsUsed, "/mo")}`);
       }
       if ((src.monthlyLiquidDraw || 0) > 0.5) {
-        inflowParts.push(`Portfolio draw ${m(src.monthlyLiquidDraw, "/mo")}`);
+        inflowParts.push(`Portfolio and OA withdrawals ${m(src.monthlyLiquidDraw, "/mo")}`);
       }
       if ((src.monthlyShortfall || 0) > 0.5) {
         inflowParts.push(
-          `<strong class="text-danger">Gap ${m(src.monthlyShortfall, "/mo")}</strong>`,
+          `<strong class="text-danger">Spending shortfall ${m(src.monthlyShortfall, "/mo")}</strong>`,
         );
       }
     }
@@ -1386,7 +1379,7 @@ function setupSimplePlan() {
       <div class="traj-inspector-card">
         <div class="traj-inspector-head">
           <div class="traj-inspector-title-group">
-            <strong>Age ${pt.age} (${pt.year}) Audit Breakdown</strong>
+            <strong>Year breakdown · age ${pt.age} (${pt.year})</strong>
             <span class="status-pill is-${phaseTone}">${phaseLabel}</span>
             <span class="swell-slate-pill">${basisTag}</span>
           </div>
@@ -1420,7 +1413,7 @@ function setupSimplePlan() {
         </div>
         <dl class="tax-metrics-grid traj-inspector-grid">
           <div class="tax-metric-box">
-            <dt>Total Net Worth</dt>
+            <dt>Projected net worth</dt>
             <dd>
               ${raw(m(src.totalNetWorth))}<small
                 >CPF ${raw(m(src.cpfTotal))} · Outside
@@ -1429,7 +1422,7 @@ function setupSimplePlan() {
             </dd>
           </div>
           <div class="tax-metric-box">
-            <dt>CPF Accounts</dt>
+            <dt>CPF accounts</dt>
             <dd>
               ${raw(m(src.cpfTotal))}<small
                 >OA ${raw(m(src.cpfOA))} ·
@@ -1441,10 +1434,10 @@ function setupSimplePlan() {
             </dd>
           </div>
           <div class="tax-metric-box">
-            <dt>Outside Portfolio</dt>
+            <dt>Portfolio outside CPF</dt>
             <dd>
               ${raw(m(src.totalOutside))}<small
-                >Equities ${raw(m(src.liquidEquities))} · Cash/SSB
+                >Equities ${raw(m(src.liquidEquities))} · Cash and bonds
                 ${raw(m(src.ssbCash))}${raw(
                   src.srs > 0.5 ? ` · SRS ${m(src.srs)}` : "",
                 )}</small
@@ -1453,7 +1446,7 @@ function setupSimplePlan() {
           </div>
           <div class="tax-metric-box">
             <dt>
-              ${isAccum ? "Monthly Saving Flow" : "Monthly Retirement Cashflow"}
+              ${isAccum ? "Monthly savings" : "Monthly retirement cashflow"}
             </dt>
             <dd>
               ${raw(
@@ -1923,7 +1916,7 @@ function setupSimplePlan() {
       ${simulation.cpfResult.ra65 > 0 && simulation.cpfResult.ra65 < 60000 ? '<p class="estimate-note">Projected RA at 65 is below the $60,000 automatic CPF LIFE threshold; assumes voluntary CPF LIFE enrolment at 65.</p>' : ""}
       <dl class="simulation-metrics simulation-metrics-4">
         <div><dt>${simulation.payoutCapped ? "CPF boundary from 65" : "CPF LIFE from 65"}</dt><dd>${m(s.payout, "/mo", "sim-cpf-life")}<small>Today’s dollars · ${selected.toUpperCase() + " target"}</small></dd></div>
-        <div><dt>Outside portfolio at ${r.retire}</dt><dd>${simMoneyHtml(simulation.portfolioAtRetire, r.retire, "", "sim-port-retire")}<small>At retirement age ${r.retire}${r.bridgeIncome > 0 && r.retire < 65 ? ` · +${m(r.bridgeIncome, "/mo")} bridge income` : ""}</small></dd></div>
+        <div><dt>${r.retire >= 55 ? "Portfolio + CPF OA" : "Portfolio outside CPF"} at age ${r.retire}</dt><dd>${simMoneyHtml(simulation.portfolioAtRetire, r.retire, "", "sim-port-retire")}<small>Projected balance in today’s dollars</small></dd></div>
         <div><dt>Funding status through ${simulation.endAge || 95}</dt><dd>${simulation.fullyFunded ? `${m(0, "", "sim-gap")} gap` : `${m(s.remainingPortfolioGap, "", "sim-gap")} gap`}<small>${simulation.fullyFunded ? `Funded through age ${simulation.endAge || 95}.` : `Depletes around ${simulation.depletionAge == null ? r.retire : ageLabel(simulation.depletionAge)}.`}</small></dd></div>
         <div><dt>Earliest modelled retirement</dt><dd id="readiness-result">Calculating…</dd></div>
       </dl>

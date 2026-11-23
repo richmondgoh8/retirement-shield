@@ -1603,10 +1603,10 @@ test("SG_DEFAULT_PLAN, index.html initial inputs, and buildPrintReportModel stay
     "renderPrintSheet must render pm.colophonRulesText from model.js",
   );
   assert.ok(
-    appJs.includes("swellCombo: true") &&
+    appJs.includes('forcedSeries: "all"') &&
       appJs.includes('"print-swell"') &&
       appJs.includes("buildExpensePieSVG(ep, { isPrint: true })"),
-    "renderPrintSheet must render the same Swell combo chart, readiness semi-gauge, and living budget donut as Overview",
+    "renderPrintSheet must show all net-worth layers, the readiness gauge, and the living budget donut",
   );
   assert.equal(
     appJs.includes("FRS $220.4k, ERS $440.8k"),
@@ -1646,7 +1646,7 @@ test("SG_DEFAULT_PLAN, index.html initial inputs, and buildPrintReportModel stay
   assert.ok(pm.colophonRulesText.includes("relief cap $80k"));
   assert.ok(pm.taps && pm.taps.tap1Cpf && pm.taps.tap4Ssb);
   assert.ok(pm.actionRows[0].tag.includes("$150k SSB"));
-  assert.ok(pm.actionRows[1].tag.includes("85/15 G/SG"));
+  assert.ok(pm.actionRows[1].tag.includes("85% global, 15% Singapore"));
 
   // 5. Verify SRS balloon-trap warning and custom itemized budget surface in buildPrintReportModel
   const pTrap = {
@@ -2394,7 +2394,7 @@ test("Cash Savings and Outside Investment are split separately and Outside Inves
   assert.equal(cp.monthlyBondSlice, 300);
   assert.equal(cp.monthlyCashSlice, 800);
 
-  // Verify buildPrintReportModel includes cashSavingMo in 3 · Monthly Split
+  // Verify buildPrintReportModel includes cashSavingMo in 3 · Monthly investment split
   const printReport = M.buildPrintReportModel({
     params: base,
     summary: r,
@@ -2405,7 +2405,7 @@ test("Cash Savings and Outside Investment are split separately and Outside Inves
     paycheck: pc,
   });
   const splitRow = printReport.actionRows.find((row) =>
-    row.label.includes("Monthly Split"),
+    row.label.includes("Monthly investment split"),
   );
   assert.ok(splitRow && splitRow.value.includes("$500 Cash"));
 });

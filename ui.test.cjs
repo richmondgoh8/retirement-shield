@@ -1858,11 +1858,11 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       document.getElementById("exp-dialog")?.close();
 
       return {
-        nwSrOk: nwSr.includes("Age") && nwSr.includes("total net worth"),
+        nwSrOk: nwSr.includes("Age") && nwSr.includes("projected net worth"),
         inspText,
         inspOk:
-          inspText.includes("Audit Breakdown") &&
-          inspText.includes("Accumulating") &&
+          inspText.includes("Year breakdown") &&
+          inspText.includes("Before retirement") &&
           !inspText.includes("OA $0 · SA $0 · MA $0") &&
           !inspText.includes("Equities $0"),
         afterRebTotal,
@@ -1877,7 +1877,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
     assert.equal(
       phaseRegRes.inspOk,
       true,
-      `Trajectory Year Inspector must render Audit Breakdown with non-zero CPF balances (got: ${phaseRegRes.inspText})`,
+      `Trajectory year inspector must render a year breakdown with non-zero CPF balances (got: ${phaseRegRes.inspText})`,
     );
     if (phaseRegRes.afterRebTotal != null) {
       assert.ok(
@@ -2130,7 +2130,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
         return {
           todayHasTodaysDollar: todaySourcesText.includes("(today’s $)"),
           nominalHasTodaysDollar: nominalSourcesText.includes("(today’s $)"),
-          nominalHasHeader: nominalHeaderText.includes("Future Nominal $"),
+          nominalHasHeader: nominalHeaderText.includes("Future dollars"),
           todayRetMetric: parseFirstDollar(todayMilestones[2].metric),
           nominalRetMetric: parseFirstDollar(nominalMilestones[2].metric),
           todayTap1Payout: parseFirstDollar(todFs[0].count),
@@ -2156,7 +2156,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       assert.equal(
         printNominalRes.nominalHasHeader,
         true,
-        "Print Sheet in nominal basis must display Future Nominal $ header",
+        "Print Sheet in nominal basis must display Future dollars header",
       );
       assert.ok(
         printNominalRes.nominalRetMetric > printNominalRes.todayRetMetric,
@@ -2256,8 +2256,8 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
         const vbW = dashVb[2] || 0;
         const rectW = dashSvg?.getBoundingClientRect().width || 0;
         const scale = vbW > 0 ? rectW / vbW : 0;
-        const tickSizes = Array.from(dashSvg?.querySelectorAll("text[font-size]") || [])
-          .map((t) => Number(t.getAttribute("font-size")) * scale)
+        const tickSizes = Array.from(dashSvg?.querySelectorAll(".chart-axis-label") || [])
+          .map((t) => parseFloat(getComputedStyle(t).fontSize) * scale)
           .filter((n) => Number.isFinite(n) && n > 0)
           .sort((a, b) => a - b);
         const medianTickPx = tickSizes.length
@@ -2669,6 +2669,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
         document.querySelector('[data-tab="cpf-rules"]')?.click();
         const ersBtn = document.querySelector('#cpf-rules-slot button[data-cpf-strategy="ers"]');
         if (!ersBtn) return { ok: false, reason: "no-ers-btn" };
+        const actionBefore = ersBtn.querySelector(".goal-choice-action")?.textContent;
         const savingsFigures = () => ["known-cpf-extra", "known-cash-saving", "known-invest"].map(id => document.getElementById("overview-edit-" + id)?.textContent);
         const previousSavings = savingsFigures();
         ersBtn.click();
@@ -2680,6 +2681,8 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
         const overviewCpf = document.querySelector("#overview-cpf-percent").textContent;
         return {
           overviewStrategy,
+          actionBefore,
+          actionAfter: document.querySelector('#milestone-cpf-strategy [aria-pressed="true"] .goal-choice-action')?.textContent,
           cpfProgress,
           overviewCpf,
           savingsUnchanged,
@@ -2694,6 +2697,8 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
         `CPF Milestones tab should render ERS toggle button: ${JSON.stringify(firstToggleMorph)}`,
       );
       assert.equal(firstToggleMorph.overviewStrategy, "ers");
+      assert.equal(firstToggleMorph.actionBefore, "Use ERS in my plan");
+      assert.equal(firstToggleMorph.actionAfter, "Selected for this plan");
       assert.equal(firstToggleMorph.cpfProgress, firstToggleMorph.overviewCpf);
       assert.equal(firstToggleMorph.savingsUnchanged, true);
       assert.equal(
@@ -2873,12 +2878,19 @@ test("Savings feedback, budget comparison, and A4 export use the active projecti
       const actions = document.querySelector(".overview-hero-actions");
       const paycheck = document.querySelector(".brief-paycheck");
       const actionsBeforePaycheck = Boolean(actions.compareDocumentPosition(paycheck) & Node.DOCUMENT_POSITION_FOLLOWING);
+      const readiness = document.querySelector(".overview-verdict");
+      const inputsBeforeReadiness = [".overview-plan-summary", "#overview-cpf-strategy-options", ".overview-saving-fields"].every(selector =>
+        Boolean(document.querySelector(selector).compareDocumentPosition(readiness) & Node.DOCUMENT_POSITION_FOLLOWING));
       intro.querySelector("[data-open-profile]").click();
       const openedProfile = document.body.dataset.view === "profile";
       document.querySelector("#destination-overview").click();
-      return { openedProfile, actionsBeforePaycheck };
+      return { openedProfile, inputsBeforeReadiness, actionsBeforePaycheck };
     })()`);
-    assert.deepEqual(firstVisit, { openedProfile: true, actionsBeforePaycheck: true });
+    assert.deepEqual(firstVisit, {
+      openedProfile: true,
+      inputsBeforeReadiness: true,
+      actionsBeforePaycheck: true,
+    });
     assert.equal(
       await browser.evaluate(
         'document.querySelector(".overview-decision-title").textContent',
@@ -3049,6 +3061,75 @@ test("Savings feedback, budget comparison, and A4 export use the active projecti
       ),
       "Review retirement age",
     );
+
+    // CPF LIFE covers spending while the model moves SRS withdrawals into cash.
+    const srsSweep = new URLSearchParams({
+      version: "3",
+      age: "50",
+      retire: "65",
+      lifestyle: "cca",
+      longevityAge: "100",
+      salary: "12000",
+      oa: "300000",
+      sa: "220000",
+      ma: "79000",
+      srs: "200000",
+      srsAge: "63",
+      srsAnnual: "0",
+      srsInvestedIn: "ssb",
+      expMode: "figure",
+      spend: "900",
+    });
+    await browser.navigate(`${baseUrl}/?test=srs-sweep#${srsSweep}`);
+    const projection = await browser.evaluate(`(() => {
+      const find = (selector) => document.querySelector(selector);
+      const dollars = (el) => Number(el.textContent.replace(/[^0-9]/g, ""));
+      const age65 = '#trajectory-values tr[data-inspect-age="65"]';
+      const chart = find("#trajectory-chart");
+      find("#destination-plan").click();
+      find("#section-trajectory").click();
+      find("#btn-chart-waterfall").click();
+      const chartLabel = chart.getAttribute("aria-label");
+      const lastAge = Number(find("#trajectory-values tr:last-child").dataset.inspectAge);
+      const income = [...find(age65).cells].slice(1).map(dollars);
+      chart.focus();
+      chart.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+      const tooltip = find("#chart-tooltip").textContent;
+      const showsSrsBar = !!chart.querySelector('[data-income-series="srs"][data-age="65"]');
+      find('[data-traj-basis="nominal"]').click();
+      const futureIncome = [...find(age65).cells].slice(1).map(dollars);
+      const futureCaption = find("#trajectory-caption").textContent;
+      find("#btn-chart-networth").click();
+      find('#chart-legend [data-series="eq"]').click();
+      const soloSeries = [...chart.querySelectorAll(".nw-band")].map(band => band.dataset.series);
+      const netWorth = [...find(age65).cells].slice(1).map(dollars);
+      window.dispatchEvent(new Event("beforeprint"));
+      const printChart = find("#print-nw-chart");
+      const printSeries = [...printChart.querySelectorAll(".nw-band")].map(band => band.dataset.series);
+      const [track, arc] = [...find("#print-sheet .fin-gauge-svg").querySelectorAll("path")];
+      const pathCoordinates = (path) => path.getAttribute("d").match(/[0-9.]+/g).map(Number);
+      return {
+        chartLabel, lastAge, income, tooltip, showsSrsBar, futureIncome, futureCaption,
+        soloSeries, netWorth, printSeries,
+        gaugeCapped: JSON.stringify(pathCoordinates(track)) === JSON.stringify(pathCoordinates(arc)),
+        printFunded: dollars(find("#print-savings-progress")),
+      };
+    })()`);
+    assert.match(projection.chartLabel, /age 50 to 100 in today’s dollars/);
+    assert.equal(projection.lastAge, 100);
+    assert.ok(projection.income[1] > projection.income[0]);
+    assert.equal(projection.income[3], 0, "The SRS sweep does not fund age-65 spending");
+    assert.equal(projection.showsSrsBar, false);
+    assert.match(projection.tooltip, /Age 65/);
+    assert.match(projection.tooltip, new RegExp(projection.income[1].toLocaleString("en-SG")));
+    assert.match(projection.futureCaption, /future dollars/);
+    assert.ok(projection.futureIncome[0] > projection.income[0]);
+    assert.equal(projection.futureIncome[3], 0);
+    assert.deepEqual(projection.soloSeries, ["eq"]);
+    assert.ok(Math.abs(projection.netWorth[0] - projection.netWorth.slice(1).reduce((a, b) => a + b, 0)) <= 2);
+    assert.deepEqual(projection.printSeries, ["cpf", "srs", "ssb", "eq"]);
+    assert.ok(projection.printFunded > 100);
+    assert.equal(projection.gaugeCapped, true);
     assert.deepEqual(browser.exceptions, []);
   } finally {
     await browser.close();

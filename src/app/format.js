@@ -6,6 +6,8 @@ const $$ = (selector, root = document) => [
 const fmtInt = (value) =>
   Math.round(Math.max(0, value) || 0).toLocaleString("en-SG");
 const formatFundedPct = (pctFunded) => `${fmtInt(pctFunded)}%`;
+const formatDollarBasis = (basis) =>
+  basis === "nominal" ? "future dollars" : "today’s dollars";
 function getSavingsProgress(fire) {
   const pct = fire.fireNumber.pctFunded;
   const percent = formatFundedPct(pct);
@@ -67,10 +69,10 @@ const svgCompactMoney = (value) => {
       : v >= 1000
         ? `${Math.round(v / 1000)}k`
         : `${v}`;
-  return `<tspan class="svg-curr-val"><tspan fill-opacity="0.72" font-size="0.86em">$</tspan>${body}</tspan>`;
+  return `<tspan class="svg-curr-val"><tspan font-size="0.86em">$</tspan>${body}</tspan>`;
 };
 const svgMoney = (value) =>
-  `<tspan class="svg-curr-val"><tspan fill-opacity="0.72" font-size="0.86em">$</tspan>${fmtInt(value)}</tspan>`;
+  `<tspan class="svg-curr-val"><tspan font-size="0.86em">$</tspan>${fmtInt(value)}</tspan>`;
 const ageLabel = (value) => {
   if (value == null) return "Not reached by 80";
   const totalMonths = Math.round(value * 12);
@@ -94,6 +96,23 @@ const ICONS = {
     15,
   ),
 };
+
+const PAYCHECK_ROW_STYLES = {
+  "Living & IRAS Tax": ["Living costs and income tax", "--ink-soft"],
+  "Mandatory CPF": ["Mandatory CPF", "--sem-cpf-ink"],
+  "Cash Savings (HYSA / SSB)": ["Cash savings", "--sem-cash-ink"],
+  "Equities (Global + SG)": ["Global and SG equities", "--sem-equities"],
+  "SSB / T-Bills (Alloc.)": ["Bonds and SSBs", "--sem-cash"],
+  "Extra CPF Saving": ["Extra CPF savings", "--sem-cpf"],
+  "SRS Contribution": ["SRS contribution", "--sem-srs"],
+};
+
+function getPaycheckDisplayRows(rows) {
+  return rows.map((row) => {
+    const [label, tone] = PAYCHECK_ROW_STYLES[row.label] ?? [row.label, "--ink-soft"];
+    return { ...row, label, color: `var(${tone})` };
+  });
+}
 
 function buildAllocationMix(equity, sgSleeve) {
   const segments = [
@@ -271,10 +290,12 @@ function deriveReadinessSummary({
 
 export {
   buildAllocationMix,
+  getPaycheckDisplayRows,
   $,
   $$,
   fmtInt,
   formatFundedPct,
+  formatDollarBasis,
   getSavingsProgress,
   getSavingsRunway,
   deriveReadinessSummary,

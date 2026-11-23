@@ -80,10 +80,10 @@ export function buildCpfDetailsHTML({
   return `<section id="cpf-position-details" class="card-surface rules-card" aria-labelledby="cpf-pos-title">
         <div class="rules-card-head">
           <div>
-            <h2 id="cpf-pos-title">CPF today → age 55, OA Interest Tap &amp; Voluntary Housing Refund</h2>
+            <h2 id="cpf-pos-title">CPF balances and housing choices through age 55</h2>
             <p>Active <strong>${pathName}</strong> path${simExtraForCpf > 0 ? ` (+${m(simExtraForCpf, "/mo")} extra CPF)` : ""} · +1% extra interest on first $60k ($20k OA cap) · ${rstuBracketStr}% tax bracket.</p>
           </div>
-          <span class="fin-target-pill">Today’s $ · Age-55 nominal</span>
+          <span class="fin-target-pill">Today’s dollars · Nominal amounts at age 55</span>
         </div>
         <dl class="tax-metrics-grid">
           <div class="tax-metric-box"><dt>OA today</dt><dd>${centsHtml(oaNow)}<small>2.5% base + 1% extra on first $20k → SA (${m(oaExtraEligibleNow)} / $20k used)</small></dd></div>
@@ -95,7 +95,7 @@ export function buildCpfDetailsHTML({
         <div class="cpf-vhr-grid">
           <div class="timing-col cpf-vhr-box">
             <div class="timing-col-head">
-              <h3>Post-55 OA Interest Tap</h3>
+              <h3>OA interest from age 55</h3>
               <span class="swell-slate-pill">2.5% p.a. liquid</span>
             </div>
             <dl>
@@ -107,7 +107,7 @@ export function buildCpfDetailsHTML({
           </div>
           <div class="timing-col cpf-vhr-box">
             <div class="timing-col-head">
-              <h3>Voluntary Housing Refund vs. Cash RSTU</h3>
+              <h3>Housing refund or CPF cash top-up</h3>
               <span class="tap-verdict-pill ${tax.maxRstu > 0 && tax.rstuTaxSaved > 0 ? "is-good" : "is-neutral"}">${tax.maxRstu > 0 && tax.rstuTaxSaved > 0 ? `RSTU Saves ${m(tax.rstuTaxSaved, "/yr")}` : "OA Liquidity"}</span>
             </div>
             <dl>
@@ -145,13 +145,13 @@ export function buildCpfRulesTabHTML({
   const lessonHTML = `<section id="cpf-goal-guide" class="card-surface rules-card" aria-labelledby="cpf-goal-title">
       <div class="rules-card-head">
         <div>
-          <h2 id="cpf-goal-title">CPF strategy for your plan</h2>
+          <h2 id="cpf-goal-title">Retirement sum for this plan</h2>
           <p>Age ${r.age} cohort (turning 55 in ${cohortYear55}) · <strong>${planLabelShort}</strong> Plan · ${(r.inflation * 100).toFixed(1).replace(/\.0$/, "")}% inflation.</p>
         </div>
-        <span class="fin-target-pill">Today’s $ · Age-55 nominal</span>
+        <span class="fin-target-pill">Today’s dollars · Nominal amounts at age 55</span>
       </div>
-      <p id="cpf-strategy-milestone-help" class="cpf-strategy-help">This is the same strategy shown on Overview. Your monthly savings and retirement budget stay fixed when you switch.</p>
-      <div class="goal-choices" id="milestone-cpf-strategy" data-cpf-strategy-group role="group" aria-label="Active CPF strategy" aria-describedby="cpf-strategy-milestone-help">${[
+      <p id="cpf-strategy-milestone-help" class="cpf-strategy-help">Choose a retirement sum to update your plan’s CPF LIFE payout estimate and the projection on Overview.</p>
+      <div class="goal-choices" id="milestone-cpf-strategy" data-cpf-strategy-group role="group" aria-labelledby="cpf-goal-title" aria-describedby="cpf-strategy-milestone-help">${[
         ["brs", "Basic Retirement Sum"],
         ["frs", "Full Retirement Sum"],
         ["ers", "Enhanced Retirement Sum · Top up from 55"],
@@ -165,6 +165,7 @@ export function buildCpfRulesTabHTML({
             </div>
             <div class="goal-choice-sum">${m(cm.sumToday)} <span>today’s $</span></div>
             <small>${tag} · ${m(cm.sumAt55)} nom. at 55</small>
+            <span class="goal-choice-action" aria-hidden="true">${key === selected ? "Selected for this plan" : `Use ${key.toUpperCase()} in my plan`}</span>
           </button>`;
         })
         .join("")}</div>
@@ -194,7 +195,7 @@ export function buildCpfRulesTabHTML({
     <header class="ember-page-header fin-page-header">
       <div class="fin-header-copy">
         <h1>CPF milestones</h1>
-        <p class="fin-page-sub">SA closure, RA formation, BRS/FRS/ERS thresholds, and CPF LIFE mechanics.</p>
+        <p class="fin-page-sub">See what happens to your CPF accounts at 55 and how savings affect CPF LIFE payouts.</p>
       </div>
       <div class="ember-header-meta">
         <button type="button" class="fin-action-chip" data-open-settings-field="known-oa">Edit CPF balances</button>
@@ -227,7 +228,7 @@ export function buildTaxTabHTML({ r, tax, marginalTaxPct }) {
       <header class="ember-page-header fin-page-header">
         <div class="fin-header-copy">
           <h1>Tax &amp; SRS</h1>
-          <p class="fin-page-sub">IRAS YA ${C.year} relief waterfall across CPF RSTU, Family Top-Ups, and SRS.</p>
+          <p class="fin-page-sub">See how CPF cash top-ups and SRS contributions affect your tax relief for Year of Assessment ${C.year}.</p>
         </div>
         <div class="ember-header-meta">
           <button type="button" class="button button-small" data-open-settings-field="known-srs-annual">Edit planned SRS</button>
@@ -238,7 +239,7 @@ export function buildTaxTabHTML({ r, tax, marginalTaxPct }) {
       <section class="card-surface rules-card" id="salary-cpf-caps" aria-labelledby="salary-caps-title">
         <div class="rules-card-head">
           <div>
-            <h2 id="salary-caps-title">Salary &amp; Bonus CPF Contributions (${C.year} Ceilings)</h2>
+            <h2 id="salary-caps-title">CPF contributions on salary and bonus (${C.year} limits)</h2>
             <p>${C.year} Ordinary Wage ceiling: ${m(C.wageCap, "/mo")} · Annual CPF salary ceiling: ${m(C.annualWageCap, "/yr")} (${m(C.cpfAnnualLimit)} mandatory CPF cap).${r.awBonusAnnual > 0 ? ` Includes <strong>${m(r.awBonusAnnual, "/yr")}</strong> annual bonus (<strong>${m(r.awSubjectAnnual, "/yr")}</strong> subject to AW CPF).` : ""}</p>
           </div>
           <span class="fin-target-pill">Age ${r.age} · ${r.age >= 55 ? "Senior CPF rates" : "Under 55 rates"}</span>
@@ -307,7 +308,7 @@ function buildTaxSweetSpotSection(tax) {
   return `<section class="tax-sweet-card card-surface" id="tax-sweet-spot" aria-labelledby="tax-sweet-title">
     <div class="tax-sweet-head">
       <div>
-        <h2 id="tax-sweet-title">CPF RSTU vs. SRS Tax Sweet-Spot</h2>
+        <h2 id="tax-sweet-title">Compare CPF and SRS tax relief</h2>
         <p class="tax-guidance-copy">${tax.guidance}</p>
       </div>
       <span class="status-pill ${tierTone}">${tax.headline}</span>
@@ -406,13 +407,15 @@ function buildTaxSweetSpotSection(tax) {
           : tax.srsTrapStatus === "near-cap"
             ? "is-warn"
             : "is-srs";
-      return `<div class="srs-trap-panel is-${tax.srsTrapStatus || "safe"}" role="region" aria-label="Tap 2 SRS Mechanics and Age-${srsStartAge} Ballooning Trap Guardrail">
+      return `<div class="srs-trap-panel is-${tax.srsTrapStatus || "safe"}" role="region" aria-label="Projected SRS withdrawal tax from age ${srsStartAge}">
       <div class="srs-trap-head">
         <div class="srs-trap-copy">
-          <strong>Tap 2 (SRS) Mechanics &amp; Age-${srsStartAge} Ballooning Guardrail</strong>
+          <strong>Projected SRS withdrawal tax from age ${srsStartAge}</strong>
           <p>${tax.srsTrapGuidance}</p>
         </div>
-        <span class="status-pill ${tax.srsTrapTone || (tax.srsTrapStatus === "balloon-trap" ? "is-danger" : tax.srsTrapStatus === "near-cap" ? "is-warn" : "is-info")}">${tax.srsTrapHeadline}</span>
+        <span class="status-pill ${tax.srsTrapTone || (tax.srsTrapStatus === "balloon-trap" ? "is-danger" : tax.srsTrapStatus === "near-cap" ? "is-warn" : "is-info")}">${tax.srsTrapStatus === "balloon-trap"
+          ? `Estimated tax ${m(tax.srsWithdrawalTaxAt63.annualTax, "/yr")}`
+          : tax.srsTrapHeadline}</span>
       </div>
       <div class="tap-progress-wrap">
         <div class="tap-progress-meta">

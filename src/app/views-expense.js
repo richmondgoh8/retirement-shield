@@ -151,19 +151,19 @@ function buildExpenseModalBodyHTML(ep, r, newlyAddedId = null, s = null) {
   const impactStrip = `<div class="exp-impact-strip" id="exp-impact-slot" role="group" aria-label="Live budget projections">
     <div class="exp-impact-metrics">
       <div class="exp-impact-kpi">
-        <span>${retireAge < 65 ? `Age-${retireAge} Retire Need` : "Age-65 Retire Need"}</span>
+        <span>Spending at age ${Math.min(retireAge, 65)}</span>
         <strong>${m(targetSpendRetire, "/mo")}</strong>
-        <small>Today’s $ · HealthShield curve</small>
+        <small>In today’s dollars, including projected insurance costs</small>
       </div>
       <div class="exp-impact-kpi">
-        <span>CPF LIFE Coverage (65)</span>
+        <span>Spending covered by CPF LIFE at 65</span>
         <strong class="is-emerald">${cpfCov65}%</strong>
         <small>${m(cpfPayout65, "/mo")} projected</small>
       </div>
       <div class="exp-impact-kpi">
-        <span>Outside Saving Target</span>
+        <span>${r?.retiringNow ? "Savings needed outside CPF" : "Monthly savings outside CPF"}</span>
         <strong>${outsideNeed == null ? "—" : r?.retiringNow ? m(outsideNeed) : m(outsideNeed, "/mo")}</strong>
-        <small>${r?.retiringNow ? "Capital needed now" : "Suggested monthly"}</small>
+        <small>${r?.retiringNow ? "Capital needed now" : "Suggested contribution"}</small>
       </div>
     </div>
   </div>`;

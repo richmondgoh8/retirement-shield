@@ -1,6 +1,8 @@
+import { NET_WORTH_SCOPE } from "./charts.js";
 import {
   formatFundedPct,
   getSavingsRunway,
+  getPaycheckDisplayRows,
   money,
   m,
   signedM,
@@ -57,8 +59,8 @@ export function getMilestoneNodes(fire, r, s, simulation, basis = "today") {
       sub: r.retiringNow
         ? "Immediate retirement transition"
         : `Saving ${money(totalMoSave)}/mo`,
-      color: "#1D4ED8",
-      softBg: "#EFF6FF",
+      color: "var(--primary-ink)",
+      softBg: "var(--primary-soft)",
     },
     {
       badge: fire.age < 55 ? "55" : String(fire.age),
@@ -67,8 +69,8 @@ export function getMilestoneNodes(fire, r, s, simulation, basis = "today") {
       metric: m(ptVal(pt55)?.cpfTotal ?? 0),
       pill: "CPF Check",
       sub: `Total net worth ${money(ptVal(pt55)?.totalNetWorth ?? 0)}`,
-      color: "#0F766E",
-      softBg: "#E6F7F5",
+      color: "var(--sem-teal)",
+      softBg: "var(--sem-teal-soft)",
     },
     {
       badge: String(fire.retire),
@@ -77,8 +79,8 @@ export function getMilestoneNodes(fire, r, s, simulation, basis = "today") {
       metric: m(ptVal(ptRet)?.totalNetWorth ?? 0),
       pill: fire.retire < 65 ? "Bridge" : "CPF LIFE",
       sub: `Budget ${money(spendAtRetire)}/mo · ${fire.retire < 65 ? "Liquid bridge" : "CPF LIFE active"}`,
-      color: "#1D4ED8",
-      softBg: "#EFF6FF",
+      color: "var(--primary-ink)",
+      softBg: "var(--primary-soft)",
     },
     {
       badge: String(pt95?.age ?? fire.endAge ?? 95),
@@ -89,8 +91,8 @@ export function getMilestoneNodes(fire, r, s, simulation, basis = "today") {
       metric: m(ptVal(pt95)?.totalNetWorth ?? 0),
       pill: fire.fireNumber.fullyFundedTo95 ? "Sustained" : "Watch Gap",
       sub: `Spend ${money(spendAt75)}/mo · CPF ${money(payoutAt65)}/mo`,
-      color: fire.fireNumber.fullyFundedTo95 ? "#7C3AED" : "#B91C1C",
-      softBg: fire.fireNumber.fullyFundedTo95 ? "#F5F3FF" : "#FEF2F2",
+      color: fire.fireNumber.fullyFundedTo95 ? "var(--sem-cpf-ink)" : "var(--sem-alert-ink)",
+      softBg: fire.fireNumber.fullyFundedTo95 ? "var(--sem-cpf-soft)" : "var(--sem-alert-soft)",
     },
   ];
 }
@@ -191,10 +193,10 @@ export function buildFundingSourcesList(
         name: `Tap 1 · CPF LIFE (${r.plan === "escalating" ? "Esc" : "Std"})`,
         count: `${money(tap1PayoutDisplay)}/mo of ${money(tap1Spend65Display)} need${taps.tap1Cpf.monthlyExtraCpf > 0 ? ` (+${money(taps.tap1Cpf.monthlyExtraCpf)}/mo)` : ""}`,
         score: `${cpfCovPct}%`,
-        color: "#047857",
-        badgeBg: "#ECFDF5",
-        softBg: "#ECFDF5",
-        border: "#A7F3D0",
+        color: "var(--sem-cpf-ink)",
+        badgeBg: "var(--sem-cpf-soft)",
+        softBg: "var(--sem-cpf-soft)",
+        border: "var(--sem-cpf-border)",
         letter: "1",
         icon: svgWrap(
           '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>',
@@ -205,10 +207,10 @@ export function buildFundingSourcesList(
         name: "Tap 2 · SRS Bridge",
         count: srsCountSub,
         score: srsDrawPill,
-        color: "#6D28D9",
-        badgeBg: "#F5F3FF",
-        softBg: "#F5F3FF",
-        border: "#DDD6FE",
+        color: "var(--sem-srs)",
+        badgeBg: "var(--sem-srs-soft)",
+        softBg: "var(--sem-srs-soft)",
+        border: "var(--sem-srs-border)",
         letter: "2",
         icon: svgWrap(
           '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M16 2v4"/>',
@@ -219,10 +221,10 @@ export function buildFundingSourcesList(
         name: "Tap 3 · Equity & Dividend",
         count: `${!r.retiringNow ? `+${money(taps.tap3Equities.monthlyInvest)}/mo (${taps.tap3Equities.globalSplitPct}/${taps.tap3Equities.sgDividendSplitPct} G/SG) → ` : ""}${compactMoney(tap3AtRetireDisplay)} at ${r.retire} · ${s.gap65 > 0 ? `${money(tap3DrawDisplay)}/mo of ${money(tap3Gap65Display)} gap` : `+${money(tap3DrawDisplay)}/mo draw`}`,
         score: `${taps.tap3Equities.targetEquityPct ?? 80}/${taps.tap3Equities.targetBondPct ?? 20}`,
-        color: "#1D4ED8",
-        badgeBg: "#EFF6FF",
-        softBg: "#EFF6FF",
-        border: "#BFDBFE",
+        color: "var(--primary-ink)",
+        badgeBg: "var(--primary-soft)",
+        softBg: "var(--primary-soft)",
+        border: "var(--primary-border)",
         letter: "3",
         icon: svgWrap(
           '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
@@ -248,10 +250,10 @@ export function buildFundingSourcesList(
             : taps.tap4Ssb.currentSsbCash > 0
               ? `${ssbPctOf150k}%`
               : ssbRateTag,
-        color: "#B45309",
-        badgeBg: "#FFFBEB",
-        softBg: "#FFFBEB",
-        border: "#FDE68A",
+        color: "var(--sem-cash-ink)",
+        badgeBg: "var(--sem-cash-soft)",
+        softBg: "var(--sem-cash-soft)",
+        border: "var(--sem-cash-border)",
         letter: "4",
         icon: svgWrap(
           '<path d="M3 21h18"/><path d="M3 10h18"/><path d="M5 6l7-3 7 3"/><path d="M4 10v11"/><path d="M20 10v11"/><path d="M8 14v3"/><path d="M12 14v3"/><path d="M16 14v3"/>',
@@ -265,10 +267,10 @@ export function buildFundingSourcesList(
             ? `${money(oaInterestMoDisplay)}/mo liquid`
             : "$0 excess OA at 55",
         score: "2.5% p.a.",
-        color: "#0F766E",
-        badgeBg: "#F0FDFA",
-        softBg: "#F0FDFA",
-        border: "#99F6E4",
+        color: "var(--sem-teal)",
+        badgeBg: "var(--sem-teal-soft)",
+        softBg: "var(--sem-teal-soft)",
+        border: "var(--sem-teal-border)",
         letter: "55",
         icon: svgWrap(
           '<circle cx="12" cy="12" r="9"/><path d="M9 15l6-6"/><circle cx="9.5" cy="9.5" r=".5" fill="currentColor"/><circle cx="14.5" cy="14.5" r=".5" fill="currentColor"/>',
@@ -316,26 +318,25 @@ export function buildFinReadinessGaugeSVG(
         ? "In Progress"
         : "Action Needed";
   const statusColor = isAmazing
-    ? "#047857"
+    ? "var(--sem-cpf-ink)"
     : isNear
-      ? "#B45309"
+      ? "var(--sem-cash-ink)"
       : pctVal >= 60
-        ? "#B45309"
-        : "#B91C1C";
+        ? "var(--sem-cash-ink)"
+        : "var(--sem-alert-ink)";
   return `<div class="fin-gauge-wrap swell-gauge-wrap">
     <svg class="fin-gauge-svg swell-gauge-svg" viewBox="0 0 240 132" width="240" height="132" aria-hidden="true">
       <defs>
         <linearGradient id="${uid}-arc-grad" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stop-color="#F43F5E" />
-          <stop offset="50%" stop-color="#EC4899" />
-          <stop offset="100%" stop-color="#E83E8C" />
+          <stop offset="0%" stop-color="var(--swell-pink-bright)" />
+          <stop offset="100%" stop-color="var(--swell-pink)" />
         </linearGradient>
       </defs>
-      <path d="M ${startX} ${startY} A ${r} ${r} 0 0 1 ${endX} ${endY}" fill="none" stroke="#E2E8F0" stroke-width="12" stroke-linecap="round" />
+      <path d="M ${startX} ${startY} A ${r} ${r} 0 0 1 ${endX} ${endY}" fill="none" stroke="var(--border-strong)" stroke-width="12" stroke-linecap="round" />
       <path d="M ${startX} ${startY} A ${r} ${r} 0 0 1 ${knobX.toFixed(1)} ${knobY.toFixed(1)}" fill="none" stroke="url(#${uid}-arc-grad)" stroke-width="12" stroke-linecap="round" />
-      <circle cx="${knobX.toFixed(1)}" cy="${knobY.toFixed(1)}" r="6.5" fill="#E83E8C" stroke="#FFFFFF" stroke-width="2.8" />
-      <text x="120" y="90" text-anchor="middle" fill="#0F172A" font-size="25" font-weight="800" letter-spacing="-0.03em">${pctDisplay}</text>
-      <text x="120" y="108" text-anchor="middle" fill="#64748B" font-size="9.5" font-weight="600" letter-spacing="0.03em">SAVINGS TARGET FUNDED</text>
+      <circle cx="${knobX.toFixed(1)}" cy="${knobY.toFixed(1)}" r="6.5" fill="var(--swell-pink)" stroke="var(--surface)" stroke-width="2.8" />
+      <text x="120" y="90" text-anchor="middle" fill="var(--ink)" font-size="25" font-weight="800" letter-spacing="-0.03em">${pctDisplay}</text>
+      <text x="120" y="108" text-anchor="middle" fill="var(--ink-soft)" font-size="9.5" font-weight="600" letter-spacing="0.03em">SAVINGS TARGET FUNDED</text>
     </svg>
     <span class="sr-only">${pctDisplay} of the retirement savings target funded through age ${endAge}</span>
     <div class="swell-gauge-status" style="color:${statusColor};">${statusWord}</div>
@@ -427,7 +428,23 @@ function buildMonthlyPaycheck(point) {
 const fundingTrack = (pct) =>
   `<span class="overview-funding-track" aria-hidden="true"><span style="inline-size:${Math.min(100, Math.max(0, pct))}%"></span></span>`;
 
-function buildOverviewPageHeader({
+function buildOverviewPageHeader({ r, showExampleIntro }) {
+  return `<header class="ember-page-header fin-page-header overview-title-row">
+      <h1 id="fire-hero-title" tabindex="-1">Your retirement brief</h1>
+      <button type="button" id="overview-assumptions" class="button button-small" commandfor="plan-settings" command="show-modal" aria-haspopup="dialog">
+        Assumptions <span class="overview-assumption-values">· ${Number((r.inflation * 100).toFixed(1))}% inflation · ${Number((r.investmentReturn * 100).toFixed(1))}% return</span>
+      </button>
+    </header>
+    ${showExampleIntro ? `<div class="overview-example-intro" id="overview-example-intro">
+      <p><strong>You’re viewing an example.</strong> Add your details to see your own projection.</p>
+      <div class="overview-example-actions">
+        <button type="button" class="button button-small" data-open-profile>Use my details</button>
+        <button type="button" class="text-button" id="overview-browse-examples" commandfor="starter-plan-dialog" command="show-modal" aria-haspopup="dialog">Browse examples</button>
+      </div>
+    </div>` : ""}`;
+}
+
+function buildOverviewReadiness({
   fire,
   r,
   rate,
@@ -436,7 +453,6 @@ function buildOverviewPageHeader({
   scenarioLabel,
   cashflow,
   savingsProgress,
-  showExampleIntro,
 }) {
   const fn = fire.fireNumber;
   const onTrack = fn.depletionAge == null;
@@ -466,21 +482,7 @@ function buildOverviewPageHeader({
     `<button type="button" class="${style}" data-review-overview-savings>Review savings</button>`;
   const reviewAge = (style) =>
     `<button type="button" id="overview-review-age" class="${style}" data-quick-edit="goal" data-qe-focus="#qe-retire">Review retirement age</button>`;
-  return `<header class="overview-hero" aria-labelledby="fire-hero-title">
-    <div class="ember-page-header fin-page-header overview-title-row">
-      <h1 id="fire-hero-title" tabindex="-1">Your retirement brief</h1>
-      <button type="button" id="overview-assumptions" class="button button-small" commandfor="plan-settings" command="show-modal" aria-haspopup="dialog">
-        Assumptions <span class="overview-assumption-values">· ${Number((r.inflation * 100).toFixed(1))}% inflation · ${Number((r.investmentReturn * 100).toFixed(1))}% return</span>
-      </button>
-    </div>
-    ${showExampleIntro ? `<div class="overview-example-intro" id="overview-example-intro">
-      <p><strong>You’re viewing an example.</strong> Add your details to see your own projection.</p>
-      <div class="overview-example-actions">
-        <button type="button" class="button button-small" data-open-profile>Use my details</button>
-        <button type="button" class="text-button" id="overview-browse-examples" commandfor="starter-plan-dialog" command="show-modal" aria-haspopup="dialog">Browse examples</button>
-      </div>
-    </div>` : ""}
-    <section class="overview-verdict is-${tone}" tabindex="-1" aria-label="Retirement readiness">
+  return `<section class="overview-verdict is-${tone}" tabindex="-1" aria-label="Retirement readiness">
       <div class="overview-verdict-copy">
         <p class="brief-section-label">${svgWrap('<path d="M12 3 4 6v5c0 5 3 8 8 11 5-3 8-6 8-11V6Z"/>')} Spending horizon</p>
         <h2 class="overview-decision-title">${headline}</h2>
@@ -540,8 +542,7 @@ function buildOverviewPageHeader({
           <dd class="overview-outcome-note">In today’s dollars.</dd>
         </div>
       </dl>
-    </section>
-  </header>`;
+    </section>`;
 }
 
 function computeMonthlyTakeHomeCashflow({
@@ -665,7 +666,7 @@ function buildFinBentoGridHTML({
       <article class="fin-bento-card overview-holdings">
         <div class="fin-bento-head">
           <div>
-            <h3 class="overview-breakdown-label">Holdings &amp; Net Worth</h3>
+            <h3 class="overview-breakdown-label">Holdings and net worth</h3>
             <p class="fin-bento-title">${signedM(netWorthAfterDebt)} <small>${userLoanShare > 0 ? "net of loan" : "debt-free"}</small></p>
           </div>
         </div>
@@ -730,7 +731,7 @@ function buildFinBentoGridHTML({
       <article class="fin-bento-card overview-cashflow">
         <div class="fin-bento-head">
           <div>
-            <h3 class="overview-breakdown-label">Monthly Cashflow</h3>
+            <h3 class="overview-breakdown-label">Monthly cashflow</h3>
             <p class="fin-bento-title">${m(r.afterCpf, "/mo")} <small>pay after CPF</small></p>
           </div>
         </div>
@@ -1130,14 +1131,14 @@ function buildMoneyMovesStripHTML(topMoves) {
 
   if (topMoves.length === 1) {
     const [move] = topMoves;
-    return `<section class="fin-moves-strip fin-move-row ${move.tone}" id="fin-money-moves" aria-label="Actionable Insights">
+    return `<section class="fin-moves-strip fin-move-row ${move.tone}" id="fin-money-moves" aria-label="Suggested next steps">
       ${renderRowContent(move, "h2")}
       <button type="button" class="text-button priority-guide-entry" data-go-tab="priority-guide">See the full funding order →</button>
     </section>`;
   }
 
   return `<section class="overview-insights-group" aria-labelledby="fin-moves-title">
-    <div class="swell-section-head"><h2 id="fin-moves-title">Actionable Insights</h2><button type="button" class="text-button priority-guide-entry" data-go-tab="priority-guide">See the full funding order →</button></div>
+    <div class="swell-section-head"><h2 id="fin-moves-title">Suggested next steps</h2><button type="button" class="text-button priority-guide-entry" data-go-tab="priority-guide">See the full funding order →</button></div>
     <div class="fin-moves-strip" id="fin-money-moves">
     <ol class="fin-moves-list" role="list">
       ${topMoves
@@ -1240,7 +1241,7 @@ export function buildFinOverviewGrid(
 
   const paycheck = RetirementModel.paycheckAllocation(r, simulation, bogle, p);
   const grossPlusEmployer = paycheck.grossPlusEmployer;
-  const paycheckBars = paycheck.rows;
+  const paycheckBars = getPaycheckDisplayRows(paycheck.rows);
 
   const [, cpfMilestone, retirementMilestone, horizonMilestone] =
     getMilestoneNodes(fire, r, s, simulation);
@@ -1289,16 +1290,16 @@ export function buildFinOverviewGrid(
     brs: {
       name: "Basic Retirement Sum",
       tag: "Basic target",
-      accent: "#0F766E",
-      softBg: "#F0FDFA",
+      accent: "var(--sem-teal)",
+      softBg: "var(--sem-teal-soft)",
       icon: svgWrap('<path d="M3 20h18M6 16v-3m6 3V9m6 7V5"/>', 16),
       note: "Targets half your cohort FRS at 55. Your actual CPF LIFE payout depends on the savings in your Retirement Account.",
     },
     frs: {
       name: "FRS Target",
       tag: "Standard Sum",
-      accent: "#1D4ED8",
-      softBg: "#EFF6FF",
+      accent: "var(--primary-ink)",
+      softBg: "var(--primary-soft)",
       icon: svgWrap(
         '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>',
         16,
@@ -1308,8 +1309,8 @@ export function buildFinOverviewGrid(
     ers: {
       name: "ERS Maximum",
       tag: "Max Floor",
-      accent: "#047857",
-      softBg: "#ECFDF5",
+      accent: "var(--sem-cpf-ink)",
+      softBg: "var(--sem-cpf-soft)",
       icon: svgWrap('<path d="M3 3v18h18"/><path d="m7 14 4-4 4 3 5-6"/>', 16),
       note: `Voluntary RA top-ups toward ${compactMoney(r.ers)} ERS (today’s $); highest lifelong income.`,
     },
@@ -1393,18 +1394,58 @@ export function buildFinOverviewGrid(
   }[cpfProgress.strategy.toLowerCase()];
   const budget = expenseData?.total;
   const buckets = bogle.buckets;
-  return `${buildOverviewPageHeader({ fire, r, rate: pctOfPay, contribution, budget, scenarioLabel: lifestyleCardLabel, cashflow, savingsProgress, showExampleIntro })}
+  return `<div class="overview-hero">
+    ${buildOverviewPageHeader({ r, showExampleIntro })}
+  <section class="brief-inputs" aria-label="Plan inputs and CPF target">
+      <div class="overview-plan-summary card-surface">
+        <div class="overview-strategy-header">
+          <h2>Plan inputs</h2>
+          <button type="button" class="button button-small" data-open-profile>Edit profile</button>
+        </div>
+        <div class="overview-hero-summary">
+          <div><span>Pay after CPF</span> <strong>${m(r.afterCpf, "/mo")}</strong></div>
+          <div><span>Starting assets</span> <strong>${m(startingTotalAssets)}</strong></div>
+          ${budget == null ? "" : `<button type="button" class="text-button overview-budget-link" data-go-tab="budget"><span>Retirement budget ${svgWrap('<path d="M5 12h14m-6-6 6 6-6 6"/>', 14)}</span> <strong>${m(budget, "/mo")}</strong></button>`}
+        </div>
+        <details class="overview-asset-details" id="overview-starting-assets">
+          <summary>Starting asset breakdown</summary>
+          <dl>${[
+            ["Global equities", buckets.equities],
+            ["Singapore dividend holdings", buckets.sgDividends],
+            ["Cash and SSBs", buckets.ssbCash],
+            ["SRS", buckets.srs],
+            ["CPF balances", startingCpf],
+          ]
+            .map(
+              ([label, value]) =>
+                `<div><dt>${label}</dt><dd>${m(value)}</dd></div>`,
+            )
+            .join("")}</dl>
+        </details>
+        <button type="button" class="text-button overview-edit-retirement-age" data-quick-edit="goal" data-qe-focus="#qe-retire">Edit retirement age (${fire.retire})</button>
+      </div>
+      <div class="overview-cpf-strategy card-surface">
+        <div class="overview-strategy-header">
+          <h2 id="overview-cpf-strategy-label">CPF retirement sum</h2>
+          <div id="overview-cpf-strategy-options" data-cpf-strategy-group role="group" aria-labelledby="overview-cpf-strategy-label" aria-describedby="overview-cpf-strategy-help">
+            ${["brs", "frs", "ers"].map((path) => `<button type="button" class="button button-small" data-cpf-strategy="${path}" aria-pressed="${path === selected}">${path.toUpperCase()}</button>`).join("")}
+          </div>
+        </div>
+        <div class="overview-strategy-progress">
+          <strong><span id="overview-cpf-percent">${cpfProgress.percent}</span> of the ${strategyName} at age 55</strong>
+          ${fundingTrack(cpfProgress.pct)}
+          <span>${m(cpfProgress.balanceToday)} of ${m(cpfProgress.targetToday)} in today’s dollars</span>
+        </div>
+        <p id="overview-cpf-strategy-help" class="cpf-strategy-help">${selected === "brs" ? "BRS is a savings target. CPF savings above it can still flow into your Retirement Account up to FRS at 55." : "Choose the retirement sum used in your projection."}</p>
+      </div>
+  </section>
+
   <section class="swell-section-block" aria-labelledby="overview-savings-title">
-    <div class="swell-section-head"><h2 id="overview-savings-title" tabindex="-1">Monthly Savings &amp; Investment Plan</h2></div>
+    <div class="swell-section-head"><h2 id="overview-savings-title" tabindex="-1">Monthly savings and investments</h2></div>
     <div class="overview-savings card-surface">
     <div class="overview-total-saving">
       <span>Total saving</span>
       <strong class="overview-savings-total">${r.retiringNow ? "Saving paused" : m(contribution, "/mo")}</strong>
-    </div>
-    <div class="overview-savings-outcome">
-      <span>${savingsProgress.title}</span>
-      <strong>${previousSavingsPercent && previousSavingsPercent !== savingsProgress.percent ? `<span class="overview-savings-previous">${previousSavingsPercent} → </span>` : ""}${savingsProgress.percent}</strong>
-      <span>${getSavingsRunway(fire)}</span>
     </div>
     ${
       r.retiringNow
@@ -1457,6 +1498,11 @@ export function buildFinOverviewGrid(
       </div>
     `
     }
+    <div class="overview-savings-outcome">
+      <span>${savingsProgress.title}</span>
+      <strong>${previousSavingsPercent && previousSavingsPercent !== savingsProgress.percent ? `<span class="overview-savings-previous">${previousSavingsPercent} → </span>` : ""}${savingsProgress.percent}</strong>
+      <span>${getSavingsRunway(fire)}</span>
+    </div>
     <details class="overview-disclosure-card" id="overview-saving-details">
       <summary class="overview-disclosure-summary">Savings projections</summary>
       <div class="overview-disclosure-body">
@@ -1470,24 +1516,28 @@ export function buildFinOverviewGrid(
     </div>
   </section>
 
+    ${buildOverviewReadiness({ fire, r, rate: pctOfPay, contribution, budget, scenarioLabel: lifestyleCardLabel, cashflow, savingsProgress })}
+  </div>
+
   <section class="swell-section-block" aria-label="Wealth trajectory, income taps, and retirement readiness">
     <div class="swell-section-head">
-      <h2>Trajectory &amp; Readiness</h2>
+      <h2>Projection and readiness</h2>
     </div>
     <div class="swell-discover-grid">
       <section class="fin-card fin-hero-card card-surface" aria-labelledby="ember-traj-title">
         <div class="overview-chart-head">
           <div class="swell-mini-kpi is-primary">
-            <h3 id="ember-traj-title">Net Worth at Age ${fire.retire}</h3>
+            <h3 id="ember-traj-title">Projected net worth at age ${fire.retire}</h3>
             <div class="fin-big-figure-row">
               <strong class="fin-big-figure" id="hero-nw-live">${m(retireNw, "", "hero-nw")}</strong>
             </div>
           </div>
           <button type="button" class="text-button overview-projection-link" data-go-tab="trajectory">View projection →</button>
         </div>
+        <p class="overview-networth-note">In today’s dollars. ${NET_WORTH_SCOPE}</p>
         <div class="chart-wrapper">
           <div id="dash-networth-chart" class="chart-area" role="img" aria-label="Stacked net worth trajectory from age ${fire.age} to ${fire.endAge}" aria-describedby="overview-networth-description"></div>
-          <p class="sr-only" id="overview-networth-description">Projected net worth in today’s dollars. ${chartMilestones.join(" ")} ${chartStatus}.</p>
+          <p class="sr-only" id="overview-networth-description">Projected net worth in today’s dollars. ${NET_WORTH_SCOPE} ${chartMilestones.join(" ")} ${chartStatus}.</p>
           <div id="dash-networth-tooltip" class="chart-tooltip" hidden></div>
         </div>
         <div class="chart-legend fin-chart-legend" id="dash-networth-legend" role="group" aria-label="Net worth chart layers"></div>
@@ -1523,7 +1573,7 @@ export function buildFinOverviewGrid(
           </ul>
           <div class="fin-coverage-card">
             <div class="fin-cov-head">
-              <span>Age-65 income split · CPF LIFE and savings</span>
+              <span>Spending at age 65 · CPF LIFE and savings needed</span>
               <strong>${m(r.spend65, "/mo")} need</strong>
             </div>
             <div class="fin-cov-track" aria-hidden="true">
@@ -1531,8 +1581,8 @@ export function buildFinOverviewGrid(
               <span class="fin-cov-out" data-meter-key="cov-out" data-meter-w="${Math.max(0, 100 - cpfCov65Pct)}" style="width:${Math.max(0, 100 - cpfCov65Pct)}%"></span>
             </div>
             <div class="fin-cov-legend">
-              <span><i style="background:#10B981;"></i>CPF LIFE <b>${cpfCov65Pct}%</b></span>
-              <span><i style="background:#2563EB;"></i><b>${m(s.gap65, "/mo")}</b> from savings, including SSBs (${Math.max(0, 100 - cpfCov65Pct)}%)</span>
+              <span><i style="background:var(--sem-cpf-ink);"></i>CPF LIFE <b>${cpfCov65Pct}%</b></span>
+              <span><i style="background:var(--ink-soft);"></i><b>${m(s.gap65, "/mo")}</b> needed after CPF LIFE (${Math.max(0, 100 - cpfCov65Pct)}%)</span>
             </div>
           </div>
         </div>
@@ -1567,49 +1617,9 @@ export function buildFinOverviewGrid(
     </div>
   </section>
 
-  <section class="brief-inputs" aria-label="Plan inputs and CPF target">
-      <div class="overview-cpf-strategy card-surface">
-        <div class="overview-strategy-header">
-          <h3 id="overview-cpf-strategy-label">CPF retirement sum</h3>
-          <div id="overview-cpf-strategy-options" data-cpf-strategy-group role="group" aria-labelledby="overview-cpf-strategy-label" aria-describedby="overview-cpf-strategy-help">
-            ${["brs", "frs", "ers"].map((path) => `<button type="button" class="button button-small" data-cpf-strategy="${path}" aria-pressed="${path === selected}">${path.toUpperCase()}</button>`).join("")}
-          </div>
-        </div>
-        <div class="overview-strategy-progress">
-          <strong><span id="overview-cpf-percent">${cpfProgress.percent}</span> of the ${strategyName} at age 55</strong>
-          ${fundingTrack(cpfProgress.pct)}
-          <span>${m(cpfProgress.balanceToday)} of ${m(cpfProgress.targetToday)} in today’s dollars</span>
-        </div>
-        <p id="overview-cpf-strategy-help" class="cpf-strategy-help">${selected === "brs" ? "BRS is a savings target. CPF savings above it can still flow into your Retirement Account up to FRS at 55." : "Changing this target keeps your savings and retirement budget fixed."}</p>
-      </div>
-      <div class="overview-plan-summary card-surface">
-        <h3>Plan inputs</h3>
-        <div class="overview-hero-summary">
-          <div><span>Pay after CPF</span> <strong>${m(r.afterCpf, "/mo")}</strong></div>
-          <div><span>Starting assets</span> <strong>${m(startingTotalAssets)}</strong></div>
-          ${budget == null ? "" : `<button type="button" class="text-button overview-budget-link" data-go-tab="budget"><span>Retirement budget ${svgWrap('<path d="M5 12h14m-6-6 6 6-6 6"/>', 14)}</span> <strong>${m(budget, "/mo")}</strong></button>`}
-        </div>
-        <details class="overview-asset-details" id="overview-starting-assets">
-          <summary>Starting asset breakdown</summary>
-          <dl>${[
-            ["Global equities", buckets.equities],
-            ["Singapore dividend holdings", buckets.sgDividends],
-            ["Cash and SSBs", buckets.ssbCash],
-            ["SRS", buckets.srs],
-            ["CPF balances", startingCpf],
-          ]
-            .map(
-              ([label, value]) =>
-                `<div><dt>${label}</dt><dd>${m(value)}</dd></div>`,
-            )
-            .join("")}</dl>
-        </details>
-      </div>
-  </section>
-
   <section class="swell-section-block" id="cpf-strategy-comparison" aria-label="CPF strategy paths and retirement income architecture">
     <div class="swell-section-head">
-      <h2>CPF Strategy &amp; Income Architecture</h2>
+      <h2>CPF strategy and income sources</h2>
     </div>
     <section class="fin-card fin-table-card card-surface swell-path-full-card" aria-labelledby="ledger-title">
       <div class="ember-card-head">
@@ -1710,7 +1720,7 @@ export function buildFinOverviewGrid(
   ${buildMoneyMovesStripHTML(moves.slice(0, 3))}
   <section class="swell-section-block overview-breakdown-section" aria-labelledby="overview-breakdown-title">
     <details class="overview-disclosure-card overview-detail card-surface" id="overview-portfolio-details">
-      <summary class="overview-disclosure-summary overview-section-summary"><h2 id="overview-breakdown-title">Portfolio &amp; Cashflow Breakdown</h2></summary>
+      <summary class="overview-disclosure-summary overview-section-summary"><h2 id="overview-breakdown-title">Portfolio and cashflow breakdown</h2></summary>
       <div class="overview-disclosure-body">
         <div class="overview-breakdown-edit-mobile"><button type="button" class="text-button" data-open-profile>Edit plan inputs</button></div>
         ${buildFinBentoGridHTML({
@@ -1774,7 +1784,7 @@ export function buildFinOverviewGrid(
             : (taps.tap2Srs.maxSrsStandalone ?? taps.tap2Srs.annualCap);
           let tap2BodyHTML;
           if (taps.tap2Srs.verdictStatus === "trap-alert") {
-            tap2BodyHTML = `<strong>Ballooning Trap Alert:</strong> Projected <strong>${m(taps.tap2Srs.projectedAt63)}</strong> nominal pot at age <strong>${taps.tap2Srs.startAge}</strong> exceeds ${srsTrapFloorCompact} (~<strong>${m(taps.tap2Srs.withdrawalTaxAnnual, "/yr")}</strong> withdrawal tax). Cap annual SRS at <strong>≤${m(taps.tap2Srs.maxSafeAnnualTo400k, "/yr")}</strong> and invest overflow in brokerage.`;
+            tap2BodyHTML = `<strong>Projected SRS withdrawal tax</strong> · The projected <strong>${m(taps.tap2Srs.projectedAt63)}</strong> nominal pot at age <strong>${taps.tap2Srs.startAge}</strong> exceeds ${srsTrapFloorCompact} (~<strong>${m(taps.tap2Srs.withdrawalTaxAnnual, "/yr")}</strong> withdrawal tax). Cap annual SRS at <strong>≤${m(taps.tap2Srs.maxSafeAnnualTo400k, "/yr")}</strong> and invest overflow in brokerage.`;
           } else if (taps.tap2Srs.verdictStatus === "idle-cash") {
             tap2BodyHTML = `<strong>Action needed:</strong> Your SRS (<strong>${m(taps.tap2Srs.srsBalanceToday)}</strong> balance${taps.tap2Srs.srsAnnualPlanned > 0 ? ` + ${m(taps.tap2Srs.srsAnnualPlanned, "/yr")}` : ""}) is set to <strong>0.05% idle cash</strong>. Switch SRS mode to Global ETFs, 60/40, or SSBs so inflation doesn’t erode your tax relief.`;
           } else if (taps.tap2Srs.verdictStatus === "cap-full") {
@@ -1784,9 +1794,9 @@ export function buildFinOverviewGrid(
           } else if (taps.tap2Srs.verdictStatus === "rstu-first") {
             tap2BodyHTML = `At your <strong>${srsMarginalPct}%</strong> IRAS bracket, <strong>prioritize CPF RSTU first</strong> (up to <strong>${m(taps.tap2Srs.maxRstu, "/yr")}</strong> → saves <strong>${m(taps.tap2Srs.rstuTaxSaved, "/yr")}</strong> + 4% floor) before locking cash in SRS${taps.tap2Srs.srsAnnualPlanned > 0 ? ` (currently ${m(taps.tap2Srs.srsAnnualPlanned, "/yr")} → ${m(taps.tap2Srs.tenYearMonthlyDrawToday, "/mo")} bridge)` : ""}.`;
           } else if (taps.tap2Srs.srsAnnualPlanned > 0) {
-            tap2BodyHTML = `At your <strong>${srsMarginalPct}%</strong> IRAS bracket, SRS is <strong>worth it</strong>: contributing <strong>${m(taps.tap2Srs.srsAnnualPlanned, "/yr")}</strong> builds <strong>${m(taps.tap2Srs.projectedAt63Today)}</strong> (today’s $) by <strong>${taps.tap2Srs.startAge}</strong> (<strong>${m(taps.tap2Srs.tenYearMonthlyDrawToday, "/mo")}</strong> 10-yr bridge, ≤$40k/yr nominal tax-free).`;
+            tap2BodyHTML = `At your <strong>${srsMarginalPct}%</strong> marginal tax rate, the model projects that SRS contributions of <strong>${m(taps.tap2Srs.srsAnnualPlanned, "/yr")}</strong> would grow to <strong>${m(taps.tap2Srs.projectedAt63Today)}</strong> (today’s $) by age <strong>${taps.tap2Srs.startAge}</strong> (<strong>${m(taps.tap2Srs.tenYearMonthlyDrawToday, "/mo")}</strong> over 10 years). For reference, up to $40,000/yr in nominal withdrawals can be tax-free if you have no other taxable income.`;
           } else {
-            tap2BodyHTML = `At your <strong>${srsMarginalPct}%</strong> IRAS bracket, SRS is <strong>worth it</strong> — saves up to <strong>${m(srsTaxSavedVal, "/yr")}</strong> tax on <strong>${m(srsEligibleCap, "/yr")}</strong> (after RSTU). Add an annual SRS contribution in <strong>Tax Relief</strong> and invest it immediately.`;
+            tap2BodyHTML = `At your <strong>${srsMarginalPct}%</strong> IRAS bracket, SRS could save up to <strong>${m(srsTaxSavedVal, "/yr")}</strong> tax on <strong>${m(srsEligibleCap, "/yr")}</strong> (after RSTU). Add an annual SRS contribution in <strong>Tax &amp; SRS</strong> and invest it immediately.`;
           }
           return [
             buildRetirementIncomeTile({
@@ -1802,7 +1812,7 @@ export function buildFinOverviewGrid(
                   : null,
               detailsLabel: "CPF LIFE and OA withdrawal rules",
               detailsHTML: `<p>The <strong>${selectedPathName}</strong> pays <strong>${m(taps.tap1Cpf.monthlyPayoutToday, "/mo")}</strong> from age 65 (${r.plan === "escalating" ? "Escalating +2%/yr" : "Standard"}). 2026 anchors: BRS $950 · FRS $1,780 · ERS $3,440/mo.</p>
-                <p>Projected liquid OA at 55: <strong>${m(taps.tap1Cpf.oaAt55Today)}</strong> today’s value (${m(taps.tap1Cpf.oaAt55Nominal)} nominal), earning <strong>${m(taps.tap1Cpf.oaInterestMonthlyToday, "/mo")}</strong> at 2.5% p.a. OA is withdrawable once FRS is met. As a reference, ${m(taps.tap1Cpf.oa500kRefBalance)} in OA earns about ${m(taps.tap1Cpf.oa500kRefMonthly, "/mo")}.</p>`,
+                <p>Projected withdrawable OA at age 55: <strong>${m(taps.tap1Cpf.oaAt55Today)}</strong> today’s value (${m(taps.tap1Cpf.oaAt55Nominal)} nominal), earning <strong>${m(taps.tap1Cpf.oaInterestMonthlyToday, "/mo")}</strong> at 2.5% p.a. OA is withdrawable once FRS is met. As a reference, ${m(taps.tap1Cpf.oa500kRefBalance)} in OA earns about ${m(taps.tap1Cpf.oa500kRefMonthly, "/mo")}.</p>`,
             }),
             buildRetirementIncomeTile({
               title: "Bridge income with SRS",

@@ -1014,7 +1014,7 @@
                       <div class="trajectory-head">
                         <div>
                           <h2 id="trajectory-title">
-                            Cashflow &amp; Wealth Trajectory
+                            Cashflow and wealth
                           </h2>
                           <p class="trajectory-desc">
                             Explore monthly income and spending, or see how your savings change over time.
@@ -1033,7 +1033,7 @@
                               data-chart-mode="networth"
                               aria-pressed="false"
                             >
-                              Net Worth
+                              Projected net worth
                             </button>
                             <button
                               type="button"
@@ -1042,7 +1042,7 @@
                               data-chart-mode="waterfall"
                               aria-pressed="false"
                             >
-                              Waterfall (50–85)
+                              Income &amp; withdrawals
                             </button>
                             <button
                               type="button"
@@ -1051,7 +1051,7 @@
                               data-chart-mode="cashflow"
                               aria-pressed="true"
                             >
-                              Monthly Cashflow
+                              Monthly cashflow
                             </button>
                             <button
                               type="button"
@@ -1060,7 +1060,7 @@
                               data-chart-mode="portfolio"
                               aria-pressed="false"
                             >
-                              Portfolio Balance
+                              Portfolio + CPF OA
                             </button>
                           </div>
                           <div
@@ -1075,7 +1075,7 @@
                               aria-pressed="true"
                               title="Inflation-adjusted purchasing power in today’s dollars"
                             >
-                              Today’s $
+                              Today’s dollars
                             </button>
                             <button
                               type="button"
@@ -1084,7 +1084,7 @@
                               aria-pressed="false"
                               title="Nominal future statement dollars before discounting inflation"
                             >
-                              Future $
+                              Future dollars
                             </button>
                           </div>
                         </div>
@@ -1095,7 +1095,7 @@
                           class="chart-area"
                           role="group"
                           aria-label="Retirement trajectory chart"
-                          aria-describedby="trajectory-keyboard-help"
+                          aria-describedby="trajectory-chart-note trajectory-keyboard-help"
                         ></div>
                         <div
                           id="chart-tooltip"
@@ -1104,6 +1104,7 @@
                         ></div>
                       </div>
                       <div class="chart-legend" id="chart-legend"></div>
+                      <p class="trajectory-chart-note" id="trajectory-chart-note"></p>
                       <p class="traj-click-hint" id="trajectory-click-hint">
                         Select an age on the chart or in the yearly table to see
                         that year’s CPF and withdrawal breakdown.
@@ -1115,11 +1116,11 @@
                       <div
                         id="trajectory-year-inspector"
                         role="region"
-                        aria-label="Single-year cashflow and CPF audit inspector"
+                        aria-label="Year breakdown"
                         hidden
                       ></div>
                       <details class="result-details">
-                        <summary>Explore the yearly figures table</summary>
+                        <summary>View yearly figures</summary>
                         <p id="trajectory-table-note"></p>
                         <div
                           class="data-scroll"
@@ -1132,13 +1133,7 @@
                               Yearly plan figures
                             </caption>
                             <thead>
-                              <tr>
-                                <th scope="col">Age / year</th>
-                                <th scope="col">Spending / month</th>
-                                <th scope="col">CPF / month</th>
-                                <th scope="col">Outside funding / month</th>
-                                <th scope="col">Portfolio</th>
-                              </tr>
+                              <tr id="trajectory-columns"></tr>
                             </thead>
                             <tbody id="trajectory-values"></tbody>
                           </table>
@@ -1837,7 +1832,7 @@
     >
       <div class="settings-head">
         <div>
-          <h2 id="settings-title">Model Assumptions</h2>
+          <h2 id="settings-title">Model assumptions</h2>
         </div>
         <button
           class="dialog-dismiss"
@@ -2063,7 +2058,7 @@
     >
       <div class="settings-head">
         <div>
-          <h2 id="quick-edit-title">Edit Retirement Plan</h2>
+          <h2 id="quick-edit-title">Edit retirement plan</h2>
         </div>
         <button
           class="dialog-dismiss"
@@ -2482,7 +2477,7 @@
     >
       <div class="settings-head">
         <div>
-          <h2 id="expense-modal-title">Retirement Budget</h2>
+          <h2 id="expense-modal-title">Retirement budget</h2>
         </div>
         <button
           class="dialog-dismiss"

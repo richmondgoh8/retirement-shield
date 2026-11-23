@@ -107,7 +107,7 @@ function buildDividendBenchmarksHTML(divModel) {
   return `
     <div class="rules-card-head">
       <div>
-        <h2 id="div-bench-title">How ${m(divModel.capital)} Performs Across Singapore Yield Tiers</h2>
+        <h2 id="div-bench-title">Income from ${m(divModel.capital)} at different yields</h2>
         <p>Compare each Singapore benchmark tier against your selected <strong>${divModel.ratePct.toFixed(2)}% p.a.</strong> (${centsHtml(divModel.monthlyPayout)}/mo).</p>
       </div>
       <span class="fin-target-pill">Capital: ${m(divModel.capital)}</span>
@@ -231,7 +231,7 @@ function buildTargetBenchmarksHTML(targetModel) {
   return `
     <div class="rules-card-head">
       <div>
-        <h2 id="div-bench-title">Capital Required for ${m(targetModel.targetMonthly, "/mo")} Across Singapore Yield Tiers</h2>
+        <h2 id="div-bench-title">Capital needed for ${m(targetModel.targetMonthly, "/mo")}</h2>
         <p>Higher yield requires a smaller lump sum, but going above <strong>6.0% p.a.</strong> increases NAV erosion and dividend cut risk.</p>
       </div>
       <span class="fin-target-pill">Goal: ${m(targetModel.targetMonthly, "/mo")}</span>
@@ -388,7 +388,7 @@ function buildAnnuityBenchmarksHTML(annuityModel) {
   return `
     <div class="rules-card-head">
       <div>
-        <h2 id="div-bench-title">Quoted Annuity vs DIY Investing (${m(annuityModel.monthlyContribution, "/mo")} for ${annuityModel.contributeYears} Yrs)</h2>
+        <h2 id="div-bench-title">Quoted annuity or self-directed investing (${m(annuityModel.monthlyContribution, "/mo")} for ${annuityModel.contributeYears} years)</h2>
         <p>See what happens if you invest the exact same <strong>${m(annuityModel.monthlyContribution, "/mo")}</strong> yourself over <strong>${annuityModel.contributeYears} years</strong>${annuityModel.deferYears > 0 ? ` + ${annuityModel.deferYears} deferment years` : ""} and draw down over <strong>${annuityModel.payoutYears} years</strong>.</p>
       </div>
       <span class="fin-target-pill">Total Premium: ${m(annuityModel.totalPrincipalPaid)}</span>
@@ -610,7 +610,7 @@ function buildDividendCalculatorSection({
       <section class="div-annuity-card div-annuity-card-primary">
         <div class="div-annuity-card-head">
           <div>
-            <h2 id="div-calc-heading">Contribution &amp; Timeline</h2>
+            <h2 id="div-calc-heading">Contribution and timeline</h2>
             <p>Premium schedule and accumulation horizon</p>
           </div>
           <div class="div-segmented-inline" role="group" aria-label="Premium payment mode">
@@ -658,7 +658,7 @@ function buildDividendCalculatorSection({
       <section class="div-annuity-card">
         <div class="div-annuity-card-head">
           <div>
-            <h2>Guaranteed Payout</h2>
+            <h2>Guaranteed payout</h2>
             <p>Base contract payout excluding bonuses</p>
           </div>
         </div>
@@ -674,7 +674,7 @@ function buildDividendCalculatorSection({
       <details class="div-annuity-card div-annuity-bonus-card" open>
         <summary class="div-annuity-card-head">
           <div>
-            <h2>Non-Guaranteed Bonuses</h2>
+            <h2>Non-guaranteed bonuses</h2>
             <p>Optional participating dividends and maturity benefit</p>
           </div>
           <span class="div-annuity-disclosure" aria-hidden="true"></span>

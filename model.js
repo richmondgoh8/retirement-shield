@@ -4368,18 +4368,12 @@
     const targetEqPct = Math.round(hol.targetEquityPct ?? 80);
     const targetBondPct = Math.round(hol.targetBondPct ?? 20);
     const effEqPct = Math.round(hol.effectiveEquityPct ?? 0);
-    const effBondPct = Math.round(hol.effectiveBondPct ?? 0);
     const eqDeltaPct = effEqPct - targetEqPct;
     const mixDeltaText =
       Math.abs(eqDeltaPct) <= 3
-        ? effEqPct + "% Eq · On target"
-        : effEqPct +
-          "% vs " +
-          targetEqPct +
-          "% (" +
-          (eqDeltaPct > 0 ? "+" : "") +
-          eqDeltaPct +
-          "% Eq)";
+        ? "Equity mix on target"
+        : Math.abs(eqDeltaPct) + " percentage points " +
+          (eqDeltaPct > 0 ? "above" : "below") + " equity target";
 
     const marginalPct = tax?.taxBefore
       ? (tax.taxBefore.marginalRate * 100).toFixed(1).replace(/\.0$/, "") + "%"
@@ -4511,7 +4505,7 @@
 
     const actionRows = [
       {
-        label: "1 · HYSA & SSB Buffer",
+        label: "1 · Emergency savings",
         tag: "6–12m + $" + Math.round(C.ssbTargetBuffer / 1000) + "k SSB",
         value:
           fmtSgd(guide?.emergencyMin ?? r.todaySpend * 6) +
@@ -4524,20 +4518,12 @@
           "k",
       },
       {
-        label: "2 · Holistic Mix (" + targetEqPct + "/" + targetBondPct + ")",
-        tag:
-          effEqPct +
-          "% Eq (" +
-          (hol.globalEquitySplitPct ?? C.defaultGlobalEquitySplitPct) +
-          "/" +
-          (hol.sgEquitySplitPct ?? C.defaultSgDividendSplitPct) +
-          " G/SG) · " +
-          effBondPct +
-          "% Bond",
+        label: "2 · Target mix: " + targetEqPct + "% equities, " + targetBondPct + "% bonds",
+        tag: "Equity split: " + (hol.globalEquitySplitPct ?? C.defaultGlobalEquitySplitPct) + "% global, " + (hol.sgEquitySplitPct ?? C.defaultSgDividendSplitPct) + "% Singapore",
         value: mixDeltaText,
       },
       {
-        label: "3 · Monthly Split",
+        label: "3 · Monthly investment split",
         tag: r.retiringNow ? "Future saving" : "Invest / mo",
         value: monthlySplitValue,
       },
@@ -4560,7 +4546,7 @@
             : ""),
       },
       {
-        label: "5 · Age-" + retireAge + " Target",
+        label: "5 · Savings needed at age " + retireAge,
         tag:
           taps.tap1Cpf.oaAt55Today > 0
             ? (basis === "nominal" ? "Nominal $ · +" : "Today’s $ · +") +
@@ -4571,8 +4557,8 @@
               ) +
               "/mo 55 OA"
             : basis === "nominal"
-              ? "Nominal $ · 4-Tap Floor"
-              : "Today’s $ · 4-Tap Floor",
+              ? "Nominal $ · retirement funding"
+              : "Today’s $ · retirement funding",
         value: fmtSgd(outsideNeed) + " out + " + fmtSgd(cpfAtRetire) + " CPF",
       },
     ];
@@ -4606,11 +4592,7 @@
       hasCustomSaving,
       monthlySave,
       pctOfPay,
-      savingKpiLabel: r.retiringNow
-        ? "Outside Need Now"
-        : hasCustomSaving
-          ? "Planned Monthly Save"
-          : "Monthly Saving Target",
+      savingKpiLabel: r.retiringNow ? "Capital needed now" : "Monthly saving assumed",
       savingKpiPill: r.retiringNow
         ? s.remainingPortfolioGap > 0.5
           ? "Gap " + fmtSgd(s.remainingPortfolioGap)

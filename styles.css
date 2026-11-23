@@ -30,6 +30,8 @@
   --raw-amber-200: #fde68a;
   --raw-amber-600: #d97706;
   --raw-amber-700: #b45309;
+  --raw-teal-50: #f0fdfa;
+  --raw-teal-200: #99f6e4;
   --raw-teal-700: #0f766e;
   --raw-red-50: #fef2f2;
   --raw-red-200: #fecaca;
@@ -69,6 +71,13 @@
   --text-xl: 1.5rem;
   --text-2xl: 2rem;
   --text-display: 2.5rem;
+  --text-page-title: clamp(1.5rem, 1.15rem + 1.2vw, 2.15rem);
+  --text-card-title: 1.0625rem;
+  --text-dialog-title: 1.25rem;
+  --text-chart-label: 0.75rem;
+  --weight-page-title: 720;
+  --weight-title: 700;
+  --leading-title: 1.2;
   --leading-tight: 1.12;
   --leading-snug: 1.28;
   --leading-normal: 1.55;
@@ -109,6 +118,8 @@
   --sem-emerald: var(--raw-emerald-500);
   --sem-coral: var(--raw-orange-500);
   --sem-teal: var(--raw-teal-700);
+  --sem-teal-soft: var(--raw-teal-50);
+  --sem-teal-border: var(--raw-teal-200);
   --sem-cash: var(--raw-amber-600);
   --sem-cash-ink: var(--raw-amber-700);
   --sem-cash-soft: var(--raw-amber-50);
@@ -1418,6 +1429,13 @@ h3 {
   color: var(--ink-soft);
 }
 
+.goal-choice-action {
+  align-self: end;
+  padding-top: 0.25rem;
+  color: var(--primary-ink);
+  font-weight: 700;
+}
+
 .goal-choices small,
 .tax-metric-box dd small {
   display: block;
@@ -1607,8 +1625,8 @@ h3 {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  color: var(--ink-muted);
-  font-size: 0.8rem;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
   font-weight: 500;
 }
 
@@ -1659,14 +1677,25 @@ h3 {
 }
 
 .trajectory-head h2 {
-  font-size: 1.28rem;
+  font-size: var(--text-card-title);
+  font-weight: var(--weight-title);
   margin: 0 0 0.25rem;
 }
 
-.trajectory-desc {
+.trajectory-desc,
+.trajectory-chart-note,
+.overview-networth-note {
   color: var(--ink-soft);
-  font-size: 0.86rem;
+  font-size: var(--text-sm);
   margin: 0;
+}
+
+.trajectory-chart-note:not(:empty) {
+  margin-block: 0.375rem 0.75rem;
+}
+
+.overview-networth-note {
+  max-inline-size: 62ch;
 }
 
 .btn-group {
@@ -1721,6 +1750,10 @@ h3 {
   touch-action: pan-y;
 }
 
+.chart-axis-label {
+  font-size: var(--text-chart-label);
+}
+
 .chart-tooltip {
   position: absolute;
   pointer-events: none;
@@ -1730,12 +1763,13 @@ h3 {
   border: 1px solid var(--border-strong);
   padding: 10px 13px;
   border-radius: var(--radius-sm);
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   line-height: 1.45;
   box-shadow: var(--popover-shadow);
   transform: translate(-50%, -112%);
   transition: opacity 150ms ease-out;
-  white-space: nowrap;
+  max-inline-size: calc(100% - 16px);
+  overflow-wrap: anywhere;
 }
 
 .tt-head {
@@ -1780,7 +1814,7 @@ h3 {
   align-items: center;
   justify-content: center;
   gap: 8px 10px;
-  font-size: 0.81rem;
+  font-size: var(--text-sm);
   color: var(--ink-soft);
   padding: 6px 0 10px;
 }
@@ -1789,6 +1823,51 @@ h3 {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+}
+
+.legend-line {
+  display: inline-block;
+  inline-size: 18px;
+  block-size: 8px;
+  flex: none;
+}
+
+.legend-line:is(.is-spending, .is-retirement, .is-portfolio) {
+  block-size: 0;
+  border-block-start: 2px solid var(--ink-soft);
+}
+
+.legend-line.is-spending {
+  border-block-start-style: dashed;
+}
+
+.legend-line.is-retirement {
+  border-block-start: 2px dotted var(--swell-pink-ink);
+}
+
+.legend-swatch.is-work-income {
+  background-image: repeating-linear-gradient(
+    125deg,
+    var(--ink) 0 2px,
+    transparent 2px 4px
+  );
+  border: 1px solid var(--ink);
+}
+
+@media (forced-colors: active) {
+  .chart-area :is(.chart-axis-label, .nw-milestone-flag text, .nw-callout-pill text) {
+    fill: CanvasText;
+  }
+
+  .chart-area :is(.nw-milestone-flag rect, .nw-callout-pill rect) {
+    fill: Canvas;
+    stroke: CanvasText;
+  }
+
+  .chart-area .nw-band-stroke,
+  .legend-line path {
+    stroke: CanvasText;
+  }
 }
 
 .legend-chip {
@@ -1962,7 +2041,9 @@ h3 {
 }
 
 .settings-head h2 {
-  font-size: 1.4rem;
+  font-size: var(--text-dialog-title);
+  font-weight: var(--weight-title);
+  line-height: var(--leading-title);
   margin: 0;
 }
 
@@ -3438,6 +3519,10 @@ h3 {
   color: var(--sem-cash-ink);
 }
 
+.sem-srs {
+  color: var(--sem-srs);
+}
+
 .curr-muted {
   color: var(--ink-muted);
   font-weight: 500;
@@ -3767,7 +3852,8 @@ h3 {
 .priority-guide-intro h2 {
   margin: 0;
   color: var(--ink);
-  font-size: 1.08rem;
+  font-size: var(--text-card-title);
+  font-weight: var(--weight-title);
 }
 
 .priority-guide-intro p,
@@ -4054,10 +4140,10 @@ h3 {
 .fin-page-header h1,
 .fin-header-copy h1 {
   margin: 0;
-  font-size: clamp(1.5rem, 1.15rem + 1.2vw, 2.15rem);
-  font-weight: 720;
+  font-size: var(--text-page-title);
+  font-weight: var(--weight-page-title);
   letter-spacing: -0.025em;
-  line-height: 1.2;
+  line-height: var(--leading-title);
   color: var(--ink);
   max-width: none;
 }
@@ -4065,7 +4151,7 @@ h3 {
 .ember-header-main p,
 .fin-header-copy p {
   margin: 0;
-  font-size: 0.86rem;
+  font-size: var(--text-sm);
   color: var(--ink-soft);
 }
 
@@ -4562,8 +4648,8 @@ h3 {
 .ember-card-head h2,
 .ember-card-head h3 {
   margin: 0 0 2px;
-  font-size: 1.02rem;
-  font-weight: 600;
+  font-size: var(--text-card-title);
+  font-weight: var(--weight-title);
   color: var(--ink);
 }
 
@@ -4822,8 +4908,8 @@ h3 {
 .fin-activity-head h2,
 .fin-activity-head h3 {
   margin: 0;
-  font-size: 1.02rem;
-  font-weight: 600;
+  font-size: var(--text-card-title);
+  font-weight: var(--weight-title);
   color: var(--ink);
 }
 
@@ -4928,13 +5014,13 @@ h3 {
 }
 
 .fin-cov-cpf {
-  background: var(--sem-emerald);
+  background: var(--sem-cpf-ink);
   border-radius: var(--radius-pill) 0 0 var(--radius-pill);
   transition: width 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .fin-cov-out {
-  background: var(--primary);
+  background: var(--ink-soft);
   border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
   transition: width 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -4983,8 +5069,8 @@ h3 {
 .fin-gauge-head h2,
 .fin-gauge-head h3 {
   margin: 0;
-  font-size: 1.02rem;
-  font-weight: 600;
+  font-size: var(--text-card-title);
+  font-weight: var(--weight-title);
   color: var(--ink);
 }
 
@@ -5096,8 +5182,8 @@ h3 {
 
 .swell-section-head h2 {
   margin: 0;
-  font-size: 1.06rem;
-  font-weight: 700;
+  font-size: var(--text-card-title);
+  font-weight: var(--weight-title);
   letter-spacing: -0.02em;
   color: var(--ink);
 }
@@ -7863,8 +7949,8 @@ h3 {
 
 .confirm-dialog-head h2 {
   margin: 0;
-  font-size: 1.02rem;
-  font-weight: 700;
+  font-size: var(--text-dialog-title);
+  font-weight: var(--weight-title);
   flex: 1;
 }
 
@@ -9631,7 +9717,7 @@ h3 {
   margin: 0;
   padding: 12px 16px;
   color: var(--ink);
-  font-size: 1.02rem;
+  font-size: var(--text-card-title);
   border-bottom: 1px solid var(--border);
 }
 
@@ -9935,43 +10021,6 @@ code {
 /* ============================================================================
    GOLD-STANDARD WEALTH DASHBOARD UPGRADES (MERCURY, PROJECTIONLAB, COPILOT, FINARY)
    ============================================================================ */
-
-/* 1. Mercury-Style Live Header Scrubbing on Net Worth Card */
-.nw-live-scrub-pill {
-  padding: 1px 7px;
-  margin-left: 6px;
-  background: var(--swell-pink-soft);
-  border: 1px solid var(--swell-pink-border);
-  color: var(--swell-pink-ink);
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  vertical-align: middle;
-}
-
-.nw-live-breakdown {
-  font-size: 0.76rem;
-  color: var(--ink-soft);
-}
-
-.nw-live-breakdown > b {
-  color: var(--ink);
-  font-weight: 700;
-}
-
-.swell-bar-col rect {
-  transition:
-    opacity var(--duration-fast) ease,
-    filter var(--duration-fast) ease;
-}
-
-.swell-bar-col.is-scrub-active rect {
-  opacity: 1;
-  filter: brightness(1.08);
-  stroke: var(--swell-pink-ink);
-  stroke-width: 1.2px;
-}
 
 /* 2. Endowus / ProjectionLab Guaranteed Sovereign Floor vs Market Drawdown Split Bar */
 .fin-security-split-bar {
@@ -10539,7 +10588,7 @@ code {
   .poster-sheet {
     display: flex;
     flex-direction: column;
-    gap: 4.5px;
+    gap: 3px;
     width: 100%;
   }
 
@@ -10797,13 +10846,17 @@ code {
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-md);
     background: var(--surface);
-    padding: 6.5px 9px;
+    padding: 5px 9px;
     min-width: 0;
     break-inside: avoid;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    gap: 5px;
+    gap: 3px;
+  }
+
+  .poster-nw-card {
+    gap: 3px;
   }
 
   .poster-chart-card h3,
@@ -10863,45 +10916,11 @@ code {
     white-space: nowrap;
   }
 
-  .poster-swell-keys {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    font-size: 6.5pt;
-    font-weight: 600;
+  .poster-chart-note {
     color: var(--ink-soft);
-    flex-shrink: 0;
-  }
-
-  .poster-swell-keys > span {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    white-space: nowrap;
-  }
-
-  .poster-swell-keys i.is-pink {
-    width: 6.5px;
-    height: 6.5px;
-    border-radius: 2px;
-    background: var(--swell-pink-bright);
-    display: inline-block;
-  }
-
-  .poster-swell-keys i.is-slate {
-    width: 6.5px;
-    height: 6.5px;
-    border-radius: 2px;
-    background: #68768a;
-    display: inline-block;
-  }
-
-  .poster-swell-keys i.is-line {
-    width: 10px;
-    height: 2px;
-    border-radius: var(--radius-pill);
-    background: var(--primary);
-    display: inline-block;
+    font-size: 6.5pt;
+    line-height: 1.25;
+    margin: 0;
   }
 
   .poster-chart-svg {
@@ -10910,11 +10929,11 @@ code {
     align-items: center;
   }
 
-  .poster-chart-svg svg {
+  .poster-chart-svg > svg {
     display: block;
     width: 100%;
     height: auto;
-    max-height: 40mm;
+    max-height: 36mm;
   }
 
   .poster-panel-head {
@@ -10932,6 +10951,14 @@ code {
     font-weight: 600;
     color: var(--ink-soft);
     white-space: nowrap;
+  }
+
+  .poster-chart-svg .chart-axis-label {
+    font-size: 15px;
+  }
+
+  .poster-chart-legend .legend-line {
+    inline-size: 14px;
   }
 
   .poster-chart-legend {
@@ -11070,8 +11097,8 @@ code {
   }
 
   .poster-readiness-card .swell-gauge-svg {
-    width: 152px;
-    height: 88px;
+    width: 100px;
+    height: 56px;
   }
 
   .poster-readiness-card .swell-gauge-status {
@@ -11107,6 +11134,10 @@ code {
     justify-content: space-between;
     align-items: baseline;
     color: var(--ink-soft);
+  }
+
+  .poster-readiness-card .poster-gauge-facts {
+    font-size: 8pt;
   }
 
   .poster-gauge-fact strong {
@@ -11303,7 +11334,7 @@ code {
     justify-content: space-between;
     align-items: baseline;
     gap: 4px;
-    padding: 3.5px 6px;
+    padding: 2px 6px;
     border-radius: 4px;
     background: var(--surface-subtle);
     border: 1px solid var(--border);
@@ -11330,7 +11361,7 @@ code {
   .poster-mini-table th,
   .poster-mini-table td {
     border: 1px solid var(--border);
-    padding: 3.5px 4.5px;
+    padding: 2px 4.5px;
     text-align: left;
     white-space: nowrap;
   }
@@ -11486,7 +11517,8 @@ code {
 
 .cash-comparison-title {
   margin-block: 24px 12px;
-  font-size: 1.02rem;
+  font-size: var(--text-card-title);
+  font-weight: var(--weight-title);
 }
 
 .cash-accounts-disclosure {
@@ -11867,8 +11899,8 @@ code {
 
 #overview-slot :is(.swell-section-head h2, .fin-expense-title-row h2) {
   margin: 0;
-  font-size: 1.06rem;
-  font-weight: 700;
+  font-size: var(--text-card-title);
+  font-weight: var(--weight-title);
   letter-spacing: -0.02em;
   color: var(--ink);
 }
@@ -12222,11 +12254,15 @@ code {
   scroll-margin-block-start: 5rem;
 }
 
-.overview-plan-summary h3,
-.overview-strategy-header h3 {
+.overview-strategy-header h2 {
   margin: 0;
   font-size: 1rem;
   font-weight: 750;
+}
+
+.overview-edit-retirement-age {
+  align-self: flex-start;
+  min-block-size: 44px;
 }
 
 .overview-asset-details {
@@ -12782,8 +12818,8 @@ code {
   :is(.overview-chart-head h3, .fin-activity-head h3, #ledger-title) {
   margin: 0;
   color: var(--ink);
-  font-size: 1.02rem;
-  font-weight: 700;
+  font-size: var(--text-card-title);
+  font-weight: var(--weight-title);
 }
 
 .overview-chart-head .fin-big-figure {
@@ -13015,8 +13051,8 @@ code {
 
 .overview-breakdown-label {
   margin: 0 0 4px;
-  font-size: 1.02rem;
-  font-weight: 700;
+  font-size: var(--text-card-title);
+  font-weight: var(--weight-title);
 }
 
 .overview-cashflow > .text-button {
@@ -13064,7 +13100,7 @@ code {
 }
 
 #overview-slot .overview-income-tile h3 {
-  font-size: 1.02rem;
+  font-size: var(--text-card-title);
 }
 
 .overview-income-figure {
@@ -14220,6 +14256,8 @@ code {
 
 .settings-card-heading h2 {
   margin: 0;
+  font-size: var(--text-card-title);
+  font-weight: var(--weight-title);
 }
 
 .settings-value-card {

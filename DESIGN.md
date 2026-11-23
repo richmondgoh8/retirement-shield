@@ -25,6 +25,8 @@ primitives:
     amber-200: "#fde68a"
     amber-600: "#d97706"
     amber-700: "#b45309"
+    teal-50: "#f0fdfa"
+    teal-200: "#99f6e4"
     teal-700: "#0f766e"
     red-50: "#fef2f2"
     red-200: "#fecaca"
@@ -80,6 +82,8 @@ semantic:
     asset-srs: "{primitives.colors.violet-600}" # --sem-srs
     asset-cash: "{primitives.colors.amber-600}" # --sem-cash
     asset-oa-post55: "{primitives.colors.teal-700}" # --sem-teal
+    asset-oa-soft: "{primitives.colors.teal-50}" # --sem-teal-soft
+    asset-oa-border: "{primitives.colors.teal-200}" # --sem-teal-border
     status-good-fg: "{primitives.colors.emerald-700}" # --sem-cpf-ink (5.21:1 on #ecfdf5)
     status-good-bg: "{primitives.colors.emerald-50}" # --sem-cpf-soft
     status-good-border: "{primitives.colors.emerald-200}" # --sem-cpf-border
@@ -124,16 +128,22 @@ typography:
     letterSpacing: "-0.03em"
   headline:
     fontFamily: "Inter Variable, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "1.55rem"
-    fontWeight: 750
-    lineHeight: 1.18
+    fontSize: "clamp(1.5rem, 1.15rem + 1.2vw, 2.15rem)" # --text-page-title
+    fontWeight: 720 # --weight-page-title
+    lineHeight: 1.2 # --leading-title
     letterSpacing: "-0.025em"
   title:
     fontFamily: "Inter Variable, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "1.02rem"
-    fontWeight: 700
+    fontSize: "1.0625rem" # --text-card-title
+    fontWeight: 700 # --weight-title
     lineHeight: 1.3
     letterSpacing: "-0.015em"
+  dialog-title:
+    fontSize: "1.25rem" # --text-dialog-title
+    fontWeight: 700 # --weight-title
+    lineHeight: 1.2 # --leading-title
+  chart-label:
+    fontSize: "0.75rem" # --text-chart-label
   body:
     fontFamily: "Inter Variable, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.9375rem"
@@ -283,7 +293,7 @@ The palette balances authoritative cobalt action controls and signature Swell ro
 
 ### Named Rules
 
-**The Semantic Asset Invariant Rule.** Every wealth bucket owns one immutable color across all 7 workspace views, all 4 modals, and the A4 Print Summary (`CPF = Emerald`, `Equities = Cobalt/Sky`, `SRS = Violet`, `Cash/SSB = Amber`, `Post-55 OA Tap = Teal`, `Deficit/Trap = Crimson`). Never repurpose Shortfall Crimson (`#dc2626`) for safe Cash/SSB buffers or swap CPF and Equities colors between adjacent widgets.
+**The Semantic Asset Invariant Rule.** Every wealth bucket owns one immutable color across the workspace, dialogs, and the A4 print summary (`CPF = Emerald`, `Equities = Cobalt/Sky`, `SRS = Violet`, `Cash/SSB = Amber`, `Post-55 OA Tap = Teal`, `Deficit/Trap = Crimson`). Never repurpose Shortfall Crimson (`#dc2626`) for safe Cash/SSB buffers or swap CPF and Equities colors between adjacent widgets.
 
 **The Rose Restraint Rule.** Swell Rose (`#e83e8c` / `#ec4899`) marks brand identity, active navigation cues, and the print action—never validation errors or body paragraphs. Whenever rose text appears on `#fdf2f8`, use Deep Rose Ink (`#be185d`, `5.53:1`) so small label contrast stays comfortably above `4.5:1`.
 
@@ -298,8 +308,8 @@ The palette balances authoritative cobalt action controls and signature Swell ro
 ### Hierarchy
 
 - **Display** (`800`, `clamp(1.65rem, 2.6vw, 2.15rem)`, line-height `1.08`, tracking `-0.03em`): Hero retirement readiness figures, primary KPI headline numbers, and modal summary totals.
-- **Headline** (`600–750`, `clamp(1.38rem, 2.2vw, 1.62rem)`, line-height `1.2`, tracking `-0.025em`): Canonical `.fin-page-header h1` / `.ember-header-main h1` / `.fin-header-copy h1` across all 7 workspace views (`Overview`, `Trajectory`, `Allocator`, `Dividend & Yield`, `Cash Parking`, `Tax Relief`, `CPF Milestones`) and `My Settings`.
-- **Title** (`700`, `0.98rem–1.08rem`, line-height `1.3`, tracking `-0.015em`): Bento card headers, `<dialog>` modal titles, and 4-Tap card headings.
+- **Page heading** uses `--text-page-title`, `--weight-page-title`, and `--leading-title` for the main heading in every workspace view.
+- **Card title** uses `--text-card-title` and `--weight-title`. **Dialog title** uses `--text-dialog-title` with the same title weight.
 - **Body** (`450–500`, `0.9375rem` / `15px`, line-height `1.55`, max measure `68ch`): Explanatory guidance, assumption notes, and form field inputs.
 - **Label** (`650–700`, `0.72rem–0.78rem`, line-height `1.25`, tracking `0.02em–0.05em`): Table column headers, status pills, sidebar badges, and chart axis labels (`>= 6.5pt` minimum after scaling in `@media print`).
 
@@ -307,7 +317,13 @@ The palette balances authoritative cobalt action controls and signature Swell ro
 
 **The Tabular Currency Rule.** Use tabular numerals for amounts, percentages, ages, and countdowns. Wrap currency amounts in `.curr-wrap` and use size and weight to distinguish their units and decimal digits. Keep unit and decimal text at full opacity for readability.
 
-**The Single H1 Scale Rule.** Every workspace tab opens with one `.fin-page-header` using the exact same `clamp(1.38rem, 2.2vw, 1.62rem)` `<h1>` scale (applied uniformly to `.ember-header-main h1`, `.fin-page-header h1`, and `.fin-header-copy h1`)—never allow secondary tabs to fall back to generic `2.35rem` document headings. (Only `.poster-title-block h1` inside `@media print` overrides to `12.2pt` for A4 density.)
+Use sentence case for view, card, and dialog headings. Chart labels use `--text-chart-label` on screen. Print uses its compact type scale and preserves the same terminology.
+
+## Financial charts and labels
+
+- **Projected net worth** uses one four-layer stack in Overview, Projection, and the print sheet. Its total includes CPF, SRS, equities, and cash and bonds. Home value and outstanding debts are outside the modeled total. Label the layers directly in the legend and distinguish their boundaries with line patterns.
+- **Monthly cashflow** shows the spending target and CPF LIFE. **Income & withdrawals** shows what funds spending, including after-tax SRS used for spending and any remaining shortfall. **Portfolio + CPF OA** includes SRS and adds modeled CPF OA from age 55. Slate marks identify aggregate balances and work income.
+- Label the chart and yearly table with the selected dollar basis. Use today’s dollars by default and identify future amounts as nominal where statutory thresholds are involved. Keep the full stack in print.
 
 ## Layout & Spatial Grouping
 
@@ -319,7 +335,7 @@ The palette balances authoritative cobalt action controls and signature Swell ro
   - Label-to-input gaps stay tight (`6px`) while distinct form sections and field rows separate at `16px–22px` (`1.05rem`) so related controls read as clear Gestalt groups.
   - Destructive controls (`button-danger` Reset Plan) are physically separated from primary save/navigation actions and gated behind `#confirm-reset-modal` so accidental clicks cannot wipe user assumptions.
 - **Responsive Breakpoints:**
-  - `960px`: Sidebar transitions off-canvas in favor of a fixed bottom 5-tab navigation bar (`Overview`, `Trajectory`, `Allocator` [with `Allocator` / `Dividend & Yield` sub-tabs], `Cash`, and `Tax & CPF` [with `Tax Relief` / `CPF Milestones` sub-tabs]) with safe-area padding (`padding-bottom: calc(76px + env(safe-area-inset-bottom))`).
+  - `960px`: Sidebar transitions off-canvas in favor of a fixed bottom navigation for `Overview`, `Plan`, `Accounts`, `Invest`, and `CPF & Tax` with safe-area padding (`padding-bottom: calc(76px + env(safe-area-inset-bottom))`).
   - `820px` & `720px`: Two-column analytical grids stack into single-column cards; top header compacts lifestyle selector and action buttons (preserving icon-accessible Print and Settings triggers).
   - `640px`: Form grids and modal rows stack vertically with `44px` minimum touch targets.
 - **Single-Page A4 Print Grid (`@media print`):** `@page { size: A4 portrait; margin: 6.5mm 8mm; }` yielding a 1-page vertical executive blueprint organized into deterministic bands: (1) FinScope Light Masthead + Context Chips, (2) 5-Card KPI Strip + Starting Balances Strip, (3) Full-Width Net Worth Trajectory Area Chart with Milestone KPIs, (4) 2-Column Middle Grid (Top Funding Sources 4-Tap Architecture + Retirement Readiness Gauge), (5) 2-Column Strategic Bottom Grid (CPF Path Comparison Table + 5-Step Action Checklist paired alongside Living Budget Donut & Paycheck Waterfall), and (6) Statutory Methodology Colophon.
@@ -413,7 +429,7 @@ Grounded in Figma's **5 Dimensions of Interaction Design** (Words, Visuals, Phys
 ### Signature Component: 1-Page A4 Print Summary (`#print-sheet`)
 
 - **Purpose** A single-page retirement summary for A4 portrait printing and PDF export with `6.5mm 8mm` margins.
-- **Structure:** Opens with a light Porcelain-Slate & White FinScope masthead card (`.fin-brand-badge` SVG + plan title + assumption chips + readiness status pill), followed by the 5-card KPI strip, starting CPF/outside portfolio breakdown, full-series net worth area chart (`forcedSeries: "all"`), readiness gauge, Age-65 spending donut, 4-Tap retirement income table in real today-dollars, paycheck allocation bars, life milestones, strategy comparison table, 5-row action checklist, and statutory methodology colophon.
+- **Structure:** Opens with a light Porcelain-Slate & White FinScope masthead card (`.fin-brand-badge` SVG + plan title + assumption chips + readiness status pill), followed by the 5-card KPI strip, starting CPF/outside portfolio breakdown, the shared four-layer projected net worth chart with all series visible, readiness gauge, Age-65 spending donut, 4-Tap retirement income table in real today-dollars, paycheck allocation bars, life milestones, strategy comparison table, 5-row action checklist, and statutory methodology colophon.
 
 ## Governance & Sync Protocol
 
