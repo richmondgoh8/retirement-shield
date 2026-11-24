@@ -876,7 +876,9 @@
       }
       if (
         goalAge === null &&
-        (currentAge < 55 ? b.sa + b.oa + reserve : principal) >= target - 0.005
+        (currentAge < 55
+          ? goal !== "ers" && b.sa + b.oa + reserve >= target - 0.005
+          : principal >= target - 0.005)
       )
         goalAge = currentAge;
       if (options.monthly || m % 12 === 0 || m === months55)
@@ -1753,6 +1755,8 @@
       remainingPortfolioGap: at(s.remainingPortfolioGap, r.retire),
     });
     result.scenarios = r.scenarios.map(convertScenario);
+    if (r.cpfStrategyScenarios)
+      result.cpfStrategyScenarios = r.cpfStrategyScenarios.map(convertScenario);
     if (r.brsScenario) {
       result.brsScenario = convertScenario(r.brsScenario);
     }
@@ -3936,6 +3940,10 @@
       target: selectedKey === "salary" ? reqAtRetire : summary.target,
       saving: selectedKey === "salary" ? solvedAutoInvest : summary.saving,
       scenarios: summary.scenarios.map(reconcileScenarioRow),
+      cpfStrategyScenarios: [
+        summary.brsScenario,
+        ...summary.scenarios.slice(1),
+      ].filter(Boolean),
       ...(summary.brsScenario
         ? { brsScenario: reconcileScenarioRow(summary.brsScenario) }
         : {}),
@@ -4372,8 +4380,10 @@
     const mixDeltaText =
       Math.abs(eqDeltaPct) <= 3
         ? "Equity mix on target"
-        : Math.abs(eqDeltaPct) + " percentage points " +
-          (eqDeltaPct > 0 ? "above" : "below") + " equity target";
+        : Math.abs(eqDeltaPct) +
+          " percentage points " +
+          (eqDeltaPct > 0 ? "above" : "below") +
+          " equity target";
 
     const marginalPct = tax?.taxBefore
       ? (tax.taxBefore.marginalRate * 100).toFixed(1).replace(/\.0$/, "") + "%"
@@ -4518,8 +4528,18 @@
           "k",
       },
       {
-        label: "2 · Target mix: " + targetEqPct + "% equities, " + targetBondPct + "% bonds",
-        tag: "Equity split: " + (hol.globalEquitySplitPct ?? C.defaultGlobalEquitySplitPct) + "% global, " + (hol.sgEquitySplitPct ?? C.defaultSgDividendSplitPct) + "% Singapore",
+        label:
+          "2 · Target mix: " +
+          targetEqPct +
+          "% equities, " +
+          targetBondPct +
+          "% bonds",
+        tag:
+          "Equity split: " +
+          (hol.globalEquitySplitPct ?? C.defaultGlobalEquitySplitPct) +
+          "% global, " +
+          (hol.sgEquitySplitPct ?? C.defaultSgDividendSplitPct) +
+          "% Singapore",
         value: mixDeltaText,
       },
       {
@@ -4592,7 +4612,9 @@
       hasCustomSaving,
       monthlySave,
       pctOfPay,
-      savingKpiLabel: r.retiringNow ? "Capital needed now" : "Monthly saving assumed",
+      savingKpiLabel: r.retiringNow
+        ? "Capital needed now"
+        : "Monthly saving assumed",
       savingKpiPill: r.retiringNow
         ? s.remainingPortfolioGap > 0.5
           ? "Gap " + fmtSgd(s.remainingPortfolioGap)
@@ -4655,8 +4677,8 @@
 
   const DEFAULT_MAS_LIVE_RATES = {
     source: "Monetary Authority of Singapore (eservices.mas.gov.sg)",
-    fetchedAt: "2026-11-16T04:58:09.602Z",
-    asOfDate: "2026-11-16",
+    fetchedAt: "2026-11-24T05:56:56.966Z",
+    asOfDate: "2026-11-24",
     ssb: {
       issueCode: "GX26120A",
       trancheCode: "SBDEC26",
@@ -4732,40 +4754,35 @@
     },
     tbills: {
       sixMonth: {
-        issueCode: "BS26122V",
-        auctionDate: "2026-11-04",
-        issueDate: "2026-11-10",
-        maturityDate: "2027-05-11",
-        cutoffYield: 1.86,
-        medianYield: 1.8,
-        avgYield: 1.63,
-        bidToCover: 2.45,
-        nextIssueCode: "BS26123A",
-        nextAuctionDate: "2026-11-19",
-        nextIssueSizeM: 8600,
+        issueCode: "BS26123A",
+        auctionDate: "2026-11-19",
+        issueDate: "2026-11-24",
+        maturityDate: "2027-05-25",
+        cutoffYield: 2.07,
+        medianYield: 2,
+        avgYield: 1.88,
+        bidToCover: 1.99,
+        nextIssueCode: null,
+        nextAuctionDate: null,
+        nextIssueSizeM: null,
         history: {
           yr1: {
             count: 26,
             min: 1.36,
-            max: 1.95,
-            avg: 1.54,
-            percentile: 88,
+            max: 2.07,
+            avg: 1.56,
+            percentile: 100,
           },
           multiYear: {
-            count: 172,
+            count: 173,
             min: 0.2,
             max: 4.4,
             avg: 2.07,
-            percentile: 52,
+            percentile: 55,
             sinceYear: 2020,
           },
-          deltaPrev: -0.09,
+          deltaPrev: 0.21,
           recent6: [
-            {
-              code: "BS26117A",
-              label: "27 Aug",
-              rate: 1.6,
-            },
             {
               code: "BS26118E",
               label: "10 Sep",
@@ -4790,6 +4807,11 @@
               code: "BS26122V",
               label: "4 Nov",
               rate: 1.86,
+            },
+            {
+              code: "BS26123A",
+              label: "19 Nov",
+              rate: 2.07,
             },
           ],
         },

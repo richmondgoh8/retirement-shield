@@ -316,6 +316,20 @@ test("future senior contributions cannot pre-fund an FRS or ERS commitment at 55
   assert.equal(b.scenarios[0].cpfFunding, 0);
 });
 
+test("ERS can only be reached through Retirement Account funding from age 55", () => {
+  const { projectCPF } = require("./model.js");
+  const p = { age: 54, salary: 5500, oa: 600000, sa: 40000 };
+  const frsPlan = projectCPF(p, 0, "frs");
+  const ersPlan = projectCPF(p, 0, "ers");
+  assert.equal(ersPlan.cpfAt55, frsPlan.fundedRA);
+  assert.equal(ersPlan.fundedRA, 2 * ersPlan.cpfAt55);
+  assert.equal(ersPlan.goalAge, 55);
+  assert.ok(
+    ersPlan.ledger.filter((row) => row.age < 55).every((row) => row.ra === 0),
+  );
+  assert.equal(projectCPF({ age: 54, salary: 5500 }, 0, "ers").goalAge, null);
+});
+
 test("today-dollar display converts each future amount at its own date without changing savings", () => {
   const { todayPlan, todayValue } = require("./model");
   for (const age of [28, 35, 45, 54])

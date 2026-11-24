@@ -95,6 +95,10 @@ const ICONS = {
     '<circle cx="12" cy="12" r="9"/><path d="M12 8v4.5"/><path d="M12 16h.01"/>',
     15,
   ),
+  infoTiny: svgWrap(
+    '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+    15,
+  ),
 };
 
 const PAYCHECK_ROW_STYLES = {
@@ -109,7 +113,10 @@ const PAYCHECK_ROW_STYLES = {
 
 function getPaycheckDisplayRows(rows) {
   return rows.map((row) => {
-    const [label, tone] = PAYCHECK_ROW_STYLES[row.label] ?? [row.label, "--ink-soft"];
+    const [label, tone] = PAYCHECK_ROW_STYLES[row.label] ?? [
+      row.label,
+      "--ink-soft",
+    ];
     return { ...row, label, color: `var(${tone})` };
   });
 }

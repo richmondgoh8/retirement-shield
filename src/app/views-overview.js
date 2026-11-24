@@ -91,8 +91,12 @@ export function getMilestoneNodes(fire, r, s, simulation, basis = "today") {
       metric: m(ptVal(pt95)?.totalNetWorth ?? 0),
       pill: fire.fireNumber.fullyFundedTo95 ? "Sustained" : "Watch Gap",
       sub: `Spend ${money(spendAt75)}/mo · CPF ${money(payoutAt65)}/mo`,
-      color: fire.fireNumber.fullyFundedTo95 ? "var(--sem-cpf-ink)" : "var(--sem-alert-ink)",
-      softBg: fire.fireNumber.fullyFundedTo95 ? "var(--sem-cpf-soft)" : "var(--sem-alert-soft)",
+      color: fire.fireNumber.fullyFundedTo95
+        ? "var(--sem-cpf-ink)"
+        : "var(--sem-alert-ink)",
+      softBg: fire.fireNumber.fullyFundedTo95
+        ? "var(--sem-cpf-soft)"
+        : "var(--sem-alert-soft)",
     },
   ];
 }
@@ -435,13 +439,17 @@ function buildOverviewPageHeader({ r, showExampleIntro }) {
         Assumptions <span class="overview-assumption-values">· ${Number((r.inflation * 100).toFixed(1))}% inflation · ${Number((r.investmentReturn * 100).toFixed(1))}% return</span>
       </button>
     </header>
-    ${showExampleIntro ? `<div class="overview-example-intro" id="overview-example-intro">
+    ${
+      showExampleIntro
+        ? `<div class="overview-example-intro" id="overview-example-intro">
       <p><strong>You’re viewing an example.</strong> Add your details to see your own projection.</p>
       <div class="overview-example-actions">
         <button type="button" class="button button-small" data-open-profile>Use my details</button>
         <button type="button" class="text-button" id="overview-browse-examples" commandfor="starter-plan-dialog" command="show-modal" aria-haspopup="dialog">Browse examples</button>
       </div>
-    </div>` : ""}`;
+    </div>`
+        : ""
+    }`;
 }
 
 function buildOverviewReadiness({
@@ -508,9 +516,11 @@ function buildOverviewReadiness({
 
       </div>
       <div class="overview-hero-actions">
-        ${r.retiringNow
-          ? reviewAge("button button-primary")
-          : `${reviewSavings("button button-primary")}${reviewAge("button")}`}
+        ${
+          r.retiringNow
+            ? reviewAge("button button-primary")
+            : `${reviewSavings("button button-primary")}${reviewAge("button")}`
+        }
       </div>
       <section class="brief-paycheck" aria-labelledby="brief-paycheck-title">
         <div class="brief-paycheck-heading"><h2 id="brief-paycheck-title">Retirement paycheck</h2><span>${scenarioLabel}</span></div>
@@ -1286,35 +1296,22 @@ export function buildFinOverviewGrid(
       ? `${housingLabel} · custom`
       : housingLabel;
 
-  const pathMeta = {
-    brs: {
-      name: "Basic Retirement Sum",
-      tag: "Basic target",
-      accent: "var(--sem-teal)",
-      softBg: "var(--sem-teal-soft)",
-      icon: svgWrap('<path d="M3 20h18M6 16v-3m6 3V9m6 7V5"/>', 16),
-      note: "Targets half your cohort FRS at 55. Your actual CPF LIFE payout depends on the savings in your Retirement Account.",
-    },
-    frs: {
-      name: "FRS Target",
-      tag: "Standard Sum",
-      accent: "var(--primary-ink)",
-      softBg: "var(--primary-soft)",
-      icon: svgWrap(
-        '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>',
-        16,
-      ),
-      note: `Targets ${compactMoney(r.frs)} cohort FRS (today’s $) by 55 for steady baseline CPF LIFE.`,
-    },
-    ers: {
-      name: "ERS Maximum",
-      tag: "Max Floor",
-      accent: "var(--sem-cpf-ink)",
-      softBg: "var(--sem-cpf-soft)",
-      icon: svgWrap('<path d="M3 3v18h18"/><path d="m7 14 4-4 4 3 5-6"/>', 16),
-      note: `Voluntary RA top-ups toward ${compactMoney(r.ers)} ERS (today’s $); highest lifelong income.`,
-    },
+  const cpfStrategyNames = {
+    brs: "Basic Retirement Sum (BRS)",
+    frs: "Full Retirement Sum (FRS)",
+    ers: "Enhanced Retirement Sum (ERS)",
   };
+  const cpfComparisonLabels = {
+    balance: "CPF retirement balance at 55",
+    topUp: r.retiringNow
+      ? "Capital to set aside for CPF"
+      : "Monthly savings for CPF goal",
+    outside: r.retiringNow
+      ? "Outside capital needed now"
+      : "Monthly outside investment needed",
+    payout: "CPF LIFE from age 65",
+  };
+  const comparisonSuffix = r.retiringNow ? "" : "/mo";
 
   const activePaycheck = finActivityTab === "paycheck";
   const activeMilestones = !activePaycheck;
@@ -1394,8 +1391,25 @@ export function buildFinOverviewGrid(
   }[cpfProgress.strategy.toLowerCase()];
   const budget = expenseData?.total;
   const buckets = bogle.buckets;
+  const inputArrow = svgWrap('<path d="M5 12h14m-6-6 6 6-6 6"/>', 14);
   return `<div class="overview-hero">
     ${buildOverviewPageHeader({ r, showExampleIntro })}
+    <details id="overview-plan-editor">
+      <summary class="overview-plan-glance card-surface">
+        <span class="overview-plan-glance-title">Plan at a glance</span>
+        <span class="overview-plan-glance-action">
+          <span class="overview-plan-edit-label">Edit plan</span>
+          <span class="overview-plan-hide-label">Hide plan inputs</span>
+          ${svgWrap('<path d="m6 9 6 6 6-6"/>', 16)}
+        </span>
+        <span class="overview-plan-glance-values">
+          <span>Retirement age <strong>${fire.retire}</strong></span>
+          <span>Monthly budget <strong>${m(budget ?? r.todaySpend)}</strong></span>
+          <span>Monthly savings <strong>${r.retiringNow ? "Paused" : m(contribution)}</strong></span>
+          <span>CPF retirement sum <strong>${cpfProgress.strategy}</strong></span>
+        </span>
+      </summary>
+      <div class="overview-plan-editor-body">
   <section class="brief-inputs" aria-label="Plan inputs and CPF target">
       <div class="overview-plan-summary card-surface">
         <div class="overview-strategy-header">
@@ -1403,12 +1417,12 @@ export function buildFinOverviewGrid(
           <button type="button" class="button button-small" data-open-profile>Edit profile</button>
         </div>
         <div class="overview-hero-summary">
-          <div><span>Pay after CPF</span> <strong>${m(r.afterCpf, "/mo")}</strong></div>
-          <div><span>Starting assets</span> <strong>${m(startingTotalAssets)}</strong></div>
-          ${budget == null ? "" : `<button type="button" class="text-button overview-budget-link" data-go-tab="budget"><span>Retirement budget ${svgWrap('<path d="M5 12h14m-6-6 6 6-6 6"/>', 14)}</span> <strong>${m(budget, "/mo")}</strong></button>`}
+          <button type="button" class="text-button" data-open-settings-field="person-salary"><span>Pay after CPF ${inputArrow}</span> <strong>${m(r.afterCpf, "/mo")}</strong></button>
+          <button type="button" class="text-button" data-go-tab="balances"><span>Starting assets ${inputArrow}</span> <strong>${m(startingTotalAssets)}</strong></button>
+          ${budget == null ? "" : `<button type="button" class="text-button overview-budget-link" data-go-tab="budget"><span>Retirement budget ${inputArrow}</span> <strong>${m(budget, "/mo")}</strong></button>`}
         </div>
         <details class="overview-asset-details" id="overview-starting-assets">
-          <summary>Starting asset breakdown</summary>
+          <summary class="overview-disclosure-summary">Starting asset breakdown</summary>
           <dl>${[
             ["Global equities", buckets.equities],
             ["Singapore dividend holdings", buckets.sgDividends],
@@ -1422,21 +1436,21 @@ export function buildFinOverviewGrid(
             )
             .join("")}</dl>
         </details>
-        <button type="button" class="text-button overview-edit-retirement-age" data-quick-edit="goal" data-qe-focus="#qe-retire">Edit retirement age (${fire.retire})</button>
+        <button type="button" id="overview-edit-retirement-age" class="text-button overview-edit-retirement-age" data-quick-edit="goal" data-qe-focus="#qe-retire">Edit retirement age (${fire.retire})</button>
       </div>
       <div class="overview-cpf-strategy card-surface">
         <div class="overview-strategy-header">
           <h2 id="overview-cpf-strategy-label">CPF retirement sum</h2>
-          <div id="overview-cpf-strategy-options" data-cpf-strategy-group role="group" aria-labelledby="overview-cpf-strategy-label" aria-describedby="overview-cpf-strategy-help">
-            ${["brs", "frs", "ers"].map((path) => `<button type="button" class="button button-small" data-cpf-strategy="${path}" aria-pressed="${path === selected}">${path.toUpperCase()}</button>`).join("")}
+          <div id="overview-cpf-strategy-options" class="cpf-option-buttons" data-cpf-strategy-group role="group" aria-labelledby="overview-cpf-strategy-label" aria-describedby="overview-cpf-strategy-help">
+            ${[["brs", "BRS"], ["frs", "FRS"], ["ers", "ERS (55+)"]].map(([path, label]) => `<button type="button" class="button button-small" data-cpf-strategy="${path}" aria-pressed="${path === selected}">${label}</button>`).join("")}
           </div>
         </div>
+        <p id="overview-cpf-strategy-help" class="cpf-strategy-help">At 55, CPF automatically funds your Retirement Account up to your cohort FRS. Choosing ERS models a voluntary top-up at 55 using available Ordinary Account (OA) savings and cash you set aside for CPF. That can leave less OA for housing.</p>
         <div class="overview-strategy-progress">
           <strong><span id="overview-cpf-percent">${cpfProgress.percent}</span> of the ${strategyName} at age 55</strong>
           ${fundingTrack(cpfProgress.pct)}
           <span>${m(cpfProgress.balanceToday)} of ${m(cpfProgress.targetToday)} in today’s dollars</span>
         </div>
-        <p id="overview-cpf-strategy-help" class="cpf-strategy-help">${selected === "brs" ? "BRS is a savings target. CPF savings above it can still flow into your Retirement Account up to FRS at 55." : "Choose the retirement sum used in your projection."}</p>
       </div>
   </section>
 
@@ -1515,6 +1529,8 @@ export function buildFinOverviewGrid(
     </details>
     </div>
   </section>
+      </div>
+    </details>
 
     ${buildOverviewReadiness({ fire, r, rate: pctOfPay, contribution, budget, scenarioLabel: lifestyleCardLabel, cashflow, savingsProgress })}
   </div>
@@ -1625,73 +1641,56 @@ export function buildFinOverviewGrid(
       <div class="ember-card-head">
         <div>
           <h3 id="ledger-title">CPF strategy comparison</h3>
-          <p>${r.retiringNow ? "With retirement set to now, BRS, FRS and ERS model Age-55 Retirement Sum levels using current balances or lump-sum top-ups." : "Compare how the Basic, Full and Enhanced Retirement Sums affect your lifelong CPF LIFE income."}</p>
+          <p>Amounts in today’s dollars. Automatic Retirement Account funding at 55 stops at your cohort FRS. ERS assumes a voluntary top-up from age 55.</p>
         </div>
         <div class="ember-card-actions">
-          <div class="cpf-plan-inline-toggle" role="group" aria-label="CPF LIFE payout plan">
-            <button type="button" class="cpf-plan-chip${r.plan !== "escalating" ? " is-active" : ""}" data-toggle-cpf-plan="standard" aria-pressed="${r.plan !== "escalating"}">Standard</button>
-            <button type="button" class="cpf-plan-chip${r.plan === "escalating" ? " is-active" : ""}" data-toggle-cpf-plan="escalating" aria-pressed="${r.plan === "escalating"}">Escalating +2%/yr</button>
+          <div class="cpf-option-buttons" role="group" aria-label="CPF LIFE payout plan">
+            <button type="button" class="button button-small" data-toggle-cpf-plan="standard" aria-pressed="${r.plan !== "escalating"}">Standard</button>
+            <button type="button" class="button button-small" data-toggle-cpf-plan="escalating" aria-pressed="${r.plan === "escalating"}">Escalating +2%/yr</button>
           </div>
         </div>
       </div>
       ${rangeNote}
-      <div class="table-scroll">
-        <table class="ember-ledger-table fin-table cpf-strategy-table">
-          <caption class="sr-only">CPF Retirement Path comparison across BRS, FRS, and ERS strategies</caption>
+      <div class="cpf-current-plan">
+        <h4>Your current plan</h4>
+        <dl>
+          <div><dt>${cpfComparisonLabels.balance}</dt><dd>${m(s.balance, "", "cpf-current-balance")}</dd></div>
+          <div><dt>${cpfComparisonLabels.payout}</dt><dd>${m(s.payout, "/mo", "cpf-current-payout")}</dd></div>
+          ${
+            r.retiringNow
+              ? ""
+              : `<div><dt>Planned extra CPF savings</dt><dd>${m(simulation.cpfExtra, "/mo", "cpf-current-top-up")}</dd></div>
+              <div><dt>Planned outside investment</dt><dd>${m(simulation.invest, "/mo", "cpf-current-outside")}</dd></div>`
+          }
+        </dl>
+        <p>${r.retiringNow ? "Outside capital still needed" : "Monthly outside investment needed"} to fund your budget through age ${fire.endAge} with your current CPF plan <strong>${r.retiringNow ? m(s.remainingPortfolioGap) : m(s.privateSaving, "/mo")}</strong></p>
+      </div>
+      <div class="table-scroll cpf-strategy-table-wrap">
+        <table class="data-table cpf-strategy-table">
+          <caption>Illustrated outcomes if you reach each retirement sum</caption>
           <thead>
             <tr>
-              <th scope="col">Strategy Path</th>
-              <th scope="col" class="num-col">Age-55 CPF</th>
-              <th scope="col" class="num-col">Extra CPF</th>
-              <th scope="col" class="num-col">${r.retiringNow ? "Outside capital needed" : "Outside invest"}</th>
-              <th scope="col" class="num-col">CPF LIFE (65+)</th>
+              <th scope="col">Retirement sum</th>
+              <th scope="col" class="num-col">${cpfComparisonLabels.balance}</th>
+              <th scope="col" class="num-col">${cpfComparisonLabels.topUp}</th>
+              <th scope="col" class="num-col">${cpfComparisonLabels.outside}</th>
+              <th scope="col" class="num-col">${cpfComparisonLabels.payout}</th>
             </tr>
           </thead>
           <tbody>
-            ${[
-              ...(r.brsScenario ? [r.brsScenario] : []),
-              ...r.scenarios.slice(1),
-            ]
-              .map((path) => {
-                const meta = pathMeta[path.key] || pathMeta.frs;
-                const isSelected = path.key === selected;
-                const rowBal = isSelected ? s.balance : path.balance;
-                const rowCpf =
-                  isSelected && !r.retiringNow
-                    ? simulation.cpfExtra || 0
-                    : path.cpfFunding;
-                const rowOut =
-                  isSelected && !r.retiringNow
-                    ? simulation.invest || 0
-                    : path.privateSaving;
-                const rowLife = isSelected ? s.payout : path.payout;
-                const cpfDiffers =
-                  isSelected &&
-                  !r.retiringNow &&
-                  Math.abs(rowCpf - path.cpfFunding) > 1;
-                const outDiffers =
-                  isSelected &&
-                  !r.retiringNow &&
-                  Math.abs(rowOut - s.privateSaving) > 1;
-                return `<tr${isSelected ? ' class="is-selected"' : ""}>
-                  <td>
-                      <span class="fin-table-path">
-                        <span class="fin-path-icon" style="background:${meta.softBg};color:${meta.accent};">${meta.icon}</span>
-                        <span>
-                          <span class="ledger-path-cell">
-                            <strong>${meta.name}</strong>${isSelected ? ' <span class="ledger-tag cpf-strategy-active">Active plan</span>' : ""}
-                            <span class="ledger-tag">${meta.tag}</span>
-                          </span>
-                          <small class="ledger-sub">${meta.note}</small>
-                        </span>
-                      </span>
-                  </td>
-                  <td class="num-cell num-col" data-label="Age-55 CPF">${m(rowBal, "", `path-${path.key}-bal`)}</td>
-                  <td class="num-cell num-col" data-label="Extra CPF">${m(rowCpf, r.retiringNow ? " now" : "/mo", `path-${path.key}-cpf`)}${cpfDiffers ? `<small class="ledger-cell-sub">Path: ${m(path.cpfFunding, "/mo")}</small>` : ""}</td>
-                  <td class="num-cell num-col" data-label="${r.retiringNow ? "Outside capital needed" : "Outside invest"}">${m(rowOut, r.retiringNow ? " now" : "/mo", `path-${path.key}-out`)}${outDiffers ? `<small class="ledger-cell-sub">Target: ${m(s.privateSaving, "/mo")}</small>` : ""}</td>
-                  <td class="num-cell num-col" data-label="CPF LIFE (65+)"><strong>${m(rowLife, "/mo", `path-${path.key}-life`)}</strong></td>
-                </tr>`;
-              })
+            ${r.cpfStrategyScenarios
+              .map(
+                (path) => `<tr>
+                <th scope="row">
+                  <strong>${cpfStrategyNames[path.key]}</strong>
+                  ${path.key === selected ? '<span class="status-pill is-info cpf-strategy-active">Selected target</span>' : ""}
+                </th>
+                <td class="num-cell num-col" data-label="${cpfComparisonLabels.balance}">${m(path.balance, "", `path-${path.key}-bal`)}</td>
+                <td class="num-cell num-col" data-label="${cpfComparisonLabels.topUp}">${m(path.cpfFunding, comparisonSuffix, `path-${path.key}-cpf`)}</td>
+                <td class="num-cell num-col" data-label="${cpfComparisonLabels.outside}">${m(path.privateSaving, comparisonSuffix, `path-${path.key}-out`)}</td>
+                <td class="num-cell num-col" data-label="${cpfComparisonLabels.payout}"><strong>${m(path.payout, "/mo", `path-${path.key}-life`)}</strong></td>
+              </tr>`,
+              )
               .join("")}
           </tbody>
         </table>
@@ -1722,7 +1721,6 @@ export function buildFinOverviewGrid(
     <details class="overview-disclosure-card overview-detail card-surface" id="overview-portfolio-details">
       <summary class="overview-disclosure-summary overview-section-summary"><h2 id="overview-breakdown-title">Portfolio and cashflow breakdown</h2></summary>
       <div class="overview-disclosure-body">
-        <div class="overview-breakdown-edit-mobile"><button type="button" class="text-button" data-open-profile>Edit plan inputs</button></div>
         ${buildFinBentoGridHTML({
           r,
           p,

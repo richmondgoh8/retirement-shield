@@ -396,6 +396,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       const firstEditor = inputs[0].parentElement;
       const firstFigure = find("#overview-edit-known-cpf-extra");
       const initiallyHidden = firstEditor.hidden;
+      find("#overview-plan-editor > summary").click();
       firstFigure.click();
       const focusOpensEditor = !firstEditor.hidden && document.activeElement === inputs[0];
       firstFigure.focus();
@@ -407,6 +408,8 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       const edited = sources.map((source) => find(source).value);
       const editedTotal = find(".overview-savings-total").textContent;
       const projectionsOpen = find("#overview-saving-details").open;
+      const editorStayedOpen = find("#overview-plan-editor").open;
+      const glanceSavings = find(".overview-plan-glance-values > :nth-child(3) strong").textContent;
       find('#overview-slot [data-use-suggested="known-invest"]').click();
       const suggested = find("#known-invest").value;
       const automaticRemainder = Number(find("#overview-known-invest").value);
@@ -419,11 +422,13 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
         !find(".overview-verdict").textContent.includes("after tax and fixed bills");
       sources.forEach((source, i) => apply(source, original[i]));
       find("#overview-saving-details").open = false;
-      return { edited, editedTotal, projectionsOpen, suggested, automaticRemainder, matchesCap, allCollapsed, initiallyHidden, focusOpensEditor };
+      return { edited, editedTotal, projectionsOpen, editorStayedOpen, glanceSavings, suggested, automaticRemainder, matchesCap, allCollapsed, initiallyHidden, focusOpensEditor };
     })()`);
     assert.deepEqual(savings.edited, ["100", "200", "300"]);
     assert.match(savings.editedTotal, /600/);
     assert.equal(savings.projectionsOpen, true);
+    assert.equal(savings.editorStayedOpen, true);
+    assert.match(savings.glanceSavings, /600/);
     assert.equal(savings.suggested, "");
     assert.equal(savings.automaticRemainder, 557);
     assert.equal(savings.matchesCap, true);
@@ -482,6 +487,42 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
     assert.equal(ariaResult.secondTabIndex, "0");
     assert.equal(ariaResult.firstTabIndex, "-1");
 
+    const checkTabMotion = () =>
+      browser.evaluate(`(() => {
+        document.querySelector("#section-profile").click();
+        document.querySelector("#section-budget").click();
+        document.querySelector("#section-trajectory").click();
+        const active = document.querySelector("#tab-panel-trajectory");
+        return {
+          view: document.body.dataset.view,
+          animated: [...document.querySelectorAll(".tab-panel")].filter(panel => getComputedStyle(panel).animationName !== "none").map(panel => panel.id),
+          transform: getComputedStyle(active).transform,
+          filter: getComputedStyle(active).filter,
+        };
+      })()`);
+    await browser.send("Emulation.setEmulatedMedia", {
+      features: [{ name: "prefers-reduced-motion", value: "no-preference" }],
+    });
+    assert.deepEqual(await checkTabMotion(), {
+      view: "trajectory",
+      animated: ["tab-panel-trajectory"],
+      transform: "none",
+      filter: "none",
+    });
+    await browser.send("Emulation.setEmulatedMedia", {
+      features: [{ name: "prefers-reduced-motion", value: "reduce" }],
+    });
+    assert.deepEqual(await checkTabMotion(), {
+      view: "trajectory",
+      animated: [],
+      transform: "none",
+      filter: "none",
+    });
+    await browser.send("Emulation.setEmulatedMedia", { features: [] });
+    await browser.evaluate(
+      'document.querySelector("#section-profile").click()',
+    );
+
     // 3. cashReturnRate = 0.05 (%) survives reload without 100x amplification or decimal corruption
     await browser.evaluate(`(() => {
       const inp = document.querySelector('#known-cash-return');
@@ -539,7 +580,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       });
     }
     assert.equal(
-      await browser.evaluate('document.activeElement.id'),
+      await browser.evaluate("document.activeElement.id"),
       "settings-draft-person-salary",
     );
     await browser.evaluate(
@@ -608,8 +649,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
       const waitForSaved = async () => {
         for (let i = 0; i < 30; i++) {
-          if ([...document.querySelectorAll("[data-plan-save-status]")]
-            .some((status) => status.textContent.trim() === "Saved")) return true;
+          if (document.querySelector("#plan-save-status").textContent === "") return true;
           await wait(50);
         }
         return false;
@@ -689,8 +729,8 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
           trigger.click();
           if (editor.hidden) throw new Error("Pointer click did not open editor");
           const save = editor.querySelector('[data-settings-action="save"]');
-          if (!save.disabled)
-            throw new Error("Save was enabled while the row was clean");
+          if (save.disabled !== (key !== "housing"))
+            throw new Error("Unexpected Save availability before editing");
           let changed = writeDraftChange(editor, sourceId, "a");
           if (save.disabled) throw new Error("Save stayed disabled after change");
           save.click();
@@ -970,6 +1010,8 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
           getComputedStyle(birthRow).paddingBlockEnd,
         ],
         birthFieldWidth: Math.round(birthField.getBoundingClientRect().width),
+        birthConfirmGap: birthActions[0].getBoundingClientRect().left -
+          birthField.getBoundingClientRect().right,
         birthInputHeight: Math.round(birthInput.getBoundingClientRect().height),
         birthActionSizes: birthActions.map((button) => [
           Math.round(button.getBoundingClientRect().width),
@@ -1031,7 +1073,12 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
     })()`);
     assert.equal(settingsLayout.profileRowsFlex, true);
     assert.equal(settingsLayout.profileRowsCentered, true);
-    assert.deepEqual(settingsLayout.birthPadding, ["16px", "16px"]);
+    assert.deepEqual(settingsLayout.birthPadding, ["8px", "8px"]);
+    assert.ok(settingsLayout.birthFieldWidth <= 240);
+    assert.ok(
+      settingsLayout.birthConfirmGap >= 0 &&
+        settingsLayout.birthConfirmGap <= 12,
+    );
     assert.equal(
       settingsLayout.birthFieldWidth,
       settingsLayout.retireFieldWidth,
@@ -1645,18 +1692,31 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       await afterClose(budgetDialog, ".qe-footer-actions [data-exp-modal-close]");
       find("#section-profile").click();
       const loan = find('[data-choice-for="known-housing-mode"]');
-      const originalHousing = find("#known-housing-mode").value;
-      find('[data-settings-row="housing"] [data-settings-edit]').click();
+      const housingMode = find("#known-housing-mode");
+      const originalHousing = housingMode.value;
+      const housingTrigger = find('[data-settings-row="housing"] [data-settings-edit]');
+      const housingEditor = find("#settings-editor-housing");
+      const confirmHousing = housingEditor.querySelector('[data-settings-action="save"]');
+      let housingChanges = 0;
+      const countHousingChange = () => housingChanges++;
+      housingMode.addEventListener("change", countHousingChange);
+      housingTrigger.click();
+      confirmHousing.click();
+      const confirmedUnchangedHousing = housingEditor.hidden &&
+        document.activeElement === housingTrigger && housingMode.value === originalHousing &&
+        housingChanges === 0;
+      housingMode.removeEventListener("change", countHousingChange);
+      housingTrigger.click();
       loan.querySelector('[value="hdb"]').click();
-      find('#settings-editor-housing [data-settings-action="save"]').click();
+      confirmHousing.click();
       const loanShown = !find('[data-settings-row="loan"]').hidden;
-      find('[data-settings-row="housing"] [data-settings-edit]').click();
+      housingTrigger.click();
       loan.querySelector('[value="paid-up"]').click();
-      find('#settings-editor-housing [data-settings-action="save"]').click();
+      confirmHousing.click();
       const paidUpHidesLoan = find('[data-settings-row="loan"]').hidden;
-      find('[data-settings-row="housing"] [data-settings-edit]').click();
+      housingTrigger.click();
       Array.from(loan.querySelectorAll("input")).find((el) => el.value === originalHousing).click();
-      find('#settings-editor-housing [data-settings-action="save"]').click();
+      confirmHousing.click();
       const openAssumptions = find('[commandfor="plan-settings"][command="show-modal"]');
       find("#plan-overflow").open = true;
       openAssumptions.click();
@@ -1671,7 +1731,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       return {
         before, salaryFocused, formattedInitially, draftIsolated, saved, restoredFocus, escaped,
         editBudgetOpened, planInputsInProfile, cashOptionsOpened, age95Choices,
-        loanShown, paidUpHidesLoan, assumptionHorizonLabels, assumptionsOpened,
+        confirmedUnchangedHousing, loanShown, paidUpHidesLoan, assumptionHorizonLabels, assumptionsOpened,
       };
     })()`);
     assert.ok(settingsSummary.before.endsWith("/mo"));
@@ -1686,6 +1746,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
     assert.equal(settingsSummary.cashOptionsOpened, true);
     assert.equal(settingsSummary.age95Choices, 1);
 
+    assert.equal(settingsSummary.confirmedUnchangedHousing, true);
     assert.equal(settingsSummary.loanShown, true);
     assert.equal(settingsSummary.paidUpHidesLoan, true);
     assert.equal(settingsSummary.assumptionsOpened, true);
@@ -1776,7 +1837,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
     assert.equal(resetUndo.undoShown, true);
     assert.equal(resetUndo.restoredSalary, resetUndo.salary);
     assert.equal(resetUndo.savedSalary, resetUndo.salary);
-    assert.equal(resetUndo.saveStatus, "Saved");
+    assert.equal(resetUndo.saveStatus, "");
 
     const allocation = await browser.evaluate(`(async () => {
       const find = (selector) => document.querySelector(selector);
@@ -1804,11 +1865,19 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
       set(equity, original[0]);
       set(sg, original[1]);
       await settle();
-      return { mixed, bondsOnly, sgDisabled };
+      const currentHoldings = [...document.querySelectorAll(".allocator-holdings dt")]
+        .map((element) => element.textContent);
+      return { mixed, bondsOnly, sgDisabled, currentHoldings };
     })()`);
     assert.deepEqual(allocation.mixed, ["60%", "20%", "20%"]);
     assert.deepEqual(allocation.bondsOnly, ["0%", "0%", "100%"]);
     assert.equal(allocation.sgDisabled, true);
+    assert.deepEqual(allocation.currentHoldings, [
+      "Global equities",
+      "SG dividends",
+      "SSB/Cash",
+      "Total holdings",
+    ]);
 
     // 18. Phase 1-5 regressions: Stacked NW keyboard nav (no TypeError), Trajectory Inspector non-zero balances, lump-sum Rebalance preserves #known-savings, and Expense modal remove button role
     const phaseRegRes = await browser.evaluate(`(() => {
@@ -2215,7 +2284,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
         location.hash = "#retirement-taps-card";
         window.dispatchEvent(new HashChangeEvent("hashchange"));
         const tapsOpenedByHash = Boolean(tapsEl?.open);
-        const finTable = document.querySelector("#cpf-strategy-slot .fin-table");
+        const finTable = document.querySelector("#cpf-strategy-slot .cpf-strategy-table");
         const finCaption = Boolean(finTable?.querySelector("caption"));
         const finNumCols = finTable?.querySelectorAll("thead th.num-col").length || 0;
         const printTable = document.querySelector("#print-sheet .poster-mini-table");
@@ -2671,9 +2740,19 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
         if (!ersBtn) return { ok: false, reason: "no-ers-btn" };
         const actionBefore = ersBtn.querySelector(".goal-choice-action")?.textContent;
         const savingsFigures = () => ["known-cpf-extra", "known-cash-saving", "known-invest"].map(id => document.getElementById("overview-edit-" + id)?.textContent);
+        const comparisonFigures = () => [...document.querySelectorAll(".cpf-strategy-table [data-anim-val]")]
+          .map((element) => element.dataset.animVal);
         const previousSavings = savingsFigures();
+        const previousComparison = comparisonFigures();
+        document.querySelector("#cpf-keep-oa-nominal").open = true;
         ersBtn.click();
+        const nominalAmountsStayedOpen = document.querySelector("#cpf-keep-oa-nominal").open;
         const savingsUnchanged = JSON.stringify(previousSavings) === JSON.stringify(savingsFigures());
+        const comparisonUnchanged = JSON.stringify(previousComparison) === JSON.stringify(comparisonFigures());
+        const comparisonSelection = document.querySelector(".cpf-strategy-active")?.closest("th").querySelector("strong").textContent;
+        const ersFundingNote = document.querySelector("#cpf-ers-funding-note").textContent;
+        const currentPayout = Number(document.querySelector('[data-anim-key="cpf-current-payout"]').dataset.animVal);
+        const fullyFundedPayout = Number(document.querySelector('[data-anim-key="path-ers-life"]').dataset.animVal);
         const targetEl = document.querySelector('#cpf-rules-slot [data-anim-key="lesson-target"]');
         const nomEl = document.querySelector('#cpf-rules-slot [data-anim-key="lesson-target-nom"]');
         const overviewStrategy = document.querySelector('#overview-cpf-strategy-options [aria-pressed="true"]')?.dataset.cpfStrategy;
@@ -2686,6 +2765,12 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
           cpfProgress,
           overviewCpf,
           savingsUnchanged,
+          comparisonUnchanged,
+          nominalAmountsStayedOpen,
+          comparisonSelection,
+          ersFundingNote,
+          currentPayout,
+          fullyFundedPayout,
           ok: true,
           targetMorphing: Boolean(targetEl?.classList.contains("is-morphing")),
           nomMorphing: Boolean(nomEl?.classList.contains("is-morphing")),
@@ -2697,10 +2782,15 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
         `CPF Milestones tab should render ERS toggle button: ${JSON.stringify(firstToggleMorph)}`,
       );
       assert.equal(firstToggleMorph.overviewStrategy, "ers");
-      assert.equal(firstToggleMorph.actionBefore, "Use ERS in my plan");
+      assert.equal(firstToggleMorph.actionBefore, "Model an ERS top-up from 55");
       assert.equal(firstToggleMorph.actionAfter, "Selected for this plan");
       assert.equal(firstToggleMorph.cpfProgress, firstToggleMorph.overviewCpf);
       assert.equal(firstToggleMorph.savingsUnchanged, true);
+      assert.equal(firstToggleMorph.comparisonUnchanged, true);
+      assert.equal(firstToggleMorph.nominalAmountsStayedOpen, true);
+      assert.equal(firstToggleMorph.comparisonSelection, "Enhanced Retirement Sum (ERS)");
+      assert.match(firstToggleMorph.ersFundingNote, /projected gap to ERS is \$/);
+      assert.ok(firstToggleMorph.currentPayout < firstToggleMorph.fullyFundedPayout);
       assert.equal(
         firstToggleMorph.targetMorphing,
         true,
@@ -2812,6 +2902,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
     const readiness = await browser.evaluate(`(() => {
       const hero = document.querySelector(".overview-verdict");
       const funded = hero.querySelector(".overview-funded");
+      document.querySelector("#overview-plan-editor").open = true;
       const footer = [...document.querySelectorAll(".overview-hero-summary .curr-num")];
       window.dispatchEvent(new Event("beforeprint"));
       return {
@@ -2852,7 +2943,7 @@ test("Browser UI smoke tests: 5 destinations, WAI-ARIA arrow keys, cashReturnRat
   }
 });
 
-test("Savings feedback, budget comparison, and A4 export use the active projection", async (t) => {
+test("Savings feedback, budget presets, and A4 export use the active projection", async (t) => {
   const chromePath = findChromeBinary();
   if (!chromePath) {
     t.skip("No local Chrome/Chromium binary found");
@@ -2873,22 +2964,41 @@ test("Savings feedback, budget comparison, and A4 export use the active projecti
 
   try {
     await browser.navigate(baseUrl);
+    assert.equal(await readPageCount(), 1, "Overview must print on one A4 page");
+    assert.equal(
+      await browser.evaluate('document.querySelector("#print-sheet h1").textContent'),
+      "Your retirement brief",
+    );
     const firstVisit = await browser.evaluate(`(() => {
       const intro = document.querySelector("#overview-example-intro");
       const actions = document.querySelector(".overview-hero-actions");
       const paycheck = document.querySelector(".brief-paycheck");
       const actionsBeforePaycheck = Boolean(actions.compareDocumentPosition(paycheck) & Node.DOCUMENT_POSITION_FOLLOWING);
       const readiness = document.querySelector(".overview-verdict");
-      const inputsBeforeReadiness = [".overview-plan-summary", "#overview-cpf-strategy-options", ".overview-saving-fields"].every(selector =>
-        Boolean(document.querySelector(selector).compareDocumentPosition(readiness) & Node.DOCUMENT_POSITION_FOLLOWING));
+      const editor = document.querySelector("#overview-plan-editor");
+      const glanceBeforeReadiness = Boolean(editor.compareDocumentPosition(readiness) & Node.DOCUMENT_POSITION_FOLLOWING);
+      const editorInitiallyClosed = !editor.open;
+      const summary = editor.querySelector("summary");
+      const planAction = () => summary.querySelector(".overview-plan-glance-action").innerText.trim();
+      const closedAction = planAction();
+      summary.click();
+      const openAction = planAction();
+      summary.click();
+      const collapsedAgain = !editor.open && planAction() === closedAction;
+      const glanceValues = [...editor.querySelectorAll(".overview-plan-glance-values strong")].map(value => value.textContent.trim());
       intro.querySelector("[data-open-profile]").click();
       const openedProfile = document.body.dataset.view === "profile";
       document.querySelector("#destination-overview").click();
-      return { openedProfile, inputsBeforeReadiness, actionsBeforePaycheck };
+      return { openedProfile, glanceBeforeReadiness, editorInitiallyClosed, closedAction, openAction, collapsedAgain, glanceValues, actionsBeforePaycheck };
     })()`);
     assert.deepEqual(firstVisit, {
       openedProfile: true,
-      inputsBeforeReadiness: true,
+      glanceBeforeReadiness: true,
+      editorInitiallyClosed: true,
+      closedAction: "Edit plan",
+      openAction: "Hide plan inputs",
+      collapsedAgain: true,
+      glanceValues: ["65", "$2,800", "$857", "FRS"],
       actionsBeforePaycheck: true,
     });
     assert.equal(
@@ -2934,6 +3044,21 @@ test("Savings feedback, budget comparison, and A4 export use the active projecti
       balances: ["$34,000", "$6,000", "$20,000", "$0", "$0"],
       total: "$60,000",
     });
+    const inputDestinations = await browser.evaluate(`(() => {
+      document.querySelector('.overview-hero-summary [data-open-settings-field="person-salary"]').click();
+      const income = document.body.dataset.view;
+      const salaryFocused = document.activeElement.dataset.settingsDraft === "person-salary";
+      document.querySelector("#destination-overview").click();
+      document.querySelector('.overview-hero-summary [data-go-tab="balances"]').click();
+      const assets = document.body.dataset.view;
+      document.querySelector("#destination-overview").click();
+      return { income, salaryFocused, assets };
+    })()`);
+    assert.deepEqual(inputDestinations, {
+      income: "profile",
+      salaryFocused: true,
+      assets: "balances",
+    });
     assert.equal(
       await readPageCount(),
       1,
@@ -2954,44 +3079,52 @@ test("Savings feedback, budget comparison, and A4 export use the active projecti
       const savings = find(".overview-savings-outcome").textContent;
       const announcement = find("#sr-status").textContent;
       const editorFocus = document.activeElement.id;
+      const toast = find('#ui-toast .ui-toast[data-kind="save"]');
+      const toastRect = toast.getBoundingClientRect();
+      const saveToast = {
+        shown: !find("#ui-toast").hidden,
+        kind: toast.dataset.kind,
+        announcement: find("#ui-toast-announcement").textContent,
+        inlineStatus: find("#plan-save-status").textContent,
+        nearBottomRight: innerHeight - toastRect.bottom < 30 && document.documentElement.clientWidth - toastRect.right < 30,
+        dismissVisible: toast.querySelector("[data-toast-dismiss]").getClientRects().length > 0,
+      };
       find("#destination-plan").click();
       find("#section-budget").click();
-      const compare = find("#compare-retirement-budgets");
-      const before = find("#known-lifestyle").value;
-      compare.click();
-      const dialog = find("#budget-comparison");
-      const scenarios = [...dialog.querySelectorAll("section")].map((scenario) =>
-        [...scenario.querySelectorAll("dd")].map((value) => value.textContent.trim())
-      );
-      const totals = [...dialog.querySelectorAll(".brief-cost-table tfoot td")].map(cell => cell.textContent);
-      const costRows = [...dialog.querySelectorAll(".brief-cost-table tbody tr")];
-      const costs = totals.map((_, column) => costRows.reduce((sum, row) => sum +
-        Number(row.querySelectorAll("td")[column].textContent.replace(/[^0-9.]/g, "")), 0));
-      const compared = dialog.open;
-      dialog.close();
-      await new Promise((resolve) => dialog.addEventListener("close", resolve, { once: true }));
-      const comparisonFocus = document.activeElement.id;
-      const unchanged = find("#known-lifestyle").value === before;
+      const budgetState = () => ({
+        budget: Number(find('[data-anim-key="kpi-budget"]').dataset.animVal),
+        breakdownVisible: find("#exp-card-body").checkVisibility(),
+        categories: find("#exp-cats-slot").children.length,
+        topItems: find(".exp-top-list").children.length,
+      });
+      const initialBudget = budgetState();
       find("#exp-card-dropdown-btn").click();
       find('[data-switch-lifestyle="home-helper"]').click();
       return {
-        seriesFocus, savings, announcement, editorFocus, compared, totals, costs, scenarios, comparisonFocus, unchanged,
-        applied: find(".overview-funded").textContent.trim()
+        seriesFocus, savings, announcement, editorFocus, saveToast,
+        initialBudget, switchedBudget: budgetState(),
       };
     })()`);
     assert.equal(feedback.seriesFocus, "eq");
     assert.match(feedback.savings, /41% → 47%/);
     assert.match(feedback.announcement, /changed from 41% to 47%/);
     assert.equal(feedback.editorFocus, "overview-edit-known-invest");
-    assert.equal(feedback.compared, true);
-    assert.deepEqual(feedback.totals, ["$2,800", "$3,900"]);
-    assert.deepEqual(feedback.costs, [2800, 3900]);
-    assert.deepEqual(feedback.scenarios, [
-      ["$2,800/mo", "47%", "Lasts to age 79"],
-      ["$3,900/mo", feedback.applied, "Lasts to age 76"],
-    ]);
-    assert.equal(feedback.comparisonFocus, "compare-retirement-budgets");
-    assert.equal(feedback.unchanged, true);
+    assert.deepEqual(feedback.saveToast, {
+      shown: true,
+      kind: "save",
+      announcement: "Saved in this browser",
+      inlineStatus: "",
+      nearBottomRight: true,
+      dismissVisible: true,
+    });
+    assert.deepEqual(feedback.initialBudget, {
+      budget: 2800,
+      breakdownVisible: true,
+      categories: 6,
+      topItems: 3,
+    });
+    assert.equal(feedback.switchedBudget.budget, 3900);
+    assert.equal(feedback.switchedBudget.breakdownVisible, true);
     assert.equal(
       await readPageCount(),
       1,
@@ -3118,18 +3251,91 @@ test("Savings feedback, budget comparison, and A4 export use the active projecti
     assert.match(projection.chartLabel, /age 50 to 100 in today’s dollars/);
     assert.equal(projection.lastAge, 100);
     assert.ok(projection.income[1] > projection.income[0]);
-    assert.equal(projection.income[3], 0, "The SRS sweep does not fund age-65 spending");
+    assert.equal(
+      projection.income[3],
+      0,
+      "The SRS sweep does not fund age-65 spending",
+    );
     assert.equal(projection.showsSrsBar, false);
     assert.match(projection.tooltip, /Age 65/);
-    assert.match(projection.tooltip, new RegExp(projection.income[1].toLocaleString("en-SG")));
+    assert.match(
+      projection.tooltip,
+      new RegExp(projection.income[1].toLocaleString("en-SG")),
+    );
     assert.match(projection.futureCaption, /future dollars/);
     assert.ok(projection.futureIncome[0] > projection.income[0]);
     assert.equal(projection.futureIncome[3], 0);
     assert.deepEqual(projection.soloSeries, ["eq"]);
-    assert.ok(Math.abs(projection.netWorth[0] - projection.netWorth.slice(1).reduce((a, b) => a + b, 0)) <= 2);
+    assert.ok(
+      Math.abs(
+        projection.netWorth[0] -
+          projection.netWorth.slice(1).reduce((a, b) => a + b, 0),
+      ) <= 2,
+    );
     assert.deepEqual(projection.printSeries, ["cpf", "srs", "ssb", "eq"]);
     assert.ok(projection.printFunded > 100);
     assert.equal(projection.gaugeCapped, true);
+
+    await browser.send("Emulation.setDeviceMetricsOverride", {
+      width: 360,
+      height: 800,
+      deviceScaleFactor: 1,
+      mobile: true,
+    });
+    await browser.navigate(`${baseUrl}/?test=toast-stack`);
+    const toastStack = await browser.evaluate(`(async () => {
+      const find = selector => document.querySelector(selector);
+      const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+      const messages = () => [...document.querySelectorAll("#ui-toast .ui-toast-text")]
+        .map(toast => toast.textContent);
+      await wait(250);
+      find("#overview-plan-editor > summary").click();
+      const activeStrategy = () => find('#overview-cpf-strategy-options [aria-pressed="true"]').dataset.cpfStrategy;
+      const previousStrategy = activeStrategy();
+      const nextStrategy = find('#overview-cpf-strategy-options [aria-pressed="false"]');
+      const nextLabel = nextStrategy.dataset.cpfStrategy.toUpperCase();
+      nextStrategy.click();
+      await wait(250);
+      const stacked = messages();
+      const [first, second] = [...find("#ui-toast").children].map(toast => toast.getBoundingClientRect());
+      const separated = Boolean(first && second && first.bottom < second.top);
+      const saveTone = find('#ui-toast .ui-toast[data-kind="save"]')?.dataset.tone;
+      const strategyTone = find('#ui-toast .ui-toast[data-kind="cpf-strategy"]')?.dataset.tone;
+      const hasSvgIcons = [...document.querySelectorAll("#ui-toast .ui-toast-icon svg")].length === 2;
+      const undoRect = find("#ui-toast [data-toast-undo]").getBoundingClientRect();
+      const undoTouchTargetOk = undoRect.width >= 44 && undoRect.height >= 44;
+      await wait(2600);
+      const afterExpiry = messages();
+      find("#ui-toast [data-toast-undo]").click();
+      const restored = activeStrategy();
+      const origClipboard = navigator.clipboard;
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText: () => Promise.reject(new Error("denied")) },
+      });
+      find("[data-share-plan]").click();
+      await wait(120);
+      const shareFallbackDialog = find("#share-fallback-dialog");
+      const shareFallbackOpen = Boolean(shareFallbackDialog?.open);
+      const shareFallbackHasToken = /#p=/.test(find("#share-fallback-url")?.value || "");
+      shareFallbackDialog?.close();
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: origClipboard });
+      return { stacked, separated, saveTone, strategyTone, hasSvgIcons, undoTouchTargetOk, afterExpiry, previousStrategy, restored, nextLabel, shareFallbackOpen, shareFallbackHasToken };
+    })()`);
+    const strategyMessage = `Active CPF strategy: ${toastStack.nextLabel}`;
+    assert.deepEqual(toastStack.stacked, [
+      "Saved in this browser",
+      strategyMessage,
+    ]);
+    assert.equal(toastStack.separated, true);
+    assert.equal(toastStack.saveTone, "success");
+    assert.equal(toastStack.strategyTone, "info");
+    assert.equal(toastStack.hasSvgIcons, true);
+    assert.equal(toastStack.undoTouchTargetOk, true);
+    assert.deepEqual(toastStack.afterExpiry, [strategyMessage]);
+    assert.equal(toastStack.restored, toastStack.previousStrategy);
+    assert.equal(toastStack.shareFallbackOpen, true);
+    assert.equal(toastStack.shareFallbackHasToken, true);
     assert.deepEqual(browser.exceptions, []);
   } finally {
     await browser.close();

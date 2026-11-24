@@ -31,41 +31,77 @@ export function buildCpfDetailsHTML({
     moveOA.availableAt55 - keepOA.availableAt55,
   );
   const transferDiffToday = toToday55(transferDiffNominal);
-  const oaTransferSummaryTable = `<div class="timing-comparison">${[
+  const renderMetrics = (metrics) =>
+    `<dl class="cpf-choice-metrics">${metrics
+      .map(
+        ([label, amount]) => `<div><dt>${label}</dt><dd>${amount}</dd></div>`,
+      )
+      .join("")}</dl>`;
+  const renderNominal = (
+    key,
+    metrics,
+  ) => `<details id="cpf-${key}-nominal" class="cpf-choice-nominal">
+    <summary class="overview-disclosure-summary">Amounts in future dollars at 55</summary>
+    ${renderMetrics(metrics)}
+  </details>`;
+  const oaTransferCards = [
     ["Keep OA as-is", keepOA, false],
     ["Transfer eligible OA to SA", moveOA, true],
   ]
-    .map(([label, x, isTransfer]) => {
-      const oaLeftNom = Math.max(0, x.oaAfter55 ?? x.availableAt55 - x.cpfAt55);
+    .map(([label, projection, isTransfer]) => {
+      const oaLeft = Math.max(
+        0,
+        projection.oaAfter55 ?? projection.availableAt55 - projection.cpfAt55,
+      );
+      const oaSa = projection.oa + projection.sa;
+      const ra = projection.fundedRA;
       const frsPct = Math.min(
         100,
-        Math.round((toToday55(x.fundedRA) / cohortFrsToday) * 100),
+        Math.round((toToday55(ra) / cohortFrsToday) * 100),
       );
-      return `<div class="timing-col">
-              <div class="timing-col-head">
-                <h3>${label}</h3>
-                <span class="swell-slate-pill">${frsPct}% of cohort FRS</span>
-              </div>
-              <div class="timing-payout-bar" role="progressbar" aria-valuenow="${frsPct}" aria-valuemin="0" aria-valuemax="100" aria-label="${label}: ${frsPct}% of cohort FRS funded at age 55"><span style="width:${frsPct}%"></span></div>
-              <dl>
-                <div><dt>Transferred now</dt><dd>${centsHtml(x.oaTransfer)}</dd></div>
-                <div><dt>OA + SA just before 55</dt><dd>${m(toToday55(x.oa + x.sa))} <small>(${m(x.oa + x.sa)} at 55)</small></dd></div>
-                <div><dt>RA funded at 55</dt><dd>${m(toToday55(x.fundedRA))} <small>(${m(x.fundedRA)} at 55)</small></dd></div>
-                <div><dt>OA left after RA creation</dt><dd>${m(toToday55(oaLeftNom))} <small>(${m(oaLeftNom)} at 55)</small></dd></div>
-                <div><dt>Net interest gain at 55</dt><dd>${isTransfer && moveOA.oaTransfer > 0 ? `+${m(transferDiffToday)} <small>(+${m(transferDiffNominal)} at 55)</small>` : m(0)}</dd></div>
-                <div><dt>Extra housing cash needed</dt><dd>${m(x.housingShortfallToday)} (today’s $)</dd></div>
-              </dl>
-            </div>`;
+      const transferred = isTransfer && projection.oaTransfer > 0;
+      return `<article class="cpf-choice-card">
+        <h3>${label}</h3>
+        <div class="cpf-choice-key">
+          <span>Retirement Account at 55</span>
+          <strong>${m(toToday55(ra))}</strong>
+          <div class="cpf-choice-track" aria-hidden="true"><span style="width:${frsPct}%"></span></div>
+          <span>${frsPct}% of your cohort’s Full Retirement Sum</span>
+        </div>
+        ${renderMetrics([
+          ["OA + SA before age 55", m(toToday55(oaSa))],
+          ["OA left after funding RA", m(toToday55(oaLeft))],
+          ["Extra housing cash needed", m(projection.housingShortfallToday)],
+          ...(transferred
+            ? [
+                ["OA transferred today", centsHtml(projection.oaTransfer)],
+                ["Projected interest gain at 55", `+${m(transferDiffToday)}`],
+              ]
+            : []),
+        ])}
+        ${isTransfer && !transferred ? "<p>No eligible OA to transfer in this projection.</p>" : ""}
+        ${renderNominal(isTransfer ? "transfer-oa" : "keep-oa", [
+          ["Retirement Account", m(ra)],
+          ["OA + SA before age 55", m(oaSa)],
+          ["OA left after funding RA", m(oaLeft)],
+          ...(transferred
+            ? [["Projected interest gain", `+${m(transferDiffNominal)}`]]
+            : []),
+        ])}
+      </article>`;
     })
-    .join("")}</div>`;
+    .join("");
 
   const oaLeft55Nominal = Math.max(
     0,
     keepOA.oaAfter55 ?? keepOA.availableAt55 - keepOA.cpfAt55,
   );
   const oaLeft55Today = toToday55(oaLeft55Nominal);
-  const oaInterest55Nominal = (oaLeft55Nominal * RetirementModel.C.oaRate) / 12;
-  const oaInterest55Today = (oaLeft55Today * RetirementModel.C.oaRate) / 12;
+  const oaAnnualRate = RetirementModel.C.oaRate;
+  const oaRateLabel = `${(oaAnnualRate * 100).toFixed(1)}% p.a.`;
+  const oaInterest55Nominal = (oaLeft55Nominal * oaAnnualRate) / 12;
+  const oaInterest55Today = (oaLeft55Today * oaAnnualRate) / 12;
+  const annualBenchmarkInterest = 500000 * oaAnnualRate;
   const rstuBracketStr = (tax.taxBefore.marginalRate * 100)
     .toFixed(1)
     .replace(/\.0$/, "");
@@ -91,32 +127,56 @@ export function buildCpfDetailsHTML({
           <div class="tax-metric-box"><dt>SA top-up room to ${RetirementModel.C.year} FRS</dt><dd>${centsHtml(roomNow)}<small>Self RSTU: ${m(tax.maxRstu, "/yr")} (saves ${m(tax.rstuTaxSaved, "/yr")})</small></dd></div>
           <div class="tax-metric-box"><dt>OA transferable to SA now</dt><dd>${centsHtml(Math.min(oaNow, roomNow))}<small>Irreversible · $0 tax relief · Compounds at 4%–5% in SA</small></dd></div>
         </dl>
-        ${oaTransferSummaryTable}
-        <div class="cpf-vhr-grid">
-          <div class="timing-col cpf-vhr-box">
-            <div class="timing-col-head">
-              <h3>OA interest from age 55</h3>
-              <span class="swell-slate-pill">2.5% p.a. liquid</span>
+        <div class="cpf-choice-grid">
+          ${oaTransferCards}
+          <article class="cpf-choice-card">
+            <h3>OA interest from age 55</h3>
+            <div class="cpf-choice-key">
+              <span>Estimated monthly interest</span>
+              <strong>${m(oaInterest55Today, "/mo")}</strong>
+              <span>${oaRateLabel} on the projected OA balance</span>
             </div>
-            <dl>
-              <div><dt>Excess OA at 55 (${selected.toUpperCase()})</dt><dd>${m(oaLeft55Today)} <small>(${m(oaLeft55Nominal)} at 55)</small></dd></div>
-              <div><dt>Withdrawable OA interest</dt><dd>${m(oaInterest55Today, "/mo")} <small>(${m(oaInterest55Nominal, "/mo")} at 55)</small></dd></div>
-              <div><dt>$500k OA benchmark</dt><dd>${m(1042, "/mo")} <small>(${m(12500, "/yr")})</small></dd></div>
-              <div><dt>Withdrawal rule</dt><dd>On-demand once RA meets FRS</dd></div>
-            </dl>
-          </div>
-          <div class="timing-col cpf-vhr-box">
-            <div class="timing-col-head">
-              <h3>Housing refund or CPF cash top-up</h3>
-              <span class="tap-verdict-pill ${tax.maxRstu > 0 && tax.rstuTaxSaved > 0 ? "is-good" : "is-neutral"}">${tax.maxRstu > 0 && tax.rstuTaxSaved > 0 ? `RSTU Saves ${m(tax.rstuTaxSaved, "/yr")}` : "OA Liquidity"}</span>
+            ${renderMetrics([
+              ["OA left at 55 under your plan", m(oaLeft55Today)],
+              [
+                "Interest on $500,000 in OA",
+                `${m(annualBenchmarkInterest / 12, "/mo")} <small>(${m(annualBenchmarkInterest, "/yr")})</small>`,
+              ],
+            ])}
+            <p>From age 55, you can withdraw the remaining OA balance once you’ve set aside the Full Retirement Sum.</p>
+            ${renderNominal("oa-interest", [
+              ["OA balance", m(oaLeft55Nominal)],
+              ["Estimated monthly interest", m(oaInterest55Nominal, "/mo")],
+            ])}
+          </article>
+          <article class="cpf-choice-card">
+            <h3>Housing refund or CPF cash top-up</h3>
+            <div class="cpf-choice-options">
+              <div>
+                <h4>Cash top-up to retirement savings (RSTU)</h4>
+                <div class="cpf-choice-key">
+                  <span>Estimated tax savings</span>
+                  <strong>${m(tax.rstuTaxSaved, "/yr")}</strong>
+                </div>
+                ${renderMetrics([
+                  ["Top-up eligible for relief", m(tax.maxRstu, "/yr")],
+                  [
+                    `Relief cap remaining (of ${m(RetirementModel.C.personalReliefCap)})`,
+                    m(tax.reliefCapRemaining),
+                  ],
+                ])}
+                <p>Cash top-ups are committed to retirement payouts.</p>
+              </div>
+              <div>
+                <h4>Voluntary Housing Refund (VHR)</h4>
+                <div class="cpf-choice-key">
+                  <span>Tax relief</span>
+                  <strong>${m(0)}</strong>
+                </div>
+                <p>Refunds generally go back to OA, which earns ${oaRateLabel} in base interest. From age 55, refunds can go toward an unmet Full Retirement Sum.</p>
+              </div>
             </div>
-            <dl>
-              <div><dt>Eligible Cash RSTU (${rstuBracketStr}% bracket)</dt><dd>${m(tax.maxRstu, "/yr")} <small>(saves ${m(tax.rstuTaxSaved, "/yr")})</small></dd></div>
-              <div><dt>Remaining ${m(RetirementModel.C.personalReliefCap)} relief cap</dt><dd>${m(tax.reliefCapRemaining)}</dd></div>
-              <div><dt>Voluntary Housing Refund (VHR)</dt><dd>2.5% OA <small>($0 tax relief)</small></dd></div>
-              <div><dt>Lock-in vs liquidity</dt><dd>RSTU locks to 55 · VHR liquid at 55</dd></div>
-            </dl>
-          </div>
+          </article>
         </div>
       </section>`;
 }
@@ -138,6 +198,14 @@ export function buildCpfRulesTabHTML({
   const planLabelShort =
     r.plan === "escalating" ? "Escalating +2%/yr" : "Standard";
   const targetFundPct = cpfProgress.pct;
+  const ersGap = Math.max(
+    0,
+    cpfProgress.targetToday - cpfProgress.balanceToday,
+  );
+  const projectedFundingAboveFrs = Math.max(
+    0,
+    cpfProgress.balanceToday - lesson.cohortMilestones.frs.sumToday,
+  );
   const gapZero =
     (lesson.plannedCpfExtra > 0
       ? lesson.withPlanned.remainingGapToday
@@ -150,11 +218,11 @@ export function buildCpfRulesTabHTML({
         </div>
         <span class="fin-target-pill">Today’s dollars · Nominal amounts at age 55</span>
       </div>
-      <p id="cpf-strategy-milestone-help" class="cpf-strategy-help">Choose a retirement sum to update your plan’s CPF LIFE payout estimate and the projection on Overview.</p>
+      <p id="cpf-strategy-milestone-help" class="cpf-strategy-help">Before 55, voluntary SA top-ups are capped at the prevailing FRS. At 55, automatic transfers into your Retirement Account are capped at your cohort FRS. Choosing ERS models a voluntary top-up at 55 using available Ordinary Account (OA) savings and cash you set aside for CPF. That can leave less OA for housing. Each option shows the monthly payout if you reach that sum.</p>
       <div class="goal-choices" id="milestone-cpf-strategy" data-cpf-strategy-group role="group" aria-labelledby="cpf-goal-title" aria-describedby="cpf-strategy-milestone-help">${[
         ["brs", "Basic Retirement Sum"],
         ["frs", "Full Retirement Sum"],
-        ["ers", "Enhanced Retirement Sum · Top up from 55"],
+        ["ers", "Enhanced Retirement Sum · Optional from 55"],
       ]
         .map(([key, tag]) => {
           const cm = lesson.cohortMilestones[key];
@@ -165,7 +233,7 @@ export function buildCpfRulesTabHTML({
             </div>
             <div class="goal-choice-sum">${m(cm.sumToday)} <span>today’s $</span></div>
             <small>${tag} · ${m(cm.sumAt55)} nom. at 55</small>
-            <span class="goal-choice-action" aria-hidden="true">${key === selected ? "Selected for this plan" : `Use ${key.toUpperCase()} in my plan`}</span>
+            <span class="goal-choice-action" aria-hidden="true">${key === selected ? "Selected for this plan" : key === "ers" ? "Model an ERS top-up from 55" : `Use ${key.toUpperCase()} in my plan`}</span>
           </button>`;
         })
         .join("")}</div>
@@ -178,11 +246,12 @@ export function buildCpfRulesTabHTML({
           <span class="tap-progress-fill is-tap1" data-meter-key="cpf-milestone-fill" data-meter-w="${targetFundPct}" style="width:${targetFundPct}%"></span>
         </div>
       </div>
+      ${strategyTarget === "ers" ? `<p id="cpf-ers-funding-note" class="cpf-strategy-help">Your current plan projects ${m(cpfProgress.balanceToday)} in RA at 55${projectedFundingAboveFrs >= 0.5 ? `, including ${m(projectedFundingAboveFrs)} in voluntary funding above FRS` : ""}.${ersGap >= 0.5 ? ` The projected gap to ERS is ${m(ersGap)} in today’s dollars.` : " That covers the modelled ERS target."}</p>` : ""}
       <dl class="tax-metrics-grid">
         <div class="tax-metric-box"><dt>Target ${strategyTarget.toUpperCase()} at age 55</dt><dd>${m(lesson.targetToday, "", "lesson-target")}<small>Nominal at 55: ${m(lesson.target, "", "lesson-target-nom")}</small></dd></div>
         <div class="tax-metric-box"><dt>OA + SA at 55 (${r.awBonusAnnual > 0 ? "salary + bonus" : "salary"} only)</dt><dd>${m(lesson.availableToday, "", "lesson-avail")}<small>Nominal at 55: ${m(lesson.available)}</small></dd></div>
         <div class="tax-metric-box"><dt>${lesson.plannedCpfExtra > 0 ? `Remaining gap after ${m(lesson.plannedCpfExtra, "/mo")} extra` : `Gap to ${strategyTarget.toUpperCase()} at 55`}</dt><dd>${m(lesson.plannedCpfExtra > 0 ? lesson.withPlanned.remainingGapToday : lesson.gapToday, "", "lesson-gap")}<small>${lesson.plannedCpfExtra > 0 ? `Nominal remaining: ${m(lesson.withPlanned.remainingGap, "", "lesson-gap-nom")} (before extra: ${m(lesson.gapToday)} today’s $)` : `Nominal gap at 55: ${m(lesson.gap, "", "lesson-gap-nom")}`}</small></dd></div>
-        <div class="tax-metric-box"><dt>Extra CPF saving to hit ${strategyTarget.toUpperCase()}</dt><dd>${lesson.monthly === null ? "Lump sum only" : m(lesson.monthly, "/mo", "lesson-monthly")}<small>${lesson.monthly === null ? "Retiring before/at current age" : lesson.plannedCpfExtra > 0 ? (lesson.withPlanned.hitsTarget ? `✓ Covered by your ${m(lesson.plannedCpfExtra, "/mo")} extra CPF` : `+${m(lesson.withPlanned.additionalMonthlyNeeded, "/mo")} above your ${m(lesson.plannedCpfExtra, "/mo")}`) : `Until age ${lesson.untilAge} (total monthly top-up)`}</small></dd></div>
+        <div class="tax-metric-box"><dt>Extra savings for ${strategyTarget.toUpperCase()}</dt><dd>${lesson.monthly === null ? "Lump sum only" : m(lesson.monthly, "/mo", "lesson-monthly")}<small>${lesson.monthly === null ? "Monthly saving is paused" : lesson.plannedCpfExtra > 0 ? (lesson.withPlanned.hitsTarget ? `Covered by your ${m(lesson.plannedCpfExtra, "/mo")} extra CPF savings` : `+${m(lesson.withPlanned.additionalMonthlyNeeded, "/mo")} above your ${m(lesson.plannedCpfExtra, "/mo")}`) : `Save until age ${lesson.untilAge}`}${strategyTarget === "ers" ? " · Reserve savings above SA top-up room for age 55" : ""}</small></dd></div>
       </dl>
       <button type="button" class="text-button" data-quick-edit="cpf-extra">Edit extra CPF savings</button>
       <ul class="compact-list cpf-rules-notes cpf-milestone-timeline">
@@ -198,7 +267,7 @@ export function buildCpfRulesTabHTML({
         <p class="fin-page-sub">See what happens to your CPF accounts at 55 and how savings affect CPF LIFE payouts.</p>
       </div>
       <div class="ember-header-meta">
-        <button type="button" class="fin-action-chip" data-open-settings-field="known-oa">Edit CPF balances</button>
+        <button type="button" class="button button-small" data-open-settings-field="known-oa">Edit CPF balances</button>
         <span class="fin-target-pill">Age 55 → 65</span>
       </div>
     </header>
@@ -385,9 +454,9 @@ function buildTaxSweetSpotSection(tax) {
       <div class="family-rstu-actions">
         ${
           tax.familyRstuPlanned > 0
-            ? `<button type="button" class="fin-action-chip" data-apply-family-rstu="0">Clear family RSTU</button>`
+            ? `<button type="button" class="button button-small" data-apply-family-rstu="0">Clear family RSTU</button>`
             : tax.maxFamilyRstuRoom > 0
-              ? `<button type="button" class="fin-action-chip" data-apply-family-rstu="${Math.round(tax.maxFamilyRstuRoom)}">Simulate +${m(tax.maxFamilyRstuRoom, "/yr")}</button>`
+              ? `<button type="button" class="button button-small" data-apply-family-rstu="${Math.round(tax.maxFamilyRstuRoom)}">Simulate +${m(tax.maxFamilyRstuRoom, "/yr")}</button>`
               : ""
         }
       </div>
@@ -413,9 +482,11 @@ function buildTaxSweetSpotSection(tax) {
           <strong>Projected SRS withdrawal tax from age ${srsStartAge}</strong>
           <p>${tax.srsTrapGuidance}</p>
         </div>
-        <span class="status-pill ${tax.srsTrapTone || (tax.srsTrapStatus === "balloon-trap" ? "is-danger" : tax.srsTrapStatus === "near-cap" ? "is-warn" : "is-info")}">${tax.srsTrapStatus === "balloon-trap"
-          ? `Estimated tax ${m(tax.srsWithdrawalTaxAt63.annualTax, "/yr")}`
-          : tax.srsTrapHeadline}</span>
+        <span class="status-pill ${tax.srsTrapTone || (tax.srsTrapStatus === "balloon-trap" ? "is-danger" : tax.srsTrapStatus === "near-cap" ? "is-warn" : "is-info")}">${
+          tax.srsTrapStatus === "balloon-trap"
+            ? `Estimated tax ${m(tax.srsWithdrawalTaxAt63.annualTax, "/yr")}`
+            : tax.srsTrapHeadline
+        }</span>
       </div>
       <div class="tap-progress-wrap">
         <div class="tap-progress-meta">

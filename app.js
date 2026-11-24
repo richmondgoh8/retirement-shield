@@ -32,7 +32,6 @@ import {
   getMinRetireAge,
 } from "./src/app/quick-edit.js";
 import {
-  buildBudgetComparisonHTML,
   buildExpenseCardHTML,
   buildExpenseModalBodyHTML,
 } from "./src/app/views-expense.js";
@@ -91,6 +90,8 @@ import {
   syncSettingsCashBalance,
 } from "./src/app/settings-editor.js";
 import { setupServiceWorkerUpdates } from "./src/app/pwa-updates.js";
+import { createPlanIoController } from "./src/app/plan-io.js";
+import { createCashAccountsClickHandler } from "./src/app/cash-accounts.js";
 
 function setupSimplePlan() {
   const DEFAULT_DOB = RetirementModel.defaultDobForAge(35);
@@ -179,7 +180,6 @@ function setupSimplePlan() {
   const allocatorSlot = $("#allocator-slot");
   const priorityGuideSlot = $("#priority-guide-slot");
   if (priorityGuideSlot) priorityGuideSlot.innerHTML = buildPriorityGuideView();
-  let allocatorIncludesCpf = true;
   const cashParkingSlot = $("#cash-parking-slot");
   const dividendCalcSlot = $("#dividend-calc-slot");
   const taxSlot = $("#tax-slot");
@@ -197,7 +197,6 @@ function setupSimplePlan() {
   let currentSummaryToday = null;
   let currentTrajectory = null;
   let currentFirePlan = null;
-  let currentProjectionInputs = null;
   let fundingBeforeSavingsEdit = null;
   let savingsFundingChange = null;
   let currentAfterCpfCap = 0;
@@ -307,22 +306,144 @@ function setupSimplePlan() {
   loadDaveAnnuity();
   let divAnnuityInflationPct = 2.5;
   let divAnnuityBenchRatePct = 5.0;
-  let toastTimer = null;
-  let undoToastAction = null;
-  const showToast = (msg, ms = 2600, undo = null) => {
-    const toastEl = $("#ui-toast");
-    const textEl = $("#ui-toast-text");
-    if (!toastEl || !textEl) return;
-    if (!undo && undoToastAction && !toastEl.hidden) return;
-    textEl.textContent = msg;
-    undoToastAction = undo;
-    $("[data-toast-undo]").hidden = !undo;
-    toastEl.hidden = false;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-      toastEl.hidden = true;
-      undoToastAction = null;
-    }, ms);
+  const toastStack = $("#ui-toast");
+  const toastTemplate = $("#ui-toast-template");
+  const toastAnnouncement = $("#ui-toast-announcement");
+  const toasts = new Map();
+
+  const removeToast = (toast) => {
+    const entry = toasts.get(toast);
+    if (!entry) return;
+    const hadFocus = toast.contains(document.activeElement);
+    const adjacent = toast.nextElementSibling || toast.previousElementSibling;
+    clearTimeout(entry.timer);
+    toasts.delete(toast);
+    toast.remove();
+    if (!toasts.size) {
+      if (toastStack.hasAttribute("popover")) toastStack.hidePopover();
+      toastStack.hidden = true;
+      toastAnnouncement.textContent = "";
+    }
+    if (hadFocus) {
+      if (adjacent) $("[data-toast-dismiss]", adjacent).focus();
+      else restoreInvokerFocus(entry.invoker, "#plan-overflow summary");
+    }
+  };
+
+  toastStack.addEventListener(
+    "blur",
+    (event) => {
+      const toast = event.target.closest(".ui-toast");
+      queueMicrotask(() => {
+        const entry = toasts.get(toast);
+        if (
+          entry &&
+          entry.expiresAt <= performance.now() &&
+          !toast.contains(document.activeElement)
+        )
+          removeToast(toast);
+      });
+    },
+    true,
+  );
+
+  const TOAST_DEFAULT_MS = {
+    success: 2600,
+    info: 3200,
+    warning: 5000,
+    error: 6000,
+  };
+  const TOAST_ICONS = {
+    success: ICONS.checkTiny,
+    info: ICONS.infoTiny,
+    warning: ICONS.warnTiny,
+    error: ICONS.alertTriangle,
+  };
+  const announceToast = (msg, tone) => {
+    if (!toastAnnouncement) return;
+    toastAnnouncement.setAttribute(
+      "aria-live",
+      tone === "error" ? "assertive" : "polite",
+    );
+    if (toastAnnouncement.textContent === msg) {
+      toastAnnouncement.textContent = "";
+      requestAnimationFrame(() => {
+        if (toasts.size) toastAnnouncement.textContent = msg;
+      });
+    } else {
+      toastAnnouncement.textContent = msg;
+    }
+  };
+
+  const showToast = (
+    msg,
+    { tone = "success", ms, undo = null, dedupeKey = "" } = {},
+  ) => {
+    const resolvedTone = TOAST_ICONS[tone] ? tone : "info";
+    const duration =
+      ms ?? (undo ? 12000 : TOAST_DEFAULT_MS[resolvedTone] || 2600);
+    // Undo restores a plan snapshot. Keep only the latest replacement available
+    // and ensure no duplicate toast with the same key or message remains.
+    if (undo) {
+      for (const [toast, entry] of toasts) {
+        if (
+          entry.undo ||
+          (dedupeKey
+            ? toast.dataset.kind === dedupeKey
+            : $(".ui-toast-text", toast).textContent === msg)
+        ) {
+          removeToast(toast);
+        }
+      }
+    }
+    const duplicate =
+      !undo &&
+      [...toasts.keys()].find((toast) =>
+        dedupeKey
+          ? toast.dataset.kind === dedupeKey
+          : $(".ui-toast-text", toast).textContent === msg,
+      );
+    const toast =
+      duplicate || toastTemplate.content.firstElementChild.cloneNode(true);
+    const previous = toasts.get(toast);
+    if (previous) clearTimeout(previous.timer);
+    toast.dataset.kind = dedupeKey;
+    toast.dataset.tone = resolvedTone;
+    const iconEl = $(".ui-toast-icon", toast);
+    if (iconEl) iconEl.innerHTML = TOAST_ICONS[resolvedTone];
+    $(".ui-toast-text", toast).textContent = msg;
+    if (!undo) $("[data-toast-undo]", toast)?.remove();
+    const expiresAt = performance.now() + duration;
+    const timer = setTimeout(() => {
+      if (!toast.contains(document.activeElement)) removeToast(toast);
+    }, duration);
+    toasts.set(toast, {
+      undo,
+      expiresAt,
+      timer,
+      invoker: previous?.invoker ?? document.activeElement,
+    });
+
+    const next = [...toastStack.children].find(
+      (other) => other !== toast && toasts.get(other).expiresAt > expiresAt,
+    );
+    if (!toast.isConnected || toast.nextElementSibling !== (next ?? null)) {
+      const focused = toast.contains(document.activeElement)
+        ? document.activeElement
+        : null;
+      toastStack.insertBefore(toast, next ?? null);
+      focused?.focus({ preventScroll: true });
+    }
+    const usePopover =
+      typeof toastStack.showPopover === "function" && $("dialog:modal");
+    if (usePopover) toastStack.setAttribute("popover", "manual");
+    else if (toastStack.hasAttribute("popover")) {
+      toastStack.hidePopover();
+      toastStack.removeAttribute("popover");
+    }
+    toastStack.hidden = false;
+    if (usePopover) toastStack.showPopover();
+    announceToast(msg, resolvedTone);
   };
   const expDialog = $("#expense-modal");
   const expModalBody = $("#expense-modal-body");
@@ -646,8 +767,9 @@ function setupSimplePlan() {
           }
           showToast(
             existingSaved
-              ? "Invalid share link — loaded your saved plan."
-              : "Invalid share link — loaded defaults.",
+              ? "Invalid share link — loaded your saved plan"
+              : "Invalid share link — loaded defaults",
+            { tone: "warning", dedupeKey: "share-link" },
           );
         }
       } else if (existingSaved) {
@@ -746,6 +868,7 @@ function setupSimplePlan() {
   };
   let persistTimer = null;
   let pendingPersistSearch = null;
+  let hasPersistedPlan = false;
   const flushPersistState = () => {
     if (persistTimer != null) {
       clearTimeout(persistTimer);
@@ -755,10 +878,9 @@ function setupSimplePlan() {
     const search = pendingPersistSearch;
     pendingPersistSearch = null;
     try {
-      localStorage.setItem(
-        "rs_plan_state",
-        JSON.stringify(Object.fromEntries(search.entries())),
-      );
+      const serialized = JSON.stringify(Object.fromEntries(search.entries()));
+      const changed = localStorage.getItem("rs_plan_state") !== serialized;
+      localStorage.setItem("rs_plan_state", serialized);
       if (initialAnchorBoot) {
         initialAnchorBoot = false;
       } else if (isPlanShareHash(location.hash)) {
@@ -768,8 +890,15 @@ function setupSimplePlan() {
           location.pathname + location.search,
         );
       }
-      setSaveStatus("Saved");
+      setSaveStatus("");
+      if (hasPersistedPlan && changed && !document.hidden)
+        showToast("Saved in this browser", {
+          tone: "success",
+          dedupeKey: "save",
+        });
+      hasPersistedPlan = true;
     } catch (err) {
+      removeToast($('.ui-toast[data-kind="save"]', toastStack));
       setSaveStatus("Could not save");
       console.warn("Failed to flush plan state to localStorage:", err);
     }
@@ -807,12 +936,15 @@ function setupSimplePlan() {
         const previous = savedBrowserStateRaw;
         isSharedSandbox = false;
         savedBrowserStateRaw = null;
-        showToast("Shared plan saved in this browser", 12000, () => {
-          applyStateParams(new URLSearchParams(JSON.parse(previous)), {
-            resetFirst: true,
-          });
-          render();
-          flushPersistState();
+        showToast("Shared plan saved in this browser", {
+          tone: "info",
+          undo: () => {
+            applyStateParams(new URLSearchParams(JSON.parse(previous)), {
+              resetFirst: true,
+            });
+            render();
+            flushPersistState();
+          },
         });
       }
       setSaveStatus("Saving…");
@@ -1104,6 +1236,7 @@ function setupSimplePlan() {
           nextPlan === "escalating"
             ? "CPF LIFE switched to Escalating Plan (+2%/yr)"
             : "CPF LIFE switched to Standard Plan (level payout)",
+          { tone: "info", dedupeKey: "cpf-plan" },
         );
       }
       return;
@@ -1121,7 +1254,11 @@ function setupSimplePlan() {
       .getElementById(group.id)
       ?.querySelector(`[data-cpf-strategy="${selected}"]`)
       ?.focus({ preventScroll: true });
-    showToast(`Active CPF strategy: ${selected.toUpperCase()}`, 12000, undo);
+    showToast(`Active CPF strategy: ${selected.toUpperCase()}`, {
+      tone: "info",
+      undo,
+      dedupeKey: "cpf-strategy",
+    });
   });
   overviewSlot.addEventListener(
     "toggle",
@@ -1350,7 +1487,9 @@ function setupSimplePlan() {
     const phaseTone = isAccum ? "info" : pt.age < 65 ? "warn" : "good";
     const inflowParts = [];
     if (isAccum) {
-      inflowParts.push(`Savings outside CPF ${m(src.monthlyOutsideSave || 0, "/mo")}`);
+      inflowParts.push(
+        `Savings outside CPF ${m(src.monthlyOutsideSave || 0, "/mo")}`,
+      );
       if ((src.monthlyExtraCpf || 0) > 0.5) {
         inflowParts.push(`Extra CPF ${m(src.monthlyExtraCpf, "/mo")}`);
       }
@@ -1366,7 +1505,9 @@ function setupSimplePlan() {
         inflowParts.push(`SRS used for spending ${m(srsUsed, "/mo")}`);
       }
       if ((src.monthlyLiquidDraw || 0) > 0.5) {
-        inflowParts.push(`Portfolio and OA withdrawals ${m(src.monthlyLiquidDraw, "/mo")}`);
+        inflowParts.push(
+          `Portfolio and OA withdrawals ${m(src.monthlyLiquidDraw, "/mo")}`,
+        );
       }
       if ((src.monthlyShortfall || 0) > 0.5) {
         inflowParts.push(
@@ -1730,7 +1871,7 @@ function setupSimplePlan() {
       p.ssbCash = sumCustomCashAccounts();
     }
 
-    let r, simulation, fire, bogle, tax, netPay, automaticInvest, activeParams;
+    let r, simulation, fire, bogle, tax, netPay, automaticInvest;
     try {
       const pWithMas = liveMasRates ? { ...p, masRates: liveMasRates } : p;
       const pay = RetirementModel.computeTaxSummary(p);
@@ -1744,7 +1885,7 @@ function setupSimplePlan() {
       const savings = Math.round(netPay * 0.2);
       const cpfExtra = p.cpfExtra ?? 0;
       automaticInvest = Math.max(0, savings - cpfExtra - (p.cashSaving ?? 0));
-      activeParams = {
+      const activeParams = {
         ...pWithMas,
         cpfExtra,
         invest: p.invest ?? automaticInvest,
@@ -1767,7 +1908,6 @@ function setupSimplePlan() {
       return;
     }
     currentFirePlan = fire;
-    currentProjectionInputs = { params: activeParams, strategy: selected };
     currentSimulation = simulation;
     currentSummaryToday = r;
 
@@ -1924,7 +2064,7 @@ function setupSimplePlan() {
         <summary>See withdrawal rate, reserve &amp; yearly CPF ledger</summary>
         <dl class="simulation-metrics">
           <div><dt>Level portfolio withdrawal (${r.retire}–${simulation.endAge || 95})</dt><dd>${simMoneyHtml(simulation.monthlyPortfolioIncome, r.retire, "/mo")}<small>Estimated sustainable monthly drawdown</small></dd></div>
-          <div><dt>${selected.toUpperCase()} milestone age</dt><dd>${simulation.cpfGoalAge == null ? "Not reached by 65" : ageLabel(simulation.cpfGoalAge)}<small>Includes earmarked reserve before 55</small></dd></div>
+          <div><dt>${selected.toUpperCase()} milestone age</dt><dd>${simulation.cpfGoalAge == null ? "Not reached by 65" : ageLabel(simulation.cpfGoalAge)}<small>${selected === "ers" ? "Voluntary Retirement Account funding from age 55" : "Includes earmarked reserve before 55"}</small></dd></div>
           <div><dt>CPF reserve outside CPF at 55</dt><dd>${simMoneyHtml(simulation.cpfResult.remainingReserve, 55)}<small>Kept separate from outside portfolio</small></dd></div>
           <div><dt>Current SA cash top-up room</dt><dd>${m(simulation.cpfResult.currentTopupRoom)}<small>${simulation.cpfResult.maShortfallToday > 0 ? `MA cash shortfall: ${m(simulation.cpfResult.maShortfallToday)}` : "2026 FRS less SA & CPFIS-SA"}</small></dd></div>
         </dl>
@@ -1951,6 +2091,10 @@ function setupSimplePlan() {
 
     const renderCpfRulesTab = () => {
       if (!cpfRulesSlot) return;
+      const openNominalDetails = $$(
+        ".cpf-choice-nominal[open]",
+        cpfRulesSlot,
+      ).map((details) => details.id);
       learningPlan = RetirementModel.milestonePlan(
         { ...p, cpfExtra: r.retiringNow ? 0 : simulation.cpfExtra },
         strategyTarget,
@@ -1966,6 +2110,8 @@ function setupSimplePlan() {
         strategyTarget,
         cpfProgress,
       });
+      for (const id of openNominalDetails)
+        document.getElementById(id).open = true;
     };
 
     Object.values(fields).forEach((id) => {
@@ -2042,11 +2188,11 @@ function setupSimplePlan() {
       showExampleIntro,
     );
 
-    const bogleHTML = buildAllocatorView(bogle, allocatorIncludesCpf);
+    const bogleHTML = buildAllocatorView(bogle);
 
     const overviewDisclosures = [
-      ".exp-breakdown-disclosure",
       "#brief-paycheck-65",
+      "#overview-plan-editor",
       "#overview-saving-details",
       "#overview-starting-assets",
       "#overview-portfolio-details",
@@ -2082,6 +2228,10 @@ function setupSimplePlan() {
     }
     $("#cpf-strategy-slot").replaceChildren($("#cpf-strategy-comparison"));
     budgetSlot.innerHTML = buildExpenseCardHTML(expenseData);
+    for (const selector of overviewDisclosures) {
+      const details = $(selector);
+      if (details) details.open = true;
+    }
     if (activeSavingsField) {
       const replacement = document.getElementById(activeSavingsField.id);
       if (replacement) {
@@ -2104,10 +2254,6 @@ function setupSimplePlan() {
         value.trim() === "" ||
         Math.abs(Number(value) - suggested[id]) < 0.005;
     });
-    for (const selector of overviewDisclosures) {
-      const details = $(selector);
-      if (details) details.open = true;
-    }
     overviewSlot
       .querySelectorAll(".overview-disclosure-summary")
       .forEach((summary) => {
@@ -2590,51 +2736,42 @@ function setupSimplePlan() {
   };
 
   const loadMasRates = async (force = false, triggerBtn = null) => {
-    const getLiveBtn = () =>
-      triggerBtn?.isConnected
-        ? triggerBtn
-        : document.querySelector("[data-cash-sync]");
-    const initialBtn = getLiveBtn();
-    if (initialBtn) {
-      initialBtn.disabled = true;
-      initialBtn.textContent = "Syncing…";
+    if (triggerBtn) {
+      triggerBtn.disabled = true;
+      triggerBtn.textContent = "Checking…";
     }
     try {
       const url = "./assets/mas-rates.json";
       const res = await fetch(url, { cache: force ? "no-store" : "no-cache" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
-      if (json?.ssb?.issueCode && json?.tbills?.sixMonth?.cutoffYield != null) {
+      const fetchedAt = Date.parse(json?.fetchedAt);
+      if (
+        !Number.isFinite(fetchedAt) ||
+        !json?.ssb?.issueCode ||
+        !Number.isFinite(json.ssb.year10Return) ||
+        !json.tbills?.sixMonth?.issueCode ||
+        !Number.isFinite(json.tbills.sixMonth.cutoffYield)
+      )
+        throw new Error("Invalid MAS rate snapshot");
+      const prior = liveMasRates || RetirementModel.DEFAULT_MAS_LIVE_RATES;
+      if (fetchedAt < Date.parse(prior.fetchedAt)) return "unchanged";
+      const changed =
+        JSON.stringify([json.ssb, json.tbills]) !==
+        JSON.stringify([prior.ssb, prior.tbills]);
+      if (changed || json.fetchedAt !== liveMasRates?.fetchedAt) {
         liveMasRates = json;
         render();
       }
-      const postBtn = getLiveBtn();
-      if (postBtn) {
-        postBtn.disabled = true;
-        postBtn.textContent = "✓ MAS Synced";
-        setTimeout(() => {
-          const btnNow = getLiveBtn();
-          if (btnNow) {
-            btnNow.textContent = "Sync MAS";
-            btnNow.disabled = false;
-          }
-        }, 1600);
-      }
-      return true;
+      return changed ? "updated" : "unchanged";
     } catch (err) {
-      console.warn("MAS rates fetch failed, using offline snapshot:", err);
-      const postBtn = getLiveBtn();
-      if (postBtn) {
-        postBtn.textContent = "Offline snapshot";
-        setTimeout(() => {
-          const btnNow = getLiveBtn();
-          if (btnNow) {
-            btnNow.textContent = "Sync MAS";
-            btnNow.disabled = false;
-          }
-        }, 1800);
+      console.warn("MAS rates fetch failed, keeping existing rates:", err);
+      return "unavailable";
+    } finally {
+      if (triggerBtn) {
+        triggerBtn.textContent = "Sync MAS";
+        triggerBtn.disabled = false;
       }
-      return false;
     }
   };
   loadMasRates(false);
@@ -2792,6 +2929,7 @@ function setupSimplePlan() {
           if (clamped !== false) {
             showToast(
               `Capped at ${money(clamped)}/mo (within ${money(currentAfterCpfCap)}/mo take-home pay)`,
+              { tone: "warning", dedupeKey: "cap" },
             );
           }
         }
@@ -2875,27 +3013,6 @@ function setupSimplePlan() {
     );
   };
 
-  const replacementDialog = $("#replace-plan-dialog");
-  let replacement;
-  const confirmPlanReplacement = (message, label, invoker, apply) => {
-    if (replacementDialog.open) return;
-    $("#replace-plan-message").textContent = message;
-    $('button[value="replace"]', replacementDialog).textContent = label;
-    replacement = { invoker, apply };
-    replacementDialog.returnValue = "cancel";
-    replacementDialog.showModal();
-  };
-  replacementDialog.addEventListener("close", () => {
-    const pending = replacement;
-    replacement = null;
-    if (!pending) return;
-    restoreInvokerFocus(
-      pending.invoker?.getClientRects().length ? pending.invoker : null,
-      "#plan-overflow summary",
-    );
-    if (replacementDialog.returnValue === "replace") pending.apply();
-  });
-
   const captureReplacementUndo = () => {
     flushPendingRender();
     flushPersistState();
@@ -2959,20 +3076,19 @@ function setupSimplePlan() {
   document.addEventListener("click", (event) => {
     if (!(event.target instanceof Element)) return;
     if (event.target.closest("[data-toast-dismiss]")) {
-      const toastEl = $("#ui-toast");
-      if (toastEl) toastEl.hidden = true;
-      undoToastAction = null;
-      clearTimeout(toastTimer);
+      removeToast(event.target.closest(".ui-toast"));
       return;
     }
     if (event.target.closest("[data-toast-undo]")) {
-      const undo = undoToastAction;
-      undoToastAction = null;
-      clearTimeout(toastTimer);
-      $("#ui-toast").hidden = true;
+      const toast = event.target.closest(".ui-toast");
+      const undo = toasts.get(toast)?.undo;
+      removeToast(toast);
       undo?.();
       $("#plan-overflow summary").focus();
-      showToast("Previous plan restored");
+      showToast("Previous plan restored", {
+        tone: "success",
+        dedupeKey: "undo-restore",
+      });
       return;
     }
     const post55Btn = event.target.closest("#post55-toggle-switch");
@@ -2984,6 +3100,7 @@ function setupSimplePlan() {
         nextOn
           ? "Post-55 work CPF contributions included"
           : "Post-55 work CPF contributions excluded",
+        { tone: "info", dedupeKey: "post55" },
       );
       return;
     }
@@ -2991,9 +3108,13 @@ function setupSimplePlan() {
       const snapshot = captureModalSnapshot();
       resetSgDefaults();
       flushPersistState();
-      showToast("Reset to the age-35 worker example", 12000, () => {
-        restoreModalSnapshot(snapshot);
-        flushPersistState();
+      showToast("Reset to the age-35 worker example", {
+        tone: "info",
+        undo: () => {
+          restoreModalSnapshot(snapshot);
+          flushPersistState();
+        },
+        dedupeKey: "reset",
       });
       return;
     }
@@ -3057,13 +3178,20 @@ function setupSimplePlan() {
         render();
         showToast(
           `Capped monthly savings to ${money(nextInv + nextCashSav + nextCpfEx)}/mo after tax and fixed bills`,
+          { tone: "success", ms: 4500, dedupeKey: "cap" },
         );
       } else if (moveType === "match-save" && moveVal != null) {
         if ($("#known-invest")) $("#known-invest").value = String(moveVal);
         if ($("#sim-invest")) $("#sim-invest").value = String(moveVal);
         if ($("#qe-invest")) $("#qe-invest").value = String(moveVal);
         render();
-        showToast(`Updated monthly investment to ${money(Number(moveVal))}/mo`);
+        showToast(
+          `Updated monthly investment to ${money(Number(moveVal))}/mo`,
+          {
+            tone: "success",
+            dedupeKey: "match-save",
+          },
+        );
       } else if (moveType === "apply-rstu" && moveVal != null) {
         if ($("#known-cpf-extra"))
           $("#known-cpf-extra").value = String(moveVal);
@@ -3071,6 +3199,7 @@ function setupSimplePlan() {
         render();
         showToast(
           `Applied +${money(Number(moveVal))}/mo CPF SA top-up (RSTU tax relief)`,
+          { tone: "success", dedupeKey: "apply-rstu" },
         );
       } else if (moveType === "apply-srs" && moveVal != null) {
         if ($("#known-srs-annual"))
@@ -3080,11 +3209,15 @@ function setupSimplePlan() {
           Number(moveVal) > 0
             ? `Applied ${money(Number(moveVal))}/yr SRS contribution`
             : "Set planned annual SRS contribution to $0/yr",
+          { tone: "success", dedupeKey: "apply-srs" },
         );
       } else if (moveType === "invest-srs") {
         if ($("#known-srs-invested")) $("#known-srs-invested").value = "global";
         render();
-        showToast("Switched SRS balance from 0.05% cash to Global ETFs");
+        showToast("Switched SRS balance from 0.05% cash to Global ETFs", {
+          tone: "success",
+          dedupeKey: "invest-srs",
+        });
       } else if (moveType === "transfer-oa-sa" && moveVal != null) {
         const amt = Math.max(0, Math.round(Number(moveVal) || 0));
         const curOa = Math.max(0, Number($("#known-oa")?.value || 0));
@@ -3096,6 +3229,7 @@ function setupSimplePlan() {
         render();
         showToast(
           `Transferred ${money(curOa - nextOa)} excess CPF OA to SA (4.0% p.a.)`,
+          { tone: "success", dedupeKey: "transfer-oa-sa" },
         );
       } else if (moveType === "rebalance-portfolio") {
         const hadItemizedCash =
@@ -3161,6 +3295,7 @@ function setupSimplePlan() {
         render();
         showToast(
           `Rebalanced liquid portfolio to ${reb.tgtEqPct}/${100 - reb.tgtEqPct} target (${money(nextGlobal)} Global · ${money(nextSg)} SG · ${money(nextCash)} Cash)${hadItemizedCash ? " · switched cash to single total" : ""}`,
+          { tone: "success", ms: 5000, dedupeKey: "rebalance" },
         );
       } else if (moveType === "sweep-cash") {
         if (!customCashAccounts.length) {
@@ -3180,7 +3315,10 @@ function setupSimplePlan() {
         useItemizedCashAccounts = true;
         syncCashAccountsToBucket();
         render();
-        showToast("Swept overflow cash into MAS 10Y SSB");
+        showToast("Swept overflow cash into MAS 10Y SSB", {
+          tone: "success",
+          dedupeKey: "sweep-cash",
+        });
       }
       return;
     }
@@ -3282,7 +3420,10 @@ function setupSimplePlan() {
         example.open = true;
         $("[data-load-dave-annuity]", example)?.focus({ preventScroll: true });
       }
-      showToast("Dave’s example loaded");
+      showToast("Loaded Dave’s example", {
+        tone: "info",
+        dedupeKey: "dave-example",
+      });
       return;
     }
     const realizationBtn = event.target.closest(
@@ -3417,152 +3558,7 @@ function setupSimplePlan() {
     ) {
       return;
     }
-    const cashSyncBtn = event.target.closest("[data-cash-sync]");
-    if (cashSyncBtn) {
-      loadMasRates(true, cashSyncBtn).then((ok) => {
-        showToast(
-          ok
-            ? "Synced latest MAS SSB & T-Bill reference yields"
-            : "Offline — using bundled MAS reference yields",
-        );
-      });
-      return;
-    }
-    const cashModeBtn = event.target.closest("[data-cash-acc-mode]");
-    if (cashModeBtn) {
-      const nextMode = cashModeBtn.dataset.cashAccMode;
-      if (nextMode === "itemized") {
-        if (!customCashAccounts.length) {
-          const curCash = Math.max(
-            0,
-            Number($("#known-ssb-cash")?.value || 20000),
-          );
-          customCashAccounts = RetirementModel.defaultCashAccounts(
-            curCash,
-            liveMasRates,
-          );
-        }
-        useItemizedCashAccounts = true;
-        syncCashAccountsToBucket();
-        render();
-      } else {
-        const curTot =
-          useItemizedCashAccounts && customCashAccounts.length
-            ? sumCustomCashAccounts()
-            : Math.max(0, Number($("#known-ssb-cash")?.value || 0));
-        useItemizedCashAccounts = false;
-        if ($("#known-ssb-cash")) $("#known-ssb-cash").value = String(curTot);
-        syncBucketsToTotal();
-        render();
-      }
-      return;
-    }
-    const cashAddBtn = event.target.closest("[data-cash-acc-add]");
-    if (cashAddBtn) {
-      let presetKey = cashAddBtn.dataset.cashAccAdd || "custom";
-      if (presetKey === "smart") {
-        const used = new Set(customCashAccounts.map((a) => a.preset));
-        const smartOrder = [
-          "ocbc-360",
-          "dbs-multiplier",
-          "uob-one",
-          "ssb",
-          "maribank",
-          "gxs",
-          "tbills",
-          "custom",
-        ];
-        presetKey = smartOrder.find((k) => !used.has(k)) || "custom";
-      }
-      const preset = RetirementModel.resolveCashAccountPreset(
-        presetKey,
-        liveMasRates,
-      );
-      if (!useItemizedCashAccounts || !customCashAccounts.length) {
-        const curCash = Math.max(0, Number($("#known-ssb-cash")?.value || 0));
-        customCashAccounts = [
-          {
-            id: "cash-acc-" + Date.now() + "-" + ++cashAccUid,
-            preset: preset.key,
-            name: preset.name,
-            balance: curCash > 0 ? curCash : 10000,
-            bonusCap: preset.bonusCap,
-            bonusRatePct: preset.bonusRatePct,
-            baseRatePct: preset.baseRatePct,
-          },
-        ];
-      } else {
-        customCashAccounts.push({
-          id: "cash-acc-" + Date.now() + "-" + ++cashAccUid,
-          preset: preset.key,
-          name: preset.name,
-          balance: 10000,
-          bonusCap: preset.bonusCap,
-          bonusRatePct: preset.bonusRatePct,
-          baseRatePct: preset.baseRatePct,
-        });
-      }
-      useItemizedCashAccounts = true;
-      syncCashAccountsToBucket();
-      render();
-      const newIdx = customCashAccounts.length - 1;
-      requestAnimationFrame(() => {
-        const host = cashAccounts;
-        const row = host?.querySelector(`[data-cash-acc-row="${newIdx}"]`);
-        row?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-        const focusEl =
-          row?.querySelector(
-            `[data-cash-acc-field="${preset.key === "custom" ? "name" : "balance"}"]`,
-          ) || row?.querySelector(`[data-cash-acc-field="balance"]`);
-        focusEl?.focus({ preventScroll: true });
-        focusEl?.select?.();
-      });
-      showToast(`Added ${preset.name}`);
-      return;
-    }
-    const cashRemBtn = event.target.closest("[data-cash-acc-remove]");
-    if (cashRemBtn) {
-      const idx = Number(cashRemBtn.dataset.cashAccRemove);
-      if (
-        Number.isInteger(idx) &&
-        idx >= 0 &&
-        idx < customCashAccounts.length
-      ) {
-        const removed = customCashAccounts[idx];
-        customCashAccounts.splice(idx, 1);
-        if (customCashAccounts.length > 0) {
-          useItemizedCashAccounts = true;
-          syncCashAccountsToBucket();
-        } else {
-          useItemizedCashAccounts = false;
-          if ($("#known-ssb-cash"))
-            $("#known-ssb-cash").value = String(removed?.balance || 0);
-          syncBucketsToTotal();
-        }
-        render();
-      }
-      return;
-    }
-    const cashSweepBtn = event.target.closest("[data-cash-acc-sweep]");
-    if (cashSweepBtn) {
-      if (customCashAccounts.length > 0) {
-        const beforeBd = RetirementModel.computeCashAccountsBreakdown(
-          customCashAccounts,
-          liveMasRates,
-        );
-        customCashAccounts = RetirementModel.sweepCashAccountsOverflow(
-          customCashAccounts,
-          liveMasRates,
-        );
-        useItemizedCashAccounts = true;
-        syncCashAccountsToBucket();
-        render();
-        showToast(
-          `Swept ${money(beforeBd.totalOverflowBalance)} overflow to MAS SSB (+${money(beforeBd.sweepAnnualGain)}/yr → ${beforeBd.sweptEffectiveRatePct.toFixed(2)}% EIR)`,
-        );
-      }
-      return;
-    }
+    if (handleCashAccountClick(event.target)) return;
     const expEnterCustomBtn = event.target.closest("[data-exp-enter-custom]");
     if (expEnterCustomBtn) {
       const insideModal = Boolean(expDialog?.contains(expEnterCustomBtn));
@@ -3731,7 +3727,8 @@ function setupSimplePlan() {
         const nextButton = document.getElementById(inspectStepBtn.id);
         (nextButton.disabled
           ? $("#trajectory-year-inspector [data-inspect-step]:enabled")
-          : nextButton)?.focus({ preventScroll: true });
+          : nextButton
+        )?.focus({ preventScroll: true });
       }
       return;
     }
@@ -3766,33 +3763,13 @@ function setupSimplePlan() {
         amt > 0
           ? `Applied ${money(amt)}/yr Spouse / Family CPF top-up relief`
           : "Cleared Spouse / Family CPF top-up",
+        { tone: "success", dedupeKey: "family-rstu" },
       );
       return;
     }
     const shareBtn = event.target.closest("[data-share-plan]");
     if (shareBtn) {
-      flushPendingRender();
-      const params = lastSerializedSearch || buildSerializedParams({});
-      const shareToken = encodeShareToken(params);
-      const shareUrl = `${location.origin}${location.pathname}#p=${shareToken}`;
-      const onCopied = () => {
-        const spanEl = shareBtn.querySelector("span") || shareBtn;
-        flashConfirmButton(spanEl, "✓ Link copied");
-        showToast("Shareable plan link copied to clipboard");
-      };
-      if (navigator.clipboard?.writeText) {
-        navigator.clipboard
-          .writeText(shareUrl)
-          .then(onCopied)
-          .catch(() => {
-            window.prompt(
-              "Copy your shareable retirement plan link:",
-              shareUrl,
-            );
-          });
-      } else {
-        window.prompt("Copy your shareable retirement plan link:", shareUrl);
-      }
+      sharePlan(shareBtn);
       return;
     }
     const personaBtn = event.target.closest("[data-persona-preset]");
@@ -3831,7 +3808,11 @@ function setupSimplePlan() {
             $("#starter-plan-dialog").close();
             render();
             flushPersistState();
-            showToast(`Loaded ${title}`, 12000, undo);
+            showToast(`Loaded ${title}`, {
+              tone: "info",
+              undo,
+              dedupeKey: "persona",
+            });
           },
         );
       }
@@ -3952,52 +3933,14 @@ function setupSimplePlan() {
       }
     }
     render();
+    const presetMeta = RetirementModel.lifestyles[nextVal];
     showToast(
-      nextVal === "cca"
-        ? "Switched to Community Care ($2,800/mo preset)"
-        : "Switched to Home + Helper ($3,900/mo preset)",
+      presetMeta
+        ? `Switched to ${presetMeta.label} (${money(presetMeta.budget)}/mo preset)`
+        : "Switched retirement lifestyle preset",
+      { tone: "info", dedupeKey: "lifestyle" },
     );
   }
-
-  const budgetComparison = $("#budget-comparison");
-  bindDialogBackdropDismiss(budgetComparison);
-  budgetSlot.addEventListener("click", (event) => {
-    if (!event.target.closest("#compare-retirement-budgets")) return;
-    flushPendingRender();
-    if (!currentProjectionInputs) return;
-    const { params, strategy } = currentProjectionInputs;
-    const { retire, endAge } = currentFirePlan;
-    const scenarios = Object.entries(RetirementModel.lifestyles).map(
-      ([lifestyle, { label, budget }]) => {
-        const projection =
-          lifestyle === "cca" && retire < 55
-            ? null
-            : RetirementModel.firePlan(
-                { ...params, lifestyle, retire, spend: budget },
-                strategy,
-                { skipSolvers: true },
-              );
-        return {
-          label,
-          budget,
-          projection,
-          categories: RetirementModel.expensePlan({ lifestyle }).categories,
-        };
-      },
-    );
-    $("#budget-comparison-body").innerHTML = buildBudgetComparisonHTML({
-      retire,
-      endAge,
-      scenarios,
-    });
-    $("#compare-retirement-budgets").focus({ preventScroll: true });
-    budgetComparison.showModal();
-  });
-  budgetComparison.addEventListener("close", () => {
-    if (document.activeElement === document.body) {
-      $("#compare-retirement-budgets")?.focus({ preventScroll: true });
-    }
-  });
 
   function enterCustomExpenseMode(invoker = null) {
     const life = $("#known-lifestyle")?.value || "cca";
@@ -4482,13 +4425,18 @@ function setupSimplePlan() {
     input.defaultValue = input.value;
     fundingBeforeSavingsEdit ??= getSavingsProgress(currentFirePlan).percent;
     if (id === "known-invest") delete qeDialog.dataset.investAutoLocked;
-    if (clamped !== false)
-      showToast("Amount adjusted to fit monthly pay after CPF");
+    if (clamped !== false) {
+      showToast(
+        `Capped at ${money(clamped)}/mo (within ${money(currentAfterCpfCap)}/mo take-home pay)`,
+        { tone: "warning", dedupeKey: "cap" },
+      );
+    }
     scheduleRender();
   });
 
   overviewSlot.addEventListener("click", (event) => {
     if (event.target.closest("[data-review-overview-savings]")) {
+      $("#overview-plan-editor").open = true;
       $("[data-overview-saving-edit]", overviewSlot)?.click();
       return;
     }
@@ -4583,6 +4531,7 @@ function setupSimplePlan() {
       if (clamped !== false) {
         showToast(
           `Capped at ${money(clamped)}/mo (within ${money(currentAfterCpfCap)}/mo take-home pay)`,
+          { tone: "warning", dedupeKey: "cap" },
         );
       }
     });
@@ -4611,6 +4560,7 @@ function setupSimplePlan() {
     if (clamped !== false) {
       showToast(
         `Capped at ${money(clamped)}/mo (within ${money(currentAfterCpfCap)}/mo take-home pay)`,
+        { tone: "warning", dedupeKey: "cap" },
       );
     }
   });
@@ -4665,12 +4615,6 @@ function setupSimplePlan() {
     if (field) event.target.value = String(allocatorValue(field));
   });
   allocatorSlot.addEventListener("click", (event) => {
-    if (event.target.closest("[data-allocator-monthly]")) {
-      const title = $("#allocator-paycheck-title");
-      title.focus({ preventScroll: true });
-      title.scrollIntoView({ block: "start" });
-      return;
-    }
     const preset = event.target.closest("[data-allocator-preset]");
     if (preset) {
       setAllocatorValue("equity", Number(preset.dataset.allocatorPreset));
@@ -4684,11 +4628,6 @@ function setupSimplePlan() {
         allocatorValue(field) + Number(nudge.dataset.delta),
       );
     }
-  });
-  allocatorSlot.addEventListener("change", (event) => {
-    if (!event.target.matches("[data-allocator-basis]")) return;
-    allocatorIncludesCpf = event.target.checked;
-    render();
   });
   $("#savings-simulator").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-adjust]");
@@ -4860,165 +4799,52 @@ function setupSimplePlan() {
   });
   $("#print-plan-btn")?.addEventListener("click", triggerPrintSummary);
 
-  const exportPlanJson = (btn) => {
-    flushPendingRender();
-    try {
-      let stateObj = {};
-      if (lastSerializedSearch) {
-        stateObj = Object.fromEntries(lastSerializedSearch.entries());
-      } else {
-        const savedRaw = localStorage.getItem("rs_plan_state");
-        stateObj = savedRaw ? JSON.parse(savedRaw) : {};
-      }
-      const jsonText = JSON.stringify(stateObj, null, 2);
-      const blob = new Blob([jsonText], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const now = new Date();
-      const dateStamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `retirement-shield-plan-${dateStamp}.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      if (btn) {
-        const labelSpan = btn.querySelector("span");
-        flashConfirmButton(labelSpan || btn, "✓ Exported");
-      }
-      showToast("Exported retirement plan JSON");
-    } catch (err) {
-      console.warn("Failed to export retirement plan JSON:", err);
-      showToast("Could not export retirement plan JSON");
-    }
-  };
-
-  $("#export-json-btn")?.addEventListener("click", (event) => {
-    exportPlanJson(event.currentTarget);
+  const handleCashAccountClick = createCashAccountsClickHandler({
+    RetirementModel,
+    cashAccountsHost: cashAccounts,
+    getCustomCashAccounts: () => customCashAccounts,
+    setCustomCashAccounts: (next) => {
+      customCashAccounts = next;
+    },
+    getUseItemizedCashAccounts: () => useItemizedCashAccounts,
+    setUseItemizedCashAccounts: (next) => {
+      useItemizedCashAccounts = next;
+    },
+    nextCashAccUid: () => ++cashAccUid,
+    getLiveMasRates: () => liveMasRates,
+    loadMasRates,
+    sumCustomCashAccounts,
+    syncCashAccountsToBucket,
+    syncBucketsToTotal,
+    render,
+    showToast,
   });
 
-  const importJsonInput = $("#import-json-file");
-  $("#import-json-btn")?.addEventListener("click", () => {
-    if (importJsonInput) {
-      importJsonInput.value = "";
-      importJsonInput.click();
-    }
-  });
-
-  importJsonInput?.addEventListener("change", async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    let params = null;
-    try {
-      const rawText = await file.text();
-      const parsed = JSON.parse(rawText);
-      const rawObj =
-        parsed && typeof parsed === "object" && !Array.isArray(parsed)
-          ? parsed.state && typeof parsed.state === "object"
-            ? parsed.state
-            : parsed
-          : null;
-      if (!rawObj) throw new Error("Invalid JSON object");
-      const unsafeKeys = new Set(["__proto__", "constructor", "prototype"]);
-      const normalized = Object.create(null);
-      for (const [k, v] of Object.entries(rawObj)) {
-        if (unsafeKeys.has(k) || v == null || v === "") continue;
-        if ((k === "expItems" || k === "cashItems") && Array.isArray(v)) {
-          normalized[k] = JSON.stringify(v);
-        } else {
-          normalized[k] = String(v);
-        }
-      }
-      if (!normalized.version) normalized.version = "3";
-      if (!normalized.lifestyle) normalized.lifestyle = "cca";
-      params = new URLSearchParams(normalized);
-    } catch (err) {
-      console.warn("Failed to import retirement plan JSON:", err);
-      showToast("Invalid retirement plan JSON file");
-      event.target.value = "";
-      return;
-    }
-    event.target.value = "";
-    confirmPlanReplacement(
-      `Importing ${file.name} will replace your current plan.`,
-      "Import and replace",
-      $("#import-json-btn"),
-      () => applyImportedPlan(params),
-    );
-  });
-
-  const applyImportedPlan = (params) => {
-    const undo = captureReplacementUndo();
-    try {
-      if (!applyStateParams(params, { resetFirst: true })) {
-        undo();
-        showToast(
-          "Unsupported plan format. Your current plan is still active.",
-        );
-        return;
-      }
-      if (
-        !bucketIds.some((id) => ($("#" + id)?.value || "").trim() !== "") &&
-        ($("#known-savings")?.value || "").trim() !== ""
-      ) {
-        // Direct total savings preserved
-      } else {
-        syncBucketsToTotal();
-      }
-      render();
-      if (errorBanner && !errorBanner.hidden) {
-        const errMsg =
-          $("#settings-error")?.textContent?.trim() ||
-          errorBanner
-            .querySelector(".plan-error-copy span")
-            ?.textContent?.trim() ||
-          "Imported plan contains invalid values";
-        undo();
-        showToast(`${errMsg} — kept your current plan`);
-        return;
-      }
+  const { confirmPlanReplacement, sharePlan } = createPlanIoController({
+    PLAN_STORAGE_VERSION,
+    bucketIds,
+    errorBanner,
+    getLastSerializedSearch: () => lastSerializedSearch,
+    getSavingEnabled: () => savingEnabled,
+    buildSerializedParams,
+    encodeShareToken,
+    applyStateParams,
+    syncBucketsToTotal,
+    flushPendingRender,
+    render,
+    captureReplacementUndo,
+    clearSharedSandbox: () => {
       isSharedSandbox = false;
       savedBrowserStateRaw = null;
-
-      if (isPlanShareHash(location.hash)) {
-        history.replaceState(
-          history.state,
-          "",
-          location.pathname + location.search,
-        );
-      }
-      if (savingEnabled) {
-        try {
-          localStorage.setItem("rs_plan_version", PLAN_STORAGE_VERSION);
-          localStorage.setItem(
-            "rs_plan_state",
-            JSON.stringify(Object.fromEntries(params.entries())),
-          );
-        } catch (err) {
-          console.warn("Unable to persist imported plan:", err);
-        }
-      }
-      const importBtn = $("#import-json-btn");
-      if (importBtn) {
-        const labelSpan = importBtn.querySelector("span");
-        flashConfirmButton(labelSpan || importBtn, "✓ Imported");
-      }
-      markStarterPlan(null);
+    },
+    markStarterPlan,
+    clearExampleIntro: () => {
       showExampleIntro = false;
-      $("#overview-example-intro")?.remove();
-      showToast(
-        savingEnabled
-          ? "Imported retirement plan into local storage"
-          : "Imported retirement plan for this session (Private Mode)",
-        12000,
-        undo,
-      );
-    } catch (err) {
-      console.error("Failed to render imported retirement plan:", err);
-      undo();
-      showToast("Imported plan failed to apply — kept your current plan");
-    }
-  };
+    },
+    flashConfirmButton,
+    restoreInvokerFocus,
+    showToast,
+  });
   document.addEventListener("click", (event) => {
     if (event.target?.closest?.("[data-print-trigger]")) {
       triggerPrintSummary();
@@ -5111,7 +4937,6 @@ function setupSimplePlan() {
     render,
     scheduleRender,
     flushPendingRender,
-    showToast,
   });
 
   if (!hasRestoredPlan) applyPlanObject(SG_DEFAULT_PLAN);
@@ -5139,6 +4964,7 @@ function setupSettings() {
     restoreInvokerFocus(menuTrigger || invoker, fallback);
   };
   let starterInvoker = null;
+  let lastInvoker = null;
   bindDialogBackdropDismiss(starterDialog);
   starterDialog.addEventListener("close", () => {
     if (!$("#replace-plan-dialog").open) focusDialogInvoker(starterInvoker);
@@ -5147,18 +4973,16 @@ function setupSettings() {
     const starterAction = event.target?.closest?.(
       '[commandfor="starter-plan-dialog"]',
     );
-    if (!starterAction) return;
-    event.preventDefault();
-    if (starterAction.getAttribute("command") === "close")
-      starterDialog.close();
-    else {
-      starterInvoker = starterAction;
-      starterDialog.showModal();
+    if (starterAction) {
+      event.preventDefault();
+      if (starterAction.getAttribute("command") === "close")
+        starterDialog.close();
+      else {
+        starterInvoker = starterAction;
+        starterDialog.showModal();
+      }
+      return;
     }
-  });
-  let lastInvoker = null;
-
-  document.addEventListener("click", (event) => {
     const button = event.target?.closest?.(
       'button[commandfor="plan-settings"]',
     );
@@ -5247,77 +5071,69 @@ function setupGuidedFlow(finishSettingsEdit) {
     },
     true,
   );
-  const applyViewState = (focus = true, push = false, transition = false) => {
-    const updateDOM = () => {
-      const currentDestination = destinationByTab.get(activeTab);
-      document.body.dataset.view = activeTab;
-      for (const destination of Object.keys(destinations)) {
-        $(`#workspace-${destination}`).hidden =
-          destination !== currentDestination;
-      }
-      for (const tab of destinationByTab.keys()) {
-        $(`#tab-panel-${tab}`).hidden = tab !== activeTab;
-      }
-
-      for (const button of $$("[data-destination], [data-tab]")) {
-        const selected = button.dataset.destination
-          ? button.dataset.destination === currentDestination
-          : button.dataset.tab === activeTab;
-        button.classList.toggle("is-active", selected);
-        button.setAttribute("aria-selected", String(selected));
-        button.tabIndex = selected ? 0 : -1;
-      }
-
-      const inputs = $("#top");
-      const inputSlot = inputSlots[activeTab] && $(inputSlots[activeTab]);
-      inputs.hidden = !inputSlot;
-      if (inputSlot && inputs.parentElement !== inputSlot)
-        inputSlot.append(inputs);
-      for (const group of $$("[data-settings-scope]", inputs)) {
-        group.hidden = group.dataset.settingsScope !== activeTab;
-      }
-
-      if (applyViewState.lastTab !== activeTab) {
-        applyViewState.lastTab = activeTab;
-        window.dispatchEvent(
-          new CustomEvent("rs:tabchange", { detail: { tab: activeTab } }),
+  const applyViewState = (focus = true, push = false) => {
+    const currentDestination = destinationByTab.get(activeTab);
+    const previousTab = applyViewState.lastTab;
+    const viewChanged = previousTab !== activeTab;
+    document.body.dataset.view = activeTab;
+    for (const destination of Object.keys(destinations)) {
+      $(`#workspace-${destination}`).hidden =
+        destination !== currentDestination;
+    }
+    for (const tab of destinationByTab.keys()) {
+      const panel = $(`#tab-panel-${tab}`);
+      panel.hidden = tab !== activeTab;
+      if (viewChanged) {
+        panel.classList.toggle(
+          "is-tab-entering",
+          Boolean(previousTab) && !panel.hidden,
         );
       }
-      if (push) {
-        const url = new URL(location.href);
-        if (!isPlanShareHash(url.hash)) url.hash = activeTab;
-        history.pushState(
-          { ...history.state, plannerTab: activeTab, profileOpen: false },
-          "",
-          url,
-        );
-      }
+    }
 
-      if (focus) {
-        const targetEl = $(`#tab-panel-${activeTab}`);
-        targetEl?.setAttribute("tabindex", "-1");
-        targetEl?.focus({ preventScroll: true });
-        window.scrollTo({ top: 0, behavior: "instant" });
-      }
-    };
+    for (const button of $$("[data-destination], [data-tab]")) {
+      const selected = button.dataset.destination
+        ? button.dataset.destination === currentDestination
+        : button.dataset.tab === activeTab;
+      button.classList.toggle("is-active", selected);
+      button.setAttribute("aria-selected", String(selected));
+      button.tabIndex = selected ? 0 : -1;
+    }
 
-    if (
-      transition &&
-      typeof document.startViewTransition === "function" &&
-      !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
-    ) {
-      document.startViewTransition(() => {
-        updateDOM();
-      });
-    } else {
-      updateDOM();
+    const inputs = $("#top");
+    const inputSlot = inputSlots[activeTab] && $(inputSlots[activeTab]);
+    inputs.hidden = !inputSlot;
+    if (inputSlot && inputs.parentElement !== inputSlot)
+      inputSlot.append(inputs);
+    for (const group of $$("[data-settings-scope]", inputs)) {
+      group.hidden = group.dataset.settingsScope !== activeTab;
+    }
+
+    if (viewChanged) {
+      applyViewState.lastTab = activeTab;
+      window.dispatchEvent(
+        new CustomEvent("rs:tabchange", { detail: { tab: activeTab } }),
+      );
+    }
+    if (push) {
+      const url = new URL(location.href);
+      if (!isPlanShareHash(url.hash)) url.hash = activeTab;
+      history.pushState(
+        { ...history.state, plannerTab: activeTab, profileOpen: false },
+        "",
+        url,
+      );
+    }
+
+    if (focus) {
+      const targetEl = $(`#tab-panel-${activeTab}`);
+      targetEl?.setAttribute("tabindex", "-1");
+      targetEl?.focus({ preventScroll: true });
+      window.scrollTo({ top: 0, behavior: "instant" });
     }
   };
 
-  const navigateTo = (
-    { tab = activeTab, transition = false } = {},
-    focus = true,
-  ) => {
+  const navigateTo = ({ tab = activeTab } = {}, focus = true) => {
     if (!finishSettingsEdit()) return false;
     if ($("#plan-settings").open)
       $("#plan-settings").dataset.flowNavigation = "true";
@@ -5333,18 +5149,7 @@ function setupGuidedFlow(finishSettingsEdit) {
     const nextTab = destinationByTab.has(tab) ? tab : "overview";
     const viewChanged = nextTab !== activeTab;
     activeTab = nextTab;
-    applyViewState(focus, viewChanged, transition && viewChanged);
-    if (
-      viewChanged &&
-      !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
-    ) {
-      const targetPanel = $(`#tab-panel-${activeTab}`);
-      if (targetPanel) {
-        targetPanel.classList.remove("is-tab-entering");
-        void targetPanel.offsetWidth;
-        targetPanel.classList.add("is-tab-entering");
-      }
-    }
+    applyViewState(focus, viewChanged);
     return true;
   };
 
@@ -5380,7 +5185,6 @@ function setupGuidedFlow(finishSettingsEdit) {
         navigateTo(
           {
             tab: targetTab.dataset.tab || destinationTab,
-            transition: Boolean(event.isTrusted),
           },
           false,
         )
@@ -5408,7 +5212,6 @@ function setupGuidedFlow(finishSettingsEdit) {
         tab:
           tabBtn.dataset.tab ||
           (tabs.includes(activeTab) ? activeTab : tabs[0]),
-        transition: Boolean(event.isTrusted),
       });
       return;
     }
@@ -5420,7 +5223,6 @@ function setupGuidedFlow(finishSettingsEdit) {
       event.preventDefault();
       navigateTo({
         tab: "cash-accounts",
-        transition: Boolean(event.isTrusted),
       });
       return;
     }
@@ -5439,7 +5241,6 @@ function setupGuidedFlow(finishSettingsEdit) {
       event.preventDefault();
       navigateTo({
         tab: goTabBtn.dataset.goTab,
-        transition: Boolean(event.isTrusted),
       });
       return;
     }
@@ -5570,8 +5371,6 @@ function setupGuidedFlow(finishSettingsEdit) {
     if (targetId) {
       const target = document.getElementById(targetId);
       if (target instanceof HTMLDetailsElement) target.open = true;
-      const budgetDetails = target?.querySelector(".exp-breakdown-disclosure");
-      if (budgetDetails) budgetDetails.open = true;
       requestAnimationFrame(() => target?.scrollIntoView());
     }
     return true;

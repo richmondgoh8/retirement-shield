@@ -1,14 +1,10 @@
 import { m } from "./format.js";
 
-export function buildAllocatorView(bogle, includeCpf = true) {
+export function buildAllocatorView(bogle) {
   const { liquid, holistic, monthlyRebalance } = bogle;
   const { targetEquityPct, targetBondPct, sgSleevePct } = holistic;
   const buys = monthlyRebalance;
-  const total = includeCpf ? holistic.totalNetWorth : liquid.total;
-  const currentEquity = includeCpf
-    ? holistic.effectiveEquityPct
-    : liquid.equityPct;
-  const currentFixed = includeCpf ? holistic.effectiveBondPct : liquid.bondPct;
+  const { total, equityPct: currentEquity, bondPct: currentFixed } = liquid;
   const curEqRounded = Math.round(currentEquity);
   const tgtEqRounded = Math.round(targetEquityPct);
   const equityDeltaPct = curEqRounded - tgtEqRounded;
@@ -22,9 +18,6 @@ export function buildAllocatorView(bogle, includeCpf = true) {
     ["Global equities", liquid.globalEquities],
     ["SG dividends", liquid.sgDividends],
     ["SSB/Cash", liquid.bondsCash],
-    ...(includeCpf && holistic.cpfTotal > 0
-      ? [["CPF", holistic.cpfTotal]]
-      : []),
   ];
   const target = [
     ["Global equities", (targetEquityPct * (100 - sgSleevePct)) / 100],
@@ -55,7 +48,6 @@ export function buildAllocatorView(bogle, includeCpf = true) {
     <div class="fin-header-copy">
       <h1>Portfolio allocation</h1>
       <p>Compare your holdings with your target and plan your next contribution.</p>
-      <button type="button" class="text-button allocator-monthly-link" data-allocator-monthly>See monthly amounts ↓</button>
     </div>
   </header>
   <div class="allocator-sheet card-surface" id="boglehead-allocator">
@@ -64,14 +56,10 @@ export function buildAllocatorView(bogle, includeCpf = true) {
         <h2 id="bogle-title">Current mix</h2>
         <button type="button" class="text-button" data-open-settings-field="known-equities">Edit plan inputs</button>
       </div>
-      <label class="allocator-basis">
-        <input type="checkbox" data-allocator-basis ${includeCpf ? "checked" : ""}> Include CPF in current mix
-      </label>
-      <p class="allocator-support">When included, CPF counts toward fixed income in this comparison.</p>
       <div class="allocator-comparison">
         <p class="allocator-gap-note">${gapMessage}</p>
-        <table class="allocator-mix-table">
-          <caption class="sr-only">Current holdings compared with the target split</caption>
+        <table class="data-table allocator-mix-table">
+          <caption class="sr-only">Current holdings outside CPF compared with the target split</caption>
           <thead><tr><th scope="col">Allocation</th><th scope="col">Current</th><th scope="col">Target</th></tr></thead>
           <tbody>
             <tr><th scope="row">Equities</th><td>${curEqRounded}%</td><td>${tgtEqRounded}%</td></tr>
@@ -83,10 +71,10 @@ export function buildAllocatorView(bogle, includeCpf = true) {
             .map(
               ([label, amount]) => `
             <div><dt>${label}</dt>
-            <dd>${includeCpf ? `<span>${total ? Math.round((amount / total) * 100) : 0}%</span>` : ""}${m(amount)}</dd></div>`,
+            <dd>${m(amount)}</dd></div>`,
             )
             .join("")}
-          <div class="allocator-total"><dt>Total holdings</dt><dd>${m(total, "", includeCpf ? "bogle-hol-tot" : "bogle-liq-tot")}</dd></div>
+          <div class="allocator-total"><dt>Total holdings</dt><dd>${m(total)}</dd></div>
         </dl>
       </div>
     </section>
@@ -106,7 +94,7 @@ export function buildAllocatorView(bogle, includeCpf = true) {
     </section>
 
     <section class="allocator-paycheck" aria-labelledby="allocator-paycheck-title">
-      <h2 id="allocator-paycheck-title" tabindex="-1">Your monthly investment split</h2>
+      <h2 id="allocator-paycheck-title">Your monthly investment split</h2>
       <p class="allocator-support">Use these amounts when placing your monthly orders.</p>
       <dl class="allocator-paycheck-values">
         ${[

@@ -84,19 +84,22 @@ export function renderPrintSheet({
 
   const fn = fire.fireNumber || {};
   const printEndAge = pm.endAge || fire.endAge || 95;
-  const { readyText, deltaColor } =
-    deriveReadinessSummary({
-      fire,
-      endAge: printEndAge,
-      pctFunded: pm.rawPctFunded,
-      onTrack: pm.onTrack,
-      compact: true,
-    });
+  const { readyText, deltaColor } = deriveReadinessSummary({
+    fire,
+    endAge: printEndAge,
+    pctFunded: pm.rawPctFunded,
+    onTrack: pm.onTrack,
+    compact: true,
+  });
 
-  const runwayHeadline = fn.depletionAge == null
-    ? `If you retire at ${fire.retire}, your plan covers spending through age ${printEndAge}.`
-    : `If you retire at ${fire.retire}, your plan first falls short at age ${Math.floor(fn.depletionAge)}.`;
-  const extraInvestment = Math.max(0, Math.ceil(fn.requiredInvestTo95 - simulation.invest));
+  const runwayHeadline =
+    fn.depletionAge == null
+      ? `If you retire at ${fire.retire}, your plan covers spending through age ${printEndAge}.`
+      : `If you retire at ${fire.retire}, your plan first falls short at age ${Math.floor(fn.depletionAge)}.`;
+  const extraInvestment = Math.max(
+    0,
+    Math.ceil(fn.requiredInvestTo95 - simulation.invest),
+  );
 
   const ep =
     expenseData ||
@@ -160,31 +163,27 @@ export function renderPrintSheet({
       <div class="poster-brand-row">
         <div class="poster-title-block">
           <div class="poster-brand-lockup">
-            <span class="poster-brand-badge" aria-hidden="true">
+            <span class="fin-brand-badge poster-brand-badge" aria-hidden="true">
               <svg
                 viewBox="0 0 24 24"
                 width="15"
                 height="15"
                 fill="none"
                 stroke="currentColor"
-                stroke-width="2"
+                stroke-width="2.2"
                 stroke-linecap="round"
                 stroke-linejoin="round"
               >
-                <path
-                  d="M12 2.5l7.5 3.3v5.7c0 5-3.2 9.4-7.5 11-4.3-1.6-7.5-6-7.5-11V5.8L12 2.5z"
-                />
-                <path d="M9 14.5v-3M12 14.5V9.5M15 14.5V7.5" />
+                <path d="M12 21s7-3.5 7-9V5l-7-2.5L5 5v7c0 5.5 7 9 7 9z" />
+                <path d="M9 14v-2.5M12 14v-4.5M15 14V8" />
               </svg>
             </span>
             <span class="poster-wordmark"
               >Retirement<strong>Shield</strong></span
             >
-            <span class="poster-kicker"
-              >Your Singapore retirement plan</span
-            >
           </div>
-          <h1>${runwayHeadline}</h1>
+          <h1>Your retirement brief</h1>
+          <p class="poster-runway-summary">${runwayHeadline}</p>
           <div class="poster-chips">
             <span>Current age ${r.age} · Plan through age ${printEndAge}</span>
             <span
@@ -209,7 +208,6 @@ export function renderPrintSheet({
             ><span id="print-savings-progress">${fundingPercent}</span> ·
             ${pm.statusText}</strong
           >
-
         </div>
       </div>
     </header>
@@ -229,7 +227,10 @@ export function renderPrintSheet({
         <div class="poster-panel-head">
           <h2>Projected net worth (ages ${r.age}–${printEndAge})</h2>
         </div>
-        <p class="poster-chart-note">CPF, ${srsAnnualVal > 0 || startingSrs > 0 ? "SRS, " : ""}equities, cash and bonds. Excludes home value and debt.</p>
+        <p class="poster-chart-note">
+          CPF, ${srsAnnualVal > 0 || startingSrs > 0 ? "SRS, " : ""}equities,
+          cash and bonds. Excludes home value and debt.
+        </p>
         <div class="poster-nw-kpis">
           <div class="poster-nw-kpi">
             <small>Net worth at age ${pm.retireAge}</small>
@@ -254,8 +255,7 @@ export function renderPrintSheet({
 
       <div class="poster-panel poster-sources-card">
         <div class="poster-panel-head">
-          <h2>Where your retirement income comes from</h2>
-
+          <h2>How your retirement income is funded</h2>
         </div>
         <ul class="poster-source-list">
           ${fundingSources.map((src) =>
@@ -285,7 +285,7 @@ export function renderPrintSheet({
               style="width:${pm.cpfCovPct}%;background:var(--sem-emerald);"
             ></span>
             <span
-              style="width:${Math.max(0, 100 - pm.cpfCovPct)}%;background:var(--sem-equities);"
+              style="width:${Math.max(0, 100 - pm.cpfCovPct)}%;background:var(--ink-soft);"
             ></span>
           </div>
           <div class="poster-cov-legend">
@@ -295,7 +295,7 @@ export function renderPrintSheet({
               (${pm.cpfCovPct}%)</span
             >
             <span
-              ><i style="background:var(--sem-equities);"></i
+              ><i style="background:var(--ink-soft);"></i
               ><b>${raw(m(gapAt65Display, "/mo"))}</b> savings
               (${Math.max(0, 100 - pm.cpfCovPct)}%)</span
             >
@@ -306,7 +306,6 @@ export function renderPrintSheet({
       <div class="poster-panel poster-readiness-card">
         <div class="poster-panel-head">
           <h2>Your saving plan</h2>
-
         </div>
         ${raw(
           buildFinReadinessGaugeSVG(
@@ -322,11 +321,17 @@ export function renderPrintSheet({
         )}
         <div class="poster-gauge-facts">
           <div class="poster-gauge-fact">
-            <span>${r.retiringNow ? "Capital gap at retirement" : "Additional monthly investment needed"}</span>
-            <strong>${raw(r.retiringNow ? m(s.remainingPortfolioGap) : m(extraInvestment, "/mo"))}</strong>
+            <span
+              >${r.retiringNow ? "Capital gap at retirement" : "Additional monthly investment needed"}</span
+            >
+            <strong
+              >${raw(r.retiringNow ? m(s.remainingPortfolioGap) : m(extraInvestment, "/mo"))}</strong
+            >
           </div>
           <div class="poster-gauge-fact">
-            <span>${r.retiringNow ? "Planning horizon" : "Assumes current CPF and cash contributions through retirement"}</span>
+            <span
+              >${r.retiringNow ? "Planning horizon" : "Assumes current CPF and cash contributions through retirement"}</span
+            >
             ${r.retiringNow ? raw(html`<strong>Age ${printEndAge}</strong>`) : ""}
           </div>
         </div>
@@ -336,37 +341,33 @@ export function renderPrintSheet({
     <section class="poster-bottom-grid">
       <div class="poster-panel poster-strategy-panel">
         <div class="poster-panel-head">
-          <h2>CPF strategy and next steps</h2>
+          <h2>CPF strategy comparison</h2>
           <small
             >${cpfProgressLabel ? raw(html`<span id="print-cpf-progress">${cpfProgressLabel}</span><br />`) : ""}
-            ${isNominal ? "Future dollars" : "Today’s dollars"} ·
-            ${pm.customSavingNote ? "Custom save" : "Target"}</small
+            ${isNominal ? "Future dollars" : "Today’s dollars"}</small
           >
         </div>
-        <table class="poster-mini-table">
+        <table class="data-table poster-mini-table">
           <caption class="sr-only">
-            CPF Path summary comparing Age-55 CPF, extra CPF, outside saving,
-            and CPF LIFE payout
+            Illustrated outcomes if you reach each retirement sum
           </caption>
           <thead>
             <tr>
-              <th scope="col">Strategy Path</th>
-              <th scope="col" class="num-col">Age-55 CPF</th>
-              <th scope="col" class="num-col">Extra CPF</th>
-              <th scope="col" class="num-col">Outside Save</th>
-              <th scope="col" class="num-col">CPF LIFE (65+)</th>
+              <th scope="col">Retirement sum</th>
+              <th scope="col" class="num-col">CPF at 55</th>
+              <th scope="col" class="num-col">CPF goal savings</th>
+              <th scope="col" class="num-col">Outside investing</th>
+              <th scope="col" class="num-col">CPF LIFE from 65</th>
             </tr>
           </thead>
           <tbody>
-            ${[
-              ...(r.brsScenario ? [r.brsScenario] : []),
-              ...r.scenarios.slice(1),
-            ].map((sc) =>
+            ${r.cpfStrategyScenarios.map((sc) =>
               raw(
-                html`<tr class="${sc.key === s.key ? "is-active" : ""}">
-                  <td>
-                    ${sc.key === "salary" ? "CPF Salary" : sc.key.toUpperCase()}${sc.key === s.key ? " ★" : ""}
-                  </td>
+                html`<tr>
+                  <th scope="row">
+                    ${sc.key === "ers" ? "ERS (55+)" : sc.key.toUpperCase()}
+                    ${sc.key === s.key ? raw(html`<span class="status-pill is-info poster-table-selection">Selected</span>`) : ""}
+                  </th>
                   <td class="num-col">
                     ${raw(m(toDisplayMoney(sc.balance, 55)))}
                   </td>
@@ -387,7 +388,6 @@ export function renderPrintSheet({
         ${pm.customSavingNote ? raw(html`<p class="poster-override-note">${pm.customSavingNote}</p>`) : ""}
         <div class="poster-subhead">
           <span>Next steps</span>
-
         </div>
         <ul class="poster-tiers">
           ${pm.actionRows.map((row) =>
@@ -405,7 +405,7 @@ export function renderPrintSheet({
 
       <div class="poster-panel poster-cashflow-panel">
         <div class="poster-panel-head">
-          <h2>Paycheck split</h2>
+          <h2>Working paycheck</h2>
           <small>${raw(m(grossPlusEmp, "/mo"))} including employer CPF</small>
         </div>
         <div class="poster-pipes">
@@ -479,8 +479,7 @@ export function renderPrintSheet({
               infl.)</span
             >
             <strong
-              >${raw(m(spendAt65Display, "/mo"))}
-              ${formatDollarBasis(basis)}
+              >${raw(m(spendAt65Display, "/mo"))} ${formatDollarBasis(basis)}
               (${raw(m(pm.cpfFloor65, "/mo"))} CPF LIFE)</strong
             >
           </div>

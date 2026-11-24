@@ -964,7 +964,13 @@
                 >
                   <header class="fin-page-header">
                     <h1>Profile</h1>
-                    <button type="button" class="button button-small" data-go-tab="budget">Review retirement budget</button>
+                    <button
+                      type="button"
+                      class="button button-small"
+                      data-go-tab="budget"
+                    >
+                      Review retirement budget
+                    </button>
                   </header>
                   <div id="plan-inputs-slot"></div>
                 </section>
@@ -977,7 +983,6 @@
                 >
                   <header class="fin-page-header">
                     <h1>Retirement budget</h1>
-                    <button type="button" class="button button-small" data-go-tab="trajectory">View retirement projection</button>
                   </header>
                   <div id="budget-slot"></div>
                 </section>
@@ -998,11 +1003,24 @@
                         <div class="fin-title-row">
                           <h1 id="simulator-title">Retirement projection</h1>
                         </div>
-                        <p class="fin-page-sub" id="trajectory-saving-total"></p>
+                        <p
+                          class="fin-page-sub"
+                          id="trajectory-saving-total"
+                        ></p>
                       </div>
                       <div class="ember-header-meta">
-                        <a class="button button-small" href="#trajectory-saving-controls">Adjust monthly savings</a>
-                        <button type="button" class="text-button" data-go-tab="dividend-calc">Income calculators</button>
+                        <a
+                          class="button button-small"
+                          href="#trajectory-saving-controls"
+                          >Adjust monthly savings</a
+                        >
+                        <button
+                          type="button"
+                          class="text-button"
+                          data-go-tab="dividend-calc"
+                        >
+                          Income calculators
+                        </button>
                       </div>
                     </header>
 
@@ -1013,11 +1031,10 @@
                     >
                       <div class="trajectory-head">
                         <div>
-                          <h2 id="trajectory-title">
-                            Cashflow and wealth
-                          </h2>
+                          <h2 id="trajectory-title">Cashflow and wealth</h2>
                           <p class="trajectory-desc">
-                            Explore monthly income and spending, or see how your savings change over time.
+                            Explore monthly income and spending, or see how your
+                            savings change over time.
                           </p>
                         </div>
                         <div class="trajectory-controls">
@@ -1104,7 +1121,10 @@
                         ></div>
                       </div>
                       <div class="chart-legend" id="chart-legend"></div>
-                      <p class="trajectory-chart-note" id="trajectory-chart-note"></p>
+                      <p
+                        class="trajectory-chart-note"
+                        id="trajectory-chart-note"
+                      ></p>
                       <p class="traj-click-hint" id="trajectory-click-hint">
                         Select an age on the chart or in the yearly table to see
                         that year’s CPF and withdrawal breakdown.
@@ -1415,7 +1435,13 @@
                 >
                   <header class="fin-page-header">
                     <h1>Balances</h1>
-                    <button type="button" class="button button-small" data-go-tab="cash-accounts">Manage cash accounts</button>
+                    <button
+                      type="button"
+                      class="button button-small"
+                      data-go-tab="cash-accounts"
+                    >
+                      Manage cash accounts
+                    </button>
                   </header>
                   <div id="balances-inputs-slot"></div>
                 </section>
@@ -2034,11 +2060,7 @@
           aria-atomic="true"
         ></p>
         <div class="qe-footer-actions">
-          <span
-            class="plan-save-status"
-            data-plan-save-status
-            role="status"
-          ></span>
+          <span class="plan-save-status" data-plan-save-status></span>
           <button
             type="button"
             class="button button-primary"
@@ -2454,11 +2476,7 @@
           aria-atomic="true"
         ></p>
         <div class="qe-footer-actions">
-          <span
-            class="plan-save-status"
-            data-plan-save-status
-            role="status"
-          ></span>
+          <span class="plan-save-status" data-plan-save-status></span>
           <button type="button" class="text-button" id="qe-open-full-settings">
             Edit profile and housing
           </button>
@@ -2518,11 +2536,7 @@
           aria-atomic="true"
         ></p>
         <div class="qe-footer-actions">
-          <span
-            class="plan-save-status"
-            data-plan-save-status
-            role="status"
-          ></span>
+          <span class="plan-save-status" data-plan-save-status></span>
           <button
             type="button"
             class="text-button"
@@ -2540,26 +2554,6 @@
           </button>
         </div>
       </div>
-    </dialog>
-    <dialog
-      id="budget-comparison"
-      class="plan-settings"
-      aria-labelledby="budget-comparison-title"
-    >
-      <div class="settings-head">
-        <h2 id="budget-comparison-title">Compare retirement budgets</h2>
-        <form method="dialog">
-          <button
-            class="dialog-dismiss"
-            type="submit"
-            aria-label="Close budget comparison"
-            autofocus
-          >
-            ×
-          </button>
-        </form>
-      </div>
-      <div class="settings-scroll-body" id="budget-comparison-body"></div>
     </dialog>
     <button
       type="button"
@@ -2612,28 +2606,58 @@
         </div>
       </form>
     </dialog>
-    <div
-      id="ui-toast"
-      class="ui-toast"
-      role="status"
-      aria-live="polite"
-      aria-atomic="true"
-      hidden
+    <dialog
+      id="share-fallback-dialog"
+      class="plan-dialog"
+      aria-labelledby="share-fallback-title"
+      aria-describedby="share-fallback-desc"
     >
-      <span class="ui-toast-dot" aria-hidden="true"></span>
-      <span id="ui-toast-text" class="ui-toast-text"></span
-      ><button type="button" class="text-button" data-toast-undo hidden>
-        Undo
-      </button>
-      <button
-        type="button"
-        class="ui-toast-close"
-        data-toast-dismiss
-        aria-label="Dismiss notification"
-      >
-        ×
-      </button>
-    </div>
+      <form method="dialog" class="replace-plan-content">
+        <h2 id="share-fallback-title">Copy shareable plan link</h2>
+        <p id="share-fallback-desc">
+          Clipboard access is unavailable here. Copy the link below to share
+          your plan:
+        </p>
+        <label class="field" for="share-fallback-url">
+          <span>Shareable link</span>
+          <span class="input-wrap">
+            <input
+              id="share-fallback-url"
+              type="url"
+              readonly
+              autocomplete="off"
+            />
+          </span>
+        </label>
+        <div class="replace-plan-actions">
+          <button type="submit" class="button" value="close">Close</button>
+          <button
+            type="button"
+            class="button button-primary"
+            id="share-fallback-copy"
+          >
+            Copy link
+          </button>
+        </div>
+      </form>
+    </dialog>
+    <div id="ui-toast-announcement" class="sr-only" role="status"></div>
+    <div id="ui-toast" class="ui-toast-stack" hidden></div>
+    <template id="ui-toast-template">
+      <div class="ui-toast" data-tone="success">
+        <span class="ui-toast-icon" aria-hidden="true"></span>
+        <span class="ui-toast-text"></span>
+        <button type="button" class="text-button" data-toast-undo>Undo</button>
+        <button
+          type="button"
+          class="ui-toast-close"
+          data-toast-dismiss
+          aria-label="Dismiss notification"
+        >
+          ×
+        </button>
+      </div>
+    </template>
 
     <script src="model.js" defer></script>
     <script type="module" src="app.js"></script>

@@ -1,12 +1,4 @@
-import {
-  m,
-  money,
-  html,
-  raw,
-  formatExpSharePct,
-  getSavingsProgress,
-  getSavingsRunway,
-} from "./format.js";
+import { m, money, html, raw, formatExpSharePct } from "./format.js";
 
 function describePieSlicePath(cx, cy, outerR, innerR, startDeg, endDeg) {
   const full = endDeg - startDeg >= 359.9;
@@ -387,13 +379,9 @@ function buildExpenseCardHTML(ep) {
           </div>
         </div>
         <button type="button" class="button button-primary exp-edit-items" data-quick-edit="budget">${isPreset ? "View expenses" : "Edit budget"}</button>
-        <button type="button" class="text-button" id="compare-retirement-budgets" aria-haspopup="dialog">Compare retirement budgets</button>
       </div>
     </div>
 
-    <details class="overview-disclosure-card exp-breakdown-disclosure">
-      <summary class="overview-disclosure-summary">Breakdown</summary>
-      <div class="overview-disclosure-body">
       <div class="fin-expense-body" id="exp-card-body">
       <ul class="fin-expense-cats" id="exp-cats-slot" aria-label="Monthly spending by category">
         ${
@@ -440,80 +428,8 @@ function buildExpenseCardHTML(ep) {
         </ul>
       </div>
       </div>
-      </div>
-    </details>
     </div>
   </section>`;
 }
 
-function buildBudgetComparisonHTML({ retire, endAge, scenarios }) {
-  return html`
-    <p class="budget-comparison-context">
-      Retire at age ${retire} · Project through age ${endAge}. Both estimates
-      use your current savings, CPF strategy, and assumptions.
-    </p>
-    <div class="budget-comparison-grid">
-      ${scenarios.map(({ label, budget, projection }) => {
-        const progress = projection ? getSavingsProgress(projection) : null;
-        return raw(html`
-          <section class="budget-comparison-scenario">
-            <h3>${label}</h3>
-            <dl>
-              <dt>Budget in today’s dollars</dt>
-              <dd>${raw(m(budget, "/mo"))}</dd>
-              ${
-                projection
-                  ? raw(html`
-                      <dt>${progress.title}</dt>
-                      <dd>${progress.percent}</dd>
-                      <dt>Savings runway</dt>
-                      <dd>${getSavingsRunway(projection)}</dd>
-                    `)
-                  : raw(html`
-                      <dt>Projection</dt>
-                      <dd class="budget-comparison-unavailable">
-                        Available for retirement at age 55 or later.
-                      </dd>
-                    `)
-              }
-            </dl>
-          </section>
-        `);
-      })}
-    </div>
-    <table class="brief-cost-table">
-      <caption>
-        Monthly costs in today’s dollars
-      </caption>
-      <thead>
-        <tr>
-          <th scope="col">Category</th>
-          ${scenarios.map((scenario) => raw(html`<th scope="col">${scenario.label}</th>`))}
-        </tr>
-      </thead>
-      <tbody>
-        ${scenarios[0].categories.map((category) =>
-          raw(
-            html`<tr>
-              <th scope="row">${category.label}</th>
-              ${scenarios.map((scenario) => raw(html`<td>${money(scenario.categories.find((row) => row.key === category.key)?.amount ?? 0)}</td>`))}
-            </tr>`,
-          ),
-        )}
-      </tbody>
-      <tfoot>
-        <tr>
-          <th scope="row">Total</th>
-          ${scenarios.map((scenario) => raw(html`<td>${money(scenario.budget)}</td>`))}
-        </tr>
-      </tfoot>
-    </table>
-  `;
-}
-
-export {
-  buildBudgetComparisonHTML,
-  buildExpensePieSVG,
-  buildExpenseModalBodyHTML,
-  buildExpenseCardHTML,
-};
+export { buildExpensePieSVG, buildExpenseModalBodyHTML, buildExpenseCardHTML };

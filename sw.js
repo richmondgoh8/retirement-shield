@@ -24,6 +24,8 @@ const APP_SHELL = [
   "./src/app/quick-edit.js",
   "./src/app/settings-editor.js",
   "./src/app/pwa-updates.js",
+  "./src/app/plan-io.js",
+  "./src/app/cash-accounts.js",
   "./manifest.webmanifest",
   "./favicon.svg",
   "./favicon.ico",
@@ -109,20 +111,24 @@ async function pageResponse(request) {
 async function networkFirstJson(request) {
   const cache = await caches.open(CACHE_NAME);
   const canonicalKey = masRatesURL.href;
+  const force = request.cache === "no-store";
   let lastResponse = null;
   try {
-    const response = await fetch(request, { cache: "no-cache" });
+    const response = await fetch(request, {
+      cache: force ? "no-store" : "no-cache",
+    });
     lastResponse = response;
     if (response.ok && !response.redirected) {
       await cache.put(canonicalKey, response.clone());
       return response;
     }
   } catch {
-    // Offline or transient network error falls back to precached snapshot.
+    // Only automatic reads fall back to the precached snapshot.
   }
   const cached =
-    (await cache.match(canonicalKey)) ||
-    (await cache.match(request, { ignoreSearch: true }));
+    !force &&
+    ((await cache.match(canonicalKey)) ||
+      (await cache.match(request, { ignoreSearch: true })));
   return (
     cached ||
     lastResponse ||

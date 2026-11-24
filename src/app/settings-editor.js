@@ -1,11 +1,4 @@
-import {
-  $,
-  $$,
-  svgWrap,
-  html,
-  raw,
-  formatMoneyInput,
-} from "./format.js";
+import { $, $$, svgWrap, html, raw, formatMoneyInput } from "./format.js";
 import { attachDatePicker, syncDatePickers } from "./date-picker.js";
 
 function buildSettingsSections() {
@@ -196,22 +189,39 @@ function buildSettingsSections() {
                       >${label}</span
                     >
                   </div>
-                  ${key === "cpf"
-                    ? raw(html`<div class="settings-value-button" data-settings-cpf-readout>
-                        <span class="settings-value-readout">${fields.map((field) => raw(buildReadout(field)))}</span>
-                      </div>`)
-                    : raw(html`<button
-                        type="button"
-                        class="overview-saving-figure settings-value-button"
-                        data-settings-edit
-                        aria-expanded="false"
-                        aria-controls="settings-editor-${key}"
-                        aria-labelledby="settings-edit-${key} settings-label-${key} settings-value-${key}"
-                      >
-                        <span class="sr-only" id="settings-edit-${key}">Edit</span>
-                        <span class="settings-value-readout" id="settings-value-${key}">${fields.map((field) => raw(buildReadout(field)))}</span>
-                        ${raw(pencil)}
-                      </button>`)}
+                  ${
+                    key === "cpf"
+                      ? raw(
+                          html`<div
+                            class="settings-value-button"
+                            data-settings-cpf-readout
+                          >
+                            <span class="settings-value-readout"
+                              >${fields.map((field) => raw(buildReadout(field)))}</span
+                            >
+                          </div>`,
+                        )
+                      : raw(
+                          html`<button
+                            type="button"
+                            class="overview-saving-figure settings-value-button"
+                            data-settings-edit
+                            aria-expanded="false"
+                            aria-controls="settings-editor-${key}"
+                            aria-labelledby="settings-edit-${key} settings-label-${key} settings-value-${key}"
+                          >
+                            <span class="sr-only" id="settings-edit-${key}"
+                              >Edit</span
+                            >
+                            <span
+                              class="settings-value-readout"
+                              id="settings-value-${key}"
+                              >${fields.map((field) => raw(buildReadout(field)))}</span
+                            >
+                            ${raw(pencil)}
+                          </button>`,
+                        )
+                  }
                   ${derivedValue ? raw(html`<span class="settings-readonly-value" data-plan-value="${fields[0][0]}" data-value-format="${fields[0][1]}" hidden></span>`) : ""}
                   <div
                     class="settings-inline-editor"
@@ -347,12 +357,14 @@ export function setupInlineSettings(fields, formatRangeError) {
     return canonical;
   };
   const syncSaveButton = (editing) => {
-    editing.saveButton.disabled = !editing.controls.some(
-      (control) =>
-        !control.draft.disabled &&
-        canonicalValue(control, control.draft.value) !==
-          canonicalValue(control, control.initialValue),
-    );
+    editing.saveButton.disabled =
+      editing.row.dataset.settingsRow !== "housing" &&
+      !editing.controls.some(
+        (control) =>
+          !control.draft.disabled &&
+          canonicalValue(control, control.draft.value) !==
+            canonicalValue(control, control.initialValue),
+      );
   };
 
   const visibleControl = ({ draft }) =>
@@ -380,7 +392,8 @@ export function setupInlineSettings(fields, formatRangeError) {
     clearError(editing);
     editing.editor.hidden = true;
     syncEditability(editing);
-    if (refocus && canEdit(editing)) editing.trigger.focus({ preventScroll: true });
+    if (refocus && canEdit(editing))
+      editing.trigger.focus({ preventScroll: true });
   };
 
   const canEdit = (editing) => editing.row.dataset.cashDriven !== "true";
@@ -499,7 +512,9 @@ export function setupInlineSettings(fields, formatRangeError) {
   const handleRowClick = (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
-    const trigger = target.closest("[data-settings-edit], [data-settings-cpf-edit]");
+    const trigger = target.closest(
+      "[data-settings-edit], [data-settings-cpf-edit]",
+    );
     const editing = editButtons.get(trigger);
     const action = target.closest("[data-settings-action]")?.dataset
       .settingsAction;

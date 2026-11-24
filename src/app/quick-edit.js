@@ -57,7 +57,6 @@ export function createQuickEditController(ctx) {
     render,
     scheduleRender,
     flushPendingRender,
-    showToast,
   } = ctx;
 
   const defaultSsbReturnPct =

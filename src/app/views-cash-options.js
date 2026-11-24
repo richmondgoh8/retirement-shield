@@ -70,10 +70,18 @@ function cashProductIsStale(cp, item) {
   return deadlineIso < todaySg;
 }
 
+function cashFreshnessNote(cp, item) {
+  if (!cashProductIsStale(cp, item)) return "";
+  return item.id === "ssb"
+    ? "Application window closed"
+    : "Auction result not in this snapshot";
+}
+
 function buildCashFreshnessHTML(cp, item) {
   // Bank reference rates are tracked by month; MAS products expire on their
   // next issue/auction date, not on a generic age-of-data threshold.
   const staticRate = item && item.category !== "gov";
+  const note = cashFreshnessNote(cp, item);
   const asOf = new Date(`${cp.masAsOfDate}T00:00:00Z`);
   const label = staticRate
     ? "Nov 2026"
@@ -86,7 +94,7 @@ function buildCashFreshnessHTML(cp, item) {
       : cp.asOf;
   return html`<span class="cash-rate-date"
     >Rates as of
-    ${label}${cashProductIsStale(cp, item) ? raw(' <span class="status-pill is-warn">Newer data available · Sync MAS</span>') : ""}</span
+    ${label}${note ? raw(html` <span class="status-pill is-warn">${note}</span>`) : ""}</span
   >`;
 }
 
@@ -481,8 +489,13 @@ function buildCashCardsMarkup(cp, options) {
     .filter((item) => singleCashHeadlineRate(item) === null)
     .map((item) => item.name);
   return html`${sort === "rate" ? raw(html`<p class="cash-sort-note">Sorted by the single published headline percentage (including advertised ceilings). Rows without one sortable headline value follow: ${unsortableRateNames.join(", ")}.</p>`) : ""}
-    <div class="cash-table-surface card-surface" tabindex="0" role="region" aria-labelledby="cash-comparison-title">
-      <table class="cash-product-table" aria-label="Cash products">
+    <div
+      class="cash-table-surface card-surface"
+      tabindex="0"
+      role="region"
+      aria-labelledby="cash-comparison-title"
+    >
+      <table class="data-table cash-product-table" aria-label="Cash products">
         <thead>
           <tr>
             <th scope="col">Product</th>
@@ -501,6 +514,7 @@ function buildCashCardsMarkup(cp, options) {
           ${items.map((item) => {
             const detailId = `cash-product-${item.id}`;
             const isOpen = expanded.has(item.id);
+            const freshnessNote = cashFreshnessNote(cp, item);
             return raw(
               html`<tr class="cash-product-row" data-cash-product-row>
                   <th scope="row">
@@ -514,7 +528,7 @@ function buildCashCardsMarkup(cp, options) {
                   </td>
                   <td>
                     ${cashConditionLabel(item)}
-                    ${cashProductIsStale(cp, item) ? raw('<span class="cash-stale-note">Newer data available · Sync MAS</span>') : ""}
+                    ${freshnessNote ? raw(html`<span class="cash-stale-note">${freshnessNote}</span>`) : ""}
                   </td>
                   <td>${item.capLabel}</td>
                   <td>${item.liquidity}</td>

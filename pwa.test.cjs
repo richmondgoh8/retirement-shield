@@ -420,6 +420,19 @@ test("service worker runtime behavior: install precache, stale cache eviction, s
   });
   const masOfflineResp = await respPromise;
   assert.equal(await masOfflineResp.text(), `body-v1:${masUrl}`);
+  let manualCacheMode;
+  fetchImpl = async (_request, options) => {
+    manualCacheMode = options.cache;
+    throw new Error("Network unavailable");
+  };
+  listeners.get("fetch")({
+    request: { method: "GET", mode: "cors", url: masUrl, cache: "no-store" },
+    respondWith(p) {
+      respPromise = p;
+    },
+  });
+  assert.equal((await respPromise).status, 503);
+  assert.equal(manualCacheMode, "no-store");
   listeners.get("fetch")({
     request: {
       method: "GET",

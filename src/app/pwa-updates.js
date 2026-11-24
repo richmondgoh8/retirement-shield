@@ -11,7 +11,14 @@ export function setupServiceWorkerUpdates() {
   let swRegRef = null;
   let reloadingOnSwChange = false;
   const revealUpdate = () => {
-    if (updateBtn) updateBtn.hidden = false;
+    if (updateBtn && updateBtn.hidden) {
+      updateBtn.hidden = false;
+      const srStatus = $("#sr-status");
+      if (srStatus) {
+        srStatus.textContent =
+          "A newer version of Retirement Shield is ready to install";
+      }
+    }
   };
 
   if (updateBtn) {

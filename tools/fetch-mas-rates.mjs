@@ -93,9 +93,8 @@ function summarizeWindow(values, currentVal, extra = {}) {
 async function main() {
   const [ssbIssues, ssbInterests, tbillAuctions] = await Promise.all([
     fetchJson(`${MAS_BASE}m/listsavingbonds?rows=200&sort=issue_date%20desc`),
-    fetchJson(
-      `${MAS_BASE}m/savingbondsinterest?rows=200&sort=issue_date%20desc`,
-    ),
+    // Interest records are joined by issue code and have no issue_date field.
+    fetchJson(`${MAS_BASE}m/savingbondsinterest?rows=200`),
     fetchJson(
       `${MAS_BASE}m/listauctionbondsandbills?rows=200&filters=product_type:%22B%22&sort=auction_date%20desc`,
     ),
