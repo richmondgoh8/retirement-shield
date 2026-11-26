@@ -1442,7 +1442,16 @@ export function buildFinOverviewGrid(
         <div class="overview-strategy-header">
           <h2 id="overview-cpf-strategy-label">CPF retirement sum</h2>
           <div id="overview-cpf-strategy-options" class="cpf-option-buttons" data-cpf-strategy-group role="group" aria-labelledby="overview-cpf-strategy-label" aria-describedby="overview-cpf-strategy-help">
-            ${[["brs", "BRS"], ["frs", "FRS"], ["ers", "ERS (55+)"]].map(([path, label]) => `<button type="button" class="button button-small" data-cpf-strategy="${path}" aria-pressed="${path === selected}">${label}</button>`).join("")}
+            ${[
+              ["brs", "BRS"],
+              ["frs", "FRS"],
+              ["ers", "ERS (55+)"],
+            ]
+              .map(
+                ([path, label]) =>
+                  `<button type="button" class="button button-small" data-cpf-strategy="${path}" aria-pressed="${path === selected}">${label}</button>`,
+              )
+              .join("")}
           </div>
         </div>
         <p id="overview-cpf-strategy-help" class="cpf-strategy-help">At 55, CPF automatically funds your Retirement Account up to your cohort FRS. Choosing ERS models a voluntary top-up at 55 using available Ordinary Account (OA) savings and cash you set aside for CPF. That can leave less OA for housing.</p>
@@ -1809,7 +1818,7 @@ export function buildFinOverviewGrid(
                     }
                   : null,
               detailsLabel: "CPF LIFE and OA withdrawal rules",
-              detailsHTML: `<p>The <strong>${selectedPathName}</strong> pays <strong>${m(taps.tap1Cpf.monthlyPayoutToday, "/mo")}</strong> from age 65 (${r.plan === "escalating" ? "Escalating +2%/yr" : "Standard"}). 2026 anchors: BRS $950 · FRS $1,780 · ERS $3,440/mo.</p>
+              detailsHTML: `<p>The <strong>${selectedPathName}</strong> projects <strong>${m(taps.tap1Cpf.projectedCpf55Today)}</strong> in Retirement Account savings at age 55 (today’s $), generating <strong>${m(taps.tap1Cpf.monthlyPayoutToday, "/mo")}</strong> from age 65 (${r.plan === "escalating" ? `80% of Standard ${m(taps.tap1Cpf.standardMonthlyToday, "/mo")} at 65, then +2%/yr` : `Standard level payout`}, covering <strong>${tap1Pct}%</strong> of your ${m(taps.tap1Cpf.spend65Today, "/mo")} age-65 budget). 2026 anchors: BRS $950 · FRS $1,780 · ERS $3,440/mo.</p>
                 <p>Projected withdrawable OA at age 55: <strong>${m(taps.tap1Cpf.oaAt55Today)}</strong> today’s value (${m(taps.tap1Cpf.oaAt55Nominal)} nominal), earning <strong>${m(taps.tap1Cpf.oaInterestMonthlyToday, "/mo")}</strong> at 2.5% p.a. OA is withdrawable once FRS is met. As a reference, ${m(taps.tap1Cpf.oa500kRefBalance)} in OA earns about ${m(taps.tap1Cpf.oa500kRefMonthly, "/mo")}.</p>`,
             }),
             buildRetirementIncomeTile({

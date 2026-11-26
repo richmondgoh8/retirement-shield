@@ -2641,6 +2641,39 @@
         </div>
       </form>
     </dialog>
+    <dialog
+      id="div-formula-dialog"
+      class="plan-dialog div-formula-dialog"
+      closedby="any"
+      aria-labelledby="div-formula-dialog-title"
+    >
+      <div class="div-formula-dialog-inner">
+        <div class="div-formula-dialog-head">
+          <h1 id="div-formula-dialog-title">Formula breakdown</h1>
+          <form method="dialog">
+            <button
+              type="submit"
+              class="div-formula-close"
+              value="close"
+              aria-label="Close formula breakdown"
+            >
+              ×
+            </button>
+          </form>
+        </div>
+        <div id="div-formula-dialog-body" class="div-formula-steps"></div>
+        <form method="dialog" class="div-formula-dialog-actions">
+          <button
+            type="submit"
+            class="button button-primary"
+            value="close"
+            autofocus
+          >
+            Close
+          </button>
+        </form>
+      </div>
+    </dialog>
     <div id="ui-toast-announcement" class="sr-only" role="status"></div>
     <div id="ui-toast" class="ui-toast-stack" hidden></div>
     <template id="ui-toast-template">

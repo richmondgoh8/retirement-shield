@@ -6984,6 +6984,13 @@
       save15YrMo: calcReqSaveForYears(15, rPct),
       save20YrMo: calcReqSaveForYears(20, rPct),
       save25YrMo: calcReqSaveForYears(25, rPct),
+      rMoPct: Math.round(rMo * 1000000) / 10000,
+      infMoPct: Math.round(infMo * 1000000) / 10000,
+      save15YrInflatedTarget: Math.round(
+        requiredCapital * (1 + infPct / 100) ** 15,
+      ),
+      save15YrFvCurrent: Math.round(curCap * (1 + rMo) ** 180),
+      save15YrAnnuityFactor: annuityFactor(rMo, 180),
       tone: yieldVerdict.tone,
       badge: yieldVerdict.badge,
       headline: yieldVerdict.headline,
@@ -7114,15 +7121,17 @@
     }
 
     const scaledMonthlyDividends = baseMonthlyDividends * realization;
+    let dividendStepUpDivisor = 0;
     let year1AnnualDividend = 0;
-    if (scaledMonthlyDividends > 0 && pYrs > 0) {
+    if (pYrs > 0) {
       if (stepUp === 0) {
-        year1AnnualDividend = scaledMonthlyDividends / pYrs;
+        dividendStepUpDivisor = pYrs;
       } else {
-        let divisor = 0;
-        for (let y = 0; y < pYrs; y++) divisor += (1 + stepUp) ** y;
-        year1AnnualDividend =
-          divisor > 0 ? scaledMonthlyDividends / divisor : 0;
+        for (let y = 0; y < pYrs; y++)
+          dividendStepUpDivisor += (1 + stepUp) ** y;
+      }
+      if (scaledMonthlyDividends > 0 && dividendStepUpDivisor > 0) {
+        year1AnnualDividend = scaledMonthlyDividends / dividendStepUpDivisor;
       }
     }
     const scaledTerminalDividend = baseTerminalDividend * realization;
@@ -7300,6 +7309,52 @@
       },
     ];
 
+    const finalYearAnnualDividend =
+      pYrs > 0 ? year1AnnualDividend * (1 + stepUp) ** (pYrs - 1) : 0;
+    const accumulatedPremiumsAtStart =
+      monthlyLogGrowth === null
+        ? null
+        : accumulatePremiums(Math.exp(monthlyLogGrowth));
+    const pvPayoutsAtStart =
+      monthlyLogGrowth === null
+        ? null
+        : flows.reduce((sum, flow, month) => {
+            if (month <= payoutStartMonth || flow === 0) return sum;
+            return (
+              sum +
+              flow * Math.exp((payoutStartMonth - month) * monthlyLogGrowth)
+            );
+          }, 0);
+    const formulaBreakdown = {
+      premiumMonths,
+      payoutStartMonth,
+      payoutMonths,
+      totalMonths,
+      annualPremium: Math.round(moPayIn * 12 * 100) / 100,
+      dividendStepUpDivisor: Math.round(dividendStepUpDivisor * 10000) / 10000,
+      year1MonthlyDividend: Math.round((year1AnnualDividend / 12) * 100) / 100,
+      finalYearAnnualDividend: Math.round(finalYearAnnualDividend * 100) / 100,
+      finalYearMonthlyDividend:
+        Math.round((finalYearAnnualDividend / 12) * 100) / 100,
+      monthlyIrrPct:
+        monthlyLogGrowth === null
+          ? null
+          : Math.round(Math.expm1(monthlyLogGrowth) * 1000000) / 10000,
+      accumulatedPremiumsAtStart:
+        accumulatedPremiumsAtStart === null
+          ? null
+          : Math.round(accumulatedPremiumsAtStart * 100) / 100,
+      pvPayoutsAtStart:
+        pvPayoutsAtStart === null
+          ? null
+          : Math.round(pvPayoutsAtStart * 100) / 100,
+      npvResidualAtStart:
+        accumulatedPremiumsAtStart === null || pvPayoutsAtStart === null
+          ? null
+          : Math.round((pvPayoutsAtStart - accumulatedPremiumsAtStart) * 100) /
+            100,
+    };
+
     return {
       monthlyContribution: moPayIn,
       contributeYears: cYrs,
@@ -7337,6 +7392,7 @@
       headline,
       summary,
       comparisons,
+      formulaBreakdown,
     };
   }
 

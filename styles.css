@@ -15301,3 +15301,235 @@ button.settings-value-button:is(:hover, :focus-visible) > svg {
   border-color: var(--primary-border);
   color: var(--primary-ink);
 }
+
+.div-payout-eyebrow-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.div-formula-trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 26px;
+  block-size: 26px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-subtle);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.div-formula-trigger::after {
+  content: "";
+  position: absolute;
+  inset: -9px;
+}
+
+.div-formula-trigger:hover {
+  background: var(--primary-soft);
+  border-color: var(--primary-border);
+  color: var(--primary-ink);
+}
+
+.div-formula-trigger:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+dialog.div-formula-dialog {
+  width: min(640px, calc(100vw - 24px));
+  max-height: min(86vh, 760px);
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+}
+
+dialog.div-formula-dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog.div-formula-dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.div-formula-dialog-inner {
+  display: flex;
+  flex-direction: column;
+  max-height: min(86vh, 760px);
+}
+
+.div-formula-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.div-formula-dialog-head h1 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.div-formula-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 36px;
+  min-block-size: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--surface-subtle);
+  color: var(--ink);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.div-formula-close:hover {
+  background: var(--surface);
+  border-color: var(--border-strong);
+}
+
+.div-formula-close:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.div-formula-steps {
+  display: grid;
+  gap: 18px;
+  padding: 18px 22px;
+  overflow-y: auto;
+}
+
+.div-formula-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 22px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-subtle);
+}
+
+.div-formula-step {
+  display: grid;
+  gap: 8px;
+}
+
+.div-formula-step-title {
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.div-calc-receipt {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+
+.div-calc-row {
+  border-bottom: 1px solid var(--border);
+}
+
+.div-calc-row:last-child {
+  border-bottom: 0;
+}
+
+.div-calc-row.is-total {
+  background: var(--surface);
+}
+
+.div-calc-row th,
+.div-calc-row td {
+  padding: 9px 12px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  vertical-align: baseline;
+  text-align: left;
+}
+
+.div-calc-label {
+  color: var(--ink);
+  font-weight: 600;
+  width: 34%;
+}
+
+.div-calc-expr {
+  color: var(--ink-soft);
+  width: 42%;
+}
+
+.div-calc-row td.div-calc-val {
+  color: var(--ink);
+  font-weight: 650;
+  text-align: right;
+  white-space: nowrap;
+  width: 24%;
+}
+
+.div-calc-row.is-total td.div-calc-val {
+  font-weight: 800;
+}
+
+@media (max-width: 560px) {
+  .div-calc-row th,
+  .div-calc-row td {
+    display: block;
+    width: auto;
+    padding: 4px 12px;
+  }
+
+  .div-calc-row {
+    display: block;
+    padding: 6px 0;
+  }
+
+  .div-calc-row td.div-calc-val {
+    text-align: left;
+  }
+}
+
+.div-formula-proof {
+  padding: 11px 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--sem-cpf-border);
+  background: var(--sem-cpf-soft);
+  color: var(--ink);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  font-variant-numeric: tabular-nums;
+}
+
+.div-formula-list {
+  margin: 0;
+  padding-inline-start: 20px;
+  display: grid;
+  gap: 6px;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}

@@ -2620,6 +2620,31 @@ test("evaluateAnnuityPlan models stepped participating payouts and maturity divi
   assert.ok(
     floor.impliedAnnualIrrPct >= 0.62 && floor.impliedAnnualIrrPct <= 0.66,
   );
+  assert.ok(base.formulaBreakdown, "formulaBreakdown should be present");
+  assert.ok(
+    Math.abs(base.formulaBreakdown.npvResidualAtStart) <= 0.05,
+    `expected NPV residual near 0, got ${base.formulaBreakdown.npvResidualAtStart}`,
+  );
+  assert.ok(
+    base.formulaBreakdown.dividendStepUpDivisor > 33 &&
+      base.formulaBreakdown.dividendStepUpDivisor < 33.1,
+  );
+  assert.ok(
+    Math.abs(
+      base.formulaBreakdown.accumulatedPremiumsAtStart -
+        base.formulaBreakdown.pvPayoutsAtStart,
+    ) <= 0.05,
+  );
+  const tgt = M.evaluateTargetMonthlyIncome({
+    targetMonthly: 3000,
+    ratePct: 5,
+    currentCapital: 100000,
+    monthlyContribution: 1500,
+    inflationPct: 2.5,
+  });
+  assert.ok(tgt.save15YrInflatedTarget > tgt.requiredCapital);
+  assert.ok(tgt.save15YrFvCurrent > tgt.currentCapital);
+  assert.ok(tgt.save15YrAnnuityFactor > 180);
 });
 
 test("longevityAge (85/90/95/100), bridgeIncome (pre-65 Barista FIRE), BRS savings milestone, familyRstuAnnual, and SG_PERSONA_PRESETS", () => {

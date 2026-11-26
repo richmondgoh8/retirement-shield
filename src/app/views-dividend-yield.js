@@ -1,5 +1,209 @@
 import { m, centsHtml, formatAnnuityIrr } from "./format.js";
 
+function fmtFixed(val, decimals = 2) {
+  return Number(val || 0).toLocaleString("en-SG", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
+const FORMULA_ICON_SVG = `<svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="M8 7.25v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="4.75" r="0.9" fill="currentColor"/></svg>`;
+
+function buildFormulaTriggerHTML(mode, label) {
+  return `<button type="button" class="div-formula-trigger" data-open-formula-modal="${mode}" aria-haspopup="dialog" aria-label="${label}" title="${label}">${FORMULA_ICON_SVG}</button>`;
+}
+
+function calcRow(label, expr, result, { bold = false } = {}) {
+  return `<tr class="div-calc-row${bold ? " is-total" : ""}">
+    <th scope="row" class="div-calc-label">${label}</th>
+    <td class="div-calc-expr">${expr}</td>
+    <td class="div-calc-val">${result}</td>
+  </tr>`;
+}
+
+function calcTable(rowsHTML) {
+  return `<table class="div-calc-receipt"><tbody>${rowsHTML}</tbody></table>`;
+}
+
+function buildDividendFormulaStepsHTML(divModel) {
+  const cap = m(divModel.capital);
+  const rateStr = divModel.ratePct.toFixed(2);
+  const infStr = divModel.inflationPct.toFixed(1);
+  const realSign = divModel.realRatePct >= 0 ? "+" : "";
+  const realMoStr = `${divModel.realMonthlyPayout >= 0 ? "" : "−"}${centsHtml(Math.abs(divModel.realMonthlyPayout))}/mo`;
+  return `
+    <div class="div-formula-step">
+      <div class="div-formula-step-title">1. Your Payouts (Step-by-Step)</div>
+      ${calcTable(`
+        ${calcRow("Annual payout", `${cap} × ${rateStr}%`, `${centsHtml(divModel.annualPayout)}/yr`, { bold: true })}
+        ${calcRow("Monthly payout", `${centsHtml(divModel.annualPayout)} ÷ 12`, `${centsHtml(divModel.monthlyPayout)}/mo`, { bold: true })}
+        ${calcRow("Quarterly payout", `${centsHtml(divModel.annualPayout)} ÷ 4`, `${centsHtml(divModel.quarterlyPayout)}/qtr`)}
+        ${calcRow("Daily payout", `${centsHtml(divModel.annualPayout)} ÷ 365`, `${centsHtml(divModel.dailyPayout)}/day`)}
+      `)}
+    </div>
+    <div class="div-formula-step">
+      <div class="div-formula-step-title">2. After ${infStr}% Inflation</div>
+      ${calcTable(`
+        ${calcRow("Real return", `${rateStr}% − ${infStr}%`, `${realSign}${divModel.realRatePct.toFixed(2)}% p.a.`)}
+        ${calcRow("Real monthly value", `(${cap} × ${realSign}${divModel.realRatePct.toFixed(2)}%) ÷ 12`, realMoStr, { bold: true })}
+      `)}
+    </div>`;
+}
+
+function buildTargetFormulaStepsHTML(targetModel) {
+  const tgtMo = m(targetModel.targetMonthly);
+  const tgtYr = m(targetModel.targetAnnual);
+  const rateStr = targetModel.ratePct.toFixed(2);
+  const infStr = targetModel.inflationPct.toFixed(1);
+  const reqCap = m(targetModel.requiredCapital);
+  const curCap = m(targetModel.currentCapital);
+  const gap = m(targetModel.capitalGap);
+  const infTarget15 = m(targetModel.save15YrInflatedTarget ?? 0);
+  const fvCur15 = m(targetModel.save15YrFvCurrent ?? 0);
+  return `
+    <div class="div-formula-step">
+      <div class="div-formula-step-title">1. Nest Egg Needed Today</div>
+      ${calcTable(`
+        ${calcRow("Annual goal", `${tgtMo} × 12 mos`, `${tgtYr}/yr`)}
+        ${calcRow("Required capital", `${tgtYr} ÷ ${rateStr}%`, reqCap, { bold: true })}
+        ${calcRow("Remaining shortfall", `${reqCap} − ${curCap}`, gap, { bold: true })}
+      `)}
+    </div>
+    <div class="div-formula-step">
+      <div class="div-formula-step-title">2. Monthly Savings Needed (15-Year Example)</div>
+      ${calcTable(`
+        ${calcRow(`Goal in 15 yrs (${infStr}% inf.)`, `${reqCap} growing ${infStr}%/yr × 15 yrs`, infTarget15)}
+        ${calcRow("Current savings in 15 yrs", `${curCap} growing ${rateStr}%/yr × 15 yrs`, fvCur15)}
+        ${calcRow("Save each month (15 yrs)", `Bridges ${infTarget15} − ${fvCur15}`, m(targetModel.save15YrMo, "/mo"), { bold: true })}
+        ${calcRow("20-yr / 10-yr options", `Same math over 20 or 10 yrs`, `${m(targetModel.save20YrMo, "/mo")} · ${m(targetModel.save10YrMo, "/mo")}`)}
+      `)}
+    </div>`;
+}
+
+function buildAnnuityFormulaStepsHTML(annuityModel) {
+  const fb = annuityModel.formulaBreakdown;
+  if (!fb) return "";
+  const isAnnual = annuityModel.paymentMode === "annual";
+  const paidInExpr = isAnnual
+    ? `${centsHtml(fb.annualPremium)} × ${annuityModel.contributeYears} yrs`
+    : `${centsHtml(annuityModel.monthlyContribution)} × 12 mos × ${annuityModel.contributeYears} yrs`;
+  const realizationPct = Math.round((annuityModel.bonusRealization ?? 1) * 100);
+  const stepUpPct = Number(annuityModel.dividendStepUpRatePct ?? 5);
+  const hasIrr = Number.isFinite(annuityModel.impliedAnnualIrrPct);
+  const nomIrrStr = hasIrr
+    ? formatAnnuityIrr(annuityModel.impliedAnnualIrrPct, { signed: true })
+    : "N/A";
+  const realIrrStr = hasIrr
+    ? formatAnnuityIrr(annuityModel.realAnnualIrrPct, { signed: true })
+    : "N/A";
+  const infPct = Number(annuityModel.inflationRatePct ?? 2.5);
+  const totalYearsToStart =
+    annuityModel.contributeYears + annuityModel.deferYears;
+  const totalPlanYears = totalYearsToStart + annuityModel.payoutYears;
+  const scaledDiv = Math.round(annuityModel.scaledMonthlyDividends || 0);
+  const scaledTerm = Math.round(annuityModel.scaledTerminalDividend || 0);
+  const netSign = annuityModel.netProfitNominal >= 0 ? "+" : "−";
+  const potNum = Math.round(fb.accumulatedPremiumsAtStart || 0);
+  const potAtStart = m(potNum);
+  const interestBeforeStart = potNum - annuityModel.totalPrincipalPaid;
+  const interestDuringPayout = annuityModel.totalPayoutReceived - potNum;
+  const fmtSignedMoney = (v) => `${v >= 0 ? "+" : "−"}${m(Math.abs(v))}`;
+  const irrDec = hasIrr ? annuityModel.impliedAnnualIrrPct / 100 : 0;
+  const effYears =
+    hasIrr &&
+    irrDec > -1 &&
+    Math.abs(irrDec) > 0.0005 &&
+    annuityModel.totalPrincipalPaid > 0 &&
+    annuityModel.totalPayoutReceived > 0
+      ? Math.log(
+          annuityModel.totalPayoutReceived / annuityModel.totalPrincipalPaid,
+        ) / Math.log1p(irrDec)
+      : null;
+  const bonusExpr =
+    annuityModel.nonGuaranteedMonthlyDividends > 0 &&
+    annuityModel.terminalDividend > 0
+      ? `(${m(annuityModel.nonGuaranteedMonthlyDividends)} + ${m(annuityModel.terminalDividend)}) × ${realizationPct}%`
+      : annuityModel.nonGuaranteedMonthlyDividends > 0
+        ? `${m(annuityModel.nonGuaranteedMonthlyDividends)} × ${realizationPct}%`
+        : `${m(annuityModel.terminalDividend)} × ${realizationPct}%`;
+  const hasBonuses =
+    annuityModel.nonGuaranteedMonthlyDividends > 0 ||
+    annuityModel.terminalDividend > 0;
+  const diyRows = (annuityModel.comparisons || [])
+    .filter((c) => !c.isQuoted)
+    .map((c) =>
+      calcRow(
+        c.label,
+        `Grows to ${m(c.potAtPayoutStart)}`,
+        `${centsHtml(c.monthlyPayout)}/mo`,
+      ),
+    )
+    .join("");
+
+  return `
+    <div class="div-formula-step">
+      <div class="div-formula-step-title">1. Money In vs. Money Out</div>
+      ${calcTable(`
+        ${calcRow("Total you pay in", paidInExpr, m(annuityModel.totalPrincipalPaid), { bold: true })}
+        ${calcRow("Guaranteed payouts", `${m(annuityModel.quotedMonthlyPayout)} × 12 mos × ${annuityModel.payoutYears} yrs`, m(annuityModel.guaranteedPayoutReceived))}
+        ${hasBonuses ? calcRow(`Bonuses (${realizationPct}%)`, bonusExpr, m(annuityModel.nonGuaranteedPayoutReceived)) : ""}
+        ${calcRow("Total you get back", `${m(annuityModel.guaranteedPayoutReceived)} + ${m(annuityModel.nonGuaranteedPayoutReceived)}`, m(annuityModel.totalPayoutReceived), { bold: true })}
+        ${calcRow("Net profit", `${m(annuityModel.totalPayoutReceived)} − ${m(annuityModel.totalPrincipalPaid)}`, `${netSign}${m(Math.abs(annuityModel.netProfitNominal))} (${annuityModel.payoutMultiple.toFixed(2)}×)`, { bold: true })}
+      `)}
+    </div>
+
+    <div class="div-formula-step">
+      <div class="div-formula-step-title">2. Monthly Payouts (Year 1 → Year ${annuityModel.payoutYears})</div>
+      ${calcTable(
+        scaledDiv > 0
+          ? `${calcRow("Guaranteed base", "Fixed every month", `${centsHtml(annuityModel.quotedMonthlyPayout)}/mo`)}
+             ${calcRow("Year 1 payout", `${m(annuityModel.quotedMonthlyPayout)} + ${centsHtml(fb.year1MonthlyDividend)} bonus`, `${centsHtml(annuityModel.startingMonthlyPayout)}/mo`, { bold: true })}
+             ${calcRow(`Year ${annuityModel.payoutYears} (+${stepUpPct}%/yr)`, `${m(annuityModel.quotedMonthlyPayout)} + ${centsHtml(fb.finalYearMonthlyDividend)} bonus`, `${centsHtml(annuityModel.finalMonthlyPayout)}/mo`, { bold: true })}`
+          : calcRow(
+              "Guaranteed monthly payout",
+              "Fixed every month",
+              `${centsHtml(annuityModel.quotedMonthlyPayout)}/mo`,
+              { bold: true },
+            ),
+      )}
+    </div>
+
+    <div class="div-formula-step">
+      <div class="div-formula-step-title">3. Step-by-Step IRR (${nomIrrStr} p.a.)</div>
+      ${calcTable(`
+        ${hasIrr && effYears && effYears > 0 ? calcRow("1. Growth multiple", `${m(annuityModel.totalPayoutReceived)} ÷ ${m(annuityModel.totalPrincipalPaid)}`, `${(annuityModel.totalPayoutReceived / annuityModel.totalPrincipalPaid).toFixed(4)}×`) : ""}
+        ${hasIrr && effYears && effYears > 0 ? calcRow("2. Yearly compound rate", `${(annuityModel.totalPayoutReceived / annuityModel.totalPrincipalPaid).toFixed(4)} ^ (1 ÷ ${effYears.toFixed(2)} yrs) − 1`, `${nomIrrStr} p.a.`, { bold: true }) : hasIrr ? calcRow("Implied return (IRR)", "Yearly rate across all cash flows", `${nomIrrStr} p.a.`, { bold: true }) : ""}
+        ${hasIrr ? calcRow(`3. After ${infPct.toFixed(1)}% inflation`, `(1 + ${annuityModel.impliedAnnualIrrPct.toFixed(2)}%) ÷ (1 + ${infPct.toFixed(1)}%) − 1`, `${realIrrStr} p.a.`, { bold: true }) : ""}
+      `)}
+      ${hasIrr && effYears && effYears > 0 ? `<p class="div-formula-note"><code>^</code> (the power key) spreads the ${(annuityModel.totalPayoutReceived / annuityModel.totalPrincipalPaid).toFixed(2)}× total growth evenly across ${effYears.toFixed(2)} weighted years to give the yearly compound rate.</p>` : ""}
+    </div>
+
+    <div class="div-formula-step">
+      <div class="div-formula-step-title">4. DIY Alternatives (${annuityModel.payoutYears}-Year Drawdown)</div>
+      ${calcTable(diyRows)}
+    </div>`;
+}
+
+function buildFormulaModalContent(mode, model) {
+  if (!model) return { title: "Formula breakdown", html: "" };
+  if (mode === "annuity") {
+    return {
+      title: "Annuity IRR & Payout Formula Breakdown",
+      html: buildAnnuityFormulaStepsHTML(model),
+    };
+  }
+  if (mode === "target") {
+    return {
+      title: "Target Income Formula Breakdown",
+      html: buildTargetFormulaStepsHTML(model),
+    };
+  }
+  return {
+    title: "Dividend Yield Formula Breakdown",
+    html: buildDividendFormulaStepsHTML(model),
+  };
+}
+
 export const DAVE_ANNUITY_EXAMPLE = Object.freeze({
   monthlyContribution: 13810 / 12,
   contributeYears: 15,
@@ -57,7 +261,10 @@ function buildDividendResultsHTML(divModel) {
   return `
     <div class="div-payout-hero">
       <div class="div-payout-main">
-        <span class="div-payout-eyebrow">Monthly Passive Income</span>
+        <div class="div-payout-eyebrow-row">
+          <span class="div-payout-eyebrow">Monthly Passive Income</span>
+          ${buildFormulaTriggerHTML("lump", "View exact dividend yield formula breakdown")}
+        </div>
         <strong class="div-payout-amount" id="div-monthly-readout">${centsHtml(divModel.monthlyPayout, "/mo")}</strong>
         <p class="div-payout-sub">From <strong>${m(divModel.capital)}</strong> principal at <strong>${divModel.ratePct.toFixed(2)}% p.a.</strong> (~<strong>${centsHtml(divModel.dailyPayout)}/day</strong>)</p>
       </div>
@@ -194,7 +401,10 @@ function buildTargetResultsHTML(targetModel) {
   return `
     <div class="div-payout-hero">
       <div class="div-payout-main">
-        <span class="div-payout-eyebrow">Required Capital for ${m(targetModel.targetMonthly, "/mo")}</span>
+        <div class="div-payout-eyebrow-row">
+          <span class="div-payout-eyebrow">Required Capital for ${m(targetModel.targetMonthly, "/mo")}</span>
+          ${buildFormulaTriggerHTML("target", "View exact target income formula breakdown")}
+        </div>
         <strong class="div-payout-amount" id="div-target-req-readout">${m(targetModel.requiredCapital)}</strong>
         <p class="div-payout-sub">Generates <strong>${m(targetModel.targetMonthly, "/mo")}</strong> (<strong>${m(targetModel.targetAnnual, "/yr")}</strong>) perpetually at <strong>${targetModel.ratePct.toFixed(2)}% p.a.</strong></p>
       </div>
@@ -314,7 +524,10 @@ function buildAnnuityResultsHTML(annuityModel) {
     <div class="div-payout-hero">
       <div class="div-payout-main">
         <p class="div-annuity-example-label">${matchesDave ? "Dave’s brochure example" : "Edited annuity scenario"}</p>
-        <span class="div-payout-eyebrow">Implied Annualized Return (IRR)</span>
+        <div class="div-payout-eyebrow-row">
+          <span class="div-payout-eyebrow">Implied Annualized Return (IRR)</span>
+          ${buildFormulaTriggerHTML("annuity", "View exact IRR formula breakdown and verification")}
+        </div>
         <strong class="div-payout-amount ${irrTone}" id="div-annuity-irr-readout">${irrStr}</strong>
         <p class="div-payout-sub">${
           hasIrr
@@ -818,6 +1031,7 @@ export {
   buildTargetBenchmarksHTML,
   buildAnnuityResultsHTML,
   buildAnnuityBenchmarksHTML,
+  buildFormulaModalContent,
   formatAnnuityBadge,
   buildDividendCalculatorSection,
 };

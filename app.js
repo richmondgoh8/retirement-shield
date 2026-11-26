@@ -64,6 +64,7 @@ import {
   DAVE_ANNUITY_EXAMPLE,
   buildAnnuityResultsHTML,
   buildAnnuityBenchmarksHTML,
+  buildFormulaModalContent,
   formatAnnuityBadge,
   buildDividendCalculatorSection,
 } from "./src/app/views-dividend-yield.js";
@@ -273,6 +274,7 @@ function setupSimplePlan() {
         ?.focus({ preventScroll: true });
   };
   let divCalcMode = "lump"; // "lump" | "target" | "annuity"
+  let lastDividendModels = { lump: null, target: null, annuity: null };
   let divCalcCapital = 100000;
   let divCalcRatePct = 5.0;
   let divTargetMonthly = 10000;
@@ -2513,6 +2515,11 @@ function setupSimplePlan() {
         benchmarkRatePct: divAnnuityBenchRatePct,
         masRates: liveMasRates,
       });
+      lastDividendModels = {
+        lump: divModel,
+        target: targetModel,
+        annuity: annuityModel,
+      };
       const activeDivEl = document.activeElement;
       const divInputIds = [
         "div-calc-capital",
@@ -3409,6 +3416,27 @@ function setupSimplePlan() {
       }
       refreshCashProducts();
       search.focus();
+      return;
+    }
+    const formulaTrigger = event.target.closest("[data-open-formula-modal]");
+    if (formulaTrigger) {
+      const mode = formulaTrigger.dataset.openFormulaModal || divCalcMode;
+      const formulaDialog = $("#div-formula-dialog");
+      if (formulaDialog) {
+        if (!formulaDialog.dataset.backdropBound) {
+          bindDialogBackdropDismiss(formulaDialog);
+          formulaDialog.dataset.backdropBound = "1";
+        }
+        const { title, html } = buildFormulaModalContent(
+          mode,
+          lastDividendModels[mode],
+        );
+        const titleEl = $("#div-formula-dialog-title");
+        const bodyEl = $("#div-formula-dialog-body");
+        if (titleEl) titleEl.textContent = title;
+        if (bodyEl) bodyEl.innerHTML = html;
+        if (!formulaDialog.open) formulaDialog.showModal();
+      }
       return;
     }
     if (event.target.closest("[data-load-dave-annuity]")) {
